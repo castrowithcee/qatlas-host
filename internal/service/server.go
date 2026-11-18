@@ -43,6 +43,10 @@ func writing(h control.Handler) control.Command {
 	return control.Command{Access: control.AccessWrite, Handle: h}
 }
 
+func proposing(h control.Handler) control.Command {
+	return control.Command{Access: control.AccessPropose, Handle: h}
+}
+
 // authorizer decides whether the user uid may run a command that needs access; it answers a refusal as a
 // *control.Error.
 type authorizer func(uid uint32, access control.Access) error
@@ -191,7 +195,7 @@ func (s *server) dispatch(ctx context.Context, uid uint32, raw []byte) (resp con
 	if !ok {
 		return errorResponse(control.NewError(control.CodeUnknownCommand, "unknown command")), true
 	}
-	return s.run(ctx, command.Handle, req.Args), true
+	return s.run(control.WithPeer(ctx, uid), command.Handle, req.Args), true
 }
 
 func (s *server) run(ctx context.Context, handler control.Handler, args json.RawMessage) (resp control.Response) {

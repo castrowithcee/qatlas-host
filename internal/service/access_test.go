@@ -108,6 +108,9 @@ func TestAuthorize(t *testing.T) {
 		if got := code(db.authorize(tc.uid, control.AccessWrite)); got != tc.write {
 			t.Errorf("write of %d = %q, want %q", tc.uid, got, tc.write)
 		}
+		if got := code(db.authorize(tc.uid, control.AccessPropose)); got != tc.read {
+			t.Errorf("propose of %d = %q, want %q", tc.uid, got, tc.read)
+		}
 		if got := code(db.authorize(tc.uid, 0)); got != tc.write {
 			t.Errorf("unmarked of %d = %q, want %q", tc.uid, got, tc.write)
 		}
@@ -170,9 +173,9 @@ func TestAPeerWithoutAccessLearnsNothing(t *testing.T) {
 	}
 }
 
-// Every command the service registers says whether it reads or writes. A command without the mark is refused
+// Every command the service registers says whether it reads, writes or proposes. A command without the mark is refused
 // by the registry, so the service would not start; the walk below states the contract for every name.
-func TestEveryCommandIsMarkedAsReadOrWrite(t *testing.T) {
+func TestEveryCommandIsMarkedAsReadWriteOrPropose(t *testing.T) {
 	var seen atomic.Pointer[control.Registry]
 	runService(t, Config{Version: "x", PeerCheck: allowAll, registryHook: seen.Store})
 	reg := seen.Load()
@@ -181,7 +184,7 @@ func TestEveryCommandIsMarkedAsReadOrWrite(t *testing.T) {
 	}
 	for _, name := range reg.Names() {
 		c, _ := reg.Lookup(name)
-		if c.Access != control.AccessRead && c.Access != control.AccessWrite {
+		if c.Access != control.AccessRead && c.Access != control.AccessWrite && c.Access != control.AccessPropose {
 			t.Errorf("command %s is %v", name, c.Access)
 		}
 		t.Logf("%-22s %v", name, c.Access)

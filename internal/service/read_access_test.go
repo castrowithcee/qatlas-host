@@ -168,6 +168,12 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		logAt(20, docker.SourceStderr, "webhook "+rcv.url("/ok")),
 	}}
 
+	var prop control.ProposalInfo
+	if err := h.call(control.ProposalSubmitCommand, control.ProposalSubmitArgs{Kind: control.ProposalKindSourceAdd,
+		Content: json.RawMessage(`{"path":"/srv/example-stacks"}`)}, &prop); err != nil {
+		t.Fatal(err)
+	}
+
 	reg := seen.Load()
 	reads := map[string][]any{
 		control.StatusCommand:           {nil},
@@ -187,6 +193,8 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		control.ContainerListCommand:    {control.ContainerListArgs{}},
 		control.ContainerGetCommand:     {control.ContainerGetArgs{Name: app.Name}},
 		control.ServiceLogCommand:       {control.ServiceLogArgs{}},
+		control.ProposalListCommand:     {nil},
+		control.ProposalShowCommand:     {control.ProposalIDArgs{ID: prop.ID}},
 		control.ContainerLogsCommand:    {control.ContainerLogsArgs{Stack: "plain-stack"}, control.ContainerLogsArgs{Name: app.Name}},
 	}
 	if got, want := slices.Sorted(maps.Keys(reads)), commandsOf(reg, control.AccessRead); !slices.Equal(got, want) {
@@ -222,4 +230,34 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		!slices.ContainsFunc(creds.Credentials, func(c control.CredentialInfo) bool { return c.Name == "github.com" }) {
 		t.Fatalf("credentials = %+v, %v", creds, err)
 	}
+}
+
+func TestProposalsOverTheChannelUseThePeerOfTheRequest(t *testing.T) {
+	p := &peers{}
+	var seen atomic.Pointer[control.Registry]
+	h := boundWith(t, &fakeDeployer{}, nil, withPeers(t, p, &seen))
+	submit := control.ProposalSubmitArgs{Kind: control.ProposalKindSourceAdd, Content: json.RawMessage(`{"path":"/srv/example-stacks"}`)}
+
+	for _, uid := range []uint32{exampleReader, exampleOutsider} {
+		p.as(uid)
+		wantCode(t, h.call(control.ProposalSubmitCommand, submit, nil), control.CodeNoAccess)
+		wantCode(t, h.call(control.ProposalWithdrawCommand, control.ProposalIDArgs{ID: "p-0000000000000000"}, nil), control.CodeNoAccess)
+	}
+	p.as(exampleAdmin)
+	var info control.ProposalInfo
+	if err := h.call(control.ProposalSubmitCommand, submit, &info); err != nil {
+		t.Fatal(err)
+	}
+	if info.SubmitterUID != exampleAdmin || info.SubmitterName != "example-admin" || info.State != control.ProposalOpen {
+		t.Fatalf("submitted = %+v", info)
+	}
+	var shown control.ProposalShowResult
+	if err := h.call(control.ProposalShowCommand, control.ProposalIDArgs{ID: info.ID}, &shown); err != nil || shown.Fingerprint != info.Fingerprint {
+		t.Fatalf("show = %+v, %v", shown, err)
+	}
+	if err := h.call(control.ProposalWithdrawCommand, control.ProposalIDArgs{ID: info.ID}, &info); err != nil || info.State != control.ProposalWithdrawn {
+		t.Fatalf("withdraw = %+v, %v", info, err)
+	}
+	// A proposal changes nothing else: an administrator still cannot write.
+	wantCode(t, h.call(control.SourceAddCommand, control.SourceAddArgs{Path: "/srv/example-stacks"}, nil), control.CodeNotRoot)
 }

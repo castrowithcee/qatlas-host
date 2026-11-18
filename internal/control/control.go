@@ -97,6 +97,9 @@ const (
 
 	CodeChannelExists = "channel-exists"
 	CodeNoSuchChannel = "no-such-channel"
+
+	CodeProposalLimit = "proposal-limit"
+	CodeNotSubmitter  = "not-submitter"
 )
 
 // Request is what a client sends. Args is command specific and may be absent.
@@ -1663,4 +1666,77 @@ type ContainerMount struct {
 type ContainerNetwork struct {
 	Name      string `json:"name"`
 	IPAddress string `json:"ip_address,omitempty"`
+}
+
+// The commands of the proposals. A proposal is a change of the setup that a user with read access submits and a
+// person with root applies later; submitting stores it and has no other effect. ProposalSubmitCommand and
+// ProposalWithdrawCommand are open to root and the administrators of the service group, and touch the user's own
+// proposals only; withdrawing another user's proposal is root's.
+const (
+	ProposalSubmitCommand   = "proposal.submit"
+	ProposalListCommand     = "proposal.list"
+	ProposalShowCommand     = "proposal.show"
+	ProposalWithdrawCommand = "proposal.withdraw"
+)
+
+// ProposalKindSourceAdd proposes a folder as a stack folder; its content is a ProposalSourceAdd.
+const ProposalKindSourceAdd = "source-add"
+
+// The states of a proposal. A proposal that is open and older than ProposalLifetime is answered as expired.
+const (
+	ProposalOpen      = "open"
+	ProposalWithdrawn = "withdrawn"
+	ProposalRejected  = "rejected"
+	ProposalApplied   = "applied"
+	ProposalExpired   = "expired"
+)
+
+// The limits of the proposals: open proposals of one submitter, bytes of one proposal, and how long one stays
+// open.
+const (
+	ProposalMaxOpen  = 20
+	ProposalMaxBytes = 64 << 10
+	ProposalLifetime = 14 * 24 * time.Hour
+)
+
+// ProposalSubmitArgs are the arguments of ProposalSubmitCommand. Content is JSON in the schema of Kind; unknown
+// fields and unknown kinds are refused.
+type ProposalSubmitArgs struct {
+	Kind    string          `json:"kind"`
+	Content json.RawMessage `json:"content"`
+}
+
+// ProposalSourceAdd is the content of a proposal of kind ProposalKindSourceAdd: the absolute path of the folder
+// and optionally the SSH address of its repository. It holds no secret, host key or command.
+type ProposalSourceAdd struct {
+	Path string `json:"path"`
+	URL  string `json:"url,omitempty"`
+}
+
+// ProposalInfo describes one proposal. Fingerprint binds a later approval to exactly this content.
+type ProposalInfo struct {
+	ID            string    `json:"id"`
+	Kind          string    `json:"kind"`
+	State         string    `json:"state"`
+	Fingerprint   string    `json:"fingerprint"`
+	SubmitterUID  uint32    `json:"submitter_uid"`
+	SubmitterName string    `json:"submitter_name"`
+	Submitted     time.Time `json:"submitted"`
+	Expires       time.Time `json:"expires"`
+}
+
+// ProposalListResult answers ProposalListCommand, the newest proposal first.
+type ProposalListResult struct {
+	Proposals []ProposalInfo `json:"proposals"`
+}
+
+// ProposalIDArgs are the arguments of ProposalShowCommand and ProposalWithdrawCommand.
+type ProposalIDArgs struct {
+	ID string `json:"id"`
+}
+
+// ProposalShowResult answers ProposalShowCommand.
+type ProposalShowResult struct {
+	ProposalInfo
+	Content json.RawMessage `json:"content"`
 }
