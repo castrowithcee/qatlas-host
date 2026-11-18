@@ -26,7 +26,7 @@ func layoutRemote(t *testing.T, prefix string) *remoteFixture {
 	}
 	fixtureGit(t, f.bare, "init", "--bare", "-q", "-b", "main")
 	fixtureGit(t, f.work, "init", "-q", "-b", "main")
-	f.commit(map[string]string{prefix + "compose.yaml": "a\n", prefix + "sub/compose.yaml": "a\n", ".qatlas/qdeploy/web.yaml": "s1\n"})
+	f.commit(map[string]string{prefix + "compose.yaml": "a\n", prefix + "sub/compose.yaml": "a\n", ".qatlas/qhost/web.yaml": "s1\n"})
 	return f
 }
 
@@ -37,7 +37,7 @@ func TestChangedFoldersOfARootStack(t *testing.T) {
 	f := layoutRemote(t, "")
 	r, _ := cloneFixture(t, f)
 	head, _ := r.Head(ctx)
-	settings := f.commit(map[string]string{".qatlas/qdeploy/web.yaml": "s2\n"})
+	settings := f.commit(map[string]string{".qatlas/qhost/web.yaml": "s2\n"})
 	top := f.commit(map[string]string{"compose.yaml": "b\n"})
 	sub := f.commit(map[string]string{"sub/compose.yaml": "b\n"})
 	if err := r.Fetch(ctx); err != nil {
@@ -58,7 +58,7 @@ func TestTrackedFilesOfARootStack(t *testing.T) {
 	f.commit(map[string]string{"secrets.env": "DEMO_PASSWORD=not-a-real-secret\n", "data/db.bin": "x\n"})
 	r, _ := cloneFixture(t, f)
 	got, err := r.TrackedFiles(context.Background(), RootStack)
-	want := []string{".qatlas/qdeploy/web.yaml", "compose.yaml", "data/db.bin", "secrets.env", "sub/compose.yaml"}
+	want := []string{".qatlas/qhost/web.yaml", "compose.yaml", "data/db.bin", "secrets.env", "sub/compose.yaml"}
 	if err != nil || !slices.Equal(got, want) {
 		t.Fatalf("TrackedFiles = %v, %v; want %v", got, err, want)
 	}
@@ -74,8 +74,8 @@ func TestRevertStackOfARootStackLikeASubfolder(t *testing.T) {
 			r, _ := cloneFixture(t, f)
 			deployed, _ := r.Head(ctx)
 			failed := f.commit(map[string]string{form.prefix + "compose.yaml": "bad\n", form.prefix + "sub/new.env": "1\n",
-				".qatlas/qdeploy/web.yaml": "s2\n"})
-			settings := f.commit(map[string]string{".qatlas/qdeploy/web.yaml": "s3\n"})
+				".qatlas/qhost/web.yaml": "s2\n"})
+			settings := f.commit(map[string]string{".qatlas/qhost/web.yaml": "s3\n"})
 			if err := r.Fetch(ctx); err != nil {
 				t.Fatal(err)
 			}
@@ -113,7 +113,7 @@ func TestRevertStackOfARootStackWithNothingToRevert(t *testing.T) {
 		f := layoutRemote(t, form.prefix)
 		r, _ := cloneFixture(t, f)
 		deployed, _ := r.Head(ctx)
-		failed := f.commit(map[string]string{".qatlas/qdeploy/web.yaml": "s2\n"})
+		failed := f.commit(map[string]string{".qatlas/qhost/web.yaml": "s2\n"})
 		if err := r.Fetch(ctx); err != nil {
 			t.Fatal(err)
 		}

@@ -54,7 +54,7 @@ func TestUnknownCommandIsUsageError(t *testing.T) {
 }
 
 func TestHelpTopic(t *testing.T) {
-	code, stdout, _ := run(t, "help", "qdeploy")
+	code, stdout, _ := run(t, "help", "qhost")
 	if code != 0 || !strings.Contains(stdout, "Docker stacks") {
 		t.Fatalf("code %d, stdout %q", code, stdout)
 	}
@@ -65,11 +65,11 @@ func TestManpage(t *testing.T) {
 	if code, _, stderr := run(t, "manpage", "--dir", dir); code != 0 {
 		t.Fatalf("code %d, stderr %q", code, stderr)
 	}
-	page, err := os.ReadFile(filepath.Join(dir, "qdeploy.1"))
+	page, err := os.ReadFile(filepath.Join(dir, "qhost.1"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(page), "qdeploy") || !strings.Contains(string(page), "HELP TOPICS") {
+	if !strings.Contains(string(page), "qhost") || !strings.Contains(string(page), "HELP TOPICS") {
 		t.Fatalf("unexpected manpage:\n%s", page)
 	}
 	if code, _, _ := run(t, "manpage"); code != 2 {
@@ -93,7 +93,7 @@ func TestCommandTree(t *testing.T) {
 	}
 	slices.Sort(top)
 	want := []string{"container", "credential", "key", "manpage", "notify", "repo", "run", "source", "stack", "status", "tui", "update", "version", "window"}
-	// Cobra adds help and completion itself; they are not part of the qdeploy surface.
+	// Cobra adds help and completion itself; they are not part of the qhost surface.
 	var got []string
 	for _, n := range top {
 		if n != "completion" && n != "help" {

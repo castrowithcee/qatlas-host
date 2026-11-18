@@ -10,8 +10,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/i18n"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 func noRepoError() error {
@@ -178,7 +178,7 @@ func TestFailedRefreshKeepsTheRows(t *testing.T) {
 	b.statusErr = fmt.Errorf("dial: %w", client.ErrNotRunning)
 	load(t, m)
 	screen := m.render()
-	if !strings.Contains(screen, "demo-stack") || !strings.Contains(screen, "error: the qdeploy service is not running; start it, then press r") {
+	if !strings.Contains(screen, "demo-stack") || !strings.Contains(screen, "error: the qhost service is not running; start it, then press r") {
 		t.Fatalf("screen:\n%s", screen)
 	}
 	b.statusErr = nil

@@ -10,7 +10,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 func newCheckCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
@@ -24,10 +24,10 @@ func newCheckCommand(program *cobracli.Program, state *notRunning) *cobra.Comman
 			"the answer is the whole report. Secret values are never shown or logged, only key names are read. It\n" +
 			"reads the working copy as it is: it does not fetch and never changes a file. The exit code is 1 when\n" +
 			"at least one finding is an error: a stack that cannot be deployed or a secret that would reach the\n" +
-			"remote; 0 otherwise. See 'qdeploy help stack-capabilities' for the functions and their conditions.",
+			"remote; 0 otherwise. See 'qhost help stack-capabilities' for the functions and their conditions.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) > 1 {
-				return usageFailure("check takes at most one argument, the name of a stack", "Run 'qdeploy stack check [stack]'.")
+				return usageFailure("check takes at most one argument, the name of a stack", "Run 'qhost stack check [stack]'.")
 			}
 			return nil
 		},

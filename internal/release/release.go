@@ -1,4 +1,4 @@
-// Package release holds the identity qdeploy trusts for its releases: the signature namespace and the public
+// Package release holds the identity qhost trusts for its releases: the signature namespace and the public
 // keys that may sign a release. Verification itself lives in qatlas-kit.
 package release
 
@@ -9,7 +9,7 @@ import (
 )
 
 // Namespace is the SSHSIG namespace every release signature is made for.
-const Namespace = "qdeploy-release"
+const Namespace = "qhost-release"
 
 // SignatureAsset is the name of the release file that holds the signature over checksums.txt.
 const SignatureAsset = "checksums.txt.sig"

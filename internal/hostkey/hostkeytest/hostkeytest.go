@@ -12,7 +12,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/hostkey"
+	"github.com/castrowithcee/qatlas-host/internal/hostkey"
 )
 
 // Server is a running test server.

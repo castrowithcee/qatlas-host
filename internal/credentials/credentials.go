@@ -46,7 +46,7 @@ const (
 	valuesDir = "credentials"
 	tmpPrefix = ".tmp-"
 	// keyComment labels the public key in the git platform's key list.
-	keyComment = "qdeploy"
+	keyComment = "qhost"
 )
 
 // The failures a caller may tell apart. Their texts are fixed and never contain a name or a value.

@@ -16,7 +16,7 @@ import (
 
 	kitnotify "github.com/castrowithcee/qatlas-kit/notify"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/credentials"
 )
 
 // The types of a channel.
@@ -61,9 +61,9 @@ const (
 
 // The headers of a webhook request. The body is signed as described by the kit's Sign function.
 const (
-	HeaderEvent     = "X-Qdeploy-Event"
-	HeaderTimestamp = "X-Qdeploy-Timestamp"
-	HeaderSignature = "X-Qdeploy-Signature"
+	HeaderEvent     = "X-Qhost-Event"
+	HeaderTimestamp = "X-Qhost-Timestamp"
+	HeaderSignature = "X-Qhost-Signature"
 )
 
 // MaxChannels bounds how many channels a host has.

@@ -30,8 +30,8 @@ const (
 	maxReasonRunes = 200
 	maxListedIDs   = 20
 
-	commitName  = "qdeploy"
-	commitEmail = "qdeploy@localhost.invalid"
+	commitName  = "qhost"
+	commitEmail = "qhost@localhost.invalid"
 )
 
 // RevertStack creates, without touching the working copy or its index, a commit on top of the base ref (see
@@ -88,7 +88,7 @@ func (r *Repo) RevertStack(ctx context.Context, stack, deployed, failed, reason 
 	}
 	message := revertMessage(stack, deployed, strings.Fields(ids), reason)
 
-	dir, err := os.MkdirTemp("", "qdeploy-index-*")
+	dir, err := os.MkdirTemp("", "qhost-index-*")
 	if err != nil {
 		return "", fmt.Errorf("create temporary directory: %w", err)
 	}

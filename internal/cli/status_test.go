@@ -13,12 +13,12 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/localipc"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/changelog"
-	"github.com/castrowithcee/qatlas-deploy/internal/channeltest"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/registry"
-	"github.com/castrowithcee/qatlas-deploy/internal/service"
+	"github.com/castrowithcee/qatlas-host/internal/changelog"
+	"github.com/castrowithcee/qatlas-host/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/registry"
+	"github.com/castrowithcee/qatlas-host/internal/service"
 )
 
 // testGit is the git layer of the next service a test starts; nil means the system git.

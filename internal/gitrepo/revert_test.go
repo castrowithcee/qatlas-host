@@ -59,7 +59,7 @@ func TestRevertStackBuildsScopedCommitWithoutTouchingCopy(t *testing.T) {
 	if got := fixtureGit(t, r.dir, "diff", "--name-status", other, id); got != "M\tweb/compose.yaml\nD\tweb/new.env" {
 		t.Fatalf("diff = %q", got)
 	}
-	if got := fixtureGit(t, r.dir, "show", "-s", "--format=%an <%ae>|%cn <%ce>", id); got != "qdeploy <qdeploy@localhost.invalid>|qdeploy <qdeploy@localhost.invalid>" {
+	if got := fixtureGit(t, r.dir, "show", "-s", "--format=%an <%ae>|%cn <%ce>", id); got != "qhost <qhost@localhost.invalid>|qhost <qhost@localhost.invalid>" {
 		t.Fatalf("identity = %q", got)
 	}
 	msg := fixtureGit(t, r.dir, "show", "-s", "--format=%B", id)

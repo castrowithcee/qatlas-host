@@ -11,7 +11,7 @@ import (
 
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 type formKind int
@@ -215,7 +215,7 @@ func (m *Model) bad(field string, cause kittui.TextID, args ...any) kittui.FormP
 	return kittui.FormProblem{Field: kittui.FieldID(field), Cause: m.text.Lookup(cause, args...), NextStep: m.text.Lookup(textFormFix)}
 }
 
-// The kinds of credential the form offers: the two names qdeploy reads.
+// The kinds of credential the form offers: the two names qhost reads.
 const (
 	credRegistry = "registry"
 	credGitHub   = "github"

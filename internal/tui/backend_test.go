@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/channeltest"
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/service"
+	"github.com/castrowithcee/qatlas-host/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/service"
 )
 
 // Every method of the channel backend reaches a command the service knows.

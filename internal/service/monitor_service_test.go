@@ -9,8 +9,8 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/docker"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/service"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/service"
 )
 
 // listDocker lists the single container held in details, as the engine would show it after the actions.
@@ -22,7 +22,7 @@ func (l listDocker) List(_ context.Context) ([]docker.Container, error) {
 	return []docker.Container{l.details["c1"].Container}, nil
 }
 
-func TestMonitorInServiceQdeployStopIsNoFailureButAnExitIs(t *testing.T) {
+func TestMonitorInServiceQhostStopIsNoFailureButAnExitIs(t *testing.T) {
 	fd := &fakeDocker{details: map[string]docker.Details{}}
 	var mu sync.Mutex
 	var events []service.MonitorEvent
@@ -51,7 +51,7 @@ func TestMonitorInServiceQdeployStopIsNoFailureButAnExitIs(t *testing.T) {
 	n := len(events)
 	mu.Unlock()
 	if n != 0 {
-		t.Fatalf("a stop through qdeploy was reported: %+v", events)
+		t.Fatalf("a stop through qhost was reported: %+v", events)
 	}
 
 	// started and then exited on its own: one failure, shown in the status

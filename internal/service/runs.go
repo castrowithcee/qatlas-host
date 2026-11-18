@@ -9,8 +9,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
 )
 
 // runsAnswer maps an engine error to a fixed answer. Text from the engine's error is never passed on: it may
@@ -26,7 +26,7 @@ func runsAnswer(err error) error {
 	case errors.Is(err, engine.ErrUnreadable):
 		return control.NewError(control.CodeUnreadable, "the stack cannot be read")
 	case errors.Is(err, engine.ErrNotUpdatable):
-		return control.NewError(control.CodeUnreadable, "the stack is deploy-only: its .env cannot be read, so it is not updated; 'qdeploy stack check' names the line")
+		return control.NewError(control.CodeUnreadable, "the stack is deploy-only: its .env cannot be read, so it is not updated; 'qhost stack check' names the line")
 	case errors.Is(err, engine.ErrNoDeployer):
 		return control.NewError(control.CodeNoDeployer, "deployments are not available in this version")
 	case errors.Is(err, engine.ErrNoRepo):
@@ -40,7 +40,7 @@ func runsAnswer(err error) error {
 	case errors.Is(err, engine.ErrPinned):
 		return control.NewError(control.CodePinned, "the stack is pinned; unpin it first")
 	case errors.Is(err, engine.ErrStackStopped):
-		return control.NewError(control.CodeStackStopped, "the stack was stopped through qdeploy; start it with start first")
+		return control.NewError(control.CodeStackStopped, "the stack was stopped through qhost; start it with start first")
 	case errors.Is(err, engine.ErrNoSuchRun):
 		return control.NewError(control.CodeNoSuchRun, "no such run")
 	case errors.Is(err, engine.ErrNameCollision):

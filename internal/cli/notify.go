@@ -14,8 +14,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/credentials"
 )
 
 func newNotifyCommand(program *cobracli.Program, state *notRunning, secrets *redact.Redactor) *cobra.Command {
@@ -24,7 +24,7 @@ func newNotifyCommand(program *cobracli.Program, state *notRunning, secrets *red
 		Short: "Manage the notification channels of the host",
 		Long: "A channel receives the events it selected: a webhook, a Slack channel, a Telegram chat or an e-mail\n" +
 			"address. The parts that grant the right to send are stored as credentials by the service and never shown\n" +
-			"again. Only root may use the service channel, so run these commands with sudo. See 'qdeploy help notifications'.",
+			"again. Only root may use the service channel, so run these commands with sudo. See 'qhost help notifications'.",
 	}
 	group.AddCommand(newNotifyList(program, state), newNotifyAdd(program, state, secrets),
 		newNotifyRemove(program, state), newNotifyTest(program, state))
@@ -74,7 +74,7 @@ func newNotifyAdd(program *cobracli.Program, state *notRunning, secrets *redact.
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return usageFailure("notify add takes exactly one argument, the channel name; secret parts are never accepted as arguments",
-					"Run 'qdeploy notify add <name> --type <type>' and enter the secret at the prompt or pipe it on standard input.")
+					"Run 'qhost notify add <name> --type <type>' and enter the secret at the prompt or pipe it on standard input.")
 			}
 			return nil
 		},
@@ -226,15 +226,15 @@ func notifyFailure(remote *control.Error, shared *cli.Failure) error {
 	switch remote.Code {
 	case control.CodeChannelExists:
 		return &cli.Failure{Code: output.CodeInvalidRequest, Message: remote.Message, Usage: true,
-			NextStep: "Choose another name, or remove the channel first with 'qdeploy notify remove <name>'.", Cause: remote}
+			NextStep: "Choose another name, or remove the channel first with 'qhost notify remove <name>'.", Cause: remote}
 	case control.CodeNoSuchChannel:
 		return &cli.Failure{Code: output.CodeNotFound, Message: remote.Message,
-			NextStep: "List the channels with 'qdeploy notify list'.", Cause: remote}
+			NextStep: "List the channels with 'qhost notify list'.", Cause: remote}
 	case string(output.CodeAuth), string(output.CodePermission), string(output.CodeNotFound), string(output.CodeRateLimited),
 		string(output.CodeUnreachable), string(output.CodeTimeout), string(output.CodeTLS), string(output.CodeConfigInvalid),
 		string(output.CodeInvalidRequest), string(output.CodeRuntime):
 		return &cli.Failure{Code: output.Code(remote.Code), Message: remote.Message,
-			NextStep: "Check the channel's settings and secrets (replace it with 'qdeploy notify remove' and 'qdeploy notify add'), then test it again.",
+			NextStep: "Check the channel's settings and secrets (replace it with 'qhost notify remove' and 'qhost notify add'), then test it again.",
 			Cause:    remote}
 	}
 	return shared

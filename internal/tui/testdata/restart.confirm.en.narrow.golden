@@ -1,4 +1,4 @@
-◆ qdeploy  maintenance window closed            [?] help
+◆ qhost  maintenance window closed              [?] help
   [1 Stacks] 2 3 4 5                                    
 ────────────────────────────────────────────────────────
       STACK        CURRENT  AVAILABLE  STATE  FINDINGS  
@@ -8,7 +8,7 @@
   ║ ⚠ Restart demo-stack?                            ║  
   ║                                                  ║  
   ║ Restarts the containers of the stack and checks  ║gs
-  ║ the stack. A stack stopped through qdeploy is    ║  
+  ║ the stack. A stack stopped through qhost is      ║  
   ║ refused; start it instead.                       ║  
   ║                                                  ║  
   ║ [ yes, do it ]  > cancel <                       ║  

@@ -19,7 +19,7 @@ func TestSetNamedKeyAcceptsEd25519AndRSA(t *testing.T) {
 			t.Fatalf("%s: %v", kind, err)
 		}
 		parsed, _, _, _, err := ssh.ParseAuthorizedKey([]byte(pub.Authorized))
-		if err != nil || ssh.FingerprintSHA256(parsed) != pub.Fingerprint || !strings.HasSuffix(pub.Authorized, " qdeploy") {
+		if err != nil || ssh.FingerprintSHA256(parsed) != pub.Fingerprint || !strings.HasSuffix(pub.Authorized, " qhost") {
 			t.Fatalf("%s: public part %q: %v", kind, pub.Authorized, err)
 		}
 		if got := mode(t, filepath.Join(dir, DefaultKey)); got != 0o600 {

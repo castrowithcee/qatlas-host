@@ -7,7 +7,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/i18n"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 func summary(name, image, state, engine string, uptime int64, restarts int) control.ContainerSummary {

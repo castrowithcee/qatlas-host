@@ -8,8 +8,8 @@ import (
 
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/datadir"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/datadir"
 )
 
 // The data directories of a stack that waits for them: the detail shows the finding, one key opens a form for

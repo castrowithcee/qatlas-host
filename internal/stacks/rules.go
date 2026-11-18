@@ -16,7 +16,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/changelog"
+	"github.com/castrowithcee/qatlas-host/internal/changelog"
 )
 
 // Update modes, ceilings and major strategies.
@@ -55,7 +55,7 @@ type Update struct {
 	Ceiling string
 	// Major is how a major jump is taken: directly, or one major version at a time.
 	Major string
-	// Observe is how long after an update by qdeploy a failure of the stack rolls that update back; zero
+	// Observe is how long after an update by qhost a failure of the stack rolls that update back; zero
 	// turns it off.
 	Observe time.Duration
 	// Tags restricts the candidate tags per image variable.
@@ -92,7 +92,7 @@ type HTTPCheck struct {
 	Timeout time.Duration
 }
 
-// Settings is the file form of a stack's settings: the schema of .qatlas/qdeploy/<stack>.yaml and of the
+// Settings is the file form of a stack's settings: the schema of .qatlas/qhost/<stack>.yaml and of the
 // settings that travel over the service channel. A nil member is absent; ParseSettings validates it and
 // applies the defaults.
 type Settings struct {

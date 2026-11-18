@@ -1,19 +1,19 @@
 [Unit]
-Description=qdeploy stack deployment service
+Description=qhost stack deployment service
 After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]
 Type=exec
-ExecStart=/usr/local/bin/qdeploy run
-User=qdeploy
-Group=qdeploy
+ExecStart=/usr/local/bin/qhost run
+User=qhost
+Group=qhost
 SupplementaryGroups=docker
-RuntimeDirectory=qdeploy
+RuntimeDirectory=qhost
 RuntimeDirectoryMode=0750
-StateDirectory=qdeploy
+StateDirectory=qhost
 StateDirectoryMode=0700
-ConfigurationDirectory=qdeploy
+ConfigurationDirectory=qhost
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict

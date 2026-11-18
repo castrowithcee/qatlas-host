@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/credentials"
-	"github.com/castrowithcee/qatlas-deploy/internal/service"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/service"
 )
 
 // localRepo is a committed repository without a remote.
@@ -194,7 +194,7 @@ func TestSourceAddRefusesAFolderTheServiceCannotWrite(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(git, 0o755) })
 	_, err := h.sourceAdd(dir)
 	wantCode(t, err, control.CodeInvalid)
-	if !strings.Contains(err.Error(), "sudo qdeploy source add") {
+	if !strings.Contains(err.Error(), "sudo qhost source add") {
 		t.Fatalf("answer = %v", err)
 	}
 	if len(h.sourceList().Sources) != 0 {

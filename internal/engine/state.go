@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 const (
@@ -66,7 +66,7 @@ const (
 
 // Kinds of a container failure found between runs, see Failure.
 const (
-	FailureExited      = "exited"       // a container exited or died without a stop through qdeploy
+	FailureExited      = "exited"       // a container exited or died without a stop through qhost
 	FailureUnhealthy   = "unhealthy"    // a container stayed unhealthy
 	FailureRestartLoop = "restart-loop" // a container's restart count keeps rising
 	FailureMissing     = "missing"      // a container of the deployed stack is gone
@@ -120,7 +120,7 @@ type StackState struct {
 	// runs, polls and restarts; only SetPause and SetPin change them.
 	OperatorPause *Hold `json:"operator_pause,omitempty"`
 	Pin           *Hold `json:"pin,omitempty"`
-	// Stopped is set by a stop through qdeploy and cleared only by a start: polls, the window and manual
+	// Stopped is set by a stop through qhost and cleared only by a start: polls, the window and manual
 	// restarts leave the stack as it is.
 	Stopped *Hold `json:"stopped,omitempty"`
 	// DataDirs is set while the stack waits for missing data directories.
@@ -132,7 +132,7 @@ type StackState struct {
 	// Services are the Compose services seen running healthy at the monitor's last good observation; a
 	// service missing from the containers later is a failure. Empty until the first good observation after a run.
 	Services []string `json:"services,omitempty"`
-	// StoppedContainers are the IDs of containers stopped through qdeploy; the monitor does not report them
+	// StoppedContainers are the IDs of containers stopped through qhost; the monitor does not report them
 	// until they run again or are gone.
 	StoppedContainers []string `json:"stopped_containers,omitempty"`
 	// Repair is the monitor's repair of the stack's failures by restarts; nil while none is planned or counts.
@@ -142,7 +142,7 @@ type StackState struct {
 	Observe *Observation `json:"observe,omitempty"`
 }
 
-// Observation is an update by qdeploy and its observation time: a failure of the stack from Since until before
+// Observation is an update by qhost and its observation time: a failure of the stack from Since until before
 // Until rolls back exactly this update. Run made it, From is the commit the stack ran at before it, Commit its
 // commit and Backup the backup it made, empty when the stack had no backup rules.
 type Observation struct {

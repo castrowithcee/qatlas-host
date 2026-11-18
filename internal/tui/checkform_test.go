@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // The ways to the check form of the first stack and from there to its fields: container check, HTTP check,

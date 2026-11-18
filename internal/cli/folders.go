@@ -20,17 +20,17 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/service"
-	"github.com/castrowithcee/qatlas-deploy/internal/tui"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/service"
+	"github.com/castrowithcee/qatlas-host/internal/tui"
 )
 
 const (
 	// stackFoldersDropIn is the systemd drop-in that lists the stack folders the sandboxed service may write.
-	stackFoldersDropIn = "/etc/systemd/system/qdeploy.service.d/10-stack-folders.conf"
+	stackFoldersDropIn = "/etc/systemd/system/qhost.service.d/10-stack-folders.conf"
 	// serviceAccount owns the stack folders the client creates.
-	serviceAccount = "qdeploy"
+	serviceAccount = "qhost"
 	// folderMode is the mode of a created stack folder.
 	folderMode = 0o755
 	// serviceWait bounds the wait for the control socket after a restart.
@@ -254,16 +254,16 @@ func (h folderHost) addToDropIn(dir string) (added bool, err error) {
 }
 
 func (h folderHost) restart(ctx context.Context, notice io.Writer) error {
-	_, _ = fmt.Fprintln(notice, "Restarting the qdeploy service.")
+	_, _ = fmt.Fprintln(notice, "Restarting the qhost service.")
 	for _, args := range [][]string{{"daemon-reload"}, {"restart", serviceAccount}} {
 		if err := h.systemctl(ctx, args...); err != nil {
 			return &cli.Failure{Code: output.CodeRuntime, Message: "the service manager refused: " + err.Error(), Cause: err,
-				NextStep: "Run 'systemctl daemon-reload' and 'systemctl restart qdeploy', then run the command again."}
+				NextStep: "Run 'systemctl daemon-reload' and 'systemctl restart qhost', then run the command again."}
 		}
 	}
 	if err := h.waitService(ctx); err != nil {
 		return &cli.Failure{Code: output.CodeUnreachable, Message: err.Error(), Cause: err,
-			NextStep: "Check 'systemctl status qdeploy', then run the command again."}
+			NextStep: "Check 'systemctl status qhost', then run the command again."}
 	}
 	return nil
 }
@@ -302,17 +302,17 @@ func (h folderHost) tryRestart(ctx context.Context, notice io.Writer) error {
 	for _, args := range [][]string{{"daemon-reload"}, {"try-restart", serviceAccount}} {
 		if err := h.systemctl(ctx, args...); err != nil {
 			return &cli.Failure{Code: output.CodeRuntime, Message: "the service manager refused: " + err.Error(), Cause: err,
-				NextStep: "Run 'systemctl daemon-reload' and 'systemctl try-restart qdeploy'."}
+				NextStep: "Run 'systemctl daemon-reload' and 'systemctl try-restart qhost'."}
 		}
 	}
 	if h.systemctl(ctx, "is-active", "--quiet", serviceAccount) != nil {
-		_, _ = fmt.Fprintln(notice, "The qdeploy service is not running; the grant takes effect at its next start.")
+		_, _ = fmt.Fprintln(notice, "The qhost service is not running; the grant takes effect at its next start.")
 		return nil
 	}
-	_, _ = fmt.Fprintln(notice, "Restarted the qdeploy service.")
+	_, _ = fmt.Fprintln(notice, "Restarted the qhost service.")
 	if err := h.waitService(ctx); err != nil {
 		return &cli.Failure{Code: output.CodeUnreachable, Message: err.Error(), Cause: err,
-			NextStep: "Check 'systemctl status qdeploy'."}
+			NextStep: "Check 'systemctl status qhost'."}
 	}
 	return nil
 }

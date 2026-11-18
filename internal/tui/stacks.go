@@ -11,7 +11,7 @@ import (
 
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // snapshot is what one refresh read from the service.

@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 type fakeLog struct{ lines []string }
@@ -228,7 +228,7 @@ func TestProjectNameIsLeftToComposeOnlyWhenDerived(t *testing.T) {
 
 	st.NameDerived = false
 	if c, _ = x.command(st, st.Name, 0, "ps"); !has(c.Args) {
-		t.Errorf("a name qdeploy did not derive must be forced: %q", c.Args)
+		t.Errorf("a name qhost did not derive must be forced: %q", c.Args)
 	}
 
 	// secrets.env is passed after .env and wins in Compose, so a name there needs the explicit flag.

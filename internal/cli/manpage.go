@@ -15,9 +15,9 @@ func newManpageCommand(program *cobracli.Program) *cobra.Command {
 		Short:  "Write the manpages into a directory",
 		Hidden: true,
 		RunE: func(*cobra.Command, []string) error {
-			return program.Manpage(dir, `The same text is printed by \fBqdeploy help\fP.`,
+			return program.Manpage(dir, `The same text is printed by \fBqhost help\fP.`,
 				func(root *cobra.Command, dir string) error {
-					return doc.GenManTree(root, &doc.GenManHeader{Title: "QDEPLOY", Section: "1"}, dir)
+					return doc.GenManTree(root, &doc.GenManHeader{Title: "QHOST", Section: "1"}, dir)
 				})
 		},
 	}

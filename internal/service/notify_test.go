@@ -18,12 +18,12 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/notify"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/notifier"
-	"github.com/castrowithcee/qatlas-deploy/internal/registry/registrytest"
-	"github.com/castrowithcee/qatlas-deploy/internal/service"
-	"github.com/castrowithcee/qatlas-deploy/internal/service/servicetest"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/notifier"
+	"github.com/castrowithcee/qatlas-host/internal/registry/registrytest"
+	"github.com/castrowithcee/qatlas-host/internal/service"
+	"github.com/castrowithcee/qatlas-host/internal/service/servicetest"
 )
 
 const (
@@ -178,7 +178,7 @@ func TestNotifyChannelCommands(t *testing.T) {
 	}
 	if err := h.call(control.NotifyAddCommand, control.NotifyAddArgs{
 		Name: "mail", Type: control.NotifySMTP, Host: "mail.example.test", User: "qd", Secret: mailPassword,
-		From: "qdeploy@example.test", To: []string{"ops@example.test"},
+		From: "qhost@example.test", To: []string{"ops@example.test"},
 	}, nil); err != nil {
 		t.Fatal(err)
 	}

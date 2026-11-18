@@ -7,7 +7,7 @@ import (
 
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // comparing says the flow ends in the comparison of the folder with the repository at its address: a local

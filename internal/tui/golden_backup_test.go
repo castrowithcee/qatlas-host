@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // The goldens of the backup and the compose files forms: 80x24 and 120x40, in English and German.

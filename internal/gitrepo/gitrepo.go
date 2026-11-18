@@ -34,7 +34,7 @@ const (
 	// RootStack names the stack of a working copy whose root is the stack: every path but those below
 	// rootSettings.
 	RootStack = "."
-	// rootSettings is the top-level folder of qdeploy's stack settings; it belongs to no stack.
+	// rootSettings is the top-level folder of qhost's stack settings; it belongs to no stack.
 	rootSettings = ".qatlas"
 )
 
@@ -334,7 +334,7 @@ func (r *Repo) runIO(ctx context.Context, inRepo bool, outLimit int, extraEnv []
 		}
 		gitPath = p
 	}
-	tmp, err := os.MkdirTemp("", "qdeploy-git-*")
+	tmp, err := os.MkdirTemp("", "qhost-git-*")
 	if err != nil {
 		return "", fmt.Errorf("create temporary directory: %w", err)
 	}

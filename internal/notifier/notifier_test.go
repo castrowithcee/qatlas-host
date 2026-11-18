@@ -16,7 +16,7 @@ import (
 
 	kitnotify "github.com/castrowithcee/qatlas-kit/notify"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/notifier"
+	"github.com/castrowithcee/qatlas-host/internal/notifier"
 )
 
 const (
@@ -53,8 +53,8 @@ func TestValidate(t *testing.T) {
 		{notifier.Channel{Name: "chat", Type: notifier.TypeSlack}, notifier.Secrets{Secret: demoURL}},
 		{notifier.Channel{Name: "tg", Type: notifier.TypeTelegram, ChatID: "-100123"}, notifier.Secrets{Secret: demoBotToken}},
 		{notifier.Channel{Name: "tg2", Type: notifier.TypeTelegram, ChatID: "@demo_chat", BaseURL: "https://bot.example.test"}, notifier.Secrets{Secret: demoBotToken}},
-		{notifier.Channel{Name: "mail", Type: notifier.TypeSMTP, Host: "mail.example.test", From: "qdeploy@example.test", To: []string{"ops@example.test"}}, notifier.Secrets{}},
-		{notifier.Channel{Name: "mail2", Type: notifier.TypeSMTP, Host: "mail.example.test", Port: 465, Security: "tls", User: "u", From: "qdeploy@example.test", To: []string{"ops@example.test"}}, notifier.Secrets{Secret: demoMailPassword}},
+		{notifier.Channel{Name: "mail", Type: notifier.TypeSMTP, Host: "mail.example.test", From: "qhost@example.test", To: []string{"ops@example.test"}}, notifier.Secrets{}},
+		{notifier.Channel{Name: "mail2", Type: notifier.TypeSMTP, Host: "mail.example.test", Port: 465, Security: "tls", User: "u", From: "qhost@example.test", To: []string{"ops@example.test"}}, notifier.Secrets{Secret: demoMailPassword}},
 	}
 	for _, g := range good {
 		got, err := notifier.Validate(g.c, &g.s)
@@ -66,7 +66,7 @@ func TestValidate(t *testing.T) {
 			t.Errorf("%s: events = %v, want all", g.c.Name, got.Events)
 		}
 	}
-	mail := notifier.Channel{Type: notifier.TypeSMTP, Host: "mail.example.test", From: "qdeploy@example.test", To: []string{"ops@example.test"}}
+	mail := notifier.Channel{Type: notifier.TypeSMTP, Host: "mail.example.test", From: "qhost@example.test", To: []string{"ops@example.test"}}
 	bad := []struct {
 		name string
 		c    notifier.Channel
@@ -88,7 +88,7 @@ func TestValidate(t *testing.T) {
 		{"smtp password without user", withName(mail, "x"), notifier.Secrets{Secret: demoMailPassword}},
 		{"smtp user without password", withUser(withName(mail, "x"), "u"), notifier.Secrets{}},
 		{"smtp bad security", withSecurity(withName(mail, "x"), "none"), notifier.Secrets{}},
-		{"smtp display name", withFrom(withName(mail, "x"), "Q <qdeploy@example.test>"), notifier.Secrets{}},
+		{"smtp display name", withFrom(withName(mail, "x"), "Q <qhost@example.test>"), notifier.Secrets{}},
 		{"smtp no recipient", withTo(withName(mail, "x"), nil), notifier.Secrets{}},
 		{"smtp host with slash", withHost(withName(mail, "x"), "mail/x"), notifier.Secrets{}},
 		{"smtp with chat", withChat(withName(mail, "x"), "1"), notifier.Secrets{}},
@@ -475,7 +475,7 @@ func TestRepairMessagesTellOfTheRestart(t *testing.T) {
 	at := since.Add(2 * time.Minute)
 	rec := notifier.Message(notifier.Event{Type: notifier.EventRecovered, Stack: "web", Kind: "exited", Container: "web-app-1",
 		Since: since, Time: at, Restarted: true})
-	if !strings.Contains(rec.Text, "A restart by qdeploy fixed it.") {
+	if !strings.Contains(rec.Text, "A restart by qhost fixed it.") {
 		t.Errorf("recovered text %q", rec.Text)
 	}
 	var body map[string]any

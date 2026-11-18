@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
 )
 
 var appExited = Failure{Kind: FailureExited, Container: "web-app-1", Since: time.Date(2026, 1, 2, 3, 20, 0, 0, time.UTC)}

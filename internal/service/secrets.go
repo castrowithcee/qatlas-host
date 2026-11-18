@@ -8,10 +8,10 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/redact"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/backup"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/backup"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // registerStackSecrets puts the values of the stack's secrets.env and of its .env variables with a secret-like

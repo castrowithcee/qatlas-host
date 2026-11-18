@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // The way to the update rules form of the first stack, and from there to the fields: mode, ceiling, major

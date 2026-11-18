@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/channeltest"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // fakeHandlers answers service commands; a command without a handler gets no answer.
@@ -138,7 +138,7 @@ type permTree struct {
 func newPermTree(t *testing.T) permTree {
 	t.Helper()
 	// /var/tmp, like the service tests: /tmp may be a repository of its own on the dev host.
-	root, err := os.MkdirTemp("/var/tmp", "qdeploy-perms-")
+	root, err := os.MkdirTemp("/var/tmp", "qhost-perms-")
 	if err != nil {
 		t.Skip("no /var/tmp:", err)
 	}
@@ -371,7 +371,7 @@ func TestSourceAddLocalWithYesGrantsAndBinds(t *testing.T) {
 	if svc.count(control.SourceAddCommand) != 1 {
 		t.Fatalf("source.add calls = %d", svc.count(control.SourceAddCommand))
 	}
-	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) || strings.Join(d.cmds, ";") != "daemon-reload;restart qdeploy" {
+	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) || strings.Join(d.cmds, ";") != "daemon-reload;restart qhost" {
 		t.Fatalf("drop-in %q, commands %v", d.dropIn(t), d.cmds)
 	}
 	if modeOf(t, tree.dir)&fs.ModeSetgid == 0 || gitConfigIn(t, tree.dir, "core.sharedRepository") != "group" {
@@ -506,7 +506,7 @@ func TestSourceInspectWarnsWhenGitIsNotWritable(t *testing.T) {
 	useFolderHost(t)
 	startFakeService(t, fakeHandlers{control.SourceInspectCommand: inspectWith(localInspect(true))})
 	_, _, stderr := run(t, "source", "inspect", "/srv/demo")
-	for _, want := range []string{"the service cannot write .git", "source add sets the group permissions", "sudo -u qdeploy git"} {
+	for _, want := range []string{"the service cannot write .git", "source add sets the group permissions", "sudo -u qhost git"} {
 		if !strings.Contains(stderr, want) {
 			t.Errorf("warning lacks %q: %q", want, stderr)
 		}

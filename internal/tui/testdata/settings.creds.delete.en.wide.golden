@@ -1,4 +1,4 @@
-◆ qdeploy  maintenance window closed                                                                [esc] back  [?] help
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs  [4 ⚙ Settings]  5 ▦ Containers                                             
    General  [Credentials]  Maintenance window   Notifications                                                           
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -10,7 +10,7 @@
                             ╔═ Credentials ════════════════════════════════════════════════╗                            
                             ║ ⚠ Delete the credential registry.docker.io?                  ║                            
                             ║                                                              ║                            
-                            ║ Without it qdeploy works anonymously for this service. The   ║                            
+                            ║ Without it qhost works anonymously for this service. The     ║                            
                             ║ value cannot be recovered.                                   ║                            
                             ║                                                              ║                            
                             ║ [ yes, do it ]  > cancel <                                   ║                            

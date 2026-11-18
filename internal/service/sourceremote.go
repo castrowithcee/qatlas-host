@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
 )
 
 // maxSecretsListed bounds the places a refusal names.
@@ -225,7 +225,7 @@ func (s *inspectService) compareFiles(ctx context.Context, a control.SourceCompa
 		return control.SourceCompareResult{}, control.NewError(control.CodeInvalid, fmt.Sprintf("%s. %s", v.reason, v.fix))
 	case control.SourceCaseLocal:
 		return control.SourceCompareResult{}, control.NewError(control.CodeInvalid,
-			"the folder is a repository that is not a source yet; bind it with 'qdeploy source add' first")
+			"the folder is a repository that is not a source yet; bind it with 'qhost source add' first")
 	default:
 		return control.SourceCompareResult{}, control.NewError(control.CodeInvalid,
 			"the folder is neither a local source nor a folder of files without a repository")
@@ -548,7 +548,7 @@ func (s *inspectService) addFilesRemote(ctx context.Context, a control.SourceAdd
 	switch cmp.State {
 	case gitrepo.RemoteEmpty:
 		return nil, control.NewError(control.CodeInvalid,
-			"the repository at the address has no commit; take the folder over without an address, then run 'qdeploy source remote'")
+			"the repository at the address has no commit; take the folder over without an address, then run 'qhost source remote'")
 	case gitrepo.RemoteDifferent:
 		if cmp.Scan.Total > 0 {
 			return nil, secretsRefusal(cmp.Scan, "nothing was created")

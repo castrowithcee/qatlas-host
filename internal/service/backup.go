@@ -8,9 +8,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/backup"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/backup"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // backupLimit bounds one backup or restore as a whole; the helper calls have their own limits.

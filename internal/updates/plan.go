@@ -5,10 +5,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/registry"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
-	"github.com/castrowithcee/qatlas-deploy/internal/version"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/registry"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/version"
 )
 
 // Kinds of a PlanError.
@@ -53,7 +53,7 @@ func (d *Detector) Plan(ctx context.Context, st stacks.Stack, target, variable s
 		return nil, refuse("", "the stack is deploy-only: "+st.EnvErr.Error())
 	}
 	if st.Rules == nil {
-		return nil, refuse("", "the stack has no settings and is never updated; set them in the qdeploy TUI or with 'qdeploy stack settings set'")
+		return nil, refuse("", "the stack has no settings and is never updated; set them in the qhost TUI or with 'qhost stack settings set'")
 	}
 	var vars []stacks.ImageVar
 	for _, img := range st.Images {

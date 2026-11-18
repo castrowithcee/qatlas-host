@@ -44,7 +44,7 @@ const (
 	SourceUnset   = "unset"
 )
 
-// Finding reports an image whose tag qdeploy cannot update.
+// Finding reports an image whose tag qhost cannot update.
 type Finding struct {
 	Service string
 	Kind    string

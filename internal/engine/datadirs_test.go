@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // dirsDeployer is the fake deployer with a data directory check: it reports dirs while their paths are

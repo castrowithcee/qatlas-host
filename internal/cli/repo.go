@@ -15,9 +15,9 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
 )
 
 // remoteCallLimit bounds the commands that wait on the git server (a clone or a fetch).
@@ -42,17 +42,17 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 			"folder --dir, which is required and can be any absolute path, also under /mnt or /srv. The URL is\n" +
 			"user@host:path or ssh://[user@]host[:port]/path. The folder must be empty or already a clone of this\n" +
 			"URL. A folder that does not exist is created only after you confirmed its exact path: by answering\n" +
-			"the question at a terminal or by passing --create; it gets the owner qdeploy:qdeploy and mode 0755.\n" +
+			"the question at a terminal or by passing --create; it gets the owner qhost:qhost and mode 0755.\n" +
 			"The service runs sandboxed, so the folder is added to the systemd drop-in\n" +
-			"/etc/systemd/system/qdeploy.service.d/10-stack-folders.conf (entries are only ever added) and the\n" +
+			"/etc/systemd/system/qhost.service.d/10-stack-folders.conf (entries are only ever added) and the\n" +
 			"service restarts once. A host that is pinned with another key is refused and the pinned key is never\n" +
 			"replaced. Each further folder becomes a further source next to those bound earlier; a folder bound\n" +
-			"earlier is never rebound to another URL. The first folder uses the deploy key of 'qdeploy key\n" +
-			"generate', every further one its own key from 'qdeploy key generate --dir <path>'.",
+			"earlier is never rebound to another URL. The first folder uses the deploy key of 'qhost key\n" +
+			"generate', every further one its own key from 'qhost key generate --dir <path>'.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return usageFailure("repo set takes exactly one argument, the SSH URL of the stacks repository",
-					"Run 'qdeploy repo set <ssh-url> --dir <path>'.")
+					"Run 'qhost repo set <ssh-url> --dir <path>'.")
 			}
 			return nil
 		},
@@ -107,7 +107,7 @@ func runRepoSet(c *cobra.Command, program *cobracli.Program, state *notRunning, 
 		return usageFailure(err.Error(), "Pass the SSH URL of the stacks repository.")
 	}
 	if dir == "" {
-		return usageFailure("--dir is required: name the stack folder", "Run 'qdeploy repo set <ssh-url> --dir <absolute-path>'.")
+		return usageFailure("--dir is required: name the stack folder", "Run 'qhost repo set <ssh-url> --dir <absolute-path>'.")
 	}
 	if !filepath.IsAbs(dir) || filepath.Clean(dir) != dir {
 		return usageFailure("--dir must be an absolute, clean path", "Pass the absolute path of the stack folder.")

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 const remoteURL = "ssh://git.example.test/ops/local-example.git"
@@ -13,8 +13,8 @@ const remoteURL = "ssh://git.example.test/ops/local-example.git"
 // remoteBackend is the demo host with a local folder that has a deploy key, and the given comparison.
 func remoteBackend(cmp control.SourceCompareResult) *fakeBackend {
 	b := foldersBackend()
-	b.dirKeys = map[string]control.KeyResult{localDir: {Fingerprint: fingerprint, PublicKey: "ssh-ed25519 AAAAexamplekey qdeploy"},
-		filesDir: {Fingerprint: fingerprint, PublicKey: "ssh-ed25519 AAAAexamplekey qdeploy"}}
+	b.dirKeys = map[string]control.KeyResult{localDir: {Fingerprint: fingerprint, PublicKey: "ssh-ed25519 AAAAexamplekey qhost"},
+		filesDir: {Fingerprint: fingerprint, PublicKey: "ssh-ed25519 AAAAexamplekey qhost"}}
 	b.compare = cmp
 	return b
 }

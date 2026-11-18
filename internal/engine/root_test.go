@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // The same stack once as the subfolder web and once as the root stack: classify gives both the same answer.

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/envfile"
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/envfile"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // envName is the versioned file of a stack that holds its image versions.

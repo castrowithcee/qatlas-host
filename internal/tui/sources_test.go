@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // A stack blocked by name-collision adds its finding to the row of its name but never its state.

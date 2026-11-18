@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 func TestBlockedStackIsNeverDeployed(t *testing.T) {

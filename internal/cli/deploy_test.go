@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 type okDeployer struct{}
@@ -137,10 +137,10 @@ func TestLogMalformedAndUnknownID(t *testing.T) {
 func TestDeployRefusals(t *testing.T) {
 	startBound(t, okDeployer{})
 	code, _, stderr := run(t, "stack", "deploy", "no-such-secret")
-	if code == 0 || !strings.Contains(stderr, "no such stack") || strings.Count(stderr, "no-such-secret") != 0 || !strings.Contains(stderr, "qdeploy stack list") {
+	if code == 0 || !strings.Contains(stderr, "no such stack") || strings.Count(stderr, "no-such-secret") != 0 || !strings.Contains(stderr, "qhost stack list") {
 		t.Fatalf("unknown: %d %q", code, stderr)
 	}
-	if code, _, stderr := run(t, "stack", "deploy", "broken-stack"); code == 0 || !strings.Contains(stderr, "qdeploy stack check") {
+	if code, _, stderr := run(t, "stack", "deploy", "broken-stack"); code == 0 || !strings.Contains(stderr, "qhost stack check") {
 		t.Fatalf("unreadable: %d %q", code, stderr)
 	}
 }
@@ -152,7 +152,7 @@ func TestDeployWithoutDeployerOrRepo(t *testing.T) {
 	}
 	testDeployer = okDeployer{}
 	startRepoService(t)
-	if code, _, stderr := run(t, "stack", "deploy", "plain-stack"); code == 0 || !strings.Contains(stderr, "qdeploy repo set") {
+	if code, _, stderr := run(t, "stack", "deploy", "plain-stack"); code == 0 || !strings.Contains(stderr, "qhost repo set") {
 		t.Fatalf("no repo: %d %q", code, stderr)
 	}
 	code, out, _ := run(t, "status")
@@ -187,7 +187,7 @@ func TestPausedStackAndResume(t *testing.T) {
 			t.Fatalf("status = %s", out)
 		}
 	}
-	if code, _, stderr := run(t, "stack", "deploy", "plain-stack"); code != 1 || !strings.Contains(stderr, "paused") || !strings.Contains(stderr, "qdeploy stack resume") {
+	if code, _, stderr := run(t, "stack", "deploy", "plain-stack"); code != 1 || !strings.Contains(stderr, "paused") || !strings.Contains(stderr, "qhost stack resume") {
 		t.Fatalf("deploy of a paused stack: %d %q", code, stderr)
 	}
 	if code, out, _ := run(t, "stack", "runs", "plain-stack"); code != 0 || !strings.Contains(out, engine.ResultRollbackFailed) {
@@ -224,7 +224,7 @@ func TestPauseAndPinCommands(t *testing.T) {
 		if _, out, _ := run(t, "status", "--output", "json"); !strings.Contains(out, tc.key) || strings.Contains(out, "stack.plain-stack.paused") {
 			t.Fatalf("status after %s = %s", tc.set, out)
 		}
-		if code, _, stderr := run(t, "stack", tc.set, "nope"); code == 0 || !strings.Contains(stderr, "qdeploy stack list") {
+		if code, _, stderr := run(t, "stack", tc.set, "nope"); code == 0 || !strings.Contains(stderr, "qhost stack list") {
 			t.Fatalf("%s unknown: %d %q", tc.set, code, stderr)
 		}
 		if code, out, _ := run(t, "stack", tc.clear, "plain-stack", "--output", "json"); code != 0 || !strings.Contains(out, `"active"`) {
@@ -255,7 +255,7 @@ func TestStackActionCommands(t *testing.T) {
 	if _, out, _ := run(t, "stack", "list"); !strings.Contains(out, "stopped since") {
 		t.Fatalf("stack list after stop = %s", out)
 	}
-	if code, _, stderr := run(t, "stack", "restart", "plain-stack", "--yes"); code == 0 || !strings.Contains(stderr, "qdeploy stack start") {
+	if code, _, stderr := run(t, "stack", "restart", "plain-stack", "--yes"); code == 0 || !strings.Contains(stderr, "qhost stack start") {
 		t.Fatalf("restart of a stopped stack: %d %q", code, stderr)
 	}
 	if code, _, stderr := run(t, "stack", "start", "plain-stack", "--yes"); code != 0 {
@@ -267,7 +267,7 @@ func TestStackActionCommands(t *testing.T) {
 	if code, _, stderr := run(t, "stack", "restart", "plain-stack", "--yes"); code != 0 {
 		t.Fatalf("restart: %d %q", code, stderr)
 	}
-	if code, _, stderr := run(t, "stack", "stop", "nope", "--yes"); code == 0 || !strings.Contains(stderr, "qdeploy stack list") {
+	if code, _, stderr := run(t, "stack", "stop", "nope", "--yes"); code == 0 || !strings.Contains(stderr, "qhost stack list") {
 		t.Fatalf("unknown: %d %q", code, stderr)
 	}
 }
@@ -277,7 +277,7 @@ func TestUpdateOfAPinnedStackSaysToUnpin(t *testing.T) {
 	if code, _, stderr := run(t, "stack", "pin", "demo-stack"); code != 0 {
 		t.Fatalf("pin: %d %q", code, stderr)
 	}
-	if code, _, stderr := run(t, "stack", "update", "demo-stack"); code != 1 || !strings.Contains(stderr, "pinned") || !strings.Contains(stderr, "qdeploy stack unpin") {
+	if code, _, stderr := run(t, "stack", "update", "demo-stack"); code != 1 || !strings.Contains(stderr, "pinned") || !strings.Contains(stderr, "qhost stack unpin") {
 		t.Fatalf("update of a pinned stack: %d %q", code, stderr)
 	}
 }

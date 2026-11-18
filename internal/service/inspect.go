@@ -19,12 +19,12 @@ import (
 	"github.com/castrowithcee/qatlas-kit/docker"
 	"github.com/castrowithcee/qatlas-kit/redact"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/compose"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/credentials"
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
-	"github.com/castrowithcee/qatlas-deploy/internal/stackcheck"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/compose"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/stackcheck"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 const (
@@ -260,7 +260,7 @@ func (s *inspectService) decideRepo(ctx context.Context, a control.SourceInspect
 			"Rename the remote to origin, or remove the remotes to run the folder locally."), nil
 	case a.URL != "":
 		return rejected("the folder is a repository without a remote, and source add cannot add one",
-			"Leave the address out to run the folder locally, then give it a remote with 'qdeploy source remote'."), nil
+			"Leave the address out to run the folder locally, then give it a remote with 'qhost source remote'."), nil
 	}
 	return verdict{kase: control.SourceCaseLocal, view: wc, repo: true}, nil
 }

@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/datadir"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/datadir"
 )
 
 // dataDirBackend is the demo with a first stack that waits for two data directories of one proposed owner.

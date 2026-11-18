@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/registry/registrytest"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/registry/registrytest"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 var planTags = []string{"1.0.0", "1.0.1", "1.1.0", "2.0.0", "2.2.0", "2.3.0-rc.1", "3.0.0", "3.1.0", "3.1.0-alpine"}

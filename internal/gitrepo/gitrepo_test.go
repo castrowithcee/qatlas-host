@@ -359,7 +359,7 @@ func TestConfigPathsAreChecked(t *testing.T) {
 			t.Errorf("accepted key path %q", p)
 		}
 	}
-	if _, err := Open(Config{KeyFile: "/var/lib/qdeploy/deploy-key", KnownHosts: "/var/lib/qdeploy/known_hosts"}, "/x"); err != nil {
+	if _, err := Open(Config{KeyFile: "/var/lib/qhost/deploy-key", KnownHosts: "/var/lib/qhost/known_hosts"}, "/x"); err != nil {
 		t.Fatal(err)
 	}
 }

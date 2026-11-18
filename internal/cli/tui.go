@@ -13,8 +13,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/uiprefs"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/tui"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/tui"
 )
 
 // runTUI shows the interface; tests replace it.
@@ -30,13 +30,13 @@ func terminalStreams(stdout io.Writer) (in, out *os.File, ok bool) {
 	return in, out, true
 }
 
-// prefsPath is the device-local preferences file of the interface, ~/.qatlas/qdeploy/tui.yaml.
+// prefsPath is the device-local preferences file of the interface, ~/.qatlas/qhost/tui.yaml.
 func prefsPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return uiprefs.Path(filepath.Join(home, ".qatlas", "qdeploy")), nil
+	return uiprefs.Path(filepath.Join(home, ".qatlas", "qhost")), nil
 }
 
 // savePrefs writes the preferences file at path; the Settings area saves through it.
@@ -71,7 +71,7 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"the changelog, and a newer major version is flagged as not installed automatically. A failed stack does\n" +
 			"not stop the others; the result lists every stack, the stacks that failed stay ticked, and l opens the\n" +
 			"log of the run an action started, or the Runs list when it started several. One action runs at a time.\n\n" +
-			"The stack folders are managed in Stacks too: a adds a folder (with the steps of qdeploy source add; an\n" +
+			"The stack folders are managed in Stacks too: a adds a folder (with the steps of qhost source add; an\n" +
 			"empty host starts there), and on a folder row F fetches it, x releases it after a question and e shows,\n" +
 			"generates or stores its deploy key; a folder with no remote has no key to offer. The private key is\n" +
 			"never shown. On the row of a local folder O adds a remote: it asks for the SSH address, the host key and\n" +
@@ -88,7 +88,7 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"none. A terminal without Unicode shows no icons.\n\n" +
 			"It needs a terminal on both standard input and output and the running service; only root may use the\n" +
 			"service channel, so run it with sudo. Without a running service it ends with exit code 3 before it draws\n" +
-			"anything. Device-local preferences are read from ~/.qatlas/qdeploy/tui.yaml; a missing file means\n" +
+			"anything. Device-local preferences are read from ~/.qatlas/qhost/tui.yaml; a missing file means\n" +
 			"the defaults. Change them in Settings under General (theme, start area, language, icons and mouse)\n" +
 			"instead of editing the file by hand.",
 		Args: cobra.NoArgs,
@@ -96,7 +96,7 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			in, out, ok := terminalStreams(c.OutOrStdout())
 			if !ok {
 				return usageFailure("the terminal interface needs a terminal on standard input and standard output",
-					"Run 'qdeploy tui' in a terminal, or use the commands such as 'qdeploy status' in scripts.")
+					"Run 'qhost tui' in a terminal, or use the commands such as 'qhost status' in scripts.")
 			}
 			backend := tui.NewBackend(serviceEndpoint())
 			// The interface refuses before it takes the terminal, so a missing service or root fails as every
@@ -111,7 +111,7 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			schema, err := tui.PrefsSchema()
 			if err != nil {
 				return &cli.Failure{Code: output.CodeRuntime, Message: "the terminal interface cannot start: " + err.Error(),
-					NextStep: "Report this as a bug of qdeploy.", Cause: err}
+					NextStep: "Report this as a bug of qhost.", Cause: err}
 			}
 			opts.Prefs = uiprefs.Default(schema)
 			if path, err := prefsPath(); err != nil {
@@ -122,7 +122,7 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			}
 			if err := runTUI(opts); err != nil {
 				return &cli.Failure{Code: output.CodeRuntime, Message: "the terminal interface failed: " + err.Error(),
-					NextStep: "Run 'qdeploy tui' again; if it keeps failing, use the commands such as 'qdeploy status'.", Cause: err}
+					NextStep: "Run 'qhost tui' again; if it keeps failing, use the commands such as 'qhost status'.", Cause: err}
 			}
 			return nil
 		},

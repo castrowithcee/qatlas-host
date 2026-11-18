@@ -4,7 +4,7 @@ import (
 	"context"
 	"slices"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // Reasons a stack is kept out of the maintenance window, see WindowVerdict.
@@ -15,7 +15,7 @@ const (
 	BlockPause = "paused"
 	// BlockPin is the operator's pin: the window never changes the stack's versions.
 	BlockPin = "pinned"
-	// BlockStopped is a stack the operator stopped through qdeploy; only a start clears it.
+	// BlockStopped is a stack the operator stopped through qhost; only a start clears it.
 	BlockStopped = "stopped"
 	// BlockRemoved is a stack whose folder is gone from the repository.
 	BlockRemoved = "removed"

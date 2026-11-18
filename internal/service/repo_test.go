@@ -17,13 +17,13 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/channeltest"
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/hostkey/hostkeytest"
-	"github.com/castrowithcee/qatlas-deploy/internal/service"
-	"github.com/castrowithcee/qatlas-deploy/internal/service/servicetest"
+	"github.com/castrowithcee/qatlas-host/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/hostkey/hostkeytest"
+	"github.com/castrowithcee/qatlas-host/internal/service"
+	"github.com/castrowithcee/qatlas-host/internal/service/servicetest"
 )
 
 type harness struct {
@@ -259,7 +259,7 @@ func TestSetNeverCreatesTheStackFolder(t *testing.T) {
 	h.dir = filepath.Join(h.dir, "missing")
 	err := errOf(h.set(h.srv.Key().Fingerprint))
 	wantCode(t, err, control.CodeInvalid)
-	if !strings.Contains(err.Error(), h.dir) || !strings.Contains(err.Error(), "sudo qdeploy") {
+	if !strings.Contains(err.Error(), h.dir) || !strings.Contains(err.Error(), "sudo qhost") {
 		t.Fatalf("message %q lacks the path or the fix", err)
 	}
 	if _, statErr := os.Lstat(h.dir); statErr == nil || h.git.Clones() != 0 {
@@ -279,7 +279,7 @@ func TestSetNamesAFolderTheServiceCannotWrite(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(h.dir, 0o755) })
 	err := errOf(h.set(h.srv.Key().Fingerprint))
 	wantCode(t, err, control.CodeInvalid)
-	if !strings.Contains(err.Error(), "not writable by the service") || !strings.Contains(err.Error(), "sudo qdeploy") {
+	if !strings.Contains(err.Error(), "not writable by the service") || !strings.Contains(err.Error(), "sudo qhost") {
 		t.Fatalf("message %q lacks cause or fix", err)
 	}
 	if h.git.Clones() != 0 {

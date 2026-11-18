@@ -6,11 +6,11 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/registry/registrytest"
-	"github.com/castrowithcee/qatlas-deploy/internal/service/servicetest"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/registry/registrytest"
+	"github.com/castrowithcee/qatlas-host/internal/service/servicetest"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // backupFails is a deployer whose backups of one stack fail.

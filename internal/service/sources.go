@@ -17,11 +17,11 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/configfile"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/credentials"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 const (
@@ -600,7 +600,7 @@ func (s *sourceSet) ownedStacks() ([]stackRef, resolution, error) {
 	}
 	r := s.resolve()
 	if r.readable == 0 {
-		return nil, r, control.NewError(control.CodeNoRepo, "the working copy cannot be read; run 'qdeploy repo set' again")
+		return nil, r, control.NewError(control.CodeNoRepo, "the working copy cannot be read; run 'qhost repo set' again")
 	}
 	return r.owned, r, nil
 }

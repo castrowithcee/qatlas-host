@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
 )
 
 const demoID = "0123456789abcdef0123456789abcdef"

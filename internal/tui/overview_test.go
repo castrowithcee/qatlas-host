@@ -11,7 +11,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/i18n"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 const (

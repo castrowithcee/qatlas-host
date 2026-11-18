@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // ErrInvalidSettings means new settings do not fit the stack, such as an image variable it does not have or
@@ -73,7 +73,7 @@ func (e *Engine) SetSettings(ctx context.Context, name string, rules *stacks.Rul
 		}
 		return content, nil
 	}
-	return e.commitSettings(ctx, name, rules, edit, "qdeploy: settings of "+name)
+	return e.commitSettings(ctx, name, rules, edit, "qhost: settings of "+name)
 }
 
 // RemoveSettings removes the settings of the stack: a commit that deletes its settings file, built, pushed and
@@ -87,7 +87,7 @@ func (e *Engine) RemoveSettings(ctx context.Context, name string) (string, error
 		}
 		return nil, nil
 	}
-	c, err := e.commitSettings(ctx, name, nil, edit, "qdeploy: remove settings of "+name)
+	c, err := e.commitSettings(ctx, name, nil, edit, "qhost: remove settings of "+name)
 	if err == nil && c == "" {
 		return "", ErrNoSettings
 	}

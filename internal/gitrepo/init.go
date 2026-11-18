@@ -16,7 +16,7 @@ var ErrHasGit = errors.New("the folder already has a .git entry")
 const firstCommitMessage = "Import the stack files"
 
 // Init turns the folder dir, which has no .git, into a repository without a remote: branch main,
-// core.sharedRepository=group, and a first commit by qdeploy that holds exactly the regular files in files, paths
+// core.sharedRepository=group, and a first commit by qhost that holds exactly the regular files in files, paths
 // relative to dir. excluded are paths relative to dir that the repository leaves out; they are written as
 // anchored patterns to .git/info/exclude only, so no file of the folder is created, changed or removed. Hooks,
 // filters and the configuration of the caller do not apply, and the files are stored as they are on disk.
@@ -162,7 +162,7 @@ const noFilterAttributes = "* -text -filter -ident -working-tree-encoding\n"
 // stageFiles adds exactly files to the index that env selects and returns the tree of that index. The paths
 // are read from a list file, so no path is ever a command-line word.
 func (r *Repo) stageFiles(ctx context.Context, env, files []string) (string, error) {
-	list, err := os.CreateTemp("", "qdeploy-init-*")
+	list, err := os.CreateTemp("", "qhost-init-*")
 	if err != nil {
 		return "", fmt.Errorf("create temporary file: %w", err)
 	}

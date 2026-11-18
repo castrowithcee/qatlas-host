@@ -1,4 +1,4 @@
-◆ qdeploy  Wartungsfenster zu    [esc] Zurück  [?] Hilfe
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
   1 2 3 [4 Einstellungen] 5                             
   [Zugangsdaten]                                        
 ────────────────────────────────────────────────────────
@@ -10,7 +10,7 @@
   ╔═ Zugangsdaten ═══════════════════════════════════╗  
   ║ ⚠ Die Zugangsdaten registry.docker.io löschen?   ║  
   ║                                                  ║  
-  ║ Ohne sie arbeitet qdeploy bei diesem Dienst      ║  
+  ║ Ohne sie arbeitet qhost bei diesem Dienst        ║  
   ║ anonym. Der Wert ist nicht wiederherstellbar.    ║  
   ║                                                  ║  
   ║ [ ja, ausführen ]  > abbrechen <                 ║  

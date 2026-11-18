@@ -14,8 +14,8 @@
 #   e2e/run.sh acceptance         run the acceptance scenario once after up, on a fresh host (see e2e/acceptance.sh)
 #   e2e/run.sh check <scenario|acceptance>   up, run it, down, also when interrupted
 #
-# On the host, e2e-admin reaches the stacks repo with: git clone git.qdeploye2e.test:stacks.git
-# The registry is registry.qdeploye2e.test (image demo/app, tags 1.0.0 1.0.1 1.1.0 2.0.0 2.1.0-rc.1 3.0.0 4.0.0
+# On the host, e2e-admin reaches the stacks repo with: git clone git.qhoste2e.test:stacks.git
+# The registry is registry.qhoste2e.test (image demo/app, tags 1.0.0 1.0.1 1.1.0 2.0.0 2.1.0-rc.1 3.0.0 4.0.0
 # 5.0.0); a demo container turns unhealthy with DEMO_HEALTH=fail, and the image 4.0.0 is always unhealthy.
 # For the acceptance scenario only, it also holds two versions each of the real images of the stacks n8n and
 # bookstack (n8nio/n8n, linuxserver/bookstack, library/mariadb), copied from the internet by skopeo when
@@ -23,13 +23,13 @@
 # n8nio/n8n:2.48.0 and linuxserver/bookstack:26.10.0, derived images whose healthcheck always fails, are pushed
 # only by the acceptance scenario, after its successful update, so the update ceiling cannot reach them earlier.
 # The registry is also the Docker Hub mirror of the host's Docker daemon; for acceptance it holds busybox by the
-# digest of the default backup helper image, so qdeploy runs a backup there without --backup-image.
+# digest of the default backup helper image, so qhost runs a backup there without --backup-image.
 #
 # Up to four instances run side by side. up takes a free one (1-4), or waits until one is free, and holds it for
 # the checkout it runs from until down; every other command acts on the instance of that checkout. E2E_INSTANCE=<n>
 # picks an instance explicitly, for example to remove the leftovers of a checkout that is gone.
-# Instance n names everything qdeploye2e<n>-* and labels it qdeploy.e2e=<n>; down touches only what carries both,
-# so it never reaches another instance. The host names *.qdeploye2e.test are aliases inside the instance's own
+# Instance n names everything qhoste2e<n>-* and labels it qhost.e2e=<n>; down touches only what carries both,
+# so it never reaches another instance. The host names *.qhoste2e.test are aliases inside the instance's own
 # internal network, which has no way out; only skopeo reaches the internet, for acceptance. Nothing is published
 # on the machine's ports. down keeps the base images of deps. TEST_CPU (systemd format, 100% is one core) and
 # TEST_MEM, when set, limit the simulated host container. Set E2E_KEEP_ON_FAIL=1 to keep a failed environment for
@@ -37,10 +37,10 @@
 # Needs docker (rootless is fine), go, openssl, ssh-keygen.
 set -eu
 
-base=qdeploye2e
+base=qhoste2e
 instances='1 2 3 4'
-domain=qdeploye2e.test
-hostname_=qdeploy-e2e-host
+domain=qhoste2e.test
+hostname_=qhost-e2e-host
 admin=e2e-admin
 tags='1.0.0 1.0.1 1.1.0 2.0.0 2.1.0-rc.1 3.0.0 4.0.0 5.0.0'
 unhealthy_tags='4.0.0'
@@ -79,7 +79,7 @@ use_instance() {
 	case $1 in 1 | 2 | 3 | 4) ;; *) fail "unknown instance $1; use 1 to 4" ;; esac
 	instance=$1
 	prefix=$base$instance
-	label=qdeploy.e2e=$instance
+	label=qhost.e2e=$instance
 	net=$prefix-net
 	host=$prefix-host
 	backup_image=$prefix-backup-helper:1
@@ -261,8 +261,8 @@ E2E_BACKUP_IMAGE=$backup_image
 E2E_RELEASES_URL=https://releases.$domain
 E2E_GITHUB_API=https://api.github.com
 E2E_WEBHOOK_URL=https://hooks.$domain/hook
-E2E_CHANGELOG_IMAGE_REPO=qdeploye2e-org/demo-image
-E2E_CHANGELOG_GIT_REPO=qdeploye2e-org/demo-stacks
+E2E_CHANGELOG_IMAGE_REPO=qhoste2e-org/demo-image
+E2E_CHANGELOG_GIT_REPO=qhoste2e-org/demo-stacks
 E2E_N8N_IMAGE=registry.$domain/n8nio/n8n
 E2E_BOOKSTACK_IMAGE=registry.$domain/linuxserver/bookstack
 E2E_MARIADB_IMAGE=registry.$domain/library/mariadb
@@ -446,7 +446,7 @@ http_code() {
 
 check_services() {
 	log 'checking the helper services from the host'
-	api=$(docker exec "$host" curl -fsS https://api.github.com/repos/castrowithcee/qatlas-deploy/releases) ||
+	api=$(docker exec "$host" curl -fsS https://api.github.com/repos/castrowithcee/qatlas-host/releases) ||
 		fail 'the releases fake is not reachable over trusted HTTPS'
 	[ -n "$api" ] || fail 'the releases fake answered nothing'
 	got=$(docker exec "$host" curl -fsS "https://registry.$domain/v2/demo/app/tags/list") ||

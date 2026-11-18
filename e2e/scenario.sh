@@ -1,6 +1,6 @@
 #!/bin/sh
 # Scenario: from the simulated host, clone the demo stacks repository over SSH and push a commit; then check
-# the demo image tags and that a demo container turns unhealthy on purpose. Then install qdeploy on the host
+# the demo image tags and that a demo container turns unhealthy on purpose. Then install qhost on the host
 # from a signed test release with the release installer, which sets up the service, and check its user, group
 # and directories and that status needs root. Then bind the stacks repository with its own deploy key, list the
 # stacks, deploy a new commit, show the available image versions per update ceiling without changing anything,
@@ -8,14 +8,14 @@
 # remote), leave a stack whose rollback fails stopped and paused until resume, and refuse a changed host key of the git server.
 # A second section takes over an installation of the earlier single binding as the first source and binds a second
 # repository: its own stack is deployed, a stack named like one of the first source is reported and never deployed.
-# Version updates with qdeploy stack update follow: qdeploy stack settings set commits and pushes the settings of a
+# Version updates with qhost stack update follow: qhost stack settings set commits and pushes the settings of a
 # stack without a run, and they act on the next update: one direct step, a stepwise major jump and a jump whose
 # middle step fails. The maintenance window follows on a real, short window: a stack in automatic mode is updated
 # without a human, a stack in manual mode is only reported, a paused and a pinned stack stay as they are, and a change with
-# window set takes effect in the running service. The terminal interface follows: sudo qdeploy opens it in a
+# window set takes effect in the running service. The terminal interface follows: sudo qhost opens it in a
 # tmux pane, an update shows its changelog before it is confirmed and then runs, and two ticked stacks are updated
 # one after another with one confirmation. An update that fails after its start is rolled back in its observation time. Notification channels (webhook, Slack, Telegram, e-mail) are
-# added with qdeploy notify: a webhook hears of a deployed and of a rolled-back run, and every channel
+# added with qhost notify: a webhook hears of a deployed and of a rolled-back run, and every channel
 # type delivers a test message. A local stack folder gets a remote in the terminal interface: an empty repository
 # receives its history, a differing one is shown and left alone without the confirmation. Docker integration tests of the deployer run inside the host
 # before all that. The last section resets the service to a fresh state and does the first setup only through
@@ -23,7 +23,7 @@
 # test, repository with a confirmed host key, a stack secret and the first deploy; then it restores an older
 # backup through the interface and proves that no masked value shows anywhere. Then the update rules of a new stack
 # are set in the interface (automatic, ceiling minor): the stacks repository gets a commit with its settings file,
-# the next maintenance window updates the stack, and qdeploy stack settings remove returns it to deploy only. The backup
+# the next maintenance window updates the stack, and qhost stack settings remove returns it to deploy only. The backup
 # of a stack with a named volume is set in the interface (the volume ticked): the settings file gets a commit, and the next
 # update run backs up exactly that volume. The HTTP check of a stack is set in the interface: the settings file gets a
 # commit with the check, and "clear settings" deletes the file by a commit. At the very
@@ -53,7 +53,7 @@ run_scenario() {
 	step 'commit and push'
 	as_admin 'cd ~/stacks &&
 		sed -i "s/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.0.1/" demo-stack/.env &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -am "Update demo-stack to 1.0.1" &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -am "Update demo-stack to 1.0.1" &&
 		git push -q origin main'
 	local_head=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
 	remote_head=$(as_admin "git ls-remote $repo refs/heads/main" | cut -f 1)
@@ -92,9 +92,9 @@ run_scenario() {
 	log 'scenario: passed'
 }
 
-# qd runs the qdeploy CLI on the host as root; stderr is merged so a failure message can be checked.
+# qd runs the qhost CLI on the host as root; stderr is merged so a failure message can be checked.
 qd() {
-	docker exec -i "$host" qdeploy "$@" 2>&1 </dev/null
+	docker exec -i "$host" qhost "$@" 2>&1 </dev/null
 }
 
 # qd_fails runs qd, requires a non-zero exit and prints the output.
@@ -107,7 +107,7 @@ qd_fails() {
 }
 
 known_hosts_sum() {
-	docker exec "$host" sh -c 'sha256sum /var/lib/qdeploy/known_hosts 2>/dev/null || echo none'
+	docker exec "$host" sh -c 'sha256sum /var/lib/qhost/known_hosts 2>/dev/null || echo none'
 }
 
 git_ed25519_fingerprint() {
@@ -129,7 +129,7 @@ release_build() {
 	if [ ! -f "$dir/overlay.json" ]; then
 		mkdir -p "$dir"
 		ssh-keygen -q -t ed25519 -N '' -C "$prefix-release-test-key" -f "$work/keys/release"
-		printf 'qdeploy-release %s\n' "$(cut -d ' ' -f 1,2 "$work/keys/release.pub")" >"$dir/allowed-signers"
+		printf 'qhost-release %s\n' "$(cut -d ' ' -f 1,2 "$work/keys/release.pub")" >"$dir/allowed-signers"
 		sed "s|^var extraKeyLines string\$|var extraKeyLines = \"$(cut -d ' ' -f 1,2 "$work/keys/release.pub")\"|" \
 			"$root/internal/release/release.go" >"$dir/release.go"
 		grep -q '^var extraKeyLines = "ssh-ed25519 ' "$dir/release.go" || fail 'cannot add the test key to the release key list'
@@ -138,11 +138,11 @@ release_build() {
 	fi
 	rel_signers=$(realpath --relative-to="$root" "$dir/allowed-signers")
 	(cd "$root" && SOURCE_DATE_EPOCH=1700000000 GOFLAGS="${GOFLAGS:+$GOFLAGS }-overlay=$dir/overlay.json" \
-		go run github.com/castrowithcee/qatlas-kit/cmd/releasebuild -config "$dir/release.json" -program qdeploy \
-		-namespace qdeploy-release -signature-asset "$signature_asset" -allowed-signers "$rel_signers" \
-		-releases-url https://github.com/castrowithcee/qatlas-deploy/releases -version "$tag" -out "$work/releases/$tag" >/dev/null) ||
+		go run github.com/castrowithcee/qatlas-kit/cmd/releasebuild -config "$dir/release.json" -program qhost \
+		-namespace qhost-release -signature-asset "$signature_asset" -allowed-signers "$rel_signers" \
+		-releases-url https://github.com/castrowithcee/qatlas-host/releases -version "$tag" -out "$work/releases/$tag" >/dev/null) ||
 		fail "cannot build the test release $tag"
-	(cd "$work/releases/$tag" && ssh-keygen -q -Y sign -f "$work/keys/release" -n qdeploy-release checksums.txt) ||
+	(cd "$work/releases/$tag" && ssh-keygen -q -Y sign -f "$work/keys/release" -n qhost-release checksums.txt) ||
 		fail "cannot sign the test release $tag"
 }
 
@@ -152,47 +152,47 @@ release_publish() {
 	docker cp "${2:-$work/releases/$1}" "$prefix-releases:/srv/releases/$1" || fail "cannot publish the test release $1"
 }
 
-# setup_service installs qdeploy from the fake release and starts the service. With the argument default-backup-image
+# setup_service installs qhost from the fake release and starts the service. With the argument default-backup-image
 # the service keeps the unit as installed and backs up with its default helper image; otherwise a drop-in names the
 # local helper image, and the second release for the self-update section is built too.
 setup_service() {
-	step 'install qdeploy from a signed test release with the published installer'
+	step 'install qhost from a signed test release with the published installer'
 	release_build v0.1.0
 	[ "${1:-}" = default-backup-image ] || release_build v0.2.0
 	release_publish v0.1.0
-	as_admin 'curl -fsSL -o /tmp/install.sh https://github.com/castrowithcee/qatlas-deploy/releases/latest/download/install.sh &&
+	as_admin 'curl -fsSL -o /tmp/install.sh https://github.com/castrowithcee/qatlas-host/releases/latest/download/install.sh &&
 		sudo sh /tmp/install.sh && rm -f /tmp/install.sh' || fail 'the installer failed'
 	# The backup helper image is a local one, so a drop-in (which an update keeps) names it.
 	if [ "${1:-}" != default-backup-image ]; then
 		docker exec "$host" sh -ec '
-			install -d /etc/systemd/system/qdeploy.service.d
-			printf "[Service]\nExecStart=\nExecStart=/usr/local/bin/qdeploy run --backup-image '"$backup_image"'\n" >/etc/systemd/system/qdeploy.service.d/e2e.conf
+			install -d /etc/systemd/system/qhost.service.d
+			printf "[Service]\nExecStart=\nExecStart=/usr/local/bin/qhost run --backup-image '"$backup_image"'\n" >/etc/systemd/system/qhost.service.d/e2e.conf
 			systemctl daemon-reload' || fail 'cannot write the drop-in'
-		docker exec "$host" systemctl restart qdeploy || fail 'cannot restart the qdeploy service'
+		docker exec "$host" systemctl restart qhost || fail 'cannot restart the qhost service'
 	fi
-	wait_for 'the qdeploy service channel' 20 docker exec "$host" sh -c 'ls /run/qdeploy | grep -q sock'
-	log 'scenario: qdeploy service running'
+	wait_for 'the qhost service channel' 20 docker exec "$host" sh -c 'ls /run/qhost | grep -q sock'
+	log 'scenario: qhost service running'
 
-	step 'the service runs as qdeploy without root, with the group docker, and keeps its directories closed'
-	[ "$(docker exec "$host" systemctl is-active qdeploy)" = active ] || fail 'the qdeploy service is not active'
-	pid=$(docker exec "$host" systemctl show -p MainPID --value qdeploy)
-	[ -n "$pid" ] && [ "$pid" != 0 ] || fail 'the qdeploy service has no process'
-	[ "$(docker exec "$host" stat -c %U "/proc/$pid")" = qdeploy ] || fail "the service does not run as qdeploy: $(docker exec "$host" stat -c %U "/proc/$pid")"
+	step 'the service runs as qhost without root, with the group docker, and keeps its directories closed'
+	[ "$(docker exec "$host" systemctl is-active qhost)" = active ] || fail 'the qhost service is not active'
+	pid=$(docker exec "$host" systemctl show -p MainPID --value qhost)
+	[ -n "$pid" ] && [ "$pid" != 0 ] || fail 'the qhost service has no process'
+	[ "$(docker exec "$host" stat -c %U "/proc/$pid")" = qhost ] || fail "the service does not run as qhost: $(docker exec "$host" stat -c %U "/proc/$pid")"
 	if docker exec "$host" grep '^Uid:' "/proc/$pid/status" | grep -qw 0; then fail 'the service has a root user ID'; fi
-	docker exec "$host" id -nG qdeploy | tr ' ' '\n' | grep -qx docker || fail 'the user qdeploy is not in the group docker'
+	docker exec "$host" id -nG qhost | tr ' ' '\n' | grep -qx docker || fail 'the user qhost is not in the group docker'
 	docker exec "$host" grep '^Groups:' "/proc/$pid/status" | grep -qw "$(docker exec "$host" getent group docker | cut -d : -f 3)" ||
 		fail 'the service process does not hold the group docker'
-	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qdeploy)" = qdeploy:qdeploy:750 ] ||
-		fail "/run/qdeploy is $(docker exec "$host" stat -c %U:%G:%a /run/qdeploy), want qdeploy:qdeploy:750"
-	[ "$(docker exec "$host" stat -c %a /var/lib/qdeploy)" = 700 ] || fail "/var/lib/qdeploy has the mode $(docker exec "$host" stat -c %a /var/lib/qdeploy), want 700"
-	if as_admin 'ls /run/qdeploy' >/dev/null 2>&1; then fail 'another user can list /run/qdeploy'; fi
-	log "scenario: qdeploy runs as pid $pid, user qdeploy, group docker; /run/qdeploy qdeploy:qdeploy 750, /var/lib/qdeploy 700"
+	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost)" = qhost:qhost:750 ] ||
+		fail "/run/qhost is $(docker exec "$host" stat -c %U:%G:%a /run/qhost), want qhost:qhost:750"
+	[ "$(docker exec "$host" stat -c %a /var/lib/qhost)" = 700 ] || fail "/var/lib/qhost has the mode $(docker exec "$host" stat -c %a /var/lib/qhost), want 700"
+	if as_admin 'ls /run/qhost' >/dev/null 2>&1; then fail 'another user can list /run/qhost'; fi
+	log "scenario: qhost runs as pid $pid, user qhost, group docker; /run/qhost qhost:qhost 750, /var/lib/qhost 700"
 
 	step 'status needs root'
-	out=$(as_admin 'sudo qdeploy status 2>&1') || fail "sudo qdeploy status failed: $out"
-	printf '%s' "$out" | grep -qi 'running\|started\|uptime\|version' || fail "sudo qdeploy status does not show the service: $out"
-	if out_plain=$(as_admin 'qdeploy status 2>&1'); then fail "qdeploy status without root succeeded: $out_plain"; fi
-	log "scenario: sudo qdeploy status answers; without root: $out_plain"
+	out=$(as_admin 'sudo qhost status 2>&1') || fail "sudo qhost status failed: $out"
+	printf '%s' "$out" | grep -qi 'running\|started\|uptime\|version' || fail "sudo qhost status does not show the service: $out"
+	if out_plain=$(as_admin 'qhost status 2>&1'); then fail "qhost status without root succeeded: $out_plain"; fi
+	log "scenario: sudo qhost status answers; without root: $out_plain"
 }
 
 # scenario_compose_integration runs the Docker integration tests of the deployer inside the host. The test
@@ -202,7 +202,7 @@ scenario_compose_integration() {
 	(cd "$root" && GOOS=linux GOARCH="$(docker exec "$host" dpkg --print-architecture)" CGO_ENABLED=0 \
 		go test -c -tags dockerintegration -o "$work/compose.test" ./internal/compose) || fail 'cannot build the integration tests'
 	docker cp "$work/compose.test" "$host:/tmp/compose.test"
-	out=$(docker exec -e QDEPLOY_E2E_HOST=1 -e "QDEPLOY_E2E_IMAGE=registry.$domain/demo/app:1.0.0" "$host" \
+	out=$(docker exec -e QHOST_E2E_HOST=1 -e "QHOST_E2E_IMAGE=registry.$domain/demo/app:1.0.0" "$host" \
 		/tmp/compose.test -test.v -test.count=1 -test.run '^TestDocker' 2>&1 </dev/null) || {
 		printf '%s\n' "$out"
 		docker exec "$host" rm -f /tmp/compose.test
@@ -216,7 +216,7 @@ scenario_compose_integration() {
 	log "scenario: Docker integration tests passed: $(printf '%s' "$out" | grep -E '^(--- |ok|PASS)' | tr '\n' ' ')"
 }
 
-# stack_field prints one flat field of a stack from qdeploy status (empty when it is absent).
+# stack_field prints one flat field of a stack from qhost status (empty when it is absent).
 stack_field() {
 	qd --output json status | sed -n "s/.*\"stack\\.$1\\.$2\": *\"\\([^\"]*\\)\".*/\\1/p"
 }
@@ -240,14 +240,14 @@ has_failed_commit_finding() {
 	stack_field demo-cache findings | grep -q failed-commit
 }
 
-# restart_service restarts the qdeploy unit, which makes the engine poll at once.
+# restart_service restarts the qhost unit, which makes the engine poll at once.
 restart_service() {
-	docker exec "$host" systemctl restart qdeploy || fail 'cannot restart the qdeploy service'
-	wait_for 'the qdeploy service channel' 20 docker exec "$host" sh -c 'ls /run/qdeploy | grep -q sock'
-	wait_for 'the qdeploy service to answer' 20 qd status
+	docker exec "$host" systemctl restart qhost || fail 'cannot restart the qhost service'
+	wait_for 'the qhost service channel' 20 docker exec "$host" sh -c 'ls /run/qhost | grep -q sock'
+	wait_for 'the qhost service to answer' 20 qd status
 }
 
-# status_field prints one top-level field of qdeploy status.
+# status_field prints one top-level field of qhost status.
 status_field() {
 	qd --output json status | sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p"
 }
@@ -301,7 +301,7 @@ next_run() {
 # admin_commit changes a file of the admin clone with a sed expression and pushes it as a new commit.
 admin_commit() {
 	as_admin "cd ~/stacks && git pull -q --ff-only && sed -i '$2' $1 &&
-		git -c user.name='E2E Admin' -c user.email=admin.qdeploye2e.test commit -q -am '$3' && git push -q origin main"
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -am '$3' && git push -q origin main"
 }
 
 # stack_images prints the images of the running containers of a Compose project on the host.
@@ -313,7 +313,7 @@ stack_images() {
 qd_in() {
 	input=$1
 	shift
-	printf '%s' "$input" | docker exec -i "$host" qdeploy "$@" 2>&1
+	printf '%s' "$input" | docker exec -i "$host" qhost "$@" 2>&1
 }
 
 # hook_seen succeeds when the webhook receiver recorded a signed request to the path $1 with the event $2 and,
@@ -322,23 +322,23 @@ hook_seen() {
 	stack_pattern='"body"'
 	[ -z "${3:-}" ] || stack_pattern="\\\"stack\\\":\\\"$3\\\""
 	docker exec "$prefix-hooks" cat /data/requests.jsonl 2>/dev/null | grep -F "\"path\":\"$1\"" |
-		grep -F "\"X-Qdeploy-Event\":\"$2\"" | grep -F '"X-Qdeploy-Signature":"' | grep -qF -- "$stack_pattern"
+		grep -F "\"X-Qhost-Event\":\"$2\"" | grep -F '"X-Qhost-Signature":"' | grep -qF -- "$stack_pattern"
 }
 
 # hook_has succeeds when the webhook receiver recorded a signed request to the path $1 for the event $2 whose
 # body contains every further fixed string.
 hook_has() {
 	lines=$(docker exec "$prefix-hooks" cat /data/requests.jsonl 2>/dev/null | grep -F "\"path\":\"$1\"" |
-		grep -F "\"X-Qdeploy-Event\":\"$2\"" | grep -F '"X-Qdeploy-Signature":"') || return 1
+		grep -F "\"X-Qhost-Event\":\"$2\"" | grep -F '"X-Qhost-Signature":"') || return 1
 	shift 2
 	for part in "$@"; do
 		lines=$(printf '%s\n' "$lines" | grep -F -- "$part") || return 1
 	done
 }
 
-# journal prints the log of the qdeploy service.
+# journal prints the log of the qhost service.
 journal() {
-	docker exec "$host" journalctl -u qdeploy --no-pager -o cat
+	docker exec "$host" journalctl -u qhost --no-pager -o cat
 }
 
 # mail_seen succeeds when the mail server recorded a message containing the fixed string $1.
@@ -369,11 +369,11 @@ scenario_deploy() {
 
 	step 'secrets.env is created on the host, owned by the service user'
 	for stack in demo-stack demo-cache; do
-		docker exec -u qdeploy "$host" sh -ec "umask 077 && printf 'DEMO_SECRET=%s\n' '$secret' >/opt/stacks/$stack/secrets.env"
+		docker exec -u qhost "$host" sh -ec "umask 077 && printf 'DEMO_SECRET=%s\n' '$secret' >/opt/stacks/$stack/secrets.env"
 	done
-	dirty=$(docker exec -u qdeploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $dirty"
+	dirty=$(docker exec -u qhost "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $dirty"
 	[ -z "$dirty" ] || fail "secrets.env made the working copy dirty: $dirty"
-	[ "$(docker exec "$host" stat -c %U:%a /opt/stacks/demo-stack/secrets.env)" = qdeploy:600 ] || fail 'secrets.env has the wrong owner or mode'
+	[ "$(docker exec "$host" stat -c %U:%a /opt/stacks/demo-stack/secrets.env)" = qhost:600 ] || fail 'secrets.env has the wrong owner or mode'
 
 	step 'a webhook channel is added from standard input'
 	out=$(qd_in "$hook_url
@@ -407,24 +407,24 @@ $hook_signing_value
 
 	# Here every stack runs its newest commit, so the poll at the restart of the repair has nothing to run.
 	step 'a bound installation without the grant gets it at the next root client command'
-	docker exec "$host" sh -ec 'rm -f /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf && systemctl daemon-reload' ||
+	docker exec "$host" sh -ec 'rm -f /etc/systemd/system/qhost.service.d/10-stack-folders.conf && systemctl daemon-reload' ||
 		fail 'cannot remove the stack folder grant'
-	if docker exec "$host" systemctl show -p ReadWritePaths qdeploy | grep -qF /opt/stacks; then fail 'the grant is still active after its removal'; fi
+	if docker exec "$host" systemctl show -p ReadWritePaths qhost | grep -qF /opt/stacks; then fail 'the grant is still active after its removal'; fi
 	pid=$(service_pid)
-	out=$(qd status) || fail "qdeploy status failed without the grant: $out"
+	out=$(qd status) || fail "qhost status failed without the grant: $out"
 	printf '%s' "$out" | grep -qF 'has no write grant' || fail "no notice about the missing grant: $out"
-	docker exec "$host" grep -qx 'ReadWritePaths=-/opt/stacks' /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf ||
+	docker exec "$host" grep -qx 'ReadWritePaths=-/opt/stacks' /etc/systemd/system/qhost.service.d/10-stack-folders.conf ||
 		fail 'the grant was not written again'
-	docker exec "$host" systemctl show -p ReadWritePaths qdeploy | grep -qF /opt/stacks || fail 'the service has no write access after the repair'
+	docker exec "$host" systemctl show -p ReadWritePaths qhost | grep -qF /opt/stacks || fail 'the service has no write access after the repair'
 	wait_for 'the service after the repair' 60 service_serving
 	[ "$(service_pid)" != "$pid" ] || fail 'the repair did not restart the service'
-	out=$(qd status) || fail "qdeploy status failed: $out"
+	out=$(qd status) || fail "qhost status failed: $out"
 	if printf '%s' "$out" | grep -qF 'has no write grant'; then fail "the repair repeated: $out"; fi
 
 	step 'a commit with a failing healthcheck is rolled back with a revert commit on the remote branch'
 	as_admin 'cd ~/stacks &&
 		sed -i "s/^DEMO_HEALTH=.*/DEMO_HEALTH=fail/" demo-cache/.env &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -am "Break the demo-cache healthcheck" &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -am "Break the demo-cache healthcheck" &&
 		git push -q origin main'
 	bad=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
 	restart_service
@@ -441,7 +441,7 @@ $hook_signing_value
 	[ "$revert" != "$bad" ] || fail 'no revert commit reached the remote branch'
 	[ "$(as_admin "git ls-remote $repo refs/heads/main" | cut -f 1)" = "$revert" ] || fail 'the revert commit is not the head of the remote branch'
 	meta=$(as_admin "cd ~/stacks && git log -1 --format='%an|%ae|%cn|%ce|%s|%P' $revert")
-	[ "$meta" = "qdeploy|qdeploy@localhost.invalid|qdeploy|qdeploy@localhost.invalid|Revert demo-cache to $(printf '%s' "$good" | cut -c 1-12)|$bad" ] ||
+	[ "$meta" = "qhost|qhost@localhost.invalid|qhost|qhost@localhost.invalid|Revert demo-cache to $(printf '%s' "$good" | cut -c 1-12)|$bad" ] ||
 		fail "the revert commit has the wrong author, subject or parent: $meta"
 	[ "$(as_admin "cd ~/stacks && git rev-parse $revert:demo-cache")" = "$(as_admin "cd ~/stacks && git rev-parse $good:demo-cache")" ] ||
 		fail 'the revert commit does not restore the demo-cache folder'
@@ -470,7 +470,7 @@ $hook_signing_value
 	done
 	if qd stack log "$(newest_run demo-shop)" | grep -qF -- 'not-a-real-secret'; then fail 'the run log of demo-shop holds its DEMO_PASSWORD value'; fi
 	[ "$n" -ge 3 ] || fail "too few runs to check the logs: $n"
-	if qd stack runs | grep -qF -- "$secret"; then fail 'qdeploy stack runs shows the secret value'; fi
+	if qd stack runs | grep -qF -- "$secret"; then fail 'qhost stack runs shows the secret value'; fi
 	log "scenario: the secret value is in none of $n run logs"
 
 	scenario_notify
@@ -487,7 +487,7 @@ scenario_notify() {
 	out=$(qd_in "$slack_url_value
 " notify add chat --type slack) || fail "notify add chat failed: $out"
 	out=$(qd notify test chat) || fail "notify test chat failed: $out"
-	docker exec "$prefix-hooks" cat /data/requests.jsonl | grep -F '"path":"/slack/T000/B000/demo-slack-path-e2e"' | grep -qF 'qdeploy test message' ||
+	docker exec "$prefix-hooks" cat /data/requests.jsonl | grep -F '"path":"/slack/T000/B000/demo-slack-path-e2e"' | grep -qF 'qhost test message' ||
 		fail 'the receiver did not record the Slack test message'
 
 	step 'notify test delivers through a Telegram channel'
@@ -499,12 +499,12 @@ scenario_notify() {
 
 	step 'notify test delivers through an SMTP channel with STARTTLS and a login'
 	out=$(qd_in "$mail_login_value
-" notify add mail --type smtp --host "mail.$domain" --user qdeploy-mailer --from qdeploy@example.test \
+" notify add mail --type smtp --host "mail.$domain" --user qhost-mailer --from qhost@example.test \
 		--to ops@example.test) || fail "notify add mail failed: $out"
 	out=$(qd notify test mail) || fail "notify test mail failed: $out"
-	mail_seen 'Subject: qdeploy test message' || fail 'the mail server did not record the test message'
+	mail_seen 'Subject: qhost test message' || fail 'the mail server did not record the test message'
 	mail_seen '"to":["TO:\u003cops@example.test\u003e"]' || fail 'the mail server did not record the recipient'
-	mail_seen '"user":"qdeploy-mailer"' || fail 'the mail server did not record the login name'
+	mail_seen '"user":"qhost-mailer"' || fail 'the mail server did not record the login name'
 
 	step 'the channel commands report their errors'
 	if out=$(qd_in "$slack_url_value
@@ -539,7 +539,7 @@ $(qd stack log "$id")"
 		out=$(qd notify remove "$name") || fail "notify remove $name failed: $out"
 	done
 	if qd notify list | grep -q 'webhook\|slack\|telegram\|smtp'; then fail "channels remain: $(qd notify list)"; fi
-	left=$(docker exec "$host" sh -c 'ls /var/lib/qdeploy/credentials 2>/dev/null | grep -c "^notify" || true')
+	left=$(docker exec "$host" sh -c 'ls /var/lib/qhost/credentials 2>/dev/null | grep -c "^notify" || true')
 	[ "$left" = 0 ] || fail "$left notification credentials remain after the channels were removed"
 	log 'scenario: all four channel types delivered a test message and no secret part showed anywhere'
 }
@@ -596,7 +596,7 @@ stack_running() {
 scenario_backup() {
 	bind=/opt/stacks/demo-stack/data
 	vol=demo-stack_state
-	store=/var/lib/qdeploy/backups/demo-stack
+	store=/var/lib/qhost/backups/demo-stack
 
 	step 'demo-stack data and volume get files with mixed owners and modes'
 	wait_for 'demo-stack to be idle' 120 stack_idle demo-stack
@@ -615,7 +615,7 @@ scenario_backup() {
 	printf '%s' "$out" | grep -q '"items": *3' || fail "the backup does not hold three items: $out"
 	stack_running demo-stack || fail "demo-stack is not running after the backup: $(stack_images demo-stack)"
 	[ "$(docker exec "$host" cat "$store/$b1/command.out")" = backup-command-output ] || fail "command.out of $b1 is wrong: $(docker exec "$host" ls -l "$store/$b1")"
-	[ "$(docker exec "$host" stat -c %a:%U "$store/$b1/path-0.tar" "$store/$b1/volume-0.tar" | sort -u)" = 600:qdeploy ] ||
+	[ "$(docker exec "$host" stat -c %a:%U "$store/$b1/path-0.tar" "$store/$b1/volume-0.tar" | sort -u)" = 600:qhost ] ||
 		fail "the archives are not private to the service user: $(docker exec "$host" ls -ln "$store/$b1")"
 	log "scenario: backup $b1: $(docker exec "$host" sh -c "cd $store/$b1 && ls | tr '\n' ' '")"
 
@@ -671,7 +671,7 @@ scenario_backup() {
 	log "scenario: check of demo-stack and demo-shop as expected"
 	out=$(qd_fails stack backup create demo-badpath) || fail "backup create accepted a path outside the stack: $out"
 	printf '%s' "$out" | grep -q -- 'config-invalid' || fail "backup create does not refuse the invalid settings: $out"
-	if docker exec "$host" test -e /var/lib/qdeploy/backups/demo-badpath; then fail 'a refused backup left a store directory'; fi
+	if docker exec "$host" test -e /var/lib/qhost/backups/demo-badpath; then fail 'a refused backup left a store directory'; fi
 	log "scenario: backup create refused: $out"
 }
 
@@ -680,7 +680,7 @@ json_value() {
 	printf '%s' "$1" | grep -o "\"$2\":\"[^\"]*\"" | head -n 1 | cut -d '"' -f 4
 }
 
-# updates_expect checks the single row of a 'qdeploy stack updates' JSON output: current, available, major_available
+# updates_expect checks the single row of a 'qhost stack updates' JSON output: current, available, major_available
 # (empty for none) and status.
 updates_expect() {
 	out=$1
@@ -775,7 +775,7 @@ scenario_rollback() {
 	prev=$run
 	as_admin 'cd ~/stacks && git pull -q --ff-only &&
 		sed -i "s/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=2.0.0/; s/^DEMO_HEALTH=.*/DEMO_HEALTH=fail/" demo-stack/.env &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -am "Update demo-stack to 2.0.0 with a broken healthcheck" &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -am "Update demo-stack to 2.0.0 with a broken healthcheck" &&
 		git push -q origin main'
 	bad_stack=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
 	restart_service
@@ -805,7 +805,7 @@ scenario_rollback() {
 	revert=$(as_admin 'cd ~/stacks && git pull -q --ff-only && git rev-parse HEAD')
 	[ "$revert" != "$bad_stack" ] || fail 'no revert commit reached the remote branch'
 	meta=$(as_admin "cd ~/stacks && git log -1 --format='%an|%ae|%cn|%ce|%s|%P' $revert")
-	[ "$meta" = "qdeploy|qdeploy@localhost.invalid|qdeploy|qdeploy@localhost.invalid|Revert demo-stack to $(printf '%s' "$good_stack" | cut -c 1-12)|$bad_stack" ] ||
+	[ "$meta" = "qhost|qhost@localhost.invalid|qhost|qhost@localhost.invalid|Revert demo-stack to $(printf '%s' "$good_stack" | cut -c 1-12)|$bad_stack" ] ||
 		fail "the revert commit has the wrong author, subject or parent: $meta"
 	[ "$(as_admin "cd ~/stacks && git rev-parse $revert:demo-stack")" = "$(as_admin "cd ~/stacks && git rev-parse $good_stack:demo-stack")" ] ||
 		fail 'the revert commit does not restore the demo-stack folder'
@@ -913,7 +913,7 @@ update_steps() {
 		tr '\n' ',' | sed 's/,$//'
 }
 
-# scenario_update takes version steps with 'qdeploy stack update' against the real git server and registry: a direct
+# scenario_update takes version steps with 'qhost stack update' against the real git server and registry: a direct
 # update, a stepwise major jump with a commit and a backup per step, and a stepwise jump whose middle step has a
 # failing healthcheck. The image 4.0.0 is unhealthy by itself, so no commit but the update's own can break it.
 scenario_update() {
@@ -935,13 +935,13 @@ scenario_update() {
 	[ "$(as_admin "git ls-remote $repo refs/heads/main" | cut -f 1)" = "$commit" ] || fail "the settings commit $commit is not the head of the remote branch"
 	as_admin 'cd ~/stacks && git pull -q --ff-only'
 	meta=$(as_admin "cd ~/stacks && git log -1 --format='%s|%P' $commit")
-	[ "$meta" = "qdeploy: settings of demo-stack|$head_before" ] || fail "the settings commit has the wrong subject or parent: $meta"
+	[ "$meta" = "qhost: settings of demo-stack|$head_before" ] || fail "the settings commit has the wrong subject or parent: $meta"
 	files=$(as_admin "cd ~/stacks && git show --format= --name-only $commit")
-	[ "$files" = .qatlas/qdeploy/demo-stack.yaml ] || fail "the settings commit touches more than the settings file: $files"
-	as_admin 'cd ~/stacks && grep -qx "  major: direct" .qatlas/qdeploy/demo-stack.yaml' ||
-		fail "the settings file does not hold major direct: $(as_admin 'cat ~/stacks/.qatlas/qdeploy/demo-stack.yaml')"
-	[ "$(docker exec -u qdeploy "$host" git -C /opt/stacks rev-parse HEAD)" = "$commit" ] || fail 'the working copy on the host did not follow the settings commit'
-	dirty=$(docker exec -u qdeploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $dirty"
+	[ "$files" = .qatlas/qhost/demo-stack.yaml ] || fail "the settings commit touches more than the settings file: $files"
+	as_admin 'cd ~/stacks && grep -qx "  major: direct" .qatlas/qhost/demo-stack.yaml' ||
+		fail "the settings file does not hold major direct: $(as_admin 'cat ~/stacks/.qatlas/qhost/demo-stack.yaml')"
+	[ "$(docker exec -u qhost "$host" git -C /opt/stacks rev-parse HEAD)" = "$commit" ] || fail 'the working copy on the host did not follow the settings commit'
+	dirty=$(docker exec -u qhost "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $dirty"
 	[ -z "$dirty" ] || fail "the settings left the working copy on the host dirty: $dirty"
 	out=$(qd --output json stack settings demo-stack) || fail "stack settings failed: $out"
 	printf '%s' "$out" | grep -q '"major": *"direct"' || fail "stack settings does not show major direct: $out"
@@ -1041,7 +1041,7 @@ scenario_update() {
 	update_commit_only_version "$bad_step" 3.0.0 4.0.0
 	[ "$(as_admin "git ls-remote $repo refs/heads/main" | cut -f 1)" = "$revert" ] || fail 'the revert commit is not the head of the remote branch'
 	meta=$(as_admin "cd ~/stacks && git log -1 --format='%an|%ae|%cn|%ce|%s|%P' $revert")
-	[ "$meta" = "qdeploy|qdeploy@localhost.invalid|qdeploy|qdeploy@localhost.invalid|Revert demo-stack to $(printf '%s' "$step_commit" | cut -c 1-12)|$bad_step" ] ||
+	[ "$meta" = "qhost|qhost@localhost.invalid|qhost|qhost@localhost.invalid|Revert demo-stack to $(printf '%s' "$step_commit" | cut -c 1-12)|$bad_step" ] ||
 		fail "the revert commit has the wrong author, subject or parent: $meta"
 	[ "$(as_admin "cd ~/stacks && git rev-parse $revert:demo-stack")" = "$(as_admin "cd ~/stacks && git rev-parse $step_commit:demo-stack")" ] ||
 		fail 'the revert commit does not restore the demo-stack folder of the previous step'
@@ -1067,10 +1067,10 @@ scenario_stacks_repo() {
 	window_far_away >/dev/null || fail 'cannot move the maintenance window out of the way'
 
 	step 'deploy key'
-	out=$(as_admin 'sudo qdeploy --output json key generate 2>&1') || fail "key generate failed: $out"
+	out=$(as_admin 'sudo qhost --output json key generate 2>&1') || fail "key generate failed: $out"
 	pub=$(printf '%s\n' "$out" | sed -n 's/.*"public_key": *"\([^"]*\)".*/\1/p')
 	case $pub in ssh-ed25519\ *) ;; *) fail "no public key in: $out" ;; esac
-	shown=$(as_admin 'sudo qdeploy --output json key show 2>&1' | sed -n 's/.*"public_key": *"\([^"]*\)".*/\1/p')
+	shown=$(as_admin 'sudo qhost --output json key show 2>&1' | sed -n 's/.*"public_key": *"\([^"]*\)".*/\1/p')
 	[ "$shown" = "$pub" ] || fail "key show differs from key generate: $shown"
 	fingerprint=$(printf '%s\n' "$pub" | docker exec -i "$host" sh -c 'cat >/tmp/deploy-key.pub && ssh-keygen -lf /tmp/deploy-key.pub; rm -f /tmp/deploy-key.pub') ||
 		fail "ssh-keygen cannot parse the deploy key: $fingerprint"
@@ -1093,7 +1093,7 @@ scenario_stacks_repo() {
 		fail "repo set for a missing folder without --create succeeded: $out"
 	printf '%s' "$out" | grep -q -- '--create' || fail "the refusal does not name --create: $out"
 	if docker exec "$host" test -e /opt/stacks; then fail 'the stack folder was created without confirmation'; fi
-	if docker exec "$host" test -e /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf; then fail 'a refused repo set wrote the drop-in'; fi
+	if docker exec "$host" test -e /etc/systemd/system/qhost.service.d/10-stack-folders.conf; then fail 'a refused repo set wrote the drop-in'; fi
 
 	step 'repo set refuses a wrong fingerprint'
 	out=$(qd_fails repo set "$url" --dir /opt/stacks --create --fingerprint SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA) ||
@@ -1107,11 +1107,11 @@ scenario_stacks_repo() {
 	printf '%s' "$out" | grep -q "$expected" || fail "repo set does not report the fingerprint $expected: $out"
 	printf '%s' "$out" | grep -q '"cloned": *true' || fail "repo set did not clone: $out"
 	docker exec "$host" test -f /opt/stacks/demo-stack/compose.yaml || fail 'the clone is missing in /opt/stacks'
-	[ "$(docker exec "$host" stat -c %U:%G:%a /opt/stacks)" = qdeploy:qdeploy:755 ] ||
-		fail "/opt/stacks is $(docker exec "$host" stat -c %U:%G:%a /opt/stacks), want qdeploy:qdeploy:755"
-	docker exec "$host" grep -qx 'ReadWritePaths=-/opt/stacks' /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf ||
+	[ "$(docker exec "$host" stat -c %U:%G:%a /opt/stacks)" = qhost:qhost:755 ] ||
+		fail "/opt/stacks is $(docker exec "$host" stat -c %U:%G:%a /opt/stacks), want qhost:qhost:755"
+	docker exec "$host" grep -qx 'ReadWritePaths=-/opt/stacks' /etc/systemd/system/qhost.service.d/10-stack-folders.conf ||
 		fail 'the drop-in does not grant /opt/stacks'
-	docker exec "$host" systemctl show -p ReadWritePaths qdeploy | grep -qF /opt/stacks || fail 'the service has no write access to /opt/stacks'
+	docker exec "$host" systemctl show -p ReadWritePaths qhost | grep -qF /opt/stacks || fail 'the service has no write access to /opt/stacks'
 	log "scenario: repo set pinned $expected and cloned"
 
 	step 'repo fetch sees a commit pushed by the admin'
@@ -1119,7 +1119,7 @@ scenario_stacks_repo() {
 	printf '%s' "$out" | grep -q '"updates_available": *false' || fail "unexpected updates before the push: $out"
 	as_admin 'cd ~/stacks &&
 		sed -i "s/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.1.0/" demo-cache/.env &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -am "Update demo-cache to 1.1.0" &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -am "Update demo-cache to 1.1.0" &&
 		git push -q origin main'
 	pushed=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
 	out=$(qd --output json repo fetch) || fail "repo fetch failed: $out"
@@ -1160,7 +1160,7 @@ scenario_stacks_repo() {
 
 	scenario_tui
 
-	step 'a changed host key of the git server aborts qdeploy'
+	step 'a changed host key of the git server aborts qhost'
 	original_key=$(scanned_git_key)
 	pinned=$(known_hosts_sum)
 	docker exec "$prefix-git" sh -ec 'mkdir -p /root/hostkeys-orig && mv /etc/ssh/ssh_host_* /root/hostkeys-orig/ && ssh-keygen -A >/dev/null && kill -HUP 1'
@@ -1231,7 +1231,7 @@ scenario_stacks_repo() {
 	scenario_tui_check
 }
 
-# flat_field prints one flat field of qdeploy status by its full name (empty when it is absent).
+# flat_field prints one flat field of qhost status by its full name (empty when it is absent).
 flat_field() {
 	qd --output json status | sed -n "s/.*\"$1\": *\"\\([^\"]*\\)\".*/\\1/p"
 }
@@ -1246,7 +1246,7 @@ collision_seen() {
 # deploy key. Then a second repository becomes a second source: its own stack is deployed, a stack named like one of
 # the first source is reported with name-collision and never deployed.
 scenario_sources() {
-	state=/var/lib/qdeploy
+	state=/var/lib/qhost
 	url2=git.$domain:stacks2.git
 
 	step 'an installation of the earlier single binding is taken over with its state and deploy key'
@@ -1255,7 +1255,7 @@ scenario_sources() {
 	run_before=$(stack_field demo-stack last_run)
 	images_before=$(stack_images demo-stack)
 	[ -n "$key_before" ] && [ -n "$deployed_before" ] && [ -n "$run_before" ] || fail 'the first source has no key, deployment or run to carry over'
-	docker exec "$host" systemctl stop qdeploy || fail 'cannot stop the qdeploy service'
+	docker exec "$host" systemctl stop qhost || fail 'cannot stop the qhost service'
 	url1=$(docker exec "$host" sed -n 's/.*"url": *"\([^"]*\)".*/\1/p' "$state/sources.json")
 	[ "$url1" = "$url" ] || fail "sources.json does not bind $url: $url1"
 	docker exec "$host" test -d "$state/sources/opt-stacks/deploy" || fail 'the engine state of the first source is not below sources/opt-stacks/deploy'
@@ -1264,10 +1264,10 @@ scenario_sources() {
 		rmdir $state/sources/opt-stacks $state/sources
 		rm $state/sources.json
 		printf '{\"version\":1,\"url\":\"$url1\",\"dir\":\"/opt/stacks\"}' >$state/stacks-repo.json
-		chown qdeploy:qdeploy $state/stacks-repo.json && chmod 600 $state/stacks-repo.json" || fail 'cannot lay out the earlier state'
-	docker exec "$host" systemctl start qdeploy || fail 'cannot start the qdeploy service on the earlier state'
-	wait_for 'the qdeploy service channel' 20 docker exec "$host" sh -c 'ls /run/qdeploy | grep -q sock'
-	wait_for 'the qdeploy service to answer' 20 qd status
+		chown qhost:qhost $state/stacks-repo.json && chmod 600 $state/stacks-repo.json" || fail 'cannot lay out the earlier state'
+	docker exec "$host" systemctl start qhost || fail 'cannot start the qhost service on the earlier state'
+	wait_for 'the qhost service channel' 20 docker exec "$host" sh -c 'ls /run/qhost | grep -q sock'
+	wait_for 'the qhost service to answer' 20 qd status
 	wait_for 'the poll of the taken-over source' 60 poll_done
 	if docker exec "$host" test -e "$state/stacks-repo.json"; then fail 'the old binding file is still the binding'; fi
 	if docker exec "$host" test -e "$state/deploy"; then fail 'the engine state was not moved'; fi
@@ -1292,8 +1292,8 @@ scenario_sources() {
 	out=$(qd --output json repo set "$url2" --dir /opt/stacks2 --create --fingerprint "$(git_ed25519_fingerprint)") || fail "repo set for the second source failed: $out"
 	printf '%s' "$out" | grep -q '"cloned": *true' || fail "repo set did not clone the second source: $out"
 	docker exec "$host" test -f /opt/stacks2/demo-second/compose.yaml || fail 'the clone is missing in /opt/stacks2'
-	docker exec "$host" grep -qx 'ReadWritePaths=-/opt/stacks2' /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf || fail 'the drop-in does not grant /opt/stacks2'
-	wait_for 'the qdeploy service to answer' 30 qd status
+	docker exec "$host" grep -qx 'ReadWritePaths=-/opt/stacks2' /etc/systemd/system/qhost.service.d/10-stack-folders.conf || fail 'the drop-in does not grant /opt/stacks2'
+	wait_for 'the qhost service to answer' 30 qd status
 	[ "$(flat_field source.opt-stacks2.path)" = /opt/stacks2 ] || fail "status does not show the second source: $(qd --output json status)"
 
 	step 'the own stack of the second source is deployed'
@@ -1326,7 +1326,7 @@ source_stack_count() {
 # root_commit changes a file of the admin clone of the third repository and pushes it as a new commit.
 root_commit() {
 	as_admin "cd ~/stacks3 && git pull -q --ff-only && sed -i '$2' $1 &&
-		git -c user.name='E2E Admin' -c user.email=admin.qdeploye2e.test commit -q -am '$3' && git push -q origin main"
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -am '$3' && git push -q origin main"
 }
 
 # scenario_root_source proves a stack folder whose root holds the compose file: the whole folder is exactly one
@@ -1382,7 +1382,7 @@ scenario_root_source() {
 	revert=$(as_admin 'cd ~/stacks3 && git pull -q --ff-only && git rev-parse HEAD')
 	[ "$revert" != "$bad_root" ] || fail 'no revert commit reached the remote branch'
 	meta=$(as_admin "cd ~/stacks3 && git log -1 --format='%an|%ae|%s|%P' $revert")
-	[ "$meta" = "qdeploy|qdeploy@localhost.invalid|Revert the stack folder to $(printf '%s' "$good_root" | cut -c 1-12)|$bad_root" ] ||
+	[ "$meta" = "qhost|qhost@localhost.invalid|Revert the stack folder to $(printf '%s' "$good_root" | cut -c 1-12)|$bad_root" ] ||
 		fail "the revert commit has the wrong author, subject or parent: $meta"
 	[ "$(as_admin "cd ~/stacks3 && git rev-parse $revert^{tree}")" = "$(as_admin "cd ~/stacks3 && git rev-parse $good_root^{tree}")" ] ||
 		fail 'the revert commit does not restore the whole folder'
@@ -1402,7 +1402,7 @@ scenario_source_inspect() {
 	docker exec "$host" sh -ec "git init -q '$base/clone' && git -C '$base/clone' remote add origin '$url'" ||
 		fail 'cannot prepare the clone to inspect'
 	docker exec "$host" sh -ec "git init -q '$base/local' && echo demo >'$base/local/notes.txt' && git -C '$base/local' add -A &&
-		git -C '$base/local' -c user.name='E2E Inspect' -c user.email=inspect.qdeploye2e.test commit -q -m 'First commit'" ||
+		git -C '$base/local' -c user.name='E2E Inspect' -c user.email=inspect.qhoste2e.test commit -q -m 'First commit'" ||
 		fail 'cannot prepare the local repository to inspect'
 	printf 'services:\n  app:\n    image: registry.%s/demo/app:1.0.0\n' "$domain" |
 		docker exec -i "$host" sh -ec "cat >'$base/files/compose.yaml'" || fail 'cannot write the compose file to inspect'
@@ -1470,13 +1470,13 @@ EOF2
 	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/demo-local/.env'"
 	printf 'secrets.env\ndata/\n' | docker exec -i "$host" sh -ec "cat >'$base/demo-local/.gitignore'"
 	docker exec "$host" sh -ec "cd '$base' && git init -q -b main && git add -A &&
-		git -c user.name='E2E Root' -c user.email=root.qdeploye2e.test commit -q -m 'Add the demo-local stack' &&
-		printf 'DEMO_SECRET=not-a-real-secret\n' >demo-local/secrets.env && chgrp qdeploy demo-local/secrets.env &&
+		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-local stack' &&
+		printf 'DEMO_SECRET=not-a-real-secret\n' >demo-local/secrets.env && chgrp qhost demo-local/secrets.env &&
 		chmod 0640 demo-local/secrets.env" ||
 		fail 'cannot create the local repository'
 	[ -z "$(docker exec "$host" git -C "$base" remote)" ] || fail 'the local repository has a remote'
 	secret_before=$(docker exec "$host" stat -c '%U:%G %a' "$base/demo-local/secrets.env")
-	[ "$secret_before" = 'root:qdeploy 640' ] || fail "unexpected secrets file: $secret_before"
+	[ "$secret_before" = 'root:qhost 640' ] || fail "unexpected secrets file: $secret_before"
 
 	step 'source list shows the earlier sources and not the local folder'
 	out=$(qd --output json source list) || fail "source list failed: $out"
@@ -1490,7 +1490,7 @@ EOF2
 	out=$(qd_fails source add "$base") || fail "source add without --yes succeeded: $out"
 	printf '%s' "$out" | grep -q 'confirmation-required' || fail "source add without --yes does not ask for confirmation: $out"
 	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base")" = "$dir_before" ] || fail 'a refused source add changed the folder'
-	if docker exec "$host" grep -qF "$base" /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf; then
+	if docker exec "$host" grep -qF "$base" /etc/systemd/system/qhost.service.d/10-stack-folders.conf; then
 		fail 'a refused source add wrote the drop-in'
 	fi
 	if list_has_path "$base"; then fail 'a refused source add bound the folder'; fi
@@ -1499,12 +1499,12 @@ EOF2
 	# qd merges stderr, where the preview and the notices go; the JSON answer is the last line.
 	out=$(qd --output json source add "$base" --yes) || fail "source add failed: $out"
 	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local" and .path == "/srv/qd-local"' >/dev/null || fail "unexpected source add result: $out"
-	wait_for 'the qdeploy service to answer' 30 qd status
-	[ "$(docker exec "$host" stat -c '%U:%G' "$base")" = root:qdeploy ] || fail "the folder has the wrong owner or group: $(docker exec "$host" stat -c '%U:%G' "$base")"
+	wait_for 'the qhost service to answer' 30 qd status
+	[ "$(docker exec "$host" stat -c '%U:%G' "$base")" = root:qhost ] || fail "the folder has the wrong owner or group: $(docker exec "$host" stat -c '%U:%G' "$base")"
 	case $(docker exec "$host" stat -c '%A' "$base") in d???rws*) ;; *) fail "the folder is not group-writable with setgid: $(docker exec "$host" stat -c '%A' "$base")" ;; esac
 	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/demo-local/secrets.env")" = "$secret_before" ] || fail 'source add changed the unversioned secrets file'
 	[ "$(docker exec "$host" git -C "$base" config core.sharedRepository)" = group ] || fail 'core.sharedRepository is not group'
-	docker exec "$host" grep -qx "ReadWritePaths=-$base" /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf || fail 'the drop-in does not grant /srv/qd-local'
+	docker exec "$host" grep -qx "ReadWritePaths=-$base" /etc/systemd/system/qhost.service.d/10-stack-folders.conf || fail 'the drop-in does not grant /srv/qd-local'
 	list_has_path "$base" || fail "source list does not show the local folder: $(qd --output json source list)"
 	[ "$(qd --output json source list | jq -r --arg p "$base" '.sources[] | select(.path == $p) | .kind')" = local ] || fail 'the local source has the wrong kind'
 
@@ -1518,9 +1518,9 @@ EOF2
 	done
 	[ "$(stack_images demo-local)" = "$image:1.0.0" ] || fail "demo-local does not run 1.0.0: $(stack_images demo-local)"
 
-	step 'a person in the group qdeploy commits a version; git refuses the folder until it is marked safe'
-	docker exec "$host" usermod -aG qdeploy "$admin" || fail 'cannot add the admin to the group qdeploy'
-	as_admin 'id -nG' | tr ' ' '\n' | grep -qx qdeploy || fail "the admin has no group qdeploy in a new session: $(as_admin 'id -nG')"
+	step 'a person in the group qhost commits a version; git refuses the folder until it is marked safe'
+	docker exec "$host" usermod -aG qhost "$admin" || fail 'cannot add the admin to the group qhost'
+	as_admin 'id -nG' | tr ' ' '\n' | grep -qx qhost || fail "the admin has no group qhost in a new session: $(as_admin 'id -nG')"
 	out=$(local_git rev-parse HEAD) && fail "git accepted a folder of another owner without safe.directory: $out"
 	printf '%s' "$out" | grep -q 'dubious ownership' || fail "git refused the folder for another reason: $out"
 	as_admin "git config --global --add safe.directory $base" || fail 'cannot mark the folder safe'
@@ -1531,7 +1531,7 @@ EOF2
 	as_admin "umask 002; cd $base && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.1.0/' demo-local/.env &&
 		mkdir demo-local/notes && echo 'kept by a person' >demo-local/notes/info.txt &&
 		stat -c %A demo-local/notes | grep -q '^d...rws' && git add -A &&
-		git -c user.name='E2E Admin' -c user.email=admin.qdeploye2e.test commit -q -m 'Update demo-local to 1.1.0'" ||
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -m 'Update demo-local to 1.1.0'" ||
 		fail 'the admin could not commit a version in the local folder'
 	good_local=$(docker exec "$host" git -C "$base" rev-parse HEAD)
 	restart_service
@@ -1545,7 +1545,7 @@ EOF2
 	prev=$run
 	as_admin "umask 002; cd $base && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=2.0.0/; s/^DEMO_HEALTH=.*/DEMO_HEALTH=fail/' demo-local/.env &&
 		echo 'edited for 2.0.0' >>demo-local/notes/info.txt &&
-		git -c user.name='E2E Admin' -c user.email=admin.qdeploye2e.test commit -q -am 'Update demo-local to 2.0.0 with a broken healthcheck'" ||
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -am 'Update demo-local to 2.0.0 with a broken healthcheck'" ||
 		fail 'the admin could not commit the failing version'
 	bad_local=$(docker exec "$host" git -C "$base" rev-parse HEAD)
 	restart_service
@@ -1556,7 +1556,7 @@ EOF2
 	revert=$(docker exec "$host" git -C "$base" rev-parse HEAD)
 	[ "$revert" != "$bad_local" ] || fail 'no revert commit was made in the local folder'
 	meta=$(docker exec "$host" git -C "$base" log -1 --format='%an|%s|%P' "$revert")
-	[ "$meta" = "qdeploy|Revert demo-local to $(printf '%s' "$good_local" | cut -c 1-12)|$bad_local" ] ||
+	[ "$meta" = "qhost|Revert demo-local to $(printf '%s' "$good_local" | cut -c 1-12)|$bad_local" ] ||
 		fail "the revert commit has the wrong author, subject or parent: $meta"
 	[ -z "$(docker exec "$host" git -C "$base" remote)" ] || fail 'the rollback gave the local repository a remote'
 	docker exec "$host" grep -qx DEMO_APP_VERSION=1.1.0 "$base/demo-local/.env" || fail 'the revert did not restore the version file'
@@ -1576,7 +1576,7 @@ EOF2
 	[ "$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=demo-local | sort)" = "$containers_before" ] ||
 		fail 'source remove stopped or replaced a container of demo-local'
 	if list_has_path "$base"; then fail "source list still shows the released folder: $(qd --output json source list)"; fi
-	docker exec "$host" grep -qx "ReadWritePaths=-$base" /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf || fail 'source remove took the folder out of the drop-in'
+	docker exec "$host" grep -qx "ReadWritePaths=-$base" /etc/systemd/system/qhost.service.d/10-stack-folders.conf || fail 'source remove took the folder out of the drop-in'
 	out=$(qd_fails source remove "$base" --yes) || fail "source remove of an unbound folder succeeded: $out"
 	printf '%s' "$out" | grep -q 'not-found' || fail "source remove of an unbound folder is no not-found error: $out"
 	log 'scenario: a local repository was bound with group access, deployed, rolled back by a local revert and released without a change to its files'
@@ -1592,7 +1592,7 @@ EOF2
 	out=$(qd --output json source add /opt/stacks2 --yes --fingerprint "$(git_ed25519_fingerprint)") || fail "source add of the clone failed: $out"
 	printf '%s\n' "$out" | tail -n 1 | jq -e --arg u "$url2" '.url == $u and .cloned == false and .dir == "/opt/stacks2"' >/dev/null ||
 		fail "source add did not take over the clone with its origin: $out"
-	wait_for 'the qdeploy service to answer' 30 qd status
+	wait_for 'the qhost service to answer' 30 qd status
 	# The engine state of the source went with the release, so the stack is deployed once more.
 	wait_for 'the run of demo-second after the takeover' 180 stack_settled demo-second succeeded
 	[ "$(docker exec "$host" git -c safe.directory=/opt/stacks2 -C /opt/stacks2 rev-parse HEAD)" = "$head2" ] || fail 'taking over the clone changed its head'
@@ -1655,7 +1655,7 @@ EOF2
 	printf '%s' "$out" | grep -q 'confirmation-required' || fail "source add of the files without --yes does not ask for confirmation: $out"
 	if docker exec "$host" test -e "$base/.git"; then fail 'a refused source add made a repository'; fi
 	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base")" = "$dir_before" ] || fail 'a refused source add changed the folder'
-	if docker exec "$host" grep -qF "$base" /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf; then
+	if docker exec "$host" grep -qF "$base" /etc/systemd/system/qhost.service.d/10-stack-folders.conf; then
 		fail 'a refused source add wrote the drop-in'
 	fi
 	if list_has_path "$base"; then fail 'a refused source add bound the folder'; fi
@@ -1667,25 +1667,25 @@ EOF2
 	out=$(qd --output json source add "$base" --yes) || fail "source add of the files failed: $out"
 	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local" and .path == "/srv/qd-files/web" and .files == 2' >/dev/null ||
 		fail "unexpected source add result for the files: $out"
-	wait_for 'the qdeploy service to answer' 30 qd status
+	wait_for 'the qhost service to answer' 30 qd status
 	docker exec "$host" test -d "$base/.git" || fail 'source add made no repository'
 	if docker exec "$host" test -e "$base/.gitignore"; then fail 'source add wrote a .gitignore'; fi
 	docker exec "$host" grep -qx '/big.bin' "$base/.git/info/exclude" || fail "the large file is not in .git/info/exclude: $(docker exec "$host" cat "$base/.git/info/exclude")"
 	[ "$(files_git rev-list --count HEAD)" = 1 ] || fail "the repository does not have exactly one commit: $(files_git log --oneline)"
-	[ "$(files_git log -1 --format=%an)" = qdeploy ] || fail "the first commit has the wrong author: $(files_git log -1 --format=%an)"
+	[ "$(files_git log -1 --format=%an)" = qhost ] || fail "the first commit has the wrong author: $(files_git log -1 --format=%an)"
 	[ "$(files_git symbolic-ref --short HEAD)" = main ] || fail "the branch is not main: $(files_git symbolic-ref --short HEAD)"
 	[ "$(files_git ls-files)" = "$(printf '.env\ncompose.yaml')" ] || fail "the first commit holds the wrong files: $(files_git ls-files)"
 	[ "$(files_git config core.sharedRepository)" = group ] || fail 'core.sharedRepository is not group'
 	[ -z "$(files_git remote)" ] || fail 'the new repository has a remote'
 	[ "$(files_state)" = "$state_before" ] || fail 'source add changed the content, the owner or the size of a file'
 	[ "$(docker exec "$host" stat -c '%a %U:%G' "$base/big.bin")" = "$big_before" ] || fail 'source add changed the large file that is not listed'
-	[ "$(docker exec "$host" stat -c '%U:%G' "$base")" = root:qdeploy ] || fail "the folder has the wrong owner or group: $(docker exec "$host" stat -c '%U:%G' "$base")"
+	[ "$(docker exec "$host" stat -c '%U:%G' "$base")" = root:qhost ] || fail "the folder has the wrong owner or group: $(docker exec "$host" stat -c '%U:%G' "$base")"
 	case $(docker exec "$host" stat -c '%A' "$base") in d???rws*) ;; *) fail "the folder is not group-writable with setgid: $(docker exec "$host" stat -c '%A' "$base")" ;; esac
 	for f in compose.yaml .env; do
-		[ "$(docker exec "$host" stat -c '%G' "$base/$f")" = qdeploy ] || fail "$f does not have the group qdeploy"
+		[ "$(docker exec "$host" stat -c '%G' "$base/$f")" = qhost ] || fail "$f does not have the group qhost"
 		case $(docker exec "$host" stat -c '%A' "$base/$f") in -???rw*) ;; *) fail "$f is not group-writable: $(docker exec "$host" stat -c '%A' "$base/$f")" ;; esac
 	done
-	docker exec "$host" grep -qx "ReadWritePaths=-$base" /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf || fail 'the drop-in does not grant /srv/qd-files/web'
+	docker exec "$host" grep -qx "ReadWritePaths=-$base" /etc/systemd/system/qhost.service.d/10-stack-folders.conf || fail 'the drop-in does not grant /srv/qd-files/web'
 	[ "$(qd --output json source list | jq -r --arg p "$base" '.sources[] | select(.path == $p) | .kind')" = local ] || fail 'the folder of files is not a local source'
 
 	step 'demo-files is deployed at 1.0.0'
@@ -1698,11 +1698,11 @@ EOF2
 	done
 	[ "$(stack_images demo-files)" = "$image:1.0.0" ] || fail "demo-files does not run 1.0.0: $(stack_images demo-files)"
 
-	step 'a person in the group qdeploy commits a version, which is deployed'
+	step 'a person in the group qhost commits a version, which is deployed'
 	as_admin "git config --global --add safe.directory $base" || fail 'cannot mark the folder of files safe'
 	prev=$(newest_run demo-files)
 	as_admin "umask 002; cd $base && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.1.0/' .env &&
-		git -c user.name='E2E Admin' -c user.email=admin.qdeploye2e.test commit -q -am 'Update demo-files to 1.1.0'" ||
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -am 'Update demo-files to 1.1.0'" ||
 		fail 'the admin could not commit a version in the folder of files'
 	good_files=$(files_git rev-parse HEAD)
 	restart_service
@@ -1715,7 +1715,7 @@ EOF2
 	step 'a failing version is rolled back by a revert commit of the service, and the folder has no remote'
 	prev=$run
 	as_admin "umask 002; cd $base && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=2.0.0/; s/^DEMO_HEALTH=.*/DEMO_HEALTH=fail/' .env &&
-		git -c user.name='E2E Admin' -c user.email=admin.qdeploye2e.test commit -q -am 'Update demo-files to 2.0.0 with a broken healthcheck'" ||
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -am 'Update demo-files to 2.0.0 with a broken healthcheck'" ||
 		fail 'the admin could not commit the failing version'
 	bad_files=$(files_git rev-parse HEAD)
 	restart_service
@@ -1726,7 +1726,7 @@ EOF2
 	revert=$(files_git rev-parse HEAD)
 	[ "$revert" != "$bad_files" ] || fail 'no revert commit was made in the folder of files'
 	meta=$(files_git log -1 --format='%an|%s|%P' "$revert")
-	[ "$meta" = "qdeploy|Revert the stack folder to $(printf '%s' "$good_files" | cut -c 1-12)|$bad_files" ] ||
+	[ "$meta" = "qhost|Revert the stack folder to $(printf '%s' "$good_files" | cut -c 1-12)|$bad_files" ] ||
 		fail "the revert commit has the wrong author, subject or parent: $meta"
 	[ -z "$(files_git remote)" ] || fail 'the rollback gave the repository a remote'
 	[ "$(stack_images demo-files)" = "$image:1.1.0" ] || fail "demo-files does not run the previous image 1.1.0: $(stack_images demo-files)"
@@ -1816,16 +1816,16 @@ services:
 EOF2
 	printf 'DEMO_SECRET=not-a-real-secret\n' | docker exec -i "$host" sh -ec "cat >/srv/qd-secret/demo-secret/secrets.env"
 	docker exec "$host" sh -ec "cd /srv/qd-secret && chmod 0644 demo-secret/compose.yaml demo-secret/secrets.env && git init -q -b main && git add -A &&
-		git -c user.name='E2E Root' -c user.email=root.qdeploye2e.test commit -q -m 'Add the demo-secret stack with a secrets file' &&
+		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-secret stack with a secrets file' &&
 		git rm -q demo-secret/secrets.env &&
-		git -c user.name='E2E Root' -c user.email=root.qdeploye2e.test commit -q -m 'Remove the secrets file'" ||
+		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Remove the secrets file'" ||
 		fail 'cannot create the secret repository'
 	first_secret=$(docker exec "$host" git -C /srv/qd-secret rev-list --max-parents=0 HEAD | cut -c 1-7)
 	[ -n "$first_secret" ] || fail 'the secret repository has no first commit'
 	[ -z "$(docker exec "$host" git -C /srv/qd-secret ls-files | grep secrets.env)" ] || fail 'the secrets file is still in the last commit'
 	out=$(qd --output json source add /srv/qd-secret --yes) || fail "source add of the secret repository failed: $out"
 	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local"' >/dev/null || fail "unexpected source add result: $out"
-	wait_for 'the qdeploy service to answer' 30 qd status
+	wait_for 'the qhost service to answer' 30 qd status
 	register_folder_key /srv/qd-secret
 	out=$(qd_fails source remote /srv/qd-secret "$url5" --fingerprint "$(git_ed25519_fingerprint)" --yes) || fail "source remote pushed secrets: $out"
 	printf '%s' "$out" | grep -q 'secrets-found' || fail "source remote does not report secrets-found: $out"
@@ -1857,7 +1857,7 @@ EOF2
 	out=$(qd --output json source add "$equal" --url "$url3" --fingerprint "$(git_ed25519_fingerprint)" --yes) || fail "source add --url for the equal folder failed: $out"
 	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "remote" and .state == "equal" and .pushed == false' >/dev/null ||
 		fail "unexpected source add result for the equal folder: $out"
-	wait_for 'the qdeploy service to answer' 30 qd status
+	wait_for 'the qhost service to answer' 30 qd status
 	[ "$(folder_git "$equal" rev-parse HEAD)" = "$repo_head3" ] || fail "the head of the folder is not the head of the repository: $(folder_git "$equal" rev-parse HEAD)"
 	[ "$(folder_git "$equal" remote)" = origin ] || fail "the folder has not exactly the remote origin: $(folder_git "$equal" remote)"
 	folder_git "$equal" remote get-url origin | grep -q 'stacks3.git' || fail "origin is not the repository: $(folder_git "$equal" remote get-url origin)"
@@ -1902,11 +1902,11 @@ scenario_tui_remote() {
 		docker exec "$host" sh -ec "rm -rf '$tr_dir' && mkdir -p '$tr_dir/notes' && chmod 0755 '$tr_dir' '$tr_dir/notes' &&
 			printf 'notes of %s\n' '$tr_dir' >'$tr_dir/notes/readme.txt' && chmod 0644 '$tr_dir/notes/readme.txt' &&
 			cd '$tr_dir' && git init -q -b main && git add -A &&
-			git -c user.name='E2E Root' -c user.email=root.qdeploye2e.test commit -q -m 'Add the notes'" ||
+			git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the notes'" ||
 			fail "cannot create the local folder $tr_dir"
 		out=$(qd --output json source add "$tr_dir" --yes) || fail "source add of $tr_dir failed: $out"
 		printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local"' >/dev/null || fail "unexpected source add result: $out"
-		wait_for 'the qdeploy service to answer' 30 qd status
+		wait_for 'the qhost service to answer' 30 qd status
 	done
 	repo_head3=$(remote_head "$tr_url3")
 	[ -n "$repo_head3" ] || fail 'stacks3 has no head'
@@ -1915,7 +1915,7 @@ scenario_tui_remote() {
 
 	step 'the interface leads to the key view for a folder without a deploy key and compares nothing before it exists'
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qdeploy; echo qdeploy-exit=\$?; sleep 600'" ||
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_send 1
@@ -1991,7 +1991,7 @@ scenario_tui_remote() {
 		fail 'the answer cancel changed the kind of the source'
 	tui_send Escape
 	tui_send q
-	tui_wait 'qdeploy-exit=0' 10
+	tui_wait 'qhost-exit=0' 10
 	tui_tmux kill-server >/dev/null 2>&1 || true
 
 	step 'the folders are released and removed'
@@ -1999,16 +1999,16 @@ scenario_tui_remote() {
 		out=$(qd --output json source remove "$tr_dir" --yes) || fail "source remove of $tr_dir failed: $out"
 	done
 	docker exec "$host" rm -rf "$tr_a" "$tr_b"
-	wait_for 'the qdeploy service to answer' 30 qd status
+	wait_for 'the qhost service to answer' 30 qd status
 	log 'scenario: the interface pushed a local folder to an empty remote and left a differing remote alone without the confirmation'
 }
 
-# key_pub_field prints the public part (type and key, without comment) of the qdeploy key output $1.
+# key_pub_field prints the public part (type and key, without comment) of the qhost key output $1.
 key_pub_field() {
 	printf '%s\n' "$1" | sed -n 's/.*"public_key": *"\([^"]*\)".*/\1/p' | cut -d ' ' -f 1,2
 }
 
-# key_fp_field prints the fingerprint of the qdeploy key output $1.
+# key_fp_field prints the fingerprint of the qhost key output $1.
 key_fp_field() {
 	printf '%s\n' "$1" | sed -n 's/.*"fingerprint": *"\([^"]*\)".*/\1/p'
 }
@@ -2060,7 +2060,7 @@ scenario_key_set() {
 	old3=$(key_pub_field "$(qd --output json key show --dir /opt/stacks3)")
 	fp_old3=$(key_fp_field "$(qd --output json key show --dir /opt/stacks3)")
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qdeploy; echo qdeploy-exit=\$?; sleep 600'" ||
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_send 1
@@ -2099,7 +2099,7 @@ scenario_key_set() {
 	if printf '%s' "$out" | grep -q 'opt-stacks3.error'; then fail "opt-stacks3 does not fetch over the stored key: $out"; fi
 	tui_send Escape
 	tui_send q
-	tui_wait 'qdeploy-exit=0' 10
+	tui_wait 'qhost-exit=0' 10
 	tui_tmux kill-server >/dev/null 2>&1 || true
 	log "scenario: the interface stored the test key for /opt/stacks3 ($fp_b) after the question, the fetch over it succeeds"
 
@@ -2114,7 +2114,7 @@ scenario_key_set() {
 	docker exec "$host" rm -rf "$kdir"
 }
 
-# scenario_containers proves that qdeploy container list and show tell the three kinds apart on the host: the
+# scenario_containers proves that qhost container list and show tell the three kinds apart on the host: the
 # deployed demo stack is own, a Compose project from a folder outside the stacks repository is foreign, and a
 # container started with docker run is single. The planted environment value must not show anywhere. What the
 # scenario starts is removed before the answers are checked, so a failed check leaves nothing behind.
@@ -2160,7 +2160,7 @@ scenario_containers() {
 	log 'scenario: container list showed own, foreign and single; the planted value stayed hidden'
 }
 
-# scenario_container_logs proves that qdeploy container logs reads one container and a whole stack, follows until
+# scenario_container_logs proves that qhost container logs reads one container and a whole stack, follows until
 # interrupted with exit code 0, and shows the stack's secret only masked although the demo app prints it.
 scenario_container_logs() {
 	step 'container logs show a container and a stack, follow ends cleanly, secrets stay masked'
@@ -2174,9 +2174,9 @@ scenario_container_logs() {
 	one_out=$(qd container logs "$name" --tail 0) || one_rc=$?
 	stack_out=$(qd container logs --stack demo-stack --tail 0) || stack_rc=$?
 	json_out=$(qd --output json container logs "$name" --tail 5) || json_rc=$?
-	# --foreground: otherwise GNU timeout also signals the process group, so qdeploy gets the interrupt twice and the
+	# --foreground: otherwise GNU timeout also signals the process group, so qhost gets the interrupt twice and the
 	# second one can kill it (exit 130) after the first has ended the follow.
-	follow_out=$(docker exec "$host" timeout --foreground --preserve-status -s INT 6 qdeploy container logs "$name" --tail 1 --follow 2>&1 </dev/null) || follow_rc=$?
+	follow_out=$(docker exec "$host" timeout --foreground --preserve-status -s INT 6 qhost container logs "$name" --tail 1 --follow 2>&1 </dev/null) || follow_rc=$?
 	missing_out=$(qd container logs --stack "$prefix-no-such-stack") || missing_rc=$?
 
 	[ "$tail_rc" -eq 0 ] || fail "container logs --tail 20 failed: $tail_out"
@@ -2198,7 +2198,7 @@ scenario_container_logs() {
 	log 'scenario: container logs read a container and a stack, followed until the interrupt; the secret stayed masked'
 }
 
-# scenario_container_actions proves that qdeploy container stop, start and restart act on a single container and
+# scenario_container_actions proves that qhost container stop, start and restart act on a single container and
 # that the question needs --yes without a terminal. The container is removed before the answers are checked.
 scenario_container_actions() {
 	step 'container stop, start and restart act on a single container'
@@ -2238,7 +2238,7 @@ scenario_container_actions() {
 	log 'scenario: container stop, start and restart acted on a single container'
 }
 
-# field_is succeeds when a flat field of a stack in qdeploy status has the given value.
+# field_is succeeds when a flat field of a stack in qhost status has the given value.
 field_is() {
 	[ "$(stack_field "$1" "$2")" = "$3" ]
 }
@@ -2248,7 +2248,7 @@ running_containers() {
 	docker exec "$host" docker ps -q --filter "label=com.docker.compose.project=$1" | wc -l
 }
 
-# scenario_stack_actions proves that a stop through qdeploy keeps demo-cache stopped against a new commit and
+# scenario_stack_actions proves that a stop through qhost keeps demo-cache stopped against a new commit and
 # the service restart that makes the poll run, that only a start clears the mark and lets the next poll deploy
 # the commit, and that a restart restarts demo-stack. Both stacks run again at the end.
 scenario_stack_actions() {
@@ -2265,17 +2265,17 @@ scenario_stack_actions() {
 	qd stack list | grep demo-cache | grep -q 'stopped since' || fail "stack list does not show demo-cache as stopped: $(qd stack list)"
 	[ -z "$(stack_field demo-stack stopped)" ] || fail 'demo-stack is shown as stopped'
 	out=$(qd stack restart demo-cache --yes) && fail "stack restart of a stopped stack succeeded: $out"
-	printf '%s' "$out" | grep -q 'qdeploy stack start' || fail "the refusal does not name stack start: $out"
+	printf '%s' "$out" | grep -q 'qhost stack start' || fail "the refusal does not name stack start: $out"
 
 	out=$(qd stack deploy demo-cache) && fail "stack deploy of a stopped stack succeeded: $out"
-	printf '%s' "$out" | grep -q 'qdeploy stack start' || fail "the refusal of stack deploy does not name stack start: $out"
+	printf '%s' "$out" | grep -q 'qhost stack start' || fail "the refusal of stack deploy does not name stack start: $out"
 	[ "$(running_containers demo-cache)" -eq 0 ] || fail 'a refused stack deploy started demo-cache'
 
 	step 'a new commit does not start a run of the stopped stack, also not after a service restart'
 	count=$(qd stack runs demo-cache | grep -c '[0-9]\{8\}T[0-9]\{6\}Z-')
 	as_admin 'cd ~/stacks &&
 		printf "# stopped-stack marker\n" >>demo-cache/.env &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -am "Touch demo-cache while it is stopped" &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -am "Touch demo-cache while it is stopped" &&
 		git push -q origin main'
 	pushed=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
 	restart_service
@@ -2309,7 +2309,7 @@ scenario_stack_actions() {
 	log 'scenario: stack stop, start and restart passed'
 }
 
-# has_finding succeeds when the stack shows the finding $2 in qdeploy status.
+# has_finding succeeds when the stack shows the finding $2 in qhost status.
 has_finding() {
 	stack_field "$1" findings | grep -q "$2"
 }
@@ -2320,9 +2320,9 @@ no_finding() {
 }
 
 # scenario_container_monitor proves that the failure monitor reports a container of demo-stack that dies outside
-# qdeploy and then repairs it: the webhook hears container-failed and qdeploy status shows the finding; qdeploy
+# qhost and then repairs it: the webhook hears container-failed and qhost status shows the finding; qhost
 # restarts the container after a minute, and the webhook hears recovered with restarted. The same for a container
-# that turns unhealthy. The restart policy is switched off for the kill, so only qdeploy can bring the container
+# that turns unhealthy. The restart policy is switched off for the kill, so only qhost can bring the container
 # back; the monitor reads every 30 seconds and ends a failure after two clean readings.
 scenario_container_monitor() {
 	step 'a channel for the failure monitor events is added'
@@ -2331,7 +2331,7 @@ $hook_signing_value
 " notify add mon --type webhook --events container-failed,recovered) || fail "notify add failed: $out"
 	qd notify list | grep -q 'mon *webhook *container-failed,recovered' || fail "notify list does not show the channel: $(qd notify list)"
 
-	step 'a container killed outside qdeploy is reported and shown in status'
+	step 'a container killed outside qhost is reported and shown in status'
 	wait_for 'demo-stack idle' 120 stack_idle demo-stack
 	stack_healthy demo-stack || fail 'demo-stack is not healthy before the kill'
 	no_finding demo-stack container-failed || fail "demo-stack shows a failure before the kill: $(qd --output json status)"
@@ -2344,14 +2344,14 @@ $hook_signing_value
 	stack_field demo-stack findings | grep -q 'exited' || fail "the finding does not name the kind exited: $(qd --output json status)"
 	log 'scenario: the killed container was reported and shown as a finding'
 
-	step 'qdeploy restarts the container: recovered is reported with restarted and the finding ends'
+	step 'qhost restarts the container: recovered is reported with restarted and the finding ends'
 	wait_for 'demo-stack healthy again' 150 stack_healthy demo-stack
 	wait_for 'the webhook for the recovered container' 240 hook_has /notify recovered '\"stack\":\"demo-stack\"' '\"kind\":\"exited\"' '\"restarted\":true'
 	wait_for 'the finding to end' 60 no_finding demo-stack container-failed
 	docker exec "$host" docker update --restart=unless-stopped "$victim" >/dev/null || fail 'cannot restore the restart policy'
-	log 'scenario: qdeploy restarted the killed container and the finding ended'
+	log 'scenario: qhost restarted the killed container and the finding ended'
 
-	step 'a container that turns unhealthy is restarted by qdeploy'
+	step 'a container that turns unhealthy is restarted by qhost'
 	docker exec "$host" touch /opt/stacks/demo-stack/data/break-once || fail 'cannot break the health of demo-stack'
 	wait_for 'the webhook for the unhealthy container' 240 hook_has /notify container-failed '\"stack\":\"demo-stack\"' '\"kind\":\"unhealthy\"'
 	wait_for 'the finding container-failed in status' 60 has_finding demo-stack unhealthy
@@ -2360,10 +2360,10 @@ $hook_signing_value
 	stack_healthy demo-stack || fail 'demo-stack is not healthy after the repair'
 	if docker exec "$host" test -e /opt/stacks/demo-stack/data/break-once; then fail 'the restart did not clear the break'; fi
 	out=$(qd notify remove mon) || fail "notify remove failed: $out"
-	log 'scenario: the unhealthy container was restarted by qdeploy and recovered'
+	log 'scenario: the unhealthy container was restarted by qhost and recovered'
 }
 
-# repair_text prints the repair line of a stack in qdeploy status.
+# repair_text prints the repair line of a stack in qhost status.
 repair_text() {
 	stack_field "$1" repair
 }
@@ -2377,7 +2377,7 @@ repair_halted() {
 }
 
 # scenario_repair_start adds the stack repair-demo and breaks it for good: its health check fails while the file
-# data/break exists, which a restart does not remove. qdeploy restarts it 1, 5 and 15 minutes after the failure
+# data/break exists, which a restart does not remove. qhost restarts it 1, 5 and 15 minutes after the failure
 # began and then halts. The delays run in real time; scenario_repair_end checks the outcome at the end of the
 # run, so they overlap with the other scenarios.
 scenario_repair_start() {
@@ -2394,7 +2394,7 @@ services:
       - ./data:/data
 EOF
 	as_admin 'cd ~/stacks && cp demo-stack/.gitignore repair-demo/.gitignore && git add -A &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -m "Add the repair-demo stack" && git push -q origin main'
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Add the repair-demo stack" && git push -q origin main'
 	restart_service
 	wait_for 'the first run of repair-demo' 240 stack_settled repair-demo succeeded
 	wait_for 'repair-demo healthy' 60 stack_healthy repair-demo
@@ -2411,7 +2411,7 @@ $hook_signing_value
 	log "scenario: repair-demo $(repair_text repair-demo)"
 }
 
-# scenario_repair_end waits until qdeploy gave up on repair-demo and proves that the halt is shown, reported
+# scenario_repair_end waits until qhost gave up on repair-demo and proves that the halt is shown, reported
 # once and released by resume; then it fixes the stack and removes it from the repository.
 scenario_repair_end() {
 	step 'after three attempts the repair is halted, shown in status and the TUI, and reported once'
@@ -2420,10 +2420,10 @@ scenario_repair_end() {
 	repair_text repair-demo | grep -q 'after 3 of 3 attempts' || fail "status does not name the attempts: $(repair_text repair-demo)"
 	wait_for 'the webhook for the failed recovery' 60 hook_has /notify recovery-failed '\"stack\":\"repair-demo\"' '\"attempts\":3'
 	sleep 35
-	[ "$(docker exec "$prefix-hooks" cat /data/requests.jsonl | grep -F '"path":"/notify"' | grep -F '"X-Qdeploy-Event":"recovery-failed"' | grep -cF '\"stack\":\"repair-demo\"')" = 1 ] ||
+	[ "$(docker exec "$prefix-hooks" cat /data/requests.jsonl | grep -F '"path":"/notify"' | grep -F '"X-Qhost-Event":"recovery-failed"' | grep -cF '\"stack\":\"repair-demo\"')" = 1 ] ||
 		fail 'recovery-failed was not sent exactly once'
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qdeploy; echo qdeploy-exit=\$?; sleep 600'" ||
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
 	tui_wait 'repair-demo' 30
 	tui_wait 'halted' 10
@@ -2442,17 +2442,17 @@ scenario_repair_end() {
 	wait_for 'the finding of repair-demo to end' 120 no_finding repair-demo container-failed
 	out=$(qd notify remove rep) || fail "notify remove rep failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q repair-demo &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -m "Remove the repair-demo stack" && git push -q origin main'
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the repair-demo stack" && git push -q origin main'
 	log 'scenario: resume released the repair; repair-demo is fixed and removed'
 }
 
 # scenario_observe_start deploys the stack observe-demo, whose image 1.1.0 turns unhealthy for good 100 seconds
 # after it starts, and updates it to 1.1.0 with a marker in its data before and one after the update. The
-# observation time of the update (60 minutes by default) is running; qdeploy restarts the container once after
+# observation time of the update (60 minutes by default) is running; qhost restarts the container once after
 # the failure began and, if it lasts 5 more minutes, rolls the update back. The delays run in real time;
 # scenario_observe_end checks the outcome after the source scenarios, so they overlap with them. observe-demo is
 # set up after the terminal interface scenario on purpose: its row and containers stay out of the screens there.
-# Every update by qdeploy starts an observation time, also for the other stacks, and none of them needs
+# Every update by qhost starts an observation time, also for the other stacks, and none of them needs
 # update.observe: 0: no later step makes such a stack fail except through a run that rolls itself back (the failing
 # middle step of scenario_update), a stop or a mark that exempts it from repair, or a failure that one restart ends
 # (scenario_container_monitor, which runs before the first update anyway).
@@ -2470,8 +2470,8 @@ services:
       - ./data:/data
 EOF
 	as_admin 'cd ~/stacks && cp demo-stack/.gitignore observe-demo/.gitignore && printf "DEMO_APP_VERSION=1.0.0\n" >observe-demo/.env &&
-		printf "version: 1\nbackup:\n  paths:\n    - data\n" >.qatlas/qdeploy/observe-demo.yaml && git add -A &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -m "Add the observe-demo stack" && git push -q origin main'
+		printf "version: 1\nbackup:\n  paths:\n    - data\n" >.qatlas/qhost/observe-demo.yaml && git add -A &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Add the observe-demo stack" && git push -q origin main'
 	restart_service
 	wait_for 'the first run of observe-demo' 240 stack_settled observe-demo succeeded
 	wait_for 'observe-demo healthy' 60 stack_healthy observe-demo
@@ -2497,7 +2497,7 @@ $hook_signing_value
 	log "scenario: observe-demo updated by commit $observe_update; $(stack_field observe-demo observe)"
 }
 
-# scenario_observe_end waits until qdeploy rolled the update of observe-demo back and proves the outcome: the
+# scenario_observe_end waits until qhost rolled the update of observe-demo back and proves the outcome: the
 # rollback as a run of its own with trigger observe, the backup of the update restored, the revert commit on the
 # branch, rolled-back with cause observation at the webhook and the previous version running; then it removes
 # the stack from the repository.
@@ -2522,7 +2522,7 @@ scenario_observe_end() {
 	as_admin 'cd ~/stacks && git pull -q --ff-only'
 	revert=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
 	[ "$(as_admin "cd ~/stacks && git rev-parse $revert^")" = "$observe_update" ] || fail "the revert commit does not follow the update commit $observe_update"
-	[ "$(as_admin "cd ~/stacks && git log -1 --format='%an|%ae' $revert")" = 'qdeploy|qdeploy@localhost.invalid' ] || fail 'the revert commit is not by qdeploy'
+	[ "$(as_admin "cd ~/stacks && git log -1 --format='%an|%ae' $revert")" = 'qhost|qhost@localhost.invalid' ] || fail 'the revert commit is not by qhost'
 	as_admin "cd ~/stacks && git log -1 --format=%s $revert" | grep -q '^Revert observe-demo to ' ||
 		fail "unexpected subject of the revert commit: $(as_admin "cd ~/stacks && git log -1 --format=%s $revert")"
 	[ "$(as_admin "cd ~/stacks && git rev-parse $revert:observe-demo")" = "$(as_admin "cd ~/stacks && git rev-parse $observe_from:observe-demo")" ] ||
@@ -2541,66 +2541,66 @@ scenario_observe_end() {
 
 	step 'observe-demo leaves the repository'
 	out=$(qd notify remove obs) || fail "notify remove obs failed: $out"
-	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q observe-demo .qatlas/qdeploy/observe-demo.yaml &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -m "Remove the observe-demo stack" && git push -q origin main'
-	log 'scenario: the update of observe-demo was rolled back by qdeploy; observe-demo is removed'
+	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q observe-demo .qatlas/qhost/observe-demo.yaml &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the observe-demo stack" && git push -q origin main'
+	log 'scenario: the update of observe-demo was rolled back by qhost; observe-demo is removed'
 }
 
-# selfupdate_field prints one top-level field of qdeploy update status, run without root.
+# selfupdate_field prints one top-level field of qhost update status, run without root.
 selfupdate_field() {
-	as_admin "qdeploy --output json update status 2>&1" | sed -n "s/.*\"$1\": *\"\{0,1\}\([^\",}]*\).*/\1/p"
+	as_admin "qhost --output json update status 2>&1" | sed -n "s/.*\"$1\": *\"\{0,1\}\([^\",}]*\).*/\1/p"
 }
 
-# service_pid prints the main process ID of the qdeploy service.
+# service_pid prints the main process ID of the qhost service.
 service_pid() {
-	docker exec "$host" systemctl show -p MainPID --value qdeploy
+	docker exec "$host" systemctl show -p MainPID --value qhost
 }
 
 # service_entered prints when the service last became active.
 service_entered() {
-	docker exec "$host" systemctl show -p ActiveEnterTimestampMonotonic --value qdeploy
+	docker exec "$host" systemctl show -p ActiveEnterTimestampMonotonic --value qhost
 }
 
 # installed_sum identifies the installed program and the unit systemd uses.
 installed_sum() {
-	docker exec "$host" sh -c 'sha256sum /usr/local/bin/qdeploy; systemctl cat qdeploy | sha256sum'
+	docker exec "$host" sh -c 'sha256sum /usr/local/bin/qhost; systemctl cat qhost | sha256sum'
 }
 
 service_serving() {
-	[ "$(docker exec "$host" systemctl is-active qdeploy)" = active ] && qd status >/dev/null
+	[ "$(docker exec "$host" systemctl is-active qhost)" = active ] && qd status >/dev/null
 }
 
 # scenario_selfupdate updates the installed service to a newer signed test release and refuses tampered ones.
 scenario_selfupdate() {
-	docker exec "$host" systemctl start qdeploy || fail 'cannot start the qdeploy service'
-	wait_for 'the qdeploy service to answer' 30 service_serving
+	docker exec "$host" systemctl start qhost || fail 'cannot start the qhost service'
+	wait_for 'the qhost service to answer' 30 service_serving
 
 	step 'update status reports the newer test release without root'
 	release_publish v0.2.0
-	[ "$(docker exec "$host" qdeploy version 2>&1 | grep -c v0.1.0)" -ge 1 ] || fail "the installed version is not v0.1.0: $(docker exec "$host" qdeploy version 2>&1)"
-	[ "$(selfupdate_field installed)" = v0.1.0 ] || fail "update status: $(as_admin 'qdeploy --output json update status 2>&1')"
-	[ "$(selfupdate_field latest)" = v0.2.0 ] || fail "update status latest: $(as_admin 'qdeploy --output json update status 2>&1')"
-	[ "$(selfupdate_field update_available)" = true ] || fail "update status: $(as_admin 'qdeploy --output json update status 2>&1')"
-	log "scenario: update status: $(as_admin 'qdeploy --output json update status 2>&1' | tr -d '\n ')"
+	[ "$(docker exec "$host" qhost version 2>&1 | grep -c v0.1.0)" -ge 1 ] || fail "the installed version is not v0.1.0: $(docker exec "$host" qhost version 2>&1)"
+	[ "$(selfupdate_field installed)" = v0.1.0 ] || fail "update status: $(as_admin 'qhost --output json update status 2>&1')"
+	[ "$(selfupdate_field latest)" = v0.2.0 ] || fail "update status latest: $(as_admin 'qhost --output json update status 2>&1')"
+	[ "$(selfupdate_field update_available)" = true ] || fail "update status: $(as_admin 'qhost --output json update status 2>&1')"
+	log "scenario: update status: $(as_admin 'qhost --output json update status 2>&1' | tr -d '\n ')"
 
 	step 'update without root and without --confirm changes nothing'
 	before=$(installed_sum)
-	if out=$(as_admin 'qdeploy update --yes --confirm 2>&1'); then fail "update without root succeeded: $out"; fi
-	if out=$(as_admin 'sudo qdeploy update --yes 2>&1'); then fail "update without --confirm succeeded: $out"; fi
+	if out=$(as_admin 'qhost update --yes --confirm 2>&1'); then fail "update without root succeeded: $out"; fi
+	if out=$(as_admin 'sudo qhost update --yes 2>&1'); then fail "update without --confirm succeeded: $out"; fi
 	[ "$(installed_sum)" = "$before" ] || fail 'a refused update changed the installation'
 
-	step 'sudo qdeploy update installs the newer release and restarts the service'
+	step 'sudo qhost update installs the newer release and restarts the service'
 	pid=$(service_pid) entered=$(service_entered)
-	out=$(as_admin 'sudo qdeploy update --yes --confirm 2>&1') || fail "update failed: $out"
+	out=$(as_admin 'sudo qhost update --yes --confirm 2>&1') || fail "update failed: $out"
 	wait_for 'the updated service' 60 service_serving
 	[ "$(service_pid)" != "$pid" ] && [ "$(service_entered)" != "$entered" ] || fail 'the service was not restarted by the update'
-	docker exec "$host" qdeploy version 2>&1 | grep -q v0.2.0 || fail "the installed version is not v0.2.0: $(docker exec "$host" qdeploy version 2>&1)"
+	docker exec "$host" qhost version 2>&1 | grep -q v0.2.0 || fail "the installed version is not v0.2.0: $(docker exec "$host" qhost version 2>&1)"
 	[ "$(selfupdate_field installed)" = v0.2.0 ] && [ "$(selfupdate_field update_available)" = false ] ||
-		fail "update status after the update: $(as_admin 'qdeploy --output json update status 2>&1')"
-	[ "$(docker exec "$host" cat /etc/systemd/system/qdeploy.service.d/e2e.conf | grep -c backup-image)" = 1 ] || fail 'the update removed the drop-in'
-	docker exec "$host" grep -qx 'ReadWritePaths=-/opt/stacks' /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf ||
+		fail "update status after the update: $(as_admin 'qhost --output json update status 2>&1')"
+	[ "$(docker exec "$host" cat /etc/systemd/system/qhost.service.d/e2e.conf | grep -c backup-image)" = 1 ] || fail 'the update removed the drop-in'
+	docker exec "$host" grep -qx 'ReadWritePaths=-/opt/stacks' /etc/systemd/system/qhost.service.d/10-stack-folders.conf ||
 		fail 'the update removed the stack folder grant'
-	docker exec "$host" systemctl show -p ReadWritePaths qdeploy | grep -qF /opt/stacks || fail 'the updated service has no write access to /opt/stacks'
+	docker exec "$host" systemctl show -p ReadWritePaths qhost | grep -qF /opt/stacks || fail 'the updated service has no write access to /opt/stacks'
 	log "scenario: updated to v0.2.0, pid $pid -> $(service_pid), service answering: $out"
 
 	step 'a release with a tampered checksums.txt is refused and changes nothing'
@@ -2617,7 +2617,7 @@ scenario_selfupdate() {
 	step 'a release with a tampered archive is refused and changes nothing'
 	rm -rf "$bad"
 	cp -r "$good" "$bad"
-	printf 'x' >>"$bad/qdeploy_v0.3.0_linux_$(docker exec "$host" dpkg --print-architecture).tar.gz"
+	printf 'x' >>"$bad/qhost_v0.3.0_linux_$(docker exec "$host" dpkg --print-architecture).tar.gz"
 	release_publish v0.3.0 "$bad"
 	refuse_update v0.3.0
 
@@ -2626,26 +2626,26 @@ scenario_selfupdate() {
 	cp -r "$good" "$bad"
 	ssh-keygen -q -t ed25519 -N '' -C "$prefix-unknown-key" -f "$work/keys/unknown"
 	rm -f "$bad/$signature_asset"
-	(cd "$bad" && ssh-keygen -q -Y sign -f "$work/keys/unknown" -n qdeploy-release checksums.txt)
+	(cd "$bad" && ssh-keygen -q -Y sign -f "$work/keys/unknown" -n qhost-release checksums.txt)
 	release_publish v0.3.0 "$bad"
 	refuse_update v0.3.0
 
-	docker exec "$host" systemctl stop qdeploy
+	docker exec "$host" systemctl stop qhost
 }
 
-# refuse_update requires that sudo qdeploy update fails for the release $1 and that program, unit, version and
+# refuse_update requires that sudo qhost update fails for the release $1 and that program, unit, version and
 # service process stay as they were.
 refuse_update() {
 	before=$(installed_sum) pid=$(service_pid) entered=$(service_entered)
-	if out=$(as_admin 'sudo qdeploy update --yes --confirm 2>&1'); then fail "update accepted a tampered release: $out"; fi
+	if out=$(as_admin 'sudo qhost update --yes --confirm 2>&1'); then fail "update accepted a tampered release: $out"; fi
 	[ "$(installed_sum)" = "$before" ] || fail 'a refused update changed the installation'
 	[ "$(service_pid)" = "$pid" ] && [ "$(service_entered)" = "$entered" ] || fail 'a refused update restarted the service'
-	docker exec "$host" qdeploy version 2>&1 | grep -q v0.2.0 || fail 'a refused update changed the version'
+	docker exec "$host" qhost version 2>&1 | grep -q v0.2.0 || fail 'a refused update changed the version'
 	service_serving || fail 'the service does not answer after a refused update'
 	log "scenario: tampered release $1 refused, installation unchanged: $out"
 }
 
-# window_field prints one field of qdeploy window show (empty when it is absent).
+# window_field prints one field of qhost window show (empty when it is absent).
 window_field() {
 	qd --output json window show | sed -n "s/.*\"$1\": *\"\{0,1\}\([^\",}]*\).*/\1/p"
 }
@@ -2657,7 +2657,7 @@ window_far_away() {
 
 # window_log prints what the service logged about the window and the stacks since it started.
 window_log() {
-	docker exec "$host" journalctl -u qdeploy --no-pager -o cat
+	docker exec "$host" journalctl -u qhost --no-pager -o cat
 }
 
 # stack_run_count prints the number of recorded runs of a stack.
@@ -2681,16 +2681,16 @@ scenario_window() {
 	step 'four stacks wait for 1.1.0: automatic, manual, paused and pinned'
 	prev_stack=$(newest_run demo-stack) prev_cache=$(newest_run demo-cache)
 	as_admin 'cd ~/stacks && git pull -q --ff-only'
-	demo_stack_settings 'update:\n  mode: automatic\n' | as_admin 'cat >"$HOME"/stacks/.qatlas/qdeploy/demo-stack.yaml'
+	demo_stack_settings 'update:\n  mode: automatic\n' | as_admin 'cat >"$HOME"/stacks/.qatlas/qhost/demo-stack.yaml'
 	as_admin 'cd ~/stacks &&
 		for s in demo-paused demo-pinned; do
 			cp -r demo-cache $s && sed -i "s/demo-cache/$s/" $s/compose.yaml &&
 			sed -i "s/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.0.0/" $s/.env &&
-			printf "version: 1\nupdate:\n  mode: automatic\n" >.qatlas/qdeploy/$s.yaml
+			printf "version: 1\nupdate:\n  mode: automatic\n" >.qatlas/qhost/$s.yaml
 		done &&
-		printf "version: 1\nupdate:\n  mode: manual\n" >.qatlas/qdeploy/demo-cache.yaml &&
+		printf "version: 1\nupdate:\n  mode: manual\n" >.qatlas/qhost/demo-cache.yaml &&
 		sed -i "s/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.0.1/" demo-stack/.env demo-cache/.env &&
-		git add -A && git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -m "Prepare the maintenance window stacks" &&
+		git add -A && git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Prepare the maintenance window stacks" &&
 		git push -q origin main'
 	setup_commit=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
 	restart_service
@@ -2702,7 +2702,7 @@ scenario_window() {
 	done
 	for stack in demo-paused demo-pinned; do
 		wait_for "the first run of $stack" 120 stack_idle "$stack"
-		docker exec -u qdeploy "$host" sh -ec "umask 077 && printf 'DEMO_SECRET=%s\n' not-a-real-secret-e2e >/opt/stacks/$stack/secrets.env"
+		docker exec -u qhost "$host" sh -ec "umask 077 && printf 'DEMO_SECRET=%s\n' not-a-real-secret-e2e >/opt/stacks/$stack/secrets.env"
 		out=$(qd --output json stack deploy "$stack") || fail "deploy of $stack failed: $out"
 		run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
 		wait_for "the run $run" 240 run_finished "$stack" "$run"
@@ -2741,7 +2741,7 @@ scenario_window() {
 	[ "$head_before" = "$setup_commit" ] || fail "the stacks repository moved after the setup commit: $head_before"
 
 	step 'the window opens and updates the automatic stack by itself'
-	wait_for 'the window to open' 150 sh -c "docker exec -i $host qdeploy --output json window show | grep -q '\"open\": *true'"
+	wait_for 'the window to open' 150 sh -c "docker exec -i $host qhost --output json window show | grep -q '\"open\": *true'"
 	log "scenario: window open: $(qd --output json window show | tr -d '\n ')"
 	wait_for 'the window work to finish' 300 window_done
 	[ "$(window_field open)" = true ] || fail "the window work ran past the end of the window: $(qd --output json window show)"
@@ -2789,7 +2789,7 @@ scenario_window() {
 }
 
 # The terminal interface is driven in a tmux pane of the administrator, 120 columns by 40 rows. The command
-# keeps the pane after qdeploy ends, so the exit code can be read from the screen.
+# keeps the pane after qhost ends, so the exit code can be read from the screen.
 # The icons of the tab line in the default setting (unicode), which the pane's UTF-8 locale draws; an icon
 # stands between the digit and the name.
 tui_icon_stacks='▤'
@@ -2899,15 +2899,15 @@ scenario_tui() {
 	image=registry.$domain/demo/app
 
 	step 'demo-cache gets a changelog source and a fresh update check'
-	settings_set demo-cache "$(printf 'version: 1\nupdate:\n  mode: manual\n  changelog:\n    DEMO_APP_VERSION: qdeploye2e-org/demo-image\n')"
+	settings_set demo-cache "$(printf 'version: 1\nupdate:\n  mode: manual\n  changelog:\n    DEMO_APP_VERSION: qhoste2e-org/demo-image\n')"
 	printf '%s' "$settings_out" | grep -q '"changed": *true' || fail "settings set did not add the changelog source: $settings_out"
 	qd stack updates --refresh >/dev/null || fail 'updates --refresh failed'
 	out=$(qd stack changelog demo-cache) || fail "changelog failed: $out"
 	printf '%s' "$out" | grep -q 'invented crash' || fail "the changelog of demo-cache has no release notes: $out"
 
-	step 'sudo qdeploy opens the interface and lists the demo stacks'
+	step 'sudo qhost opens the interface and lists the demo stacks'
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qdeploy; echo qdeploy-exit=\$?; sleep 600'" ||
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	for name in demo-stack demo-cache demo-paused demo-pinned; do tui_wait "$name" 30; done
@@ -3072,7 +3072,7 @@ scenario_tui() {
 	count=$(stack_run_count demo-cache)
 	as_admin 'cd ~/stacks && git pull -q --ff-only &&
 		printf "# stopped-stack marker\n" >>demo-cache/.env &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -am "Touch demo-cache while it is stopped in the interface" &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -am "Touch demo-cache while it is stopped in the interface" &&
 		git push -q origin main'
 	pushed=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
 	restart_service
@@ -3334,11 +3334,11 @@ scenario_tui() {
 	tui_wait "2 $tui_icon_detail Stack-Details" 10
 	tui_wait 'q Beenden' 10
 	log 'scenario: the interface switched to Deutsch when the General page was saved:'
-	tui_excerpt 'qdeploy' 4
+	tui_excerpt 'qhost' 4
 	tui_send q
-	tui_wait 'qdeploy-exit=0' 10
+	tui_wait 'qhost-exit=0' 10
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qdeploy; echo qdeploy-exit=\$?; sleep 600'" ||
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
 	tui_wait "2 $tui_icon_detail Stack-Details" 30
 	tui_wait 'demo-stack' 30
@@ -3363,7 +3363,7 @@ scenario_tui() {
 	tui_send 1
 	sleep 0.3
 	tui_send q
-	tui_wait 'qdeploy-exit=0' 10
+	tui_wait 'qhost-exit=0' 10
 	tui_tmux kill-server >/dev/null 2>&1 || true
 }
 
@@ -3394,7 +3394,7 @@ tui_ct_cursor_to() {
 }
 
 # scenario_adopt proves that the interface takes over a foreign Compose project: a person starts the project app
-# below /srv/qd-foreign with docker compose so that qdeploy would pass the same project name (Compose derives app
+# below /srv/qd-foreign with docker compose so that qhost would pass the same project name (Compose derives app
 # from the folder) and the same files (compose.yaml and .env, both directly in the folder, which Compose records
 # in its labels), so the interface shows no warning. The Containers area shows it as foreign with its folder and
 # files, a puts the question of the folder of files, and after yes the folder is a local source with exactly one
@@ -3430,7 +3430,7 @@ EOF2
 
 	step 'the Containers area shows the project as foreign, with its folder and files'
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qdeploy; echo qdeploy-exit=\$?; sleep 600'" ||
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_send 5
@@ -3451,7 +3451,7 @@ EOF2
 	tui_wait 'project: app' 10
 	tui_wait "compose files (labels): $base/compose.yaml" 10
 	tui_wait "Compose reads the file .env of the folder" 10
-	if tui_has 'the running containers'; then fail "the takeover warns although qdeploy would pass the same project and files: $(tui_screen)"; fi
+	if tui_has 'the running containers'; then fail "the takeover warns although qhost would pass the same project and files: $(tui_screen)"; fi
 	if tui_has 'create new containers'; then fail "the takeover warns about new containers: $(tui_screen)"; fi
 	if docker exec "$host" test -e "$base/.git"; then fail 'the question made a repository'; fi
 	if list_has_path "$base"; then fail 'the question bound the folder'; fi
@@ -3462,7 +3462,7 @@ EOF2
 	tui_send y
 	tui_wait "The stack folder $base is added" 120
 	tui_send Enter
-	wait_for 'the qdeploy service to answer' 30 qd status
+	wait_for 'the qhost service to answer' 30 qd status
 	list_has_path "$base" || fail "source list does not show the folder: $(qd --output json source list)"
 	[ "$(qd --output json source list | jq -r --arg p "$base" '.sources[] | select(.path == $p) | .kind')" = local ] || fail 'the folder is not a local source'
 	docker exec "$host" test -d "$base/.git" || fail 'the takeover made no repository'
@@ -3494,7 +3494,7 @@ EOF2
 	if list_has_path "$base"; then fail 'source list still shows the foreign folder'; fi
 	docker exec "$host" sh -ec "cd '$base' && docker compose down" >/dev/null 2>&1 || fail 'cannot shut down the foreign project'
 	docker exec "$host" rm -rf /srv/qd-foreign
-	wait_for 'the qdeploy service to answer' 30 qd status
+	wait_for 'the qhost service to answer' 30 qd status
 }
 
 # --- First setup of a fresh service through the terminal interface only ---
@@ -3558,15 +3558,15 @@ tui_pick_to() {
 # first_setup_reset gives the service a fresh state: no key, credentials, channels, repository or runs, and
 # no containers of the earlier sections.
 first_setup_reset() {
-	docker exec "$host" systemctl stop qdeploy || fail 'cannot stop the qdeploy service'
+	docker exec "$host" systemctl stop qhost || fail 'cannot stop the qhost service'
 	docker exec "$host" sh -ec '
 		for c in $(docker ps -aq --filter label=com.docker.compose.project); do docker rm -f -v "$c" >/dev/null; done
 		for v in $(docker volume ls -q --filter label=com.docker.compose.project); do docker volume rm "$v" >/dev/null; done
-		find /opt/stacks /opt/stacks2 /opt/stacks3 /var/lib/qdeploy -mindepth 1 -delete' || fail 'cannot reset the state of the service'
-	docker exec "$host" systemctl start qdeploy ||
-		fail 'cannot start the fresh qdeploy service'
-	wait_for 'the qdeploy service channel' 20 docker exec "$host" sh -c 'ls /run/qdeploy | grep -q sock'
-	wait_for 'the fresh qdeploy service to answer' 20 qd status
+		find /opt/stacks /opt/stacks2 /opt/stacks3 /var/lib/qhost -mindepth 1 -delete' || fail 'cannot reset the state of the service'
+	docker exec "$host" systemctl start qhost ||
+		fail 'cannot start the fresh qhost service'
+	wait_for 'the qhost service channel' 20 docker exec "$host" sh -c 'ls /run/qhost | grep -q sock'
+	wait_for 'the fresh qhost service to answer' 20 qd status
 }
 
 # first_setup_stack adds the stack demo-echo to the repository: its container name carries the value of the
@@ -3586,10 +3586,10 @@ services:
     volumes:
       - ./data:/data
 EOF
-	printf 'version: 1\nbackup:\n  paths:\n    - data\n  retention:\n    keep: 5\n' | as_admin 'cat >"$HOME"/stacks/.qatlas/qdeploy/demo-echo.yaml'
+	printf 'version: 1\nbackup:\n  paths:\n    - data\n  retention:\n    keep: 5\n' | as_admin 'cat >"$HOME"/stacks/.qatlas/qhost/demo-echo.yaml'
 	printf 'DEMO_APP_VERSION=1.0.1\nDEMO_HEALTH=ok\n' | as_admin 'cat >"$HOME"/stacks/demo-echo/.env'
 	as_admin 'cd ~/stacks && cp demo-cache/.gitignore demo-echo/.gitignore && git add -A &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -m "Add the demo-echo stack" && git push -q origin main'
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Add the demo-echo stack" && git push -q origin main'
 }
 
 # prepare_tui_local makes the repository without a remote that the interface adds as a local stack folder: the demo
@@ -3613,8 +3613,8 @@ EOF2
 	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$local_dir/demo-tui-local/.env'"
 	printf 'secrets.env\ndata/\n' | docker exec -i "$host" sh -ec "cat >'$local_dir/demo-tui-local/.gitignore'"
 	docker exec "$host" sh -ec "cd '$local_dir' && git init -q -b main && git add -A &&
-		git -c user.name='E2E Root' -c user.email=root.qdeploye2e.test commit -q -m 'Add the demo-tui-local stack' &&
-		printf 'DEMO_SECRET=not-a-real-secret\n' >demo-tui-local/secrets.env && chgrp qdeploy demo-tui-local/secrets.env &&
+		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-tui-local stack' &&
+		printf 'DEMO_SECRET=not-a-real-secret\n' >demo-tui-local/secrets.env && chgrp qhost demo-tui-local/secrets.env &&
 		chmod 0640 demo-tui-local/secrets.env" ||
 		fail 'cannot create the local repository'
 	[ -z "$(docker exec "$host" git -C "$local_dir" remote)" ] || fail 'the local repository has a remote'
@@ -3653,9 +3653,9 @@ scenario_tui_setup() {
 	if qd key show >/dev/null; then fail 'the fresh service has a deploy key'; fi
 	if qd credential list | grep -q registry; then fail "the fresh service has credentials: $(qd credential list)"; fi
 
-	step 'sudo qdeploy opens the interface of the fresh service'
+	step 'sudo qhost opens the interface of the fresh service'
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qdeploy; echo qdeploy-exit=\$?; sleep 600'" ||
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_send 1
@@ -3787,7 +3787,7 @@ scenario_tui_setup() {
 	tui_send n
 	tui_wait 'No stack folders yet' 10
 	if list_has_path "$local_dir"; then fail 'the answer n bound the folder'; fi
-	if docker exec "$host" grep -qF "$local_dir" /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf; then
+	if docker exec "$host" grep -qF "$local_dir" /etc/systemd/system/qhost.service.d/10-stack-folders.conf; then
 		fail 'the answer n wrote the drop-in'
 	fi
 	[ "$(docker exec "$host" stat -c '%U:%G %a' "$local_dir")" = "$dir_before" ] || fail 'the answer n changed the permissions of the folder'
@@ -3836,7 +3836,7 @@ scenario_tui_setup() {
 	tui_wait "The stack folder $local_dir is added" 120
 	tui_send Enter
 	list_has_path "$local_dir" || fail "source list does not show the local folder: $(qd --output json source list)"
-	docker exec "$host" grep -qx "ReadWritePaths=-$local_dir" /etc/systemd/system/qdeploy.service.d/10-stack-folders.conf ||
+	docker exec "$host" grep -qx "ReadWritePaths=-$local_dir" /etc/systemd/system/qhost.service.d/10-stack-folders.conf ||
 		fail 'the drop-in does not grant the local folder'
 	tui_send 1
 	tui_wait_stack_folder demo-echo /opt/stacks
@@ -3872,8 +3872,8 @@ scenario_tui_setup() {
 	tui_wait 'DEMO_ECHO_TAG' 10
 	[ "$(docker exec "$host" cat /opt/stacks/demo-echo/secrets.env)" = "DEMO_ECHO_TAG='$tui_stack_value'" ] ||
 		fail "secrets.env does not hold the secret: $(docker exec "$host" cat /opt/stacks/demo-echo/secrets.env)"
-	[ "$(docker exec "$host" stat -c %U:%a /opt/stacks/demo-echo/secrets.env)" = qdeploy:600 ] || fail 'secrets.env has the wrong owner or mode'
-	[ -z "$(docker exec -u qdeploy "$host" git -C /opt/stacks status --porcelain)" ] || fail 'the secret made the working copy dirty'
+	[ "$(docker exec "$host" stat -c %U:%a /opt/stacks/demo-echo/secrets.env)" = qhost:600 ] || fail 'secrets.env has the wrong owner or mode'
+	[ -z "$(docker exec -u qhost "$host" git -C /opt/stacks status --porcelain)" ] || fail 'the secret made the working copy dirty'
 
 	step 'Stacks: the first deploy of demo-echo succeeds; Compose prints the value and the run log hides it'
 	prev=$(newest_run demo-echo)
@@ -3949,7 +3949,7 @@ scenario_tui_setup() {
 	tui_send 1
 	sleep 0.3
 	tui_send q
-	tui_wait 'qdeploy-exit=0' 10
+	tui_wait 'qhost-exit=0' 10
 	tui_tmux kill-server >/dev/null 2>&1 || true
 
 	step 'no masked value shows on a screen, in a run log, in the journal, in a listing or in a file but secrets.env'
@@ -3972,7 +3972,7 @@ $(qd stack log "$id")"
 	if docker exec "$prefix-hooks" cat /data/requests.jsonl | grep -qF -- "$tui_stack_value"; then
 		fail 'the value of the stack secret reached the webhook receiver'
 	fi
-	holders=$(docker exec "$host" grep -rlF -- "$tui_stack_value" /opt/stacks /var/lib/qdeploy 2>/dev/null || true)
+	holders=$(docker exec "$host" grep -rlF -- "$tui_stack_value" /opt/stacks /var/lib/qhost 2>/dev/null || true)
 	[ "$holders" = /opt/stacks/demo-echo/secrets.env ] || fail "the value of the stack secret stands in: $holders"
 	log 'scenario: no masked value on a captured screen, in a run log, the journal or a listing; the secret value only in secrets.env'
 }
@@ -3989,7 +3989,7 @@ scenario_tui_rules() {
 	: >"$tui_log"
 	image=registry.$domain/demo/app
 	rules_stack=demo-rules
-	rules_file=.qatlas/qdeploy/$rules_stack.yaml
+	rules_file=.qatlas/qhost/$rules_stack.yaml
 	guard_stacks='demo-stack demo-paused demo-pinned'
 
 	step 'the stack demo-rules joins the repository without settings and is deployed only'
@@ -4006,7 +4006,7 @@ services:
 EOF2
 	printf 'DEMO_APP_VERSION=1.0.1\nDEMO_HEALTH=ok\n' | as_admin 'cat >"$HOME"/stacks/demo-rules/.env'
 	as_admin 'cd ~/stacks && cp demo-cache/.gitignore demo-rules/.gitignore && git add -A &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -m "Add the demo-rules stack" && git push -q origin main'
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Add the demo-rules stack" && git push -q origin main'
 	restart_service
 	wait_for 'the first run of demo-rules' 240 stack_settled "$rules_stack" succeeded
 	wait_for 'demo-rules healthy' 60 stack_healthy "$rules_stack"
@@ -4018,7 +4018,7 @@ EOF2
 
 	step 'Stack detail: the update rules are set to automatic with ceiling minor after a question'
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qdeploy; echo qdeploy-exit=\$?; sleep 600'" ||
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_send 1
@@ -4053,7 +4053,7 @@ EOF2
 	tui_send 1
 	sleep 0.3
 	tui_send q
-	tui_wait 'qdeploy-exit=0' 10
+	tui_wait 'qhost-exit=0' 10
 	tui_tmux kill-server >/dev/null 2>&1 || true
 
 	step 'the stacks repository holds one commit with the settings file of demo-rules'
@@ -4082,7 +4082,7 @@ EOF2
 	out=$(qd --output json window set --days daily --zone UTC --start "$start" --duration 5m) || fail "window set failed: $out"
 	[ "$(window_field open)" = false ] || fail "the window is open before its start: $(qd --output json window show)"
 	window_last_before=$(window_field last_run)
-	wait_for 'the window to open' 150 sh -c "docker exec -i $host qdeploy --output json window show | grep -q '\"open\": *true'"
+	wait_for 'the window to open' 150 sh -c "docker exec -i $host qhost --output json window show | grep -q '\"open\": *true'"
 	wait_for 'the window work to finish' 300 window_done
 	[ "$(window_field open)" = true ] || fail "the window work ran past the end of the window: $(qd --output json window show)"
 	[ "$(status_field started_at)" = "$started" ] || fail 'the service restarted'
@@ -4127,7 +4127,7 @@ EOF2
 # scenario_tui_backup ticks a named volume in the backup form of the stack detail and lets the next update run
 # back it up. It uses a stack of its own, demo-vol, with one named volume and no bind mount: the stacks of the
 # earlier sections are in their final state and the backup rules of demo-stack are part of the backup and rollback
-# sections. The observation time is set to 0 with qdeploy stack settings set before the form (the form leaves the
+# sections. The observation time is set to 0 with qhost stack settings set before the form (the form leaves the
 # update rules as they are), so that no observation stays open for the sections after this one; the stack stays
 # in the repository, in manual mode, and nothing else acts on it. The update runs through the command line
 # because only its backup step matters here.
@@ -4136,9 +4136,9 @@ scenario_tui_backup() {
 	: >"$tui_log"
 	image=registry.$domain/demo/app
 	vol_stack=demo-vol
-	vol_file=.qatlas/qdeploy/$vol_stack.yaml
+	vol_file=.qatlas/qhost/$vol_stack.yaml
 	vol_name=${vol_stack}_state
-	vol_store=/var/lib/qdeploy/backups/$vol_stack
+	vol_store=/var/lib/qhost/backups/$vol_stack
 
 	step 'the stack demo-vol with a named volume joins the repository and its observation time is set to 0'
 	as_admin 'cd ~/stacks && git pull -q --ff-only && mkdir demo-vol'
@@ -4159,7 +4159,7 @@ volumes:
 EOF2
 	printf 'DEMO_APP_VERSION=1.0.1\nDEMO_HEALTH=ok\n' | as_admin 'cat >"$HOME"/stacks/demo-vol/.env'
 	as_admin 'cd ~/stacks && cp demo-cache/.gitignore demo-vol/.gitignore && git add -A &&
-		git -c user.name="E2E Admin" -c user.email=admin.qdeploye2e.test commit -q -m "Add the demo-vol stack" && git push -q origin main'
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Add the demo-vol stack" && git push -q origin main'
 	restart_service
 	wait_for 'the first run of demo-vol' 240 stack_settled "$vol_stack" succeeded
 	wait_for 'demo-vol healthy' 60 stack_healthy "$vol_stack"
@@ -4174,7 +4174,7 @@ EOF2
 
 	step 'Stack detail: the volume of demo-vol is ticked in the backup form and saved after a question'
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qdeploy; echo qdeploy-exit=\$?; sleep 600'" ||
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_send 1
@@ -4201,7 +4201,7 @@ EOF2
 	tui_send 1
 	sleep 0.3
 	tui_send q
-	tui_wait 'qdeploy-exit=0' 10
+	tui_wait 'qhost-exit=0' 10
 	tui_tmux kill-server >/dev/null 2>&1 || true
 
 	step 'the stacks repository holds one commit that only changes the settings file of demo-vol, with the volume under backup'
@@ -4253,7 +4253,7 @@ scenario_tui_check() {
 	tui_log=$work/tui-check-screens.log
 	: >"$tui_log"
 	check_stack=demo-rules
-	check_file=.qatlas/qdeploy/$check_stack.yaml
+	check_file=.qatlas/qhost/$check_stack.yaml
 	check_url=http://$check_stack.$domain/health
 
 	step 'the stack demo-rules has no settings before the check form'
@@ -4264,7 +4264,7 @@ scenario_tui_check() {
 
 	step 'Stack detail: the HTTP check of demo-rules is switched on and saved after a question'
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qdeploy; echo qdeploy-exit=\$?; sleep 600'" ||
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_send 1
@@ -4330,7 +4330,7 @@ scenario_tui_check() {
 	tui_send 1
 	sleep 0.3
 	tui_send q
-	tui_wait 'qdeploy-exit=0' 10
+	tui_wait 'qhost-exit=0' 10
 	tui_tmux kill-server >/dev/null 2>&1 || true
 
 	step 'the stacks repository holds one commit that only deletes the settings file of demo-rules'

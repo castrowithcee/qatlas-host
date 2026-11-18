@@ -538,7 +538,7 @@ func (c *Client) exchange(ctx context.Context, op string, repo Repo, method, raw
 		return response{}, 0, err
 	}
 	req.Header.Set("Accept", accept)
-	req.Header.Set("User-Agent", "qdeploy")
+	req.Header.Set("User-Agent", "qhost")
 	if auth != "" {
 		req.Header.Set("Authorization", auth)
 	}

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/backup"
-	"github.com/castrowithcee/qatlas-deploy/internal/service/servicetest"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/backup"
+	"github.com/castrowithcee/qatlas-host/internal/service/servicetest"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 const cliBackupID = "20260504T030201Z-0123abcd"

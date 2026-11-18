@@ -10,9 +10,9 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/configfile"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/credentials"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
 )
 
 const exampleURL = "ssh://git.example.test/stacks.git"

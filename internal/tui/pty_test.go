@@ -12,11 +12,11 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/ptytest"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // ptyChild makes the test binary run the interface itself, at the terminal the parent test opened.
-const ptyChild = "QDEPLOY_TUI_PTY_CHILD"
+const ptyChild = "QHOST_TUI_PTY_CHILD"
 
 // The interface starts on a real terminal, draws the stacks and ends cleanly on q.
 func TestInterfaceRunsAtATerminal(t *testing.T) {
@@ -51,7 +51,7 @@ func TestInterfaceRunsAtATerminal(t *testing.T) {
 }
 
 const (
-	ptySecretChild = "QDEPLOY_TUI_PTY_SECRET_DIR"
+	ptySecretChild = "QHOST_TUI_PTY_SECRET_DIR"
 	ptyValue       = "pty-value-Q7Zx-9031-example"
 )
 

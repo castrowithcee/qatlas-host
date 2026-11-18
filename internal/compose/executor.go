@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // Logger is the part of the run log the executor writes to; *engine.Log implements it.
@@ -152,8 +152,8 @@ func logOutput(log Logger, res Result) {
 //	  -f <file> [-f <file> ...] <words>
 //
 // Every compose file is passed with -f in merge order, so COMPOSE_FILE from .env is never consulted and the
-// files are exactly those qdeploy read and validated. An env file is passed only when it exists. The project
-// name is left to Compose when qdeploy resolved it the way Compose does (Stack.NameDerived) and secrets.env
+// files are exactly those qhost read and validated. An env file is passed only when it exists. The project
+// name is left to Compose when qhost resolved it the way Compose does (Stack.NameDerived) and secrets.env
 // cannot change it; otherwise it is forced. It fails, before anything runs, when an env file is unusable or a
 // name is unusable.
 func (x *Executor) command(st stacks.Stack, project string, maxOutput int, words ...string) (Command, error) {
@@ -182,7 +182,7 @@ func (x *Executor) command(st stacks.Stack, project string, maxOutput int, words
 	return Command{Name: dockerProgram, Args: args, Dir: dir, Env: x.Env, MaxOutput: maxOutput}, nil
 }
 
-// inputsOf validates the files of st and returns its absolute folder and the env files qdeploy passes, relative
+// inputsOf validates the files of st and returns its absolute folder and the env files qhost passes, relative
 // to it. It is the one place that decides which files a call gets.
 func inputsOf(st stacks.Stack) (dir string, envFiles []string, secretsSetName bool, err error) {
 	if st.Dir == "" {
@@ -207,7 +207,7 @@ func inputsOf(st stacks.Stack) (dir string, envFiles []string, secretsSetName bo
 	return dir, envFiles, secretsSetName, nil
 }
 
-// DeployInputs is what qdeploy hands to docker compose for a stack, with absolute paths: the project name
+// DeployInputs is what qhost hands to docker compose for a stack, with absolute paths: the project name
 // the containers get and the files in the order of the call.
 type DeployInputs struct {
 	Project      string

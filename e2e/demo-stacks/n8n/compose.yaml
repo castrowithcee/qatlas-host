@@ -1,6 +1,6 @@
 services:
   n8n:
-    image: registry.qdeploye2e.test/n8nio/n8n:${N8N_VERSION}
+    image: registry.qhoste2e.test/n8nio/n8n:${N8N_VERSION}
     restart: unless-stopped
     environment:
       TZ: Europe/Berlin

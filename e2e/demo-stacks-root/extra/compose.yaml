@@ -2,4 +2,4 @@ name: demo-extra
 
 services:
   app:
-    image: registry.qdeploye2e.test/demo/app:1.0.0
+    image: registry.qhoste2e.test/demo/app:1.0.0

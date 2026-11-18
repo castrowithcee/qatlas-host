@@ -14,7 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // testKeyPEM is a freshly generated Ed25519 key in OpenSSH format; it exists only in memory and in test files.

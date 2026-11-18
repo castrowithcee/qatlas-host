@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 func rulesOf(t *testing.T, text string) *stacks.Rules {
@@ -38,7 +38,7 @@ func TestSetSettingsCommitsPushesAndFollows(t *testing.T) {
 		t.Fatalf("set = %q, %v", c, err)
 	}
 	want, _ := stacks.EncodeSettings(rulesOf(t, automaticSettings))
-	if cs := r.copy.commits; len(cs) != 1 || cs[0].Path != ".qatlas/qdeploy/web.yaml" || cs[0].Message != "qdeploy: settings of web" ||
+	if cs := r.copy.commits; len(cs) != 1 || cs[0].Path != ".qatlas/qhost/web.yaml" || cs[0].Message != "qhost: settings of web" ||
 		cs[0].Old != nil || string(cs[0].New) != string(want) || cs[0].Base != commit(1) {
 		t.Fatalf("commits = %+v", cs)
 	}
@@ -166,13 +166,13 @@ func TestRemoveSettingsCommitsTheDeletionAndLeavesDeployOnly(t *testing.T) {
 		t.Fatalf("remove = %q, %v", c, err)
 	}
 	last := r.copy.commits[len(r.copy.commits)-1]
-	if last.Path != ".qatlas/qdeploy/web.yaml" || last.Message != "qdeploy: remove settings of web" || last.Old == nil || last.New != nil {
+	if last.Path != ".qatlas/qhost/web.yaml" || last.Message != "qhost: remove settings of web" || last.Old == nil || last.New != nil {
 		t.Fatalf("commit = %+v", last)
 	}
 	if !slices.Equal(r.copy.pushed, []string{commit(2001), c}) || r.copy.ffTo[len(r.copy.ffTo)-1] != c {
 		t.Fatalf("pushed %v, fast-forwarded to %v", r.copy.pushed, r.copy.ffTo)
 	}
-	if _, err := os.Stat(filepath.Join(r.wc, ".qatlas", "qdeploy", "web.yaml")); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(r.wc, ".qatlas", "qhost", "web.yaml")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("the settings file is still there: %v", err)
 	}
 	if got, err := r.eng.StackSettings(ctx, "web"); err != nil || got != nil {
@@ -227,7 +227,7 @@ func TestRemoveSettingsInLocalModeCommitsLocally(t *testing.T) {
 	if r.copy.head != c {
 		t.Fatalf("head = %s, want %s", r.copy.head, c)
 	}
-	if _, err := os.Stat(filepath.Join(r.wc, ".qatlas", "qdeploy", "web.yaml")); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(filepath.Join(r.wc, ".qatlas", "qhost", "web.yaml")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("the settings file is still there: %v", err)
 	}
 }

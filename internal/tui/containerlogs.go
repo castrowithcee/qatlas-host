@@ -10,7 +10,7 @@ import (
 
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // clogTail is how many of the last lines the first read of a container log asks for.

@@ -10,8 +10,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
 )
 
 // updateCallLimit bounds one update call, which waits for every step of every stack.
@@ -48,10 +48,10 @@ func newUpdateCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"step is done and exits with 1 when a stack was not updated.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return usageFailure("update needs at least one stack", "Run 'qdeploy stack update <stack>... [--version <v> [--var <NAME>]]'.")
+				return usageFailure("update needs at least one stack", "Run 'qhost stack update <stack>... [--version <v> [--var <NAME>]]'.")
 			}
 			if variable != "" && target == "" {
-				return usageFailure("--var needs --version", "Run 'qdeploy stack update <stack> --version <v> --var <NAME>'.")
+				return usageFailure("--var needs --version", "Run 'qhost stack update <stack> --version <v> --var <NAME>'.")
 			}
 			if target != "" && len(args) > 1 {
 				return usageFailure("--version needs exactly one stack", "Name one stack, or leave out --version.")
@@ -71,7 +71,7 @@ func newUpdateCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			if failed > 0 {
 				return &cli.Failure{Code: output.CodeRuntime,
 					Message:  fmt.Sprintf("%d of %d stack(s) were not updated completely", failed, len(res.Stacks)),
-					NextStep: "Find out why with 'qdeploy stack runs <stack>' and 'qdeploy stack log <run>'."}
+					NextStep: "Find out why with 'qhost stack runs <stack>' and 'qhost stack log <run>'."}
 			}
 			return nil
 		},

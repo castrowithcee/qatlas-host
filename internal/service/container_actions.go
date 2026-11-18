@@ -8,8 +8,8 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/docker"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 const (

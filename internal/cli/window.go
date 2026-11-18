@@ -9,7 +9,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 func newWindowCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
@@ -17,15 +17,15 @@ func newWindowCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 		Use:   "window",
 		Short: "Show or change the maintenance window of the host",
 		Long: "In the maintenance window the service asks the registries for the versions of every stack and stores\n" +
-			"the result, as 'qdeploy stack updates --refresh' does. Then it updates the stacks in automatic mode one after\n" +
-			"another, as 'qdeploy stack update <stack>' would, within the ceiling of each stack. A stack in manual mode is\n" +
+			"the result, as 'qhost stack updates --refresh' does. Then it updates the stacks in automatic mode one after\n" +
+			"another, as 'qhost stack update <stack>' would, within the ceiling of each stack. A stack in manual mode is\n" +
 			"only reported in the service log. A stack is skipped, with a log line that says why, when it is paused or\n" +
-			"pinned ('qdeploy stack pause', 'qdeploy stack pin'), paused after a failed rollback, removed, has local changes, a run\n" +
+			"pinned ('qhost stack pause', 'qhost stack pin'), paused after a failed rollback, removed, has local changes, a run\n" +
 			"in progress, was never deployed or has nothing to update.\n\n" +
 			"Nothing new begins once the window has closed, neither a stack nor a further version step of a stepwise\n" +
 			"update; a step that has begun runs to its end. What did not begin waits for the next window. The work runs\n" +
-			"once per opening, also across a restart of the service. 'qdeploy stack update', 'qdeploy stack updates --refresh' and\n" +
-			"'qdeploy stack deploy' work at any time. The window is a setting of the service and kept in its own state.\n" +
+			"once per opening, also across a restart of the service. 'qhost stack update', 'qhost stack updates --refresh' and\n" +
+			"'qhost stack deploy' work at any time. The window is a setting of the service and kept in its own state.\n" +
 			"Only root may use the service channel, so run these commands with sudo.",
 	}
 	show := &cobra.Command{
@@ -70,12 +70,12 @@ func newWindowCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 				name, value string
 			}{{"start", start}, {"duration", duration}, {"zone", zone}} {
 				if flags.Changed(f.name) && f.value == "" {
-					return usageFailure("--"+f.name+" needs a value", "Run 'qdeploy window set --help' for the accepted values.")
+					return usageFailure("--"+f.name+" needs a value", "Run 'qhost window set --help' for the accepted values.")
 				}
 			}
 			if a.Days == nil && a.Start == "" && a.Duration == "" && a.Zone == "" {
 				return usageFailure("window set needs at least one of --days, --start, --duration and --zone",
-					"Run 'qdeploy window set --start 02:30', for example; 'qdeploy window show' prints the window.")
+					"Run 'qhost window set --start 02:30', for example; 'qhost window show' prints the window.")
 			}
 			var res control.WindowResult
 			if err := credentialCall(c, state, control.WindowSetCommand, a, &res); err != nil {

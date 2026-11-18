@@ -12,9 +12,9 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/datadir"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/datadir"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
 )
 
 // datadirAPI is what the command needs from the running service; tests replace it.
@@ -81,14 +81,14 @@ func newDatadirCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 		Use:   "datadir <stack> [--owner UID:GID] [--mode 0750] [--yes]",
 		Short: "Create the missing data directories of a stack and deploy it",
 		Long: "datadir creates the data directories the stack's finding 'data-dir-missing' lists, below the stack folder,\n" +
-			"with the given owner and mode, then starts a run of the stack like 'qdeploy stack deploy'. Without a\n" +
+			"with the given owner and mode, then starts a run of the stack like 'qhost stack deploy'. Without a\n" +
 			"finding it changes nothing. The owner defaults to the one the finding proposes; if it proposes none or\n" +
 			"different ones, give --owner. The mode defaults to 0750 and may hold permission bits only. Existing\n" +
 			"directories are never changed, missing parents are created like the listed directories, and nothing\n" +
 			"outside the stack folder is touched; a symlink on the way refuses the command.\n\n" +
 			"The command prints what it would create and, at a terminal, asks first (default no); without a terminal it\n" +
 			"creates nothing unless --yes is given (with --agent, --yes is always needed). Needs root: run it with\n" +
-			"sudo. See 'qdeploy help data-directories'.",
+			"sudo. See 'qhost help data-directories'.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runDatadir(c, program, gate, newDatadirAPI(c, state), args[0], owner, mode)
@@ -124,7 +124,7 @@ func runDatadir(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate
 	}
 	if !found {
 		return &cli.Failure{Code: output.CodeNotFound, Message: "no such stack: " + stack,
-			NextStep: "List the stacks with 'qdeploy stack list'."}
+			NextStep: "List the stacks with 'qhost stack list'."}
 	}
 	if len(dirs) == 0 {
 		return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{

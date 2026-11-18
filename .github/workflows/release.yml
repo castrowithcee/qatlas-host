@@ -13,8 +13,8 @@ jobs:
     permissions:
       contents: write
     with:
-      program: qdeploy
-      namespace: qdeploy-release
+      program: qhost
+      namespace: qhost-release
       signature-asset: checksums.txt.sig
       environment: release
     secrets:

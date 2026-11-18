@@ -9,7 +9,7 @@ import (
 
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // rootStackFolder is the folder the service reports for a stack whose compose file lies directly in the stack
@@ -65,7 +65,7 @@ func within(dir, file string) bool {
 	return err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
-// adoptWarnings are the differences between what runs and what a deploy by qdeploy would pass to Compose. Each
+// adoptWarnings are the differences between what runs and what a deploy by qhost would pass to Compose. Each
 // one makes the first deploy create new containers; none of them stops the adoption.
 func adoptWarnings(src foreignSource, st control.SourceStack) []adoptProblem {
 	var out []adoptProblem

@@ -12,9 +12,9 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/docker"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/notifier"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/notifier"
 )
 
 const (
@@ -120,7 +120,7 @@ type restartSample struct {
 // repairs a failure by at most engine.MaxRepairAttempts restarts, each under the stack's run slot, and halts the
 // repair when they do not help. A failure in the observation time of an update gets one restart and then the
 // rollback of the update. It holds no engine lock while it talks to Docker. A stack is evaluated only if
-// it was deployed, is not stopped, not paused (a failed rollback or 'qdeploy stack pause' alike) and has no run
+// it was deployed, is not stopped, not paused (a failed rollback or 'qhost stack pause' alike) and has no run
 // or action active; a failed reading marks nothing.
 type containerMonitor struct {
 	monitorConfig
@@ -566,7 +566,7 @@ func (m *containerMonitor) record(name string, f *engine.Failure, services []str
 }
 
 // healthyServices returns the sorted Compose services of the stack if every container that is not stopped
-// through qdeploy and not a completed one-shot runs and is not unhealthy or starting; nil otherwise.
+// through qhost and not a completed one-shot runs and is not unhealthy or starting; nil otherwise.
 func (m *containerMonitor) healthyServices(cs []docker.Container, stopped map[string]bool) []string {
 	set := map[string]bool{}
 	for _, c := range cs {

@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // The goldens of the stack folders in the Stacks area: the rows of the folders, the detail of the marked one,
@@ -95,7 +95,7 @@ func TestGoldenStacksKeyStoreProblem(t *testing.T) {
 func TestGoldenStacksKeyReplaceQuestion(t *testing.T) {
 	goldenScreens(t, "stacks.key.replace", settingsRows, func() *fakeBackend {
 		b := oneFolderBackend()
-		b.key = &control.KeyResult{PublicKey: "ssh-ed25519 AAAAexamplekey qdeploy", Fingerprint: fingerprint}
+		b.key = &control.KeyResult{PublicKey: "ssh-ed25519 AAAAexamplekey qhost", Fingerprint: fingerprint}
 		return b
 	}, seq(toKey, keys("e", "f2"), typed(hiddenA), keys("f2"))...)
 }

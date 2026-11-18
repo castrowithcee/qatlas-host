@@ -1,5 +1,5 @@
 #!/bin/sh
-# Acceptance scenario: a fresh qdeploy installation looks after n8n and BookStack, the way an administrator would
+# Acceptance scenario: a fresh qhost installation looks after n8n and BookStack, the way an administrator would
 # set it up. The service comes from the signed test release with the installer and backs up with its default helper
 # image (no --backup-image option). The first setup goes through the terminal interface only: deploy key, repository
 # with a confirmed host key, maintenance window, a webhook channel and the stack secrets from secrets.example.env.
@@ -15,7 +15,7 @@ acc_hook_path=/acceptance-hook-e2e
 acc_hook_signing=acceptance-signing-value-e2e
 acc_owner_email=owner@acceptance.example.test
 acc_owner_password='Acceptance-Pass-1'
-acc_jar=/tmp/qdeploye2e-n8n.jar
+acc_jar=/tmp/qhoste2e-n8n.jar
 acc_alpha='Acceptance Alpha'
 acc_beta='Acceptance Beta'
 
@@ -164,9 +164,9 @@ acc_first_setup() {
 	tui_log=$work/tui-screens.log
 	: >"$tui_log"
 
-	step 'sudo qdeploy opens the interface of the fresh service'
+	step 'sudo qhost opens the interface of the fresh service'
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qdeploy; echo qdeploy-exit=\$?; sleep 600'" ||
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_send 1
@@ -266,9 +266,9 @@ acc_first_setup() {
 	tui_wait "The stack folder $acc_stacks is bound" 120
 	tui_send Enter
 	docker exec "$host" test -f "$acc_stacks/n8n/compose.yaml" || fail "the clone is missing in $acc_stacks"
-	[ "$(docker exec "$host" stat -c %U:%G:%a "$acc_stacks")" = qdeploy:qdeploy:755 ] ||
-		fail "$acc_stacks is $(docker exec "$host" stat -c %U:%G:%a "$acc_stacks"), want qdeploy:qdeploy:755"
-	docker exec "$host" systemctl show -p ReadWritePaths qdeploy | grep -qF "$acc_stacks" || fail "the service has no write access to $acc_stacks"
+	[ "$(docker exec "$host" stat -c %U:%G:%a "$acc_stacks")" = qhost:qhost:755 ] ||
+		fail "$acc_stacks is $(docker exec "$host" stat -c %U:%G:%a "$acc_stacks"), want qhost:qhost:755"
+	docker exec "$host" systemctl show -p ReadWritePaths qhost | grep -qF "$acc_stacks" || fail "the service has no write access to $acc_stacks"
 	acc "repository bound through the interface, host key $expected confirmed"
 
 	step 'the Stacks area lists n8n and bookstack; their first runs end without secrets'
@@ -316,10 +316,10 @@ VALUES_END
 		stack_secrets=$(printf '%s\n' "$values" | grep -v '^#' | grep -v '^$' | sed "s/^\\([^=]*\\)=\\(.*\\)\$/\\1='\\2'/")
 		[ "$(docker exec "$host" cat "$acc_stacks/$stack/secrets.env")" = "$stack_secrets" ] ||
 			fail "secrets.env of $stack does not hold the example secrets"
-		[ "$(docker exec "$host" stat -c %U:%a "$acc_stacks/$stack/secrets.env")" = qdeploy:600 ] ||
+		[ "$(docker exec "$host" stat -c %U:%a "$acc_stacks/$stack/secrets.env")" = qhost:600 ] ||
 			fail "secrets.env of $stack has the wrong owner or mode"
 	done
-	acc 'secrets of n8n and bookstack set through the interface (mode 600, owner qdeploy)'
+	acc 'secrets of n8n and bookstack set through the interface (mode 600, owner qhost)'
 
 	step 'Stacks: bookstack is deployed without asking'
 	tui_send 1
@@ -359,7 +359,7 @@ VALUES_END
 	wait_for 'n8n to be ready' 120 sh -c "[ \"\$(docker exec $host curl -s -o /dev/null -w %{http_code} http://127.0.0.1:5678/healthz/readiness)\" = 200 ]"
 	acc "data directory of n8n created through the interface ($owner_mode); run $run succeeded and n8n runs"
 	tui_send q
-	tui_wait 'qdeploy-exit=0' 10
+	tui_wait 'qhost-exit=0' 10
 	tui_tmux kill-server >/dev/null 2>&1 || true
 }
 
@@ -382,7 +382,7 @@ acc_update_window() {
 	start=$(date -u -d '+2 minutes' +%H:%M)
 	out=$(qd --output json window set --days daily --zone UTC --start "$start" --duration 25m) || fail "window set failed: $out"
 	window_last_before=$(window_field last_run)
-	wait_for 'the window to open' 180 sh -c "docker exec -i $host qdeploy --output json window show | grep -q '\"open\": *true'"
+	wait_for 'the window to open' 180 sh -c "docker exec -i $host qhost --output json window show | grep -q '\"open\": *true'"
 	wait_for 'the window work to finish' 1500 window_done
 	[ "$(status_field started_at)" = "$started" ] || fail 'the service restarted'
 	stack_images n8n | grep -qx "$N8N_IMAGE:2.47.0" || fail "n8n does not run 2.47.0: $(stack_images n8n)"
@@ -487,29 +487,29 @@ acc_restore_older() {
 acc_slow_git() {
 	if [ "$1" = on ]; then
 		docker exec "$prefix-git" sh -ec '
-			printf "#!/bin/sh\necho slow >>/tmp/qdeploye2e-slow-pack.log\nsleep 15\nexec \"\$@\"\n" >/usr/local/bin/qdeploye2e-slow-pack
-			chmod 755 /usr/local/bin/qdeploye2e-slow-pack
-			rm -f /tmp/qdeploye2e-slow-pack.log
-			git config --system uploadpack.packObjectsHook /usr/local/bin/qdeploye2e-slow-pack'
+			printf "#!/bin/sh\necho slow >>/tmp/qhoste2e-slow-pack.log\nsleep 15\nexec \"\$@\"\n" >/usr/local/bin/qhoste2e-slow-pack
+			chmod 755 /usr/local/bin/qhoste2e-slow-pack
+			rm -f /tmp/qhoste2e-slow-pack.log
+			git config --system uploadpack.packObjectsHook /usr/local/bin/qhoste2e-slow-pack'
 		return
 	fi
-	docker exec "$prefix-git" sh -ec 'git config --system --unset uploadpack.packObjectsHook; rm -f /usr/local/bin/qdeploye2e-slow-pack'
-	slow=$(docker exec "$prefix-git" cat /tmp/qdeploye2e-slow-pack.log 2>/dev/null || true)
-	docker exec "$prefix-git" rm -f /tmp/qdeploye2e-slow-pack.log
+	docker exec "$prefix-git" sh -ec 'git config --system --unset uploadpack.packObjectsHook; rm -f /usr/local/bin/qhoste2e-slow-pack'
+	slow=$(docker exec "$prefix-git" cat /tmp/qhoste2e-slow-pack.log 2>/dev/null || true)
+	docker exec "$prefix-git" rm -f /tmp/qhoste2e-slow-pack.log
 }
 
 # acc_push_note pushes a commit with a new note, so that the next fetch has objects to pack.
 acc_push_note() {
 	as_admin "cd ~/stacks && git pull -q --ff-only && printf '$1\n' >note.txt && git add note.txt &&
-		git -c user.name='E2E Admin' -c user.email=admin.qdeploye2e.test commit -q -m 'Add a note' && git push -q origin main"
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -m 'Add a note' && git push -q origin main"
 }
 
-# acc_list_wait times sudo qdeploy stack list. It sets $waited and $list_rc and leaves the verdict to
+# acc_list_wait times sudo qhost stack list. It sets $waited and $list_rc and leaves the verdict to
 # acc_list_verdict, so the git server can be restored first.
 acc_list_wait() {
 	list_start=$(date +%s%N)
 	list_rc=0
-	as_admin 'sudo qdeploy stack list' >/dev/null || list_rc=$?
+	as_admin 'sudo qhost stack list' >/dev/null || list_rc=$?
 	list_end=$(date +%s%N)
 	waited=$(LC_ALL=C awk -v a="$list_start" -v b="$list_end" 'BEGIN { printf "%.1f", (b - a) / 1e9 }')
 }
@@ -523,7 +523,7 @@ acc_list_verdict() {
 # acc_lock_wait makes the git server slow to pack objects and measures how long a stack list waits during a
 # fetch and during a poll of the engine; each wait must stay within 5 seconds.
 acc_lock_wait() {
-	step 'the git server is made slow, a fetch starts, and sudo qdeploy stack list is timed'
+	step 'the git server is made slow, a fetch starts, and sudo qhost stack list is timed'
 	acc_slow_git on
 	acc_push_note 'invented note'
 	rm -f "$work/fetch.rc"
@@ -540,11 +540,11 @@ acc_lock_wait() {
 	fetched=$(LC_ALL=C awk -v a="$fetch_start" -v b="$fetch_end" 'BEGIN { printf "%.1f", (b - a) / 1e9 }')
 	acc "stack list waited ${waited}s during a fetch (the fetch took ${fetched}s)"
 
-	step 'the git server is made slow, the engine polls after a restart, and sudo qdeploy stack list is timed'
+	step 'the git server is made slow, the engine polls after a restart, and sudo qhost stack list is timed'
 	acc_slow_git on
 	acc_push_note 'another invented note'
 	restart_service
-	wait_for 'the poll to reach the slow packing' 20 docker exec "$prefix-git" test -s /tmp/qdeploye2e-slow-pack.log
+	wait_for 'the poll to reach the slow packing' 20 docker exec "$prefix-git" test -s /tmp/qhoste2e-slow-pack.log
 	polling=
 	poll_done || polling=yes
 	acc_list_wait
@@ -563,19 +563,19 @@ run_acceptance() {
 
 	step 'the stacks repository holds only n8n and bookstack, both in automatic mode'
 	as_admin "rm -rf ~/stacks && git clone -q $repo ~/stacks &&
-		cd ~/stacks && git rm -rq demo-stack demo-cache demo-badpath demo-plain .qatlas/qdeploy/demo-stack.yaml .qatlas/qdeploy/demo-badpath.yaml &&
-		sed -i 's/^update:\$/update:\n  mode: automatic/' .qatlas/qdeploy/n8n.yaml .qatlas/qdeploy/bookstack.yaml &&
-		git -c user.name='E2E Admin' -c user.email=admin.qdeploye2e.test commit -q -am 'Keep n8n and bookstack in automatic mode' &&
+		cd ~/stacks && git rm -rq demo-stack demo-cache demo-badpath demo-plain .qatlas/qhost/demo-stack.yaml .qatlas/qhost/demo-badpath.yaml &&
+		sed -i 's/^update:\$/update:\n  mode: automatic/' .qatlas/qhost/n8n.yaml .qatlas/qhost/bookstack.yaml &&
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -am 'Keep n8n and bookstack in automatic mode' &&
 		git push -q origin main" || fail 'cannot prepare the stacks repository'
 	[ "$(as_admin "ls ~/stacks | tr '\n' ' '")" = 'bookstack n8n ' ] || fail 'the stacks repository does not hold only n8n and bookstack'
-	[ "$(as_admin "ls ~/stacks/.qatlas/qdeploy | tr '\n' ' '")" = 'bookstack.yaml n8n.yaml ' ] || fail 'the stacks repository does not hold only the settings of n8n and bookstack'
+	[ "$(as_admin "ls ~/stacks/.qatlas/qhost | tr '\n' ' '")" = 'bookstack.yaml n8n.yaml ' ] || fail 'the stacks repository does not hold only the settings of n8n and bookstack'
 
 	setup_service default-backup-image
-	if docker exec "$host" test -e /etc/systemd/system/qdeploy.service.d; then fail 'the unit has a drop-in'; fi
-	exec_start=$(docker exec "$host" systemctl show -p ExecStart --value qdeploy)
+	if docker exec "$host" test -e /etc/systemd/system/qhost.service.d; then fail 'the unit has a drop-in'; fi
+	exec_start=$(docker exec "$host" systemctl show -p ExecStart --value qhost)
 	case $exec_start in *backup-image*) fail "the unit passes a backup image: $exec_start" ;; esac
 	if docker exec "$host" test -e "$acc_stacks"; then fail "the installation created the stack folder $acc_stacks"; fi
-	[ "$(docker exec "$host" systemctl is-active qdeploy)" = active ] || fail 'the service does not run after the installation'
+	[ "$(docker exec "$host" systemctl is-active qhost)" = active ] || fail 'the service does not run after the installation'
 	acc 'installed from the test release with the installer; the service runs without --backup-image and without a stack folder'
 
 	acc_first_setup
@@ -611,17 +611,17 @@ run_acceptance() {
 	step 'backups ran with the default helper image, and the database dump of bookstack made by the service user holds the data'
 	docker exec "$host" docker image ls --digests --format '{{.Repository}}@{{.Digest}}' | grep -qx "$(backup_helper_ref)" ||
 		fail "the host does not hold the default helper image $(backup_helper_ref)"
-	dump=$(docker exec "$host" sh -c 'ls -d /var/lib/qdeploy/backups/bookstack/*/command.out | tail -n 1')
-	[ "$(docker exec "$host" stat -c %U "$dump")" = qdeploy ] || fail "the dump $dump does not belong to the service user"
+	dump=$(docker exec "$host" sh -c 'ls -d /var/lib/qhost/backups/bookstack/*/command.out | tail -n 1')
+	[ "$(docker exec "$host" stat -c %U "$dump")" = qhost ] || fail "the dump $dump does not belong to the service user"
 	docker exec "$host" grep -q "$acc_alpha" "$dump" && docker exec "$host" grep -q 'CREATE TABLE' "$dump" ||
 		fail "the database dump $dump does not hold the test data"
-	acc "default helper image $(backup_helper_ref) in use; database dump of bookstack made by qdeploy: $(docker exec "$host" stat -c %s "$dump") bytes with the test data"
+	acc "default helper image $(backup_helper_ref) in use; database dump of bookstack made by qhost: $(docker exec "$host" stat -c %s "$dump") bytes with the test data"
 
 	acc_lock_wait
 
 	step 'the service is stopped'
-	docker exec "$host" systemctl stop qdeploy || fail 'cannot stop the qdeploy service'
-	[ "$(docker exec "$host" systemctl is-active qdeploy || true)" = inactive ] || fail 'the qdeploy service is still active'
+	docker exec "$host" systemctl stop qhost || fail 'cannot stop the qhost service'
+	[ "$(docker exec "$host" systemctl is-active qhost || true)" = inactive ] || fail 'the qhost service is still active'
 	docker exec "$host" rm -f "$acc_jar"
 	acc 'service stopped'
 	log 'acceptance: passed'

@@ -64,7 +64,7 @@ func serveSMTP(conn net.Conn, cfg *tls.Config) map[string]any {
 	secured, authed := false, false
 	user := ""
 	msg := map[string]any{}
-	say("220 mail.qdeploye2e.test ESMTP")
+	say("220 mail.qhoste2e.test ESMTP")
 	for {
 		line, ok := read()
 		if !ok {
@@ -73,7 +73,7 @@ func serveSMTP(conn net.Conn, cfg *tls.Config) map[string]any {
 		verb, rest, _ := strings.Cut(line, " ")
 		switch strings.ToUpper(verb) {
 		case "EHLO", "HELO":
-			say("250-mail.qdeploye2e.test")
+			say("250-mail.qhoste2e.test")
 			if !secured {
 				say("250-STARTTLS")
 			} else {

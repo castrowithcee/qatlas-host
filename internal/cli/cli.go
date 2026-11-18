@@ -1,4 +1,4 @@
-// Package cli defines the command surface of the qdeploy binary. Commands stay thin adapters: they parse
+// Package cli defines the command surface of the qhost binary. Commands stay thin adapters: they parse
 // options, hand typed results to the encoders, and leave errors and exit codes to the kit.
 package cli
 
@@ -12,11 +12,11 @@ import (
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/helptopics"
+	"github.com/castrowithcee/qatlas-host/internal/helptopics"
 )
 
 // version is overridden at build time with
-// -ldflags "-X github.com/castrowithcee/qatlas-deploy/internal/cli.version=<v>".
+// -ldflags "-X github.com/castrowithcee/qatlas-host/internal/cli.version=<v>".
 var version = "dev"
 
 // Run executes the command line against the given streams and returns the process exit code. It never
@@ -40,9 +40,9 @@ func Run(args []string, stdout, stderr io.Writer) int {
 // concerns a stack lives under "stack".
 func newRoot() (*cobra.Command, *cobracli.Program, *notRunning, error) {
 	root := &cobra.Command{
-		Use:   "qdeploy",
+		Use:   "qhost",
 		Short: "Roll out and update the Docker stacks of a Linux host from its stacks repository",
-		Long: "qdeploy runs as a service on a Linux host and keeps the Docker stacks of that host rolled out and\n" +
+		Long: "qhost runs as a service on a Linux host and keeps the Docker stacks of that host rolled out and\n" +
 			"up to date from its stacks repository.",
 		// At a terminal Run starts the interface instead, so the help shows only where no terminal is.
 		RunE: func(c *cobra.Command, _ []string) error { return c.Help() },
@@ -67,7 +67,7 @@ func newRoot() (*cobra.Command, *cobracli.Program, *notRunning, error) {
 func newVersionCommand(program *cobracli.Program) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Print the version of qdeploy",
+		Short: "Print the version of qhost",
 		RunE: func(c *cobra.Command, _ []string) error {
 			return output.Encode(c.OutOrStdout(), program.Format(),
 				output.Object{Fields: []output.Field{{Name: "version", Value: version}}})

@@ -1,6 +1,6 @@
 services:
   app:
-    image: registry.qdeploye2e.test/demo/app:${DEMO_APP_VERSION}
+    image: registry.qhoste2e.test/demo/app:${DEMO_APP_VERSION}
     restart: unless-stopped
     environment:
       DEMO_NAME: demo-stack
