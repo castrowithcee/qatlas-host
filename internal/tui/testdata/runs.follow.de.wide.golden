@@ -9,6 +9,6 @@
   step deploy                                                                                                           
   info pull example/shop:5.2.0                                                                                          
                                                                                                                         
-                                                                                                                        
 [ L mitlaufend ]  [ / Suchen ]  [ T Zeitraum: alle ]  [ w Zeilen umbrechen aus ]  [ t aus ]             Zeilen 1-6 von 6
-/ Suchen  L mitlaufen  T Zeitraum  w Zeilen umbrechen  t Zeitstempel  r Neu laden  1-5 Bereich  q Beenden   ↑/↓ Scrollen
+/ Suchen  L mitlaufen  T Zeitraum  w Zeilen umbrechen  t Zeitstempel  W Log speichern  r Neu laden  1-5 Bereich         
+q Beenden                                                                                                   ↑/↓ Scrollen

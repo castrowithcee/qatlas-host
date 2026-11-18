@@ -108,6 +108,9 @@ const (
 	textSvcLogLevel    kittui.TextID = "svclog.level"
 	textKeySvcLog      kittui.TextID = "key.svclog"
 	textKeyLogLevel    kittui.TextID = "key.loglevel"
+	textKeySaveLog     kittui.TextID = "key.savelog"
+	textLogSaved       kittui.TextID = "log.saved"
+	textLogSaveFailed  kittui.TextID = "log.savefailed"
 	textErrCtLogGone   kittui.TextID = "error.ctlog.gone"
 	textErrCtLogStack  kittui.TextID = "error.ctlog.stack"
 	textErrCtLogSlow   kittui.TextID = "error.ctlog.slow"
@@ -218,6 +221,9 @@ func containerEnglish() map[kittui.TextID]string {
 		textSvcLogLevel:    "level from",
 		textKeySvcLog:      "service log",
 		textKeyLogLevel:    "level",
+		textKeySaveLog:     "save log",
+		textLogSaved:       "Log saved to %s",
+		textLogSaveFailed:  "The log was not saved: %s",
 		textErrCtLogGone:   "this container no longer exists; press {back} to leave the log",
 		textErrCtLogStack:  "this stack is not known to the service; press {back} to leave the log",
 		textErrCtLogSlow:   "the service did not answer in time; press {reload} to try again",
@@ -329,6 +335,9 @@ func containerGerman() map[kittui.TextID]string {
 		textSvcLogLevel:    "Stufe ab",
 		textKeySvcLog:      "Dienstlog",
 		textKeyLogLevel:    "Stufe",
+		textKeySaveLog:     "Log speichern",
+		textLogSaved:       "Log gespeichert unter %s",
+		textLogSaveFailed:  "Das Log wurde nicht gespeichert: %s",
 		textErrCtLogGone:   "diesen Container gibt es nicht mehr; verlasse das Log mit {back}",
 		textErrCtLogStack:  "der Dienst kennt diesen Stack nicht; verlasse das Log mit {back}",
 		textErrCtLogSlow:   "der Dienst hat nicht rechtzeitig geantwortet; drücke {reload}, um es erneut zu versuchen",

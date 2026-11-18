@@ -1,0 +1,14 @@
+◆ qhost  maintenance window closed  [esc] back  [?] help
+  1 2 [3 Runs] 4 5                                      
+────────────────────────────────────────────────────────
+  demo-stack        succeeded  20261030T140200Z-0000000c
+  step deploy                                           
+  info pull example/app:1.4.2                           
+  info up -d finished                                   
+  step verify                                           
+  info all services healthy                             
+[ L on ]  [ / ]  [ T all ]  [ w off ]     lines 5-9 of 9
+Log saved to /home/demo/qhost/qhost-run-                
+20261030T140200Z-0000000c-20261030-180000.log           
+/ search  L follow  T period  w wrap lines  t timestamps
+W save log  r reload  1-5 area  q quit        ↑/↓ scroll
