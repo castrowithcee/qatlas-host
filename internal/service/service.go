@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"time"
 
 	"github.com/castrowithcee/qatlas-kit/docker"
@@ -87,7 +88,16 @@ type Config struct {
 // to end. It fails if the channel cannot be opened.
 func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 	secrets := &redact.Redactor{}
-	log = slog.New(redactHandler{next: log.Handler(), r: secrets})
+	next := log.Handler()
+	var logs *logStore
+	if cfg.StateDir != "" {
+		// The store sits behind the masking, so only masked lines reach the files.
+		logs = newLogStore(filepath.Join(cfg.StateDir, logDirName))
+		next = teeHandler{primary: next, store: logs.handler()}
+	} else {
+		logs = newLogStore("")
+	}
+	log = slog.New(redactHandler{next: next, r: secrets})
 	// The channel's lock must keep a second instance away before opening the store sweeps the temporary
 	// files of a write the first instance may be doing.
 	l, err := cfg.Endpoint.Listen()
@@ -100,6 +110,9 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 		return fmt.Errorf("open the credential store: %w", err)
 	}
 	registry := control.NewRegistry()
+	if err := registerServiceLogCommands(registry, logs, secrets); err != nil {
+		return err
+	}
 	started := time.Now().UTC().Truncate(time.Second)
 	notifier, err := newNotifyService(cfg.StateDir, store, cfg.Notify, secrets, cfg.Version, log)
 	if err != nil {

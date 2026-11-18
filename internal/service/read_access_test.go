@@ -186,6 +186,7 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		control.NotifyListCommand:       {nil},
 		control.ContainerListCommand:    {control.ContainerListArgs{}},
 		control.ContainerGetCommand:     {control.ContainerGetArgs{Name: app.Name}},
+		control.ServiceLogCommand:       {control.ServiceLogArgs{}},
 		control.ContainerLogsCommand:    {control.ContainerLogsArgs{Stack: "plain-stack"}, control.ContainerLogsArgs{Name: app.Name}},
 	}
 	if got, want := slices.Sorted(maps.Keys(reads)), commandsOf(reg, control.AccessRead); !slices.Equal(got, want) {

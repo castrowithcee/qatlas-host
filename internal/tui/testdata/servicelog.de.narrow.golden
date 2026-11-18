@@ -1,0 +1,14 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  1 2 [3 Läufe] 4 5                                     
+────────────────────────────────────────────────────────
+  Dienstlog                                  alle Stufen
+  INFO service started version=1.2.3                    
+  DEBUG poll tick                                       
+  WARN maintenance window without a bound source window…
+  ERROR registry unreachable                            
+                                                        
+                                                        
+                                                        
+[ L an ]  [ / ]  [ T alle ]  [ w aus ]  Zeilen 1-4 von 4
+/ Suchen  L mitlaufen  T Zeitraum  w Zeilen umbrechen   
+t Zeitstempel  V Stufe  r Neu laden  q Beenden          

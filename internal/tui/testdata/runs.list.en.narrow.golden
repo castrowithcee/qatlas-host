@@ -10,5 +10,5 @@
   mail-relay   10-28 03:10  succeeded        poll       
   wiki         10-27 03:10  succeeded        manual     
                                                         
-enter log  / search  f this stack  r reload  1-5 area   
-q quit                                   ↑/↓ choose  1/7
+enter log  / search  f this stack  v service log        
+r reload  1-5 area  q quit               ↑/↓ choose  1/7

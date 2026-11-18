@@ -213,6 +213,57 @@ setup_service() {
 	log "scenario: qhost status answers with and without sudo: $out_plain"
 }
 
+# service_log_warn_count prints how many entries of the service log at the level warn or above say that the window
+# could not read the stacks, read as the administrator without sudo.
+service_log_warn_count() {
+	as_admin 'qhost --output json service log --level warn --tail 0' | grep -c 'maintenance window: the stacks cannot be read' || true
+}
+
+# service_log_warned succeeds when the service log has more such warnings than $warn_before.
+service_log_warned() {
+	[ "$(service_log_warn_count)" -gt "$warn_before" ]
+}
+
+# scenario_service_log proves the service log: a maintenance window that opens while no stacks source is bound
+# writes a warning, and the read command and the terminal interface show it. It runs right after the installation,
+# before a source is bound; the caller moves the window away afterwards.
+scenario_service_log() {
+	step 'a window without a bound source warns, and qhost service log shows the warning without sudo'
+	warn_before=$(service_log_warn_count)
+	# --start has minute granularity: one minute ahead opens the window within the next minute.
+	start=$(date -u -d '+1 minute' +%H:%M)
+	out=$(qd --output json window set --days daily --zone UTC --start "$start" --duration 5m) || fail "window set failed: $out"
+	wait_for 'the warning of the window in the service log' 150 service_log_warned
+	line=$(as_admin 'qhost --output json service log --level warn --tail 0' | grep 'maintenance window: the stacks cannot be read' | tail -n 1)
+	printf '%s' "$line" | grep -q '"level": *"warn"' || fail "the entry is not at the level warn: $line"
+	printf '%s' "$line" | grep -q '"message": *"maintenance window: the stacks cannot be read; nothing is checked or updated"' ||
+		fail "the entry has not the expected message: $line"
+	printf '%s' "$line" | grep -q 'no stacks repository is bound' || fail "the entry does not name the cause: $line"
+	text=$(as_admin 'qhost service log --level warn --tail 0') || fail "qhost service log failed: $text"
+	printf '%s\n' "$text" | grep -q ' WARN  maintenance window: the stacks cannot be read; nothing is checked or updated error="no stacks repository is bound"$' ||
+		fail "the text output does not show the warning line: $text"
+	[ -z "$(as_admin 'qhost service log --level error --tail 0' | grep 'stacks cannot be read')" ] || fail 'the warning shows at the level error'
+	log "scenario: service log: $line"
+
+	step 'the terminal interface shows the same line in the service log of the Runs area'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 3
+	tui_wait 'No runs recorded.' 10
+	tui_send v
+	tui_wait 'Service log' 10
+	tui_wait 'WARN maintenance window: the stacks cannot be read; nothing is checked or updated' 20
+	log 'scenario: the service log of the interface shows the warning:'
+	tui_excerpt 'Service log' 6
+	tui_send Escape
+	tui_wait 'No runs recorded.' 10
+	tui_send q
+	tui_wait 'qhost-exit=0' 10
+	tui_tmux kill-server >/dev/null 2>&1 || true
+}
+
 # scenario_read_access proves the read access without sudo: an administrator of the group qhost reads status,
 # stacks, runs with their logs and container logs, and a change is refused without root and has no effect. A user
 # of the group without sudo and a user outside the group get no data. It needs runs and running containers.
@@ -1127,6 +1178,8 @@ scenario_update() {
 scenario_stacks_repo() {
 	setup_service
 	url=git.$domain:stacks.git
+
+	scenario_service_log
 
 	# The default window (daily 03:00) must not open in the middle of the other sections on a real clock.
 	window_far_away >/dev/null || fail 'cannot move the maintenance window out of the way'

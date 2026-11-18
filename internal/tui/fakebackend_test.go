@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -86,6 +87,11 @@ type fakeBackend struct {
 	ctLogLines []control.ContainerLogLine
 	ctLogPage  int
 	ctLogArgs  []control.ContainerLogsArgs
+	// svcLog are the entries of the service log in time order, svcPage the most entries one answer holds (zero:
+	// no limit) and svcArgs the arguments of the calls made.
+	svcLog  []control.ServiceLogEntry
+	svcPage int
+	svcArgs []control.ServiceLogArgs
 }
 
 func (f *fakeBackend) count(name string) {
@@ -871,5 +877,46 @@ func (f *fakeBackend) ContainerLogs(_ context.Context, a control.ContainerLogsAr
 	if len(sel) > 0 {
 		res.Cursor = sel[len(sel)-1].Time.Add(time.Nanosecond)
 	}
+	return res, nil
+}
+
+var svcLevelRank = map[string]int{control.LogLevelDebug: 0, control.LogLevelInfo: 1, control.LogLevelWarn: 2, control.LogLevelError: 3}
+
+// ServiceLog answers like the service from svcLog: by level, time and cursor (the number of entries already
+// looked at), keeps the last Tail entries and cuts a page at svcPage entries. An error set in errs under
+// "servicelog:" fails the call.
+func (f *fakeBackend) ServiceLog(_ context.Context, a control.ServiceLogArgs) (control.ServiceLogResult, error) {
+	f.count("servicelog")
+	if err := f.fail("servicelog", ""); err != nil {
+		return control.ServiceLogResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.svcArgs = append(f.svcArgs, a)
+	from := 0
+	if a.Cursor != "" {
+		from, _ = strconv.Atoi(a.Cursor)
+	}
+	res := control.ServiceLogResult{Entries: []control.ServiceLogEntry{}}
+	var idx []int
+	for i := from; i < len(f.svcLog); i++ {
+		e := f.svcLog[i]
+		if !a.Since.IsZero() && e.Time.Before(a.Since) || a.Level != "" && svcLevelRank[e.Level] < svcLevelRank[a.Level] {
+			continue
+		}
+		idx = append(idx, i)
+	}
+	if a.Tail > 0 && len(idx) > a.Tail {
+		idx = idx[len(idx)-a.Tail:]
+	}
+	pos := len(f.svcLog)
+	if f.svcPage > 0 && len(idx) > f.svcPage {
+		idx, res.More = idx[:f.svcPage], true
+		pos = idx[len(idx)-1] + 1
+	}
+	for _, i := range idx {
+		res.Entries = append(res.Entries, f.svcLog[i])
+	}
+	res.Cursor = strconv.Itoa(pos)
 	return res, nil
 }

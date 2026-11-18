@@ -60,6 +60,9 @@ const (
 	actDataDirs kittui.ActionID = "datadirs"
 	// actContainerLogs opens the output of a container, or of a whole stack in the stack detail.
 	actContainerLogs kittui.ActionID = "containerlogs"
+	// actServiceLog opens the log of the service from the Runs list, actLogLevel chooses its minimum level.
+	actServiceLog kittui.ActionID = "servicelog"
+	actLogLevel   kittui.ActionID = "loglevel"
 	// actBackup and actCompose open the backup and the compose file forms in the stack detail.
 	actBackup  kittui.ActionID = "backupform"
 	actCompose kittui.ActionID = "composeform"
@@ -121,6 +124,8 @@ func keyTable() []kittui.Action {
 		act(actRestore, kittui.LevelLetter, textKeyRestore, "R"),
 		act(actDataDirs, kittui.LevelLetter, textKeyDataDirs, "m"),
 		act(actContainerLogs, kittui.LevelLetter, textKeyLog, "o"),
+		act(actServiceLog, kittui.LevelLetter, textKeySvcLog, "v"),
+		act(actLogLevel, kittui.LevelLetter, textKeyLogLevel, "V"),
 		act(actBackup, kittui.LevelLetter, textKeyBackupForm, "b"),
 		act(actCompose, kittui.LevelLetter, textKeyComposeForm, "C"),
 		act(actCheckForm, kittui.LevelLetter, textKeyCheckForm, "k"),

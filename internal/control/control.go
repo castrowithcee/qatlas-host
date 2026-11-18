@@ -1477,6 +1477,63 @@ type ContainerLogLine struct {
 	Truncated bool      `json:"truncated,omitempty"`
 }
 
+// ServiceLogCommand reads the service's own log, newest last. Only text, never a stream: a client that follows
+// asks again with the Cursor of the last answer.
+const ServiceLogCommand = "service.log"
+
+// ServiceLogMaxTail is the largest Tail.
+const ServiceLogMaxTail = 5000
+
+// The levels of ServiceLogArgs.Level and ServiceLogEntry.Level, lowest first.
+const (
+	LogLevelDebug = "debug"
+	LogLevelInfo  = "info"
+	LogLevelWarn  = "warn"
+	LogLevelError = "error"
+)
+
+// ServiceLogArgs are the arguments of ServiceLogCommand. Source names the service whose log is read; empty
+// means all, and today the only one is ServiceLogSourceHost. Since keeps entries from that time on (inclusive;
+// zero means unbounded). Level keeps entries of at least that level; empty means all. Tail keeps only the last
+// n entries (zero means all) and cannot be combined with Cursor. Cursor is the Cursor of an earlier answer: only
+// entries written after it are returned, which is how a client continues without gaps or repeats.
+type ServiceLogArgs struct {
+	Source string    `json:"source,omitempty"`
+	Since  time.Time `json:"since,omitzero"`
+	Level  string    `json:"level,omitempty"`
+	Tail   int       `json:"tail,omitempty"`
+	Cursor string    `json:"cursor,omitempty"`
+}
+
+// ServiceLogSourceHost is the Source of the entries the qhost service writes.
+const ServiceLogSourceHost = "qhost"
+
+// ServiceLogResult answers ServiceLogCommand with the entries in the order they were written. An answer carries
+// entries up to a byte budget well below MaxResponseBytes; More is set when further entries were left out. Cursor
+// is opaque and always set: pass it back to continue after the last entry looked at, also when no entry matched.
+type ServiceLogResult struct {
+	Entries []ServiceLogEntry `json:"entries"`
+	More    bool              `json:"more,omitempty"`
+	Cursor  string            `json:"cursor,omitempty"`
+}
+
+// ServiceLogEntry is one entry. Source is the service that wrote it. Message and attribute values are redacted
+// and have control characters masked, and are cut when very long; Attrs are sorted by key, and the key of an
+// attribute in a group is the group names and the key joined by dots.
+type ServiceLogEntry struct {
+	Time    time.Time        `json:"time"`
+	Level   string           `json:"level"`
+	Source  string           `json:"source"`
+	Message string           `json:"message"`
+	Attrs   []ServiceLogAttr `json:"attrs,omitempty"`
+}
+
+// ServiceLogAttr is one attribute of an entry.
+type ServiceLogAttr struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 // The codes of a container engine that cannot be used; a missing container is CodeNotFound and an answer
 // beyond MaxResponseBytes is CodeTooLarge.
 const (
