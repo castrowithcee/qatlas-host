@@ -37,6 +37,8 @@ type Backend interface {
 	Container(ctx context.Context, name string) (control.ContainerDetail, error)
 	// ContainerLogs reads a page of the output of one container or of all containers of an own stack.
 	ContainerLogs(ctx context.Context, args control.ContainerLogsArgs) (control.ContainerLogsResult, error)
+	// ServiceLog reads a page of the log of the service itself.
+	ServiceLog(ctx context.Context, args control.ServiceLogArgs) (control.ServiceLogResult, error)
 
 	// The calls below change something in the service; the interface makes them only after a confirmation.
 
@@ -379,6 +381,11 @@ func (b *ChannelBackend) Container(ctx context.Context, name string) (res contro
 
 func (b *ChannelBackend) ContainerLogs(ctx context.Context, args control.ContainerLogsArgs) (res control.ContainerLogsResult, err error) {
 	err = client.Do(ctx, b.endpoint, control.ContainerLogsTimeout+client.CallTimeout, control.ContainerLogsCommand, args, &res)
+	return res, err
+}
+
+func (b *ChannelBackend) ServiceLog(ctx context.Context, args control.ServiceLogArgs) (res control.ServiceLogResult, err error) {
+	err = b.call(ctx, control.ServiceLogCommand, args, &res)
 	return res, err
 }
 

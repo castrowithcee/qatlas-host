@@ -561,6 +561,10 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			if cmd, ok := m.openContainerLogs(); ok {
 				return cmd
 			}
+		case actServiceLog:
+			if cmd, ok := m.openServiceLog(); ok {
+				return cmd
+			}
 		case actFetch, actAdd, actRemove, actEdit, actTest, actEnter, actRestore, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actRemote:
 			switch m.area {
 			case areaSettings:
@@ -899,6 +903,9 @@ func (m *Model) footer() []kittui.Hint {
 		if m.clog.view.Searching() || m.clog.view.FilterOpen() {
 			return m.clog.view.Hints()
 		}
+		if m.clog.service {
+			common = append([]kittui.Hint{{Action: actLogLevel, Label: textKeyLogLevel, Priority: 2}}, common...)
+		}
 		return append(m.clog.view.Hints(), common...)
 	case m.area == areaSettings:
 		return m.settingsFooter(common, nav)
@@ -934,7 +941,7 @@ func (m *Model) footer() []kittui.Hint {
 		return append(m.log.view.Hints(), common...)
 	case m.area == areaRuns:
 		return m.listFooter(m.runsList, len(m.runByID), textKeyLog, append(
-			[]kittui.Hint{m.stackOnlyHint()}, common...), nav)
+			[]kittui.Hint{m.stackOnlyHint(), {Action: actServiceLog, Label: textKeySvcLog, Priority: 2}}, common...), nav)
 	case m.area == areaStacks:
 		return m.stacksFooter(common, nav)
 	}

@@ -102,10 +102,15 @@ const (
 	textErrCtEngineSlow  kittui.TextID = "error.ctact.engineslow"
 	textErrCtSlow        kittui.TextID = "error.ctact.slow"
 
-	textCtLogStack    kittui.TextID = "ct.log.stack"
-	textErrCtLogGone  kittui.TextID = "error.ctlog.gone"
-	textErrCtLogStack kittui.TextID = "error.ctlog.stack"
-	textErrCtLogSlow  kittui.TextID = "error.ctlog.slow"
+	textCtLogStack     kittui.TextID = "ct.log.stack"
+	textSvcLogTitle    kittui.TextID = "svclog.title"
+	textSvcLogLevelAll kittui.TextID = "svclog.level.all"
+	textSvcLogLevel    kittui.TextID = "svclog.level"
+	textKeySvcLog      kittui.TextID = "key.svclog"
+	textKeyLogLevel    kittui.TextID = "key.loglevel"
+	textErrCtLogGone   kittui.TextID = "error.ctlog.gone"
+	textErrCtLogStack  kittui.TextID = "error.ctlog.stack"
+	textErrCtLogSlow   kittui.TextID = "error.ctlog.slow"
 )
 
 func containerEnglish() map[kittui.TextID]string {
@@ -207,10 +212,15 @@ func containerEnglish() map[kittui.TextID]string {
 		textErrCtEngineSlow:  "the container engine did not answer in time; check the state of the container before you try again",
 		textErrCtSlow:        "the service did not answer in time; check the state of the container before you try again",
 
-		textCtLogStack:    "all containers",
-		textErrCtLogGone:  "this container no longer exists; press {back} to leave the log",
-		textErrCtLogStack: "this stack is not known to the service; press {back} to leave the log",
-		textErrCtLogSlow:  "the service did not answer in time; press {reload} to try again",
+		textCtLogStack:     "all containers",
+		textSvcLogTitle:    "Service log",
+		textSvcLogLevelAll: "all levels",
+		textSvcLogLevel:    "level from",
+		textKeySvcLog:      "service log",
+		textKeyLogLevel:    "level",
+		textErrCtLogGone:   "this container no longer exists; press {back} to leave the log",
+		textErrCtLogStack:  "this stack is not known to the service; press {back} to leave the log",
+		textErrCtLogSlow:   "the service did not answer in time; press {reload} to try again",
 	}
 }
 
@@ -313,9 +323,14 @@ func containerGerman() map[kittui.TextID]string {
 		textErrCtEngineSlow:  "die Container-Engine hat nicht rechtzeitig geantwortet; prüfe den Zustand des Containers, bevor du es erneut versuchst",
 		textErrCtSlow:        "der Dienst hat nicht rechtzeitig geantwortet; prüfe den Zustand des Containers, bevor du es erneut versuchst",
 
-		textCtLogStack:    "alle Container",
-		textErrCtLogGone:  "diesen Container gibt es nicht mehr; verlasse das Log mit {back}",
-		textErrCtLogStack: "der Dienst kennt diesen Stack nicht; verlasse das Log mit {back}",
-		textErrCtLogSlow:  "der Dienst hat nicht rechtzeitig geantwortet; drücke {reload}, um es erneut zu versuchen",
+		textCtLogStack:     "alle Container",
+		textSvcLogTitle:    "Dienstlog",
+		textSvcLogLevelAll: "alle Stufen",
+		textSvcLogLevel:    "Stufe ab",
+		textKeySvcLog:      "Dienstlog",
+		textKeyLogLevel:    "Stufe",
+		textErrCtLogGone:   "diesen Container gibt es nicht mehr; verlasse das Log mit {back}",
+		textErrCtLogStack:  "der Dienst kennt diesen Stack nicht; verlasse das Log mit {back}",
+		textErrCtLogSlow:   "der Dienst hat nicht rechtzeitig geantwortet; drücke {reload}, um es erneut zu versuchen",
 	}
 }

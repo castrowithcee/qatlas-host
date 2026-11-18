@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,11 +34,17 @@ type containerLog struct {
 	busy, pending bool
 	// gen tells the answers of a log that was left or reloaded from those of the current one.
 	gen int
+	// service marks the log of the service itself, shown in the Runs area: it has no container and no stack,
+	// level is the minimum level it asks for (empty: all) and scursor the opaque cursor of its next read.
+	service bool
+	level   string
+	scursor string
 }
 
 type containerLogMsg struct {
 	gen int
 	res control.ContainerLogsResult
+	svc control.ServiceLogResult
 	err error
 }
 
@@ -63,6 +70,61 @@ func (m *Model) openContainerLogs() (cmd tea.Cmd, ok bool) {
 		}
 	}
 	return nil, false
+}
+
+// serviceLogLevels are the minimum levels the level key cycles through; the first, empty, shows everything.
+var serviceLogLevels = []string{"", control.LogLevelInfo, control.LogLevelWarn, control.LogLevelError}
+
+// openServiceLog opens the log of the service from the Runs list; ok is false on any other screen.
+func (m *Model) openServiceLog() (cmd tea.Cmd, ok bool) {
+	if m.area != areaRuns || m.log.open || m.clog.open {
+		return nil, false
+	}
+	view, err := m.newLogView(kittui.LogFilter{})
+	if err != nil {
+		m.failure = m.text.Lookup(kittui.TextError, err.Error())
+		return nil, true
+	}
+	m.clog = containerLog{open: true, area: m.area, service: true, view: view, gen: m.clog.gen + 1}
+	return m.readContainerLog(), true
+}
+
+// cycleServiceLogLevel chooses the next minimum level and reads the log again from its last lines.
+func (m *Model) cycleServiceLogLevel() tea.Cmd {
+	l := &m.clog
+	for i, v := range serviceLogLevels {
+		if v == l.level {
+			l.level = serviceLogLevels[(i+1)%len(serviceLogLevels)]
+			break
+		}
+	}
+	return m.reloadContainerLog(true)
+}
+
+// serviceLogArgs asks for the last entries of the period, or, once entries have arrived, for those after them.
+func (m *Model) serviceLogArgs() control.ServiceLogArgs {
+	l := &m.clog
+	if l.scursor != "" {
+		return control.ServiceLogArgs{Level: l.level, Cursor: l.scursor}
+	}
+	since, _ := l.view.Filter().Bounds(m.now())
+	return control.ServiceLogArgs{Level: l.level, Since: since, Tail: clogTail}
+}
+
+// serviceLogText is the text of one entry: its level, the message and the attributes.
+func serviceLogText(e control.ServiceLogEntry) string {
+	var b strings.Builder
+	b.WriteString(strings.ToUpper(e.Level))
+	b.WriteByte(' ')
+	b.WriteString(e.Message)
+	for _, a := range e.Attrs {
+		v := a.Value
+		if v == "" || strings.ContainsAny(v, " \t\"=") {
+			v = strconv.Quote(v)
+		}
+		b.WriteString(" " + a.Key + "=" + v)
+	}
+	return b.String()
 }
 
 // showContainerLog opens the log view and asks for the last lines.
@@ -96,7 +158,15 @@ func (m *Model) containerLogArgs() control.ContainerLogsArgs {
 func (m *Model) readContainerLog() tea.Cmd {
 	l := &m.clog
 	l.busy = true
-	ctx, b, gen, args := m.ctx, m.backend, l.gen, m.containerLogArgs()
+	ctx, b, gen := m.ctx, m.backend, l.gen
+	if l.service {
+		args := m.serviceLogArgs()
+		return func() tea.Msg {
+			res, err := b.ServiceLog(ctx, args)
+			return containerLogMsg{gen: gen, svc: res, err: err}
+		}
+	}
+	args := m.containerLogArgs()
 	return func() tea.Msg {
 		res, err := b.ContainerLogs(ctx, args)
 		return containerLogMsg{gen: gen, res: res, err: err}
@@ -113,6 +183,20 @@ func (m *Model) applyContainerLog(msg containerLogMsg) tea.Cmd {
 	l.busy, l.loaded = false, true
 	if l.err = msg.err; msg.err != nil {
 		return nil
+	}
+	if l.service {
+		lines := make([]kittui.LogLine, len(msg.svc.Entries))
+		for i, e := range msg.svc.Entries {
+			lines[i] = kittui.LogLine{Text: serviceLogText(e), Time: e.Time.In(m.loc)}
+		}
+		l.view.Append(lines...)
+		if msg.svc.Cursor != "" {
+			l.scursor = msg.svc.Cursor
+		}
+		if msg.svc.More {
+			return m.readContainerLog()
+		}
+		return m.followContainerLog()
 	}
 	lines := make([]kittui.LogLine, len(msg.res.Lines))
 	for i, ln := range msg.res.Lines {
@@ -162,7 +246,7 @@ func (m *Model) reloadContainerLog(fresh bool) tea.Cmd {
 	l := &m.clog
 	if fresh {
 		l.view.Clear()
-		l.cursor, l.err, l.loaded, l.busy, l.pending = time.Time{}, nil, false, false, false
+		l.cursor, l.scursor, l.err, l.loaded, l.busy, l.pending = time.Time{}, "", nil, false, false, false
 		l.gen++
 	} else if l.busy {
 		return nil
@@ -202,6 +286,10 @@ func (m *Model) containerLogKey(msg tea.KeyPressMsg) tea.Cmd {
 				m.closeContainerLog()
 			}
 			return nil
+		case actLogLevel:
+			if l.service {
+				return m.cycleServiceLogLevel()
+			}
 		}
 	}
 	l.view.Update(msg)
@@ -221,6 +309,12 @@ func (m *Model) afterContainerLogKey() tea.Cmd {
 func (m *Model) containerLogErrorText(err error) string {
 	t := m.text
 	var remote *control.Error
+	if m.clog.service {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return t.Lookup(kittui.TextError, t.Lookup(textErrCtLogSlow))
+		}
+		return m.errorText(err)
+	}
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
 		return t.Lookup(kittui.TextError, t.Lookup(textErrCtLogSlow))
@@ -239,6 +333,12 @@ func (m *Model) containerLogPane(width, height int) string {
 	title, note := l.name, ""
 	if l.stack != "" {
 		title, note = l.stack, m.text.Lookup(textCtLogStack)
+	}
+	if l.service {
+		title, note = m.text.Lookup(textSvcLogTitle), m.text.Lookup(textSvcLogLevelAll)
+		if l.level != "" {
+			note = m.text.Lookup(textSvcLogLevel) + " " + l.level
+		}
 	}
 	lines := []string{"  " + m.styles.TitleLine(title, note, max(width-2, 1))}
 	switch {

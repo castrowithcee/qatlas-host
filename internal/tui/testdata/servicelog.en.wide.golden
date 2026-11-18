@@ -1,0 +1,14 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail  [3 ▶ Runs]  4 ⚙ Settings   5 ▦ Containers                                             
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Service log                                                                                                 all levels
+  INFO service started version=1.2.3                                                                                    
+  DEBUG poll tick                                                                                                       
+  WARN maintenance window without a bound source window="night shift"                                                   
+  ERROR registry unreachable                                                                                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+[ L following ]  [ / search ]  [ T period: all ]  [ w wrap lines off ]  [ t timestamps off ]              lines 1-4 of 4
+/ search  L follow  T period  w wrap lines  t timestamps  V level  r reload  1-5 area  q quit                 ↑/↓ scroll
