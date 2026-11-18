@@ -2,7 +2,8 @@
 # Scenario: from the simulated host, clone the demo stacks repository over SSH and push a commit; then check
 # the demo image tags and that a demo container turns unhealthy on purpose. Then install qhost on the host
 # from a signed test release with the release installer, which sets up the service, and check its user, group
-# and directories and that status needs root. Then bind the stacks repository with its own deploy key, list the
+# and directories, that the installing admin joins the group qhost and that an administrator of the group reads
+# status without sudo while a change needs root. Then bind the stacks repository with its own deploy key, list the
 # stacks, deploy a new commit, show the available image versions per update ceiling without changing anything,
 # roll back a commit with a failing healthcheck (data restored from the run's backup, revert commit on the
 # remote), leave a stack whose rollback fails stopped and paused until resume, and refuse a changed host key of the git server.
@@ -34,6 +35,19 @@ signature_asset=checksums.txt.sig
 
 as_admin() {
 	docker exec -i -u "$admin" "$host" sh -ec "$*"
+}
+
+# as_user runs a command on the host as the test user $1.
+as_user() {
+	user=$1
+	shift
+	docker exec -i -u "$user" "$host" sh -c "$*" </dev/null
+}
+
+# ensure_user creates the test user $1 without sudo rights and without the group qhost, if it is missing.
+ensure_user() {
+	docker exec "$host" id "$1" >/dev/null 2>&1 || docker exec "$host" useradd --create-home --shell /bin/bash "$1" ||
+		fail "cannot create the test user $1"
 }
 
 step() {
@@ -185,14 +199,65 @@ setup_service() {
 	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost)" = qhost:qhost:750 ] ||
 		fail "/run/qhost is $(docker exec "$host" stat -c %U:%G:%a /run/qhost), want qhost:qhost:750"
 	[ "$(docker exec "$host" stat -c %a /var/lib/qhost)" = 700 ] || fail "/var/lib/qhost has the mode $(docker exec "$host" stat -c %a /var/lib/qhost), want 700"
-	if as_admin 'ls /run/qhost' >/dev/null 2>&1; then fail 'another user can list /run/qhost'; fi
+	ensure_user e2e-outsider
+	if as_user e2e-outsider 'ls /run/qhost' >/dev/null 2>&1; then fail 'a user outside the group qhost can list /run/qhost'; fi
 	log "scenario: qhost runs as pid $pid, user qhost, group docker; /run/qhost qhost:qhost 750, /var/lib/qhost 700"
 
-	step 'status needs root'
+	step 'the installing admin is in the group qhost and reads status without sudo'
+	docker exec "$host" id -nG "$admin" | tr ' ' '\n' | grep -qx qhost || fail "the installer did not add $admin to the group qhost: $(docker exec "$host" id -nG "$admin")"
+	as_admin 'id -nG' | tr ' ' '\n' | grep -qx qhost || fail "$admin has no group qhost in a new session: $(as_admin 'id -nG')"
 	out=$(as_admin 'sudo qhost status 2>&1') || fail "sudo qhost status failed: $out"
 	printf '%s' "$out" | grep -qi 'running\|started\|uptime\|version' || fail "sudo qhost status does not show the service: $out"
-	if out_plain=$(as_admin 'qhost status 2>&1'); then fail "qhost status without root succeeded: $out_plain"; fi
-	log "scenario: sudo qhost status answers; without root: $out_plain"
+	out_plain=$(as_admin 'qhost status 2>&1') || fail "qhost status without sudo failed for an administrator of the group qhost: $out_plain"
+	printf '%s' "$out_plain" | grep -qi 'running\|started\|uptime\|version' || fail "qhost status without sudo does not show the service: $out_plain"
+	log "scenario: qhost status answers with and without sudo: $out_plain"
+}
+
+# scenario_read_access proves the read access without sudo: an administrator of the group qhost reads status,
+# stacks, runs with their logs and container logs, and a change is refused without root and has no effect. A user
+# of the group without sudo and a user outside the group get no data. It needs runs and running containers.
+scenario_read_access() {
+	step 'an administrator of the group qhost reads stacks, runs and container logs without sudo'
+	run=$(newest_run demo-stack)
+	[ -n "$run" ] || fail 'demo-stack has no recorded run to read'
+	name=$(docker exec "$host" docker ps --filter label=com.docker.compose.project=demo-stack --format '{{.Names}}' | head -n 1)
+	[ -n "$name" ] || fail 'no container of demo-stack runs'
+	out=$(as_admin 'qhost --output json status 2>&1') || fail "qhost status without sudo failed: $out"
+	printf '%s' "$out" | grep -q demo-stack || fail "qhost status without sudo does not show demo-stack: $out"
+	out=$(as_admin 'qhost stack list 2>&1') || fail "qhost stack list without sudo failed: $out"
+	printf '%s' "$out" | grep -q demo-stack || fail "qhost stack list without sudo does not show demo-stack: $out"
+	out=$(as_admin 'qhost stack runs 2>&1') || fail "qhost stack runs without sudo failed: $out"
+	printf '%s' "$out" | grep -q "$run" || fail "qhost stack runs without sudo does not show the run $run: $out"
+	out=$(as_admin "qhost stack log $run 2>&1") || fail "qhost stack log without sudo failed: $out"
+	printf '%s' "$out" | grep -q ' result ' || fail "qhost stack log without sudo does not show the run $run: $out"
+	out=$(as_admin "qhost container logs $name --tail 0 2>&1") || fail "qhost container logs without sudo failed: $out"
+	printf '%s' "$out" | grep -q 'demo started' || fail "qhost container logs without sudo shows no data: $out"
+	if printf '%s' "$out" | grep -qF -- not-a-real-secret-e2e; then fail 'a secret value shows in the container logs without sudo'; fi
+	log "scenario: $admin read status, stack list, runs, the log of run $run and container logs without sudo"
+
+	step 'a change without sudo is refused and has no effect'
+	runs_before=$(qd stack runs demo-stack | grep -c '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
+	if out=$(as_admin 'qhost stack deploy demo-stack 2>&1'); then fail "qhost stack deploy without sudo succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'only root may use the service' || fail "the refusal of a change without sudo is unclear: $out"
+	sleep 2
+	[ -z "$(stack_field demo-stack active_run)" ] || fail "qhost stack deploy without sudo started a run: $(stack_field demo-stack active_run)"
+	[ "$(qd stack runs demo-stack | grep -c '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')" = "$runs_before" ] || fail 'qhost stack deploy without sudo recorded a run'
+
+	step 'a user of the group qhost without sudo and a user outside the group get no data'
+	ensure_user e2e-viewer
+	ensure_user e2e-outsider
+	docker exec "$host" usermod -aG qhost e2e-viewer || fail 'cannot add e2e-viewer to the group qhost'
+	if docker exec "$host" id -nG e2e-viewer | tr ' ' '\n' | grep -qx sudo; then fail 'e2e-viewer is in the group sudo'; fi
+	if docker exec "$host" id -nG e2e-outsider | tr ' ' '\n' | grep -qx qhost; then fail 'e2e-outsider is in the group qhost'; fi
+	for cmd in 'qhost status' 'qhost stack list' 'qhost stack runs' "qhost stack log $run" "qhost container logs $name"; do
+		if out=$(as_user e2e-viewer "$cmd 2>&1"); then fail "'$cmd' succeeded for e2e-viewer: $out"; fi
+		printf '%s' "$out" | grep -q 'reserved for administrators' || fail "unexpected refusal of '$cmd' for e2e-viewer: $out"
+		if printf '%s' "$out" | grep -q 'demo-stack\|demo-cache\|demo started'; then fail "'$cmd' shows data to e2e-viewer: $out"; fi
+		if out=$(as_user e2e-outsider "$cmd 2>&1"); then fail "'$cmd' succeeded for e2e-outsider: $out"; fi
+		printf '%s' "$out" | grep -q 'may not use the qhost service channel' || fail "unexpected refusal of '$cmd' for e2e-outsider: $out"
+		if printf '%s' "$out" | grep -q 'demo-stack\|demo-cache\|demo started'; then fail "'$cmd' shows data to e2e-outsider: $out"; fi
+	done
+	log 'scenario: e2e-viewer (group qhost, no sudo) and e2e-outsider (no group) got no data'
 }
 
 # scenario_compose_integration runs the Docker integration tests of the deployer inside the host. The test
@@ -1139,6 +1204,8 @@ scenario_stacks_repo() {
 	scenario_containers
 
 	scenario_container_logs
+
+	scenario_read_access
 
 	scenario_container_actions
 
