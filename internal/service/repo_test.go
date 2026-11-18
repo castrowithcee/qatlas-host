@@ -69,7 +69,7 @@ func (h *harness) run(dep engine.Deployer, opts ...func(*service.Config)) {
 	done := make(chan error, 1)
 	go func() {
 		cfg := service.Config{
-			Endpoint: ep, StateDir: h.state, PeerCheck: func(net.Conn) error { return nil }, Git: h.git, Deployer: dep,
+			Endpoint: ep, StateDir: h.state, PeerCheck: func(net.Conn) (uint32, error) { return 0, nil }, Git: h.git, Deployer: dep,
 		}
 		for _, o := range opts {
 			o(&cfg)

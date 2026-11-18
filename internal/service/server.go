@@ -21,22 +21,37 @@ import (
 // maxConns bounds the connections served at once; further ones are closed unanswered.
 const maxConns = 32
 
-// PeerCheck decides whether the peer of a connection may use the service. It runs before anything is read.
-type PeerCheck func(conn net.Conn) error
+// PeerCheck admits the peer of a connection and returns its user ID. It runs once per connection, before
+// anything is read; what that user may do is decided again for every request.
+type PeerCheck func(conn net.Conn) (uid uint32, err error)
 
-// RequireRoot admits UID 0 only. A peer whose user cannot be told is refused.
-func RequireRoot(conn net.Conn) error {
+// kernelPeer is the default PeerCheck: it admits a peer whose user the kernel reports and returns that user.
+func kernelPeer(conn net.Conn) (uint32, error) {
 	uid, err := localipc.PeerUID(conn)
-	if err != nil || uid != 0 {
-		return control.ErrNotRoot()
+	if err != nil {
+		return 0, control.ErrNoAccess()
 	}
-	return nil
+	return uid, nil
 }
 
+// reading and writing mark a handler with the access its command needs; see control.Access.
+func reading(h control.Handler) control.Command {
+	return control.Command{Access: control.AccessRead, Handle: h}
+}
+
+func writing(h control.Handler) control.Command {
+	return control.Command{Access: control.AccessWrite, Handle: h}
+}
+
+// authorizer decides whether the user uid may run a command that needs access; it answers a refusal as a
+// *control.Error.
+type authorizer func(uid uint32, access control.Access) error
+
 type server struct {
-	registry *control.Registry
-	check    PeerCheck
-	log      *slog.Logger
+	registry  *control.Registry
+	check     PeerCheck
+	authorize authorizer
+	log       *slog.Logger
 
 	mu    sync.Mutex
 	conns map[net.Conn]struct{}
@@ -45,8 +60,8 @@ type server struct {
 
 // serve accepts connections on l until ctx ends, then closes l and every open connection and waits for the
 // handlers. It owns l.
-func serve(ctx context.Context, l net.Listener, registry *control.Registry, check PeerCheck, log *slog.Logger) {
-	s := &server{registry: registry, check: check, log: log, conns: map[net.Conn]struct{}{}}
+func serve(ctx context.Context, l net.Listener, registry *control.Registry, check PeerCheck, authorize authorizer, log *slog.Logger) {
+	s := &server{registry: registry, check: check, authorize: authorize, log: log, conns: map[net.Conn]struct{}{}}
 	stop := context.AfterFunc(ctx, func() {
 		_ = l.Close()
 		s.mu.Lock()
@@ -103,12 +118,13 @@ func (s *server) handle(ctx context.Context, conn net.Conn) {
 		s.mu.Unlock()
 		_ = conn.Close()
 	}()
-	if err := s.check(conn); err != nil {
-		var ce *control.Error
-		if !errors.As(err, &ce) {
-			ce = control.ErrNotRoot()
-		}
-		s.respond(conn, errorResponse(ce))
+	uid, err := s.check(conn)
+	if err == nil {
+		// A peer without any access is refused before anything is read.
+		err = s.authorize(uid, control.AccessRead)
+	}
+	if err != nil {
+		s.respond(conn, errorResponse(peerRefusal(err)))
 		linger(conn)
 		return
 	}
@@ -130,7 +146,7 @@ func (s *server) handle(ctx context.Context, conn net.Conn) {
 			}
 			return
 		}
-		resp, keep := s.dispatch(ctx, raw)
+		resp, keep := s.dispatch(ctx, uid, raw)
 		if !s.respond(conn, resp) {
 			return
 		}
@@ -141,8 +157,18 @@ func (s *server) handle(ctx context.Context, conn net.Conn) {
 	}
 }
 
-// dispatch answers one request. keep is false when the stream cannot be trusted any longer.
-func (s *server) dispatch(ctx context.Context, raw []byte) (resp control.Response, keep bool) {
+// peerRefusal is the answer to a refused peer; an error without a fixed answer refuses all access.
+func peerRefusal(err error) *control.Error {
+	var ce *control.Error
+	if !errors.As(err, &ce) {
+		ce = control.ErrNoAccess()
+	}
+	return ce
+}
+
+// dispatch answers one request of the user uid. keep is false when the stream cannot be trusted any longer or
+// the user lost all access.
+func (s *server) dispatch(ctx context.Context, uid uint32, raw []byte) (resp control.Response, keep bool) {
 	var req control.Request
 	if err := json.Unmarshal(raw, &req); err != nil || req.Command == "" {
 		return errorResponse(control.NewError(control.CodeBadRequest, "request is not a valid command")), false
@@ -151,11 +177,21 @@ func (s *server) dispatch(ctx context.Context, raw []byte) (resp control.Respons
 		return errorResponse(control.NewError(control.CodeVersion,
 			fmt.Sprintf("protocol version %d is not supported; this service speaks version %d", req.V, control.Version))), false
 	}
-	handler, ok := s.registry.Lookup(req.Command)
+	// Access is decided before anything of the command runs, from the group database as it is now. An unknown
+	// command needs read access, so a peer without access learns nothing.
+	command, ok := s.registry.Lookup(req.Command)
+	access := control.AccessRead
+	if ok {
+		access = command.AccessFor(req.Args)
+	}
+	if err := s.authorize(uid, access); err != nil {
+		ce := peerRefusal(err)
+		return errorResponse(ce), ce.Code != control.CodeNoAccess
+	}
 	if !ok {
 		return errorResponse(control.NewError(control.CodeUnknownCommand, "unknown command")), true
 	}
-	return s.run(ctx, handler, req.Args), true
+	return s.run(ctx, command.Handle, req.Args), true
 }
 
 func (s *server) run(ctx context.Context, handler control.Handler, args json.RawMessage) (resp control.Response) {

@@ -18,7 +18,7 @@ import (
 
 const demoToken = "demo-token-not-real"
 
-func allow(net.Conn) error { return nil }
+func allow(net.Conn) (uint32, error) { return 0, nil }
 
 func useStdin(t *testing.T, r io.Reader) {
 	t.Helper()
@@ -170,7 +170,7 @@ func TestCredentialSetReadsHiddenFromTerminal(t *testing.T) {
 }
 
 func TestCredentialSetErrorTextsNeverContainValue(t *testing.T) {
-	startService(t, func(net.Conn) error { return nil })
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 	// Too long for the service; the client refuses first, and its text must not repeat the value.
 	value := demoToken + strings.Repeat("x", 9000)
 	code, stdout, stderr := runWithStdin(t, value, "credential", "set", "registry")
@@ -247,7 +247,7 @@ func TestCredentialCommandsWithoutServiceExitThree(t *testing.T) {
 }
 
 func TestCredentialCommandsNeedRoot(t *testing.T) {
-	startService(t, func(net.Conn) error { return control.ErrNotRoot() })
+	startService(t, func(net.Conn) (uint32, error) { return 0, control.ErrNotRoot() })
 	code, _, stderr := run(t, "credential", "list")
 	if code != 1 || !strings.Contains(stderr, "sudo") {
 		t.Fatalf("code %d, stderr %q", code, stderr)

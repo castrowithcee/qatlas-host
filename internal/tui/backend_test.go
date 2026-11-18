@@ -22,7 +22,7 @@ func TestChannelBackendSpeaksTheServiceCommands(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		done <- service.Run(ctx, slog.New(slog.NewTextHandler(io.Discard, nil)), service.Config{Version: "9.9.9",
-			Endpoint: ep, StateDir: filepath.Join(t.TempDir(), "state"), PeerCheck: func(net.Conn) error { return nil }})
+			Endpoint: ep, StateDir: filepath.Join(t.TempDir(), "state"), PeerCheck: func(net.Conn) (uint32, error) { return 0, nil }})
 	}()
 	t.Cleanup(func() { cancel(); <-done })
 	channeltest.WaitReady(t, ep)

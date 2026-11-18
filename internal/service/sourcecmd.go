@@ -16,12 +16,12 @@ import (
 const sourceAddFix = "run 'sudo qhost source add' to grant the service access"
 
 func registerSourceCommands(r *control.Registry, s *inspectService) error {
-	commands := map[string]control.Handler{
-		control.SourceAddCommand:     s.handleAdd,
-		control.SourceCompareCommand: s.handleCompare,
-		control.SourceRemoteCommand:  s.handleRemote,
-		control.SourceListCommand:    s.handleList,
-		control.SourceRemoveCommand:  s.handleRemove,
+	commands := map[string]control.Command{
+		control.SourceAddCommand:     writing(s.handleAdd),
+		control.SourceCompareCommand: writing(s.handleCompare),
+		control.SourceRemoteCommand:  writing(s.handleRemote),
+		control.SourceListCommand:    reading(s.handleList),
+		control.SourceRemoveCommand:  writing(s.handleRemove),
 	}
 	for name, h := range commands {
 		if err := r.Register(name, h); err != nil {

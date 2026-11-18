@@ -125,8 +125,8 @@ func registerSecretCommands(r *control.Registry, eng *sourceSet,
 		return control.NewError(control.CodeInternal, "secrets.env of the stack cannot be changed")
 	}
 
-	commands := map[string]control.Handler{
-		control.SecretSetCommand: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	commands := map[string]control.Command{
+		control.SecretSetCommand: writing(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.SecretSetArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -147,8 +147,8 @@ func registerSecretCommands(r *control.Registry, eng *sourceSet,
 				return nil, answer(a.Stack, err)
 			}
 			return control.SecretResult{Stack: a.Stack, Key: a.Key, Replaced: replaced}, nil
-		},
-		control.SecretDeleteCommand: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		}),
+		control.SecretDeleteCommand: writing(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.SecretKeyArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -163,8 +163,8 @@ func registerSecretCommands(r *control.Registry, eng *sourceSet,
 				return nil, answer(a.Stack, err)
 			}
 			return control.SecretResult{Stack: a.Stack, Key: a.Key}, nil
-		},
-		control.SecretListCommand: func(_ context.Context, raw json.RawMessage) (any, error) {
+		}),
+		control.SecretListCommand: reading(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.SecretListArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -198,7 +198,7 @@ func registerSecretCommands(r *control.Registry, eng *sourceSet,
 				keys = []string{}
 			}
 			return control.SecretListResult{Stack: a.Stack, Keys: keys}, nil
-		},
+		}),
 	}
 	for name, h := range commands {
 		if err := r.Register(name, h); err != nil {

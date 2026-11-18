@@ -91,12 +91,12 @@ func registerContainerCommands(r *control.Registry, repo *repoService, eng *sour
 		// Secrets of every stack are known before an answer is redacted, also those never deployed since start.
 		return repo.stackDirs(log, func(st stacks.Stack) { registerStackSecrets(secrets, st) })
 	}, secrets: secrets}
-	for name, h := range map[string]control.Handler{
-		control.ContainerListCommand: s.handleList, control.ContainerGetCommand: s.handleGet,
-		control.ContainerLogsCommand:    s.handleLogs,
-		control.ContainerStartCommand:   s.action("start"),
-		control.ContainerStopCommand:    s.action("stop"),
-		control.ContainerRestartCommand: s.action("restart"),
+	for name, h := range map[string]control.Command{
+		control.ContainerListCommand: reading(s.handleList), control.ContainerGetCommand: reading(s.handleGet),
+		control.ContainerLogsCommand:    reading(s.handleLogs),
+		control.ContainerStartCommand:   writing(s.action("start")),
+		control.ContainerStopCommand:    writing(s.action("stop")),
+		control.ContainerRestartCommand: writing(s.action("restart")),
 	} {
 		if err := r.Register(name, h); err != nil {
 			return err

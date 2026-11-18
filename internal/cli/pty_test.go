@@ -27,7 +27,7 @@ func TestCommandLineChild(t *testing.T) {
 	}
 	code := cli.ExitRuntime
 	t.Run("run", func(t *testing.T) {
-		startService(t, func(net.Conn) error { return nil })
+		startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 		code = Run(flag.Args(), os.Stdout, os.Stderr)
 	})
 	os.Exit(code)

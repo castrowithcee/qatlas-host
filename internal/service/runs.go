@@ -52,15 +52,15 @@ func runsAnswer(err error) error {
 }
 
 func registerRunCommands(r *control.Registry, eng *sourceSet, version string, started time.Time, window func() *control.WindowResult) error {
-	commands := map[string]control.Handler{
-		control.StatusCommand: func(context.Context, json.RawMessage) (any, error) {
+	commands := map[string]control.Command{
+		control.StatusCommand: reading(func(context.Context, json.RawMessage) (any, error) {
 			snaps, err := eng.snapshots()
 			if err != nil {
 				return nil, errors.New("the engine state cannot be read")
 			}
 			return control.StatusResult{Version: version, StartedAt: started, Engine: engineStatus(snaps), Window: window()}, nil
-		},
-		control.DeployCommand: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		}),
+		control.DeployCommand: writing(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.DeployArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -70,8 +70,8 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 				return nil, runsAnswer(err)
 			}
 			return control.DeployResult{ID: printable(info.ID), Stack: printable(info.Stack), Commit: printable(info.Commit)}, nil
-		},
-		control.RunsCommand: func(_ context.Context, raw json.RawMessage) (any, error) {
+		}),
+		control.RunsCommand: reading(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.RunsArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -89,8 +89,8 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 				})
 			}
 			return res, nil
-		},
-		control.ResumeCommand: func(_ context.Context, raw json.RawMessage) (any, error) {
+		}),
+		control.ResumeCommand: writing(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.ResumeArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -108,12 +108,12 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 				res.Pause = &info
 			}
 			return res, nil
-		},
-		control.PauseCommand:   holdHandler(eng.SetPause, true),
-		control.UnpauseCommand: holdHandler(eng.SetPause, false),
-		control.PinCommand:     holdHandler(eng.SetPin, true),
-		control.UnpinCommand:   holdHandler(eng.SetPin, false),
-		control.LogCommand: func(_ context.Context, raw json.RawMessage) (any, error) {
+		}),
+		control.PauseCommand:   writing(holdHandler(eng.SetPause, true)),
+		control.UnpauseCommand: writing(holdHandler(eng.SetPause, false)),
+		control.PinCommand:     writing(holdHandler(eng.SetPin, true)),
+		control.UnpinCommand:   writing(holdHandler(eng.SetPin, false)),
+		control.LogCommand: reading(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.LogArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -127,7 +127,7 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 			}
 			// Run logs are sanitized line by line when written; the line breaks must survive.
 			return control.LogResult{Text: text}, nil
-		},
+		}),
 	}
 	for name, h := range commands {
 		if err := r.Register(name, h); err != nil {

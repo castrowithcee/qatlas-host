@@ -574,12 +574,12 @@ func printable(s string) string {
 }
 
 func registerRepoCommands(r *control.Registry, s *repoService) error {
-	commands := map[string]control.Handler{
-		control.RepoProbeCommand:   s.handleProbe,
-		control.RepoSetCommand:     s.handleSet,
-		control.RepoFetchCommand:   s.handleFetch,
-		control.StacksListCommand:  s.handleStacks,
-		control.StacksCheckCommand: s.handleCheck,
+	commands := map[string]control.Command{
+		control.RepoProbeCommand:   writing(s.handleProbe),
+		control.RepoSetCommand:     writing(s.handleSet),
+		control.RepoFetchCommand:   writing(s.handleFetch),
+		control.StacksListCommand:  reading(s.handleStacks),
+		control.StacksCheckCommand: reading(s.handleCheck),
 	}
 	for name, h := range commands {
 		if err := r.Register(name, h); err != nil {

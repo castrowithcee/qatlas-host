@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -23,7 +24,8 @@ import (
 
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
 
-func allowAll(net.Conn) error { return nil }
+// allowAll admits every peer as root.
+func allowAll(net.Conn) (uint32, error) { return 0, nil }
 
 func runService(t *testing.T, cfg Config) localipc.ServiceEndpoint {
 	t.Helper()
@@ -118,26 +120,51 @@ func callError(t *testing.T, ep localipc.ServiceEndpoint) *control.Error {
 }
 
 func TestPeerWithoutRootIsRejectedWithSudoMessage(t *testing.T) {
-	ep := runService(t, Config{Version: "x", PeerCheck: func(net.Conn) error { return control.ErrNotRoot() }})
+	ep := runService(t, Config{Version: "x", PeerCheck: func(net.Conn) (uint32, error) { return 0, control.ErrNotRoot() }})
 	ce := callError(t, ep)
 	if ce.Code != control.CodeNotRoot || !strings.Contains(ce.Message, "sudo") {
 		t.Fatalf("error = %+v", ce)
 	}
 }
 
-func TestDefaultPeerCheckRefusesNonRoot(t *testing.T) {
+func TestDefaultPeerCheckRefusesAUserWithoutAccess(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("the test needs a non-root user")
 	}
-	ep := runService(t, Config{Version: "x"})
-	if ce := callError(t, ep); ce.Code != control.CodeNotRoot {
+	// The kernel reports the user of this test, whom the invented database does not know.
+	group, passwd := writeDatabase(t, inventedGroups, inventedUsers)
+	ep := runService(t, Config{Version: "x", GroupFile: group, PasswdFile: passwd})
+	if ce := callError(t, ep); ce.Code != control.CodeNoAccess || ce.Message != "qhost is reserved for administrators (sudo)" {
 		t.Fatalf("error = %+v", ce)
 	}
 }
 
+func TestDefaultPeerCheckLetsAnAdministratorReadOnly(t *testing.T) {
+	uid := os.Getuid()
+	if uid == 0 {
+		t.Skip("the test needs a non-root user")
+	}
+	users := inventedUsers + fmt.Sprintf("example-tester:x:%d:5000::/nonexistent:/usr/sbin/nologin\n", uid)
+	group, passwd := writeDatabase(t, "sudo:x:27:example-tester\nqhost:x:990:example-tester\n", users)
+	ep := runService(t, Config{Version: "x", GroupFile: group, PasswdFile: passwd})
+	cl, err := client.Dial(context.Background(), ep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cl.Close()
+	if err := cl.Call(context.Background(), control.StatusCommand, nil, nil); err != nil {
+		t.Fatalf("status = %v", err)
+	}
+	var ce *control.Error
+	if err := cl.Call(context.Background(), control.CredentialSetCommand,
+		control.CredentialSetArgs{Name: "example", Value: "invented"}, nil); !errors.As(err, &ce) || ce.Code != control.CodeNotRoot {
+		t.Fatalf("credential.set = %v, want %s", err, control.CodeNotRoot)
+	}
+}
+
 func TestPeerCheckFailureWithoutServiceErrorStillRefuses(t *testing.T) {
-	ep := runService(t, Config{Version: "x", PeerCheck: func(net.Conn) error { return errors.New("cannot tell") }})
-	if ce := callError(t, ep); ce.Code != control.CodeNotRoot {
+	ep := runService(t, Config{Version: "x", PeerCheck: func(net.Conn) (uint32, error) { return 0, errors.New("cannot tell") }})
+	if ce := callError(t, ep); ce.Code != control.CodeNoAccess {
 		t.Fatalf("error = %+v", ce)
 	}
 }
@@ -177,11 +204,11 @@ func TestHandlerFailuresDoNotLeakOrCrash(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	must(reg.Register("boom", func(context.Context, json.RawMessage) (any, error) { panic("secret detail") }))
-	must(reg.Register("fail", func(context.Context, json.RawMessage) (any, error) { return nil, errors.New("secret detail") }))
-	must(reg.Register("typed", func(context.Context, json.RawMessage) (any, error) {
+	must(reg.Register("boom", reading(func(context.Context, json.RawMessage) (any, error) { panic("secret detail") })))
+	must(reg.Register("fail", reading(func(context.Context, json.RawMessage) (any, error) { return nil, errors.New("secret detail") })))
+	must(reg.Register("typed", reading(func(context.Context, json.RawMessage) (any, error) {
 		return nil, control.NewError("nothing-open", "nothing is open")
-	}))
+	})))
 	ep := channeltest.Endpoint(t)
 	l, err := ep.Listen()
 	if err != nil {
@@ -189,7 +216,7 @@ func TestHandlerFailuresDoNotLeakOrCrash(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	go func() { serve(ctx, l, reg, allowAll, quiet); close(done) }()
+	go func() { serve(ctx, l, reg, allowAll, groupDB{}.authorize, quiet); close(done) }()
 	defer func() { cancel(); <-done }()
 	for command, code := range map[string]string{"boom": control.CodeInternal, "fail": control.CodeInternal, "typed": "nothing-open"} {
 		resp := rawExchange(t, ep, `{"v":1,"command":"`+command+"\"}\n")

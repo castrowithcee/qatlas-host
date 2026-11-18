@@ -74,8 +74,15 @@ func registerUpdateCommands(r *control.Registry, repo *repoService, eng *sourceS
 	cs := newChangelogSource(store, opts, clog, filepath.Join(repo.stateDir, changelogCacheDir))
 	cs.clean()
 	s := &updatesService{repo: repo, eng: eng, detector: &updates.Detector{Credential: registryCredentialFrom(store), Options: opts}, changelog: cs}
-	for name, h := range map[string]control.Handler{
-		control.UpdatesListCommand: s.handleList, control.UpdateRunCommand: s.handleRun, control.ChangelogShowCommand: s.handleChangelog,
+	// A refresh asks the registries and records their answer, and changelogs ask GitHub and fill a cache: both
+	// make the listing a write. changelog.show always asks GitHub.
+	list := reading(s.handleList)
+	list.Writes = func(raw json.RawMessage) bool {
+		var a control.UpdatesArgs
+		return decodeArgs(raw, &a) != nil || a.Refresh || a.Changelog
+	}
+	for name, h := range map[string]control.Command{
+		control.UpdatesListCommand: list, control.UpdateRunCommand: writing(s.handleRun), control.ChangelogShowCommand: writing(s.handleChangelog),
 	} {
 		if err := r.Register(name, h); err != nil {
 			return nil, err

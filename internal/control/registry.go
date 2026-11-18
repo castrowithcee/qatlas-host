@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"sync"
 )
 
@@ -13,35 +14,93 @@ import (
 // error is answered as an internal error without its text.
 type Handler func(ctx context.Context, args json.RawMessage) (any, error)
 
+// Access says what a command does. The zero value marks nothing and is refused by Register.
+type Access uint8
+
+const (
+	// AccessRead marks a command that changes nothing: no file, no state, no container, no remote, and nothing
+	// leaves the host. Its answer holds no secret value. Root and the administrators of the service group may
+	// run it.
+	AccessRead Access = iota + 1
+	// AccessWrite marks every other command. Only root may run it.
+	AccessWrite
+)
+
+func (a Access) String() string {
+	switch a {
+	case AccessRead:
+		return "read"
+	case AccessWrite:
+		return "write"
+	}
+	return "unmarked"
+}
+
+// Command is a registered command. Access is required. Writes, allowed on a read command only, tells whether
+// the arguments of one request ask for a side effect, such as a refresh from a remote; that request then needs
+// AccessWrite. It must answer true for arguments it cannot read.
+type Command struct {
+	Access Access
+	Handle Handler
+	Writes func(args json.RawMessage) bool
+}
+
+// AccessFor returns the access one request with these arguments needs; anything but a plain read is a write.
+func (c Command) AccessFor(args json.RawMessage) Access {
+	if c.Access == AccessRead && (c.Writes == nil || !c.Writes(args)) {
+		return AccessRead
+	}
+	return AccessWrite
+}
+
 var commandName = regexp.MustCompile(`^[a-z][a-z0-9]*(\.[a-z][a-z0-9-]*)*$`)
 
-// Registry maps command names to handlers. Features register their commands before the service serves.
+// Registry maps command names to commands. Features register their commands before the service serves.
 type Registry struct {
 	mu       sync.RWMutex
-	handlers map[string]Handler
+	commands map[string]Command
 }
 
 // NewRegistry returns an empty registry.
-func NewRegistry() *Registry { return &Registry{handlers: map[string]Handler{}} }
+func NewRegistry() *Registry { return &Registry{commands: map[string]Command{}} }
 
-// Register adds a command. A name registers once, and must be lower-case words joined by dots.
-func (r *Registry) Register(name string, h Handler) error {
-	if !commandName.MatchString(name) || h == nil {
+// Register adds a command. A name registers once, and must be lower-case words joined by dots. The command
+// needs a handler and its access.
+func (r *Registry) Register(name string, c Command) error {
+	if !commandName.MatchString(name) || c.Handle == nil {
 		return fmt.Errorf("invalid command registration %q", name)
+	}
+	if c.Access != AccessRead && c.Access != AccessWrite {
+		return fmt.Errorf("command %q is not marked as read or write", name)
+	}
+	if c.Writes != nil && c.Access != AccessRead {
+		return fmt.Errorf("command %q is a write and cannot raise its access", name)
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, ok := r.handlers[name]; ok {
+	if _, ok := r.commands[name]; ok {
 		return fmt.Errorf("command %q is already registered", name)
 	}
-	r.handlers[name] = h
+	r.commands[name] = c
 	return nil
 }
 
-// Lookup returns the handler of a command.
-func (r *Registry) Lookup(name string) (Handler, bool) {
+// Lookup returns a command.
+func (r *Registry) Lookup(name string) (Command, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	h, ok := r.handlers[name]
-	return h, ok
+	c, ok := r.commands[name]
+	return c, ok
+}
+
+// Names returns the names of every registered command in order.
+func (r *Registry) Names() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	names := make([]string, 0, len(r.commands))
+	for name := range r.commands {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }

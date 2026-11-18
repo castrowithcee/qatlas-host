@@ -47,7 +47,7 @@ type inspectService struct {
 
 func registerInspectCommands(r *control.Registry, repo *repoService, d Docker, log *slog.Logger) error {
 	s := &inspectService{repo: repo, docker: d, log: log}
-	if err := r.Register(control.SourceInspectCommand, s.handle); err != nil {
+	if err := r.Register(control.SourceInspectCommand, writing(s.handle)); err != nil {
 		return err
 	}
 	return registerSourceCommands(r, s)

@@ -20,7 +20,7 @@ func objectOf(t *testing.T, out string) map[string]any {
 }
 
 func TestWindowShowAndSet(t *testing.T) {
-	startService(t, func(net.Conn) error { return nil })
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 	code, out, stderr := run(t, "window", "show", "--output", "json")
 	if code != 0 {
 		t.Fatalf("show: %d %s", code, stderr)
@@ -56,7 +56,7 @@ func TestWindowShowAndSet(t *testing.T) {
 }
 
 func TestWindowSetErrors(t *testing.T) {
-	startService(t, func(net.Conn) error { return nil })
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 	for _, tc := range []struct {
 		args []string
 		want string
