@@ -17,6 +17,7 @@ func All() []helptopics.Topic {
 		{Name: "backups", Short: "Backing up and restoring the data of a stack", Text: backupsTopic},
 		{Name: "data-directories", Short: "Missing data directories of a stack: the data-dir-missing finding and how to resolve it", Text: dataDirectoriesTopic},
 		{Name: "notifications", Short: "Notification channels: events, types and secrets", Text: notificationsTopic},
+		{Name: "proposals", Short: "Proposals: asking for a change of the setup without sudo, the kind source-add, limits and states", Text: proposalsTopic},
 		{Name: "containers", Short: "The containers of the host: kinds, states, metrics, start, stop, restart", Text: containersTopic},
 	}
 }
@@ -53,6 +54,7 @@ Commands:
 - qhost stack secret set <stack> <KEY>, qhost stack secret list <stack>, qhost stack secret delete <stack> <KEY>: write, list by key and remove the secrets in a stack's secrets.env; the value is read without echo at a terminal or from standard input, never from an argument, and nothing is redeployed (list runs without sudo for an administrator in the group qhost, set and delete need sudo)
 - qhost credential set|list|delete: manage registry tokens and notification credentials (list runs without sudo for an administrator in the group qhost, set and delete need sudo)
 - qhost notify list|add|remove|test: manage the notification channels (webhook, Slack, Telegram, e-mail) and send a test message through one (list runs without sudo for an administrator in the group qhost, the rest needs sudo; see qhost help notifications)
+- qhost proposal submit|list|show|withdraw: ask for a change of the setup, for now a stack folder, without sudo for an administrator in the group qhost; nothing on the host changes and approving is not done with these commands (see qhost help proposals)
 - qhost update [version], qhost update status: update qhost itself to the latest stable release or to a given newer one from its signed GitHub releases and restart the service; status shows the installed version and the latest release and changes nothing (update runs with sudo and needs --confirm; stack updates are qhost stack update)
 - qhost container list [--metrics], qhost container show <name>: show every container of the host, own stacks, foreign Compose projects and single containers, with state; changes nothing (runs without sudo for an administrator in the group qhost; see qhost help containers)
 - qhost container logs <name>|--stack <stack> [--since T] [--until T] [--tail N] [--follow]: show the output of a container or of a whole stack (runs without sudo for an administrator in the group qhost; see qhost help containers)
@@ -327,3 +329,23 @@ Nothing is checked while a run or an action of the stack is active, nor for stop
 Repair: the monitor also repairs a failure by restarts, each under the run slot of the stack. Attempt 1 comes one minute after the failure began and restarts the failed containers; attempts 2 and 3 come 5 and 15 minutes after the previous one and restart the stack. In the observation time after an update by qhost (qhost help stack-settings, update.observe), a failure gets only attempt 1; if it lasts until attempt 2 would be due, qhost rolls that update back instead of attempts 2 and 3: it stops the stack, restores the backup of the update, reverts the update commit and starts and checks the stack again. Data written since the update is lost. A failed rollback stops and pauses the stack; a missing backup halts the repair without any change. If the failure persists after the third, the repair is halted: qhost status shows "repair" as halted, recovery-failed is sent once and no further attempt is made until qhost stack resume releases it. The attempts count until the stack has run an hour without a failure. Stopped (qhost stack stop), paused (either pause) and foreign stacks are not repaired; a stop or pause ends a repair under way, its count stays.
 
 Environment: only the names of the variables are shown, never their values.`
+
+const proposalsTopic = `A proposal asks for a change of the setup. An administrator in the group qhost, who needs no sudo to read, submits it; the service checks and stores it. Submitting changes nothing on the host: the service does not touch the proposed folder, uses no network and runs no git. Approving a proposal, which would apply it, is not possible with these commands yet.
+
+Commands (all run without sudo for an administrator in the group qhost):
+- qhost proposal submit --kind source-add [--file <path>|-]: read the content as JSON from the file or from standard input and print the id of the new proposal. The file is read as the calling user, at most a little over 64 KiB.
+- qhost proposal list: list the proposals, newest first, with id, kind, state, submitter and times
+- qhost proposal show <id>: show one proposal with its fingerprint, submitter and content
+- qhost proposal withdraw <id>: close an open proposal as withdrawn; only its submitter or root may do that
+
+Kind source-add proposes a folder as a stack folder (see qhost help sources). Its content is a JSON object with these fields and no others:
+- path: the absolute, clean path of the folder (required)
+- url: the SSH address of its repository, for example ssh://git.example.test/stacks.git (optional)
+Example: {"path": "/srv/stacks", "url": "ssh://git.example.test/stacks.git"}
+A proposal holds configuration only, never a command, a secret or a host key fingerprint; a field the kind does not name, and an unknown kind, are refused.
+
+Limits: at most 20 open proposals per submitter, at most 64 KiB per proposal, and an open proposal expires after 14 days.
+
+States: open, withdrawn, rejected, applied and expired. An open proposal past its time shows as expired and cannot be applied. The fingerprint identifies exactly the content, so a later approval binds to what was shown.
+
+Text of a submitter is shown with control characters replaced; --output json keeps the text as submitted.`
