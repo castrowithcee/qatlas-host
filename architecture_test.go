@@ -101,5 +101,29 @@ func TestArchitecture(t *testing.T) {
 			Check: archtest.ForbidImports("internal/service", "internal/client", "internal/cli", "internal/control"),
 			Hint:  "the engine sits below the service and the command surface and knows neither",
 		},
+		{
+			Name:  "host-part-imports-only-its-own-packages",
+			Files: archtest.Files{Under: []string{"internal/host"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports("internal/host/..."),
+			Hint:  "the host administration sits below the service and the command surface and knows no package of the deploy part",
+		},
+		{
+			Name:  "host-part-does-not-touch-the-container-engine",
+			Files: archtest.Files{Under: []string{"internal/host"}, Tests: archtest.WithTests},
+			Check: archtest.ForbidImportPaths(archtest.Exact("github.com/castrowithcee/qatlas-kit/docker")),
+			Hint:  "containers belong to the deploy part; the host administration never talks to the container engine",
+		},
+		{
+			Name:  "hostadmin-imports-no-other-package-of-the-module",
+			Files: archtest.Files{Under: []string{"internal/host/hostadmin"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports(),
+			Hint:  "the read model of the host sits below the changes and imports nothing of the module",
+		},
+		{
+			Name:  "hostchange-sees-hostadmin-only",
+			Files: archtest.Files{Under: []string{"internal/host/hostchange"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports("internal/host/hostadmin"),
+			Hint:  "the host changes read the host through hostadmin and import no other package of the module",
+		},
 	}, nil)
 }
