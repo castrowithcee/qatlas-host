@@ -21,7 +21,7 @@ func newSecretCommand(program *cobracli.Program, state *notRunning, secrets *red
 		Long: "The secrets of a stack live in its secrets.env, which exists on this host only and is never versioned.\n" +
 			"A key stands in secrets.env or in .env, never in both. A change does not redeploy the stack: it applies\n" +
 			"at the next deployment, so run 'qhost stack deploy <stack>' afterwards. Values are never shown or\n" +
-			"logged. Only root may use the service channel, so run these commands with sudo.",
+			"logged. list reads and needs no sudo for an administrator in the group qhost; set and delete need sudo.",
 	}
 	set := &cobra.Command{
 		Use:   "set <stack> <KEY>",

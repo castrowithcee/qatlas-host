@@ -29,7 +29,7 @@ func startRepoService(t *testing.T) *repoEnv {
 	old := testGit
 	testGit = g
 	t.Cleanup(func() { testGit = old })
-	startService(t, func(net.Conn) error { return nil })
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 	e := &repoEnv{state: stateDir(), git: g, srv: hostkeytest.Start(t), dir: filepath.Join(t.TempDir(), "stacks")}
 	if err := os.Mkdir(e.dir, 0o755); err != nil {
 		t.Fatal(err)

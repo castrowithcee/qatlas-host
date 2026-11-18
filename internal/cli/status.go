@@ -36,7 +36,7 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"and, per stack, what is deployed, pending or running, the last run result, a pause after a failed rollback, the operator's pause and pin, the observation time after an update, and the findings,\n" +
 			"and whether the maintenance window is open and when it opens next (see 'qhost window'). A stack is listed as\n" +
 			"stack.<name>; when another stack folder holds its name, as source.<id>.stack.<name> (see 'qhost help sources').\n" +
-			"Only root may use the service channel, so run it with sudo. Without a running service it ends with exit code 3.",
+			"Root and administrators in the group qhost may read; run it without sudo. Without a running service it ends with exit code 3.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			var st control.StatusResult
@@ -163,9 +163,15 @@ func failureOf(err error) error {
 	case errors.Is(err, client.ErrNotRunning):
 		return &cli.Failure{Code: output.CodeUnreachable, Message: "the qhost service is not running",
 			NextStep: "Start the service, then run the command again.", Cause: err}
-	case errors.Is(err, client.ErrNoAccess), errors.As(err, &remote) && remote.Code == control.CodeNotRoot:
-		return &cli.Failure{Code: output.CodePermission, Message: "only root may use the qhost service; run with sudo",
+	case errors.As(err, &remote) && remote.Code == control.CodeNotRoot:
+		return &cli.Failure{Code: output.CodePermission, Message: "only root may use the service; run the command with sudo",
 			NextStep: "Run the same command with sudo.", Cause: err}
+	case errors.As(err, &remote) && remote.Code == control.CodeNoAccess:
+		return &cli.Failure{Code: output.CodePermission, Message: "qhost is reserved for administrators (sudo)",
+			NextStep: "Ask an administrator for access, or run the command as root.", Cause: err}
+	case errors.Is(err, client.ErrNoAccess):
+		return &cli.Failure{Code: output.CodePermission, Message: "this user may not use the qhost service channel",
+			NextStep: "Ask an administrator to give this user access to qhost, or run the command with sudo.", Cause: err}
 	case errors.As(err, &remote) && remote.Code == control.CodeKeyExists:
 		return &cli.Failure{Code: output.CodeConfirmationRequired, Message: remote.Message, Usage: true,
 			NextStep: "Run 'qhost key generate --replace' to replace it; the old key stops working at once.", Cause: err}

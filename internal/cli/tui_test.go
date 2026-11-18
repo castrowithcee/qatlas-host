@@ -47,7 +47,7 @@ func runOn(stdout io.Writer, args ...string) (code int, stderr string) {
 }
 
 func TestNoArgumentsAtATerminalStartsTheInterface(t *testing.T) {
-	startService(t, func(net.Conn) error { return nil })
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 	out, started := fakeTerminal(t)
 	if code, stderr := runOn(out); code != 0 || len(*started) != 1 {
 		t.Fatalf("code %d, started %d, stderr %q", code, len(*started), stderr)
@@ -59,7 +59,7 @@ func TestNoArgumentsAtATerminalStartsTheInterface(t *testing.T) {
 }
 
 func TestTUICommandReadsThePreferences(t *testing.T) {
-	startService(t, func(net.Conn) error { return nil })
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 	out, started := fakeTerminal(t)
 	dir := filepath.Join(os.Getenv("HOME"), ".qatlas", "qhost")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -77,7 +77,7 @@ func TestTUICommandReadsThePreferences(t *testing.T) {
 }
 
 func TestTUICommandSavesThePreferencesWhereItReadsThem(t *testing.T) {
-	startService(t, func(net.Conn) error { return nil })
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 	out, started := fakeTerminal(t)
 	if code, stderr := runOn(out, "tui"); code != 0 || len(*started) != 1 {
 		t.Fatalf("code %d, stderr %q", code, stderr)
@@ -106,7 +106,7 @@ func TestTUICommandSavesThePreferencesWhereItReadsThem(t *testing.T) {
 }
 
 func TestTUICommandWithoutHomeCannotSavePreferences(t *testing.T) {
-	startService(t, func(net.Conn) error { return nil })
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 	out, started := fakeTerminal(t)
 	t.Setenv("HOME", "")
 	if code, stderr := runOn(out, "tui"); code != 0 || len(*started) != 1 {
@@ -144,7 +144,7 @@ func TestInterfaceWithoutServiceEndsWithCode3(t *testing.T) {
 }
 
 func TestInterfaceAsNonRootNamesSudo(t *testing.T) {
-	startService(t, func(net.Conn) error { return control.ErrNotRoot() })
+	startService(t, func(net.Conn) (uint32, error) { return 0, control.ErrNotRoot() })
 	out, started := fakeTerminal(t)
 	code, stderr := runOn(out, "tui")
 	if code != 1 || !strings.Contains(stderr, "sudo") || len(*started) != 0 {

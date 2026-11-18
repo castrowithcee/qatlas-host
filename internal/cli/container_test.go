@@ -92,7 +92,7 @@ func startContainers(t *testing.T, f *fakeEngine) {
 	old := testDocker
 	testDocker = f
 	t.Cleanup(func() { testDocker = old })
-	startService(t, func(net.Conn) error { return nil })
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 }
 
 func sampleEngine() *fakeEngine {

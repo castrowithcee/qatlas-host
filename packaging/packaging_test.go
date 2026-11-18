@@ -92,8 +92,11 @@ func TestReleaseConfigSelectsTheSystemVariant(t *testing.T) {
 	if strings.Join(c.Service.Groups, " ") != "docker" {
 		t.Errorf("service groups = %v, want [docker]", c.Service.Groups)
 	}
-	if c.Service.AddInstallingUser || c.Service.WritableConfig {
-		t.Error("the service channel admits root only, so no installing user is added and the configuration stays read-only")
+	if !c.Service.AddInstallingUser {
+		t.Error("an administrator in the service group reads without sudo, so the installing user joins the group")
+	}
+	if c.Service.WritableConfig {
+		t.Error("the configuration stays read-only")
 	}
 }
 

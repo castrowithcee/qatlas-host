@@ -3,6 +3,7 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -32,8 +33,12 @@ type Config struct {
 	Endpoint localipc.ServiceEndpoint
 	// StateDir holds the credential store; it is required. DefaultStateDir in production.
 	StateDir string
-	// PeerCheck admits the peers of the channel. Nil means RequireRoot; tests inject their own.
+	// PeerCheck admits the peers of the channel and tells their user. Nil means the user the kernel reports; tests
+	// inject their own. Whatever it admits, every request is still checked against the group database.
 	PeerCheck PeerCheck
+	// GroupFile and PasswdFile are the group database of that check; empty means /etc/group and /etc/passwd.
+	// Tests point them at files of their own.
+	GroupFile, PasswdFile string
 	// Git is the git layer of the repository commands. Nil means the system git through internal/gitrepo;
 	// tests inject their own.
 	Git Git
@@ -73,6 +78,9 @@ type Config struct {
 	// OnUpdateAvailable, when set, is told every stack in manual mode the maintenance window found an update
 	// for. It runs in the window's goroutine and must return quickly.
 	OnUpdateAvailable func(UpdateNotice)
+
+	// registryHook, when set, sees the registry once every command is registered. Tests only.
+	registryHook func(*control.Registry)
 }
 
 // Run serves the channel until ctx ends and then returns nil: a stop request is the normal way for the service
@@ -206,12 +214,16 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 		win.sched.Run(ctx)
 	}()
 	defer func() { <-windowDone }()
+	if cfg.registryHook != nil {
+		cfg.registryHook(registry)
+	}
 	check := cfg.PeerCheck
 	if check == nil {
-		check = RequireRoot
+		check = kernelPeer
 	}
+	db := groupDB{group: cmp.Or(cfg.GroupFile, defaultGroupFile), passwd: cmp.Or(cfg.PasswdFile, defaultPasswdFile)}
 	log.Info("service started")
-	serve(ctx, l, registry, check, log)
+	serve(ctx, l, registry, check, db.authorize, log)
 	log.Info("service stopped")
 	return nil
 }

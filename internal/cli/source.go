@@ -27,8 +27,8 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 	group := &cobra.Command{
 		Use:   "source",
 		Short: "Inspect, take over, list and release stack folders",
-		Long: "The source commands work on the stack folders of the host. Only root may use the service channel, so\n" +
-			"run them with sudo. See 'qhost help sources'.",
+		Long: "The source commands work on the stack folders of the host. list needs no sudo for an administrator in\n" +
+			"the group qhost; inspect, add, remote and remove need sudo. See 'qhost help sources'.",
 	}
 	var url string
 	inspect := &cobra.Command{

@@ -36,8 +36,8 @@ func newCredentialCommand(program *cobracli.Program, state *notRunning, secrets 
 	group := &cobra.Command{
 		Use:   "credential",
 		Short: "Manage registry tokens and notification credentials",
-		Long: "Credentials are stored by the service and never shown again. Only root may use the service\n" +
-			"channel, so run these commands with sudo.",
+		Long: "Credentials are stored by the service and never shown again. list reads and needs no sudo for an\n" +
+			"administrator in the group qhost; set and delete need sudo.",
 	}
 	set := &cobra.Command{
 		Use:   "set <name>",

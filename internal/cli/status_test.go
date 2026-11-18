@@ -78,7 +78,7 @@ func startServiceLogged(t *testing.T, check service.PeerCheck, logOut io.Writer)
 }
 
 func TestStatusJSON(t *testing.T) {
-	startService(t, func(net.Conn) error { return nil })
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 	code, stdout, stderr := run(t, "status", "--output", "json")
 	if code != 0 || stderr != "" {
 		t.Fatalf("code %d, stderr %q", code, stderr)
@@ -94,7 +94,7 @@ func TestStatusJSON(t *testing.T) {
 }
 
 func TestStatusTable(t *testing.T) {
-	startService(t, func(net.Conn) error { return nil })
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 	code, stdout, _ := run(t, "status")
 	if code != 0 || !strings.Contains(stdout, "9.9.9") {
 		t.Fatalf("code %d, stdout %q", code, stdout)
@@ -120,10 +120,21 @@ func TestStatusWithoutServiceDirectory(t *testing.T) {
 }
 
 func TestStatusAsNonRootNamesSudo(t *testing.T) {
-	startService(t, func(net.Conn) error { return control.ErrNotRoot() })
+	startService(t, func(net.Conn) (uint32, error) { return 0, control.ErrNotRoot() })
 	code, _, stderr := run(t, "status")
 	if code != 1 || !strings.Contains(stderr, "sudo") || !strings.Contains(stderr, "permission") {
 		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+}
+
+func TestStatusWithoutAccessSaysReservedAndShowsNoData(t *testing.T) {
+	startService(t, func(net.Conn) (uint32, error) { return 0, control.ErrNoAccess() })
+	code, stdout, stderr := run(t, "status")
+	if code != 1 || !strings.Contains(stderr, "qhost is reserved for administrators (sudo)") || strings.Contains(stderr, "only root") {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("a refused user got data: %q", stdout)
 	}
 }
 

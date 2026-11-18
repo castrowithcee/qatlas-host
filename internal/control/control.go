@@ -22,12 +22,15 @@ import (
 // Version is the protocol version every request and answer carries.
 const Version = 1
 
+// ServiceGroup is the group of the service user. The channel admits root and its members; of those, the service
+// serves root and the administrators among them, and runs a command that writes for root only.
+const ServiceGroup = "qhost"
+
 // Endpoint returns the channel of the service. The service runs as the system user qhost, so the directory
-// belongs to that user and its group and is closed to others; the service manager creates it. The transport
-// admits root and members of that group; the service narrows this to UID 0 (see service.RequireRoot).
+// belongs to that user and its group and is closed to others; the service manager creates it.
 func Endpoint() localipc.ServiceEndpoint {
 	return localipc.ServiceEndpoint{
-		Dir: "/run/qhost", SocketBase: "control", ServiceUser: "qhost", Group: "qhost", ErrorName: "qhost service",
+		Dir: "/run/qhost", SocketBase: "control", ServiceUser: "qhost", Group: ServiceGroup, ErrorName: "qhost service",
 	}
 }
 
@@ -48,6 +51,7 @@ const (
 // cannot echo what a peer sent.
 const (
 	CodeNotRoot          = "not-root"
+	CodeNoAccess         = "no-access"
 	CodeBadRequest       = "bad-request"
 	CodeVersion          = "version"
 	CodeUnknownCommand   = "unknown-command"
@@ -121,9 +125,14 @@ func (e *Error) Error() string { return e.Message }
 // NewError returns an error a command handler can return to answer with a code of its own.
 func NewError(code, message string) *Error { return &Error{Code: code, Message: message} }
 
-// ErrNotRoot is the answer to a peer that is not UID 0.
+// ErrNotRoot is the answer to a peer that is not UID 0 and asks for a command that writes.
 func ErrNotRoot() *Error {
 	return NewError(CodeNotRoot, "only root may use the service; run the command with sudo")
+}
+
+// ErrNoAccess is the answer to a peer that is neither root nor an administrator in the service group.
+func ErrNoAccess() *Error {
+	return NewError(CodeNoAccess, "qhost is reserved for administrators (sudo)")
 }
 
 // ErrTooLarge reports a frame beyond its limit.

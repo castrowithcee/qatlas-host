@@ -6,7 +6,8 @@ Parts of this repository are copied from or derived from qatlas-sysmin
 (https://github.com/castrowithcee/qatlas-sysmin):
 
 - the command and error handling structure of `internal/cli`, the signal handling of its `run` command and the help topic package `internal/helptopics`
-- the protocol frame, size and time limits and the connection handling of `internal/control` and `internal/service`, and the request/answer calls of `internal/client`, reduced to a root-only channel without groups, vault or approvals
+- the protocol frame, size and time limits and the connection handling of `internal/control` and `internal/service`, and the request/answer calls of `internal/client`, reduced to a channel without vault or approvals
+- the administrator check against the group database in `internal/service/access.go`, extended to the service group and checked for every request
 - the terminal check before the terminal interface starts in `internal/cli` and the colour profile mapping of `internal/tui`
 - the hardened git environment, SSH options, output limits and process-group handling of `internal/gitrepo`
 - the poll loop with spread and wake-up, the per-stack run lock with dropped parallel triggers, and the state and run-log layout of `internal/engine`, reduced to a deployment engine without approvals, vault or step plans

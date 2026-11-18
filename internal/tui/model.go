@@ -403,6 +403,13 @@ func (m *Model) errorText(err error) string {
 	return m.text.Lookup(kittui.TextError, m.serviceText(err))
 }
 
+// needsRoot reports whether the service refused the request because it changes something and the user is
+// not root.
+func needsRoot(err error) bool {
+	var remote *control.Error
+	return errors.As(err, &remote) && remote.Code == control.CodeNotRoot
+}
+
 // serviceText says why the service could not do what was asked.
 func (m *Model) serviceText(err error) string {
 	t := m.text
@@ -411,7 +418,11 @@ func (m *Model) serviceText(err error) string {
 	switch {
 	case errors.Is(err, client.ErrNotRunning):
 		text = t.Lookup(textErrNotRunning)
-	case errors.Is(err, client.ErrNoAccess), errors.As(err, &remote) && remote.Code == control.CodeNotRoot:
+	case errors.As(err, &remote) && remote.Code == control.CodeNotRoot:
+		text = t.Lookup(textErrNotRoot)
+	case errors.As(err, &remote) && remote.Code == control.CodeNoAccess:
+		text = t.Lookup(textErrReserved)
+	case errors.Is(err, client.ErrNoAccess):
 		text = t.Lookup(textErrNoAccess)
 	case errors.As(err, &remote):
 		text = t.Lookup(textErrService, remote.Message)

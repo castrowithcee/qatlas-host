@@ -66,8 +66,8 @@ func keyName(set *sourceSet, dir string) (string, error) {
 }
 
 func registerCredentialCommands(r *control.Registry, st *credentials.Store, set *sourceSet) error {
-	commands := map[string]control.Handler{
-		control.KeyGenerateCommand: func(_ context.Context, raw json.RawMessage) (any, error) {
+	commands := map[string]control.Command{
+		control.KeyGenerateCommand: writing(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.KeyGenerateArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -81,8 +81,8 @@ func registerCredentialCommands(r *control.Registry, st *credentials.Store, set 
 				return nil, answerOf(err)
 			}
 			return keyResult(k), nil
-		},
-		control.KeySetCommand: func(_ context.Context, raw json.RawMessage) (any, error) {
+		}),
+		control.KeySetCommand: writing(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.KeySetArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -96,8 +96,8 @@ func registerCredentialCommands(r *control.Registry, st *credentials.Store, set 
 				return nil, answerOf(err)
 			}
 			return keyResult(k), nil
-		},
-		control.KeyShowCommand: func(_ context.Context, raw json.RawMessage) (any, error) {
+		}),
+		control.KeyShowCommand: reading(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.KeyShowArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -111,8 +111,8 @@ func registerCredentialCommands(r *control.Registry, st *credentials.Store, set 
 				return nil, answerOf(err)
 			}
 			return keyResult(k), nil
-		},
-		control.CredentialSetCommand: func(_ context.Context, raw json.RawMessage) (any, error) {
+		}),
+		control.CredentialSetCommand: writing(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.CredentialSetArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -121,8 +121,8 @@ func registerCredentialCommands(r *control.Registry, st *credentials.Store, set 
 				return nil, answerOf(err)
 			}
 			return struct{}{}, nil
-		},
-		control.CredentialListCommand: func(context.Context, json.RawMessage) (any, error) {
+		}),
+		control.CredentialListCommand: reading(func(context.Context, json.RawMessage) (any, error) {
 			entries, err := st.List()
 			if err != nil {
 				return nil, answerOf(err)
@@ -132,8 +132,8 @@ func registerCredentialCommands(r *control.Registry, st *credentials.Store, set 
 				res.Credentials = append(res.Credentials, control.CredentialInfo{Name: e.Name, Modified: e.Modified})
 			}
 			return res, nil
-		},
-		control.CredentialDeleteCommand: func(_ context.Context, raw json.RawMessage) (any, error) {
+		}),
+		control.CredentialDeleteCommand: writing(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.CredentialNameArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -142,7 +142,7 @@ func registerCredentialCommands(r *control.Registry, st *credentials.Store, set 
 				return nil, answerOf(err)
 			}
 			return struct{}{}, nil
-		},
+		}),
 	}
 	for name, h := range commands {
 		if err := r.Register(name, h); err != nil {

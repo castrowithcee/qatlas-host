@@ -40,10 +40,10 @@ func newWindowService(stateDir string, upd *updatesService, clock window.Clock, 
 }
 
 func registerWindowCommands(r *control.Registry, w *windowService) error {
-	if err := r.Register(control.WindowShowCommand, w.handleShow); err != nil {
+	if err := r.Register(control.WindowShowCommand, reading(w.handleShow)); err != nil {
 		return err
 	}
-	return r.Register(control.WindowSetCommand, w.handleSet)
+	return r.Register(control.WindowSetCommand, writing(w.handleSet))
 }
 
 var errWindowUnreadable = control.NewError(control.CodeInternal,

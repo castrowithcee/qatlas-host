@@ -86,8 +86,8 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"A small icon stands before the product name and before each area on the tab line. Settings, General\n" +
 			"chooses them under Icons: unicode (the default), nerdfont (needs a Nerd Font patched terminal font) or\n" +
 			"none. A terminal without Unicode shows no icons.\n\n" +
-			"It needs a terminal on both standard input and output and the running service; only root may use the\n" +
-			"service channel, so run it with sudo. Without a running service it ends with exit code 3 before it draws\n" +
+			"It needs a terminal on both standard input and output and the running service. Root and administrators in\n" +
+			"the group qhost may open it; without sudo it only reads, and a change says that it needs sudo qhost. Without a running service it ends with exit code 3 before it draws\n" +
 			"anything. Device-local preferences are read from ~/.qatlas/qhost/tui.yaml; a missing file means\n" +
 			"the defaults. Change them in Settings under General (theme, start area, language, icons and mouse)\n" +
 			"instead of editing the file by hand.",

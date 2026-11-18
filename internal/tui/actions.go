@@ -349,6 +349,12 @@ func (m *Model) applyPreview(msg previewMsg) tea.Cmd {
 	if !ok || e.done {
 		return nil
 	}
+	if needsRoot(msg.err) {
+		// Reading a changelog asks GitHub, which needs root, and so does the update behind it: say so at once.
+		m.modal = nil
+		m.warn(m.serviceText(msg.err))
+		return nil
+	}
 	e.res, e.err, e.done = msg.res, msg.err, true
 	m.setPreviewDialog(md)
 	var rest []string

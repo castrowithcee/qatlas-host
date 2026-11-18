@@ -24,7 +24,7 @@ func startSecretService(t *testing.T, log *syncBuffer) *repoEnv {
 	old := testGit
 	testGit = g
 	t.Cleanup(func() { testGit = old })
-	startServiceLogged(t, func(net.Conn) error { return nil }, log)
+	startServiceLogged(t, func(net.Conn) (uint32, error) { return 0, nil }, log)
 	e := &repoEnv{state: stateDir(), git: g, srv: hostkeytest.Start(t), dir: filepath.Join(t.TempDir(), "stacks")}
 	if err := os.Mkdir(e.dir, 0o755); err != nil {
 		t.Fatal(err)

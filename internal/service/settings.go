@@ -14,8 +14,8 @@ import (
 
 // registerSettingsCommands registers stack.settings.get, stack.settings.set and stack.settings.remove.
 func registerSettingsCommands(r *control.Registry, eng *sourceSet, redact func(string) string, log *slog.Logger) error {
-	commands := map[string]control.Handler{
-		control.StackSettingsGetCommand: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	commands := map[string]control.Command{
+		control.StackSettingsGetCommand: reading(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.StackSettingsArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -36,8 +36,8 @@ func registerSettingsCommands(r *control.Registry, eng *sourceSet, redact func(s
 				res.Settings = &s
 			}
 			return res, nil
-		},
-		control.StackSettingsSetCommand: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		}),
+		control.StackSettingsSetCommand: writing(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.StackSettingsSetArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -67,8 +67,8 @@ func registerSettingsCommands(r *control.Registry, eng *sourceSet, redact func(s
 				return nil, err
 			}
 			return control.StackSettingsSetResult{Stack: a.Stack, Settings: s, Changed: commit != "", Commit: commit}, nil
-		},
-		control.StackSettingsRemoveCommand: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		}),
+		control.StackSettingsRemoveCommand: writing(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.StackSettingsArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -86,7 +86,7 @@ func registerSettingsCommands(r *control.Registry, eng *sourceSet, redact func(s
 			}
 			log.Info("stack settings remove", "target", a.Stack, "result", "ok", "commit", commit)
 			return control.StackSettingsRemoveResult{Stack: a.Stack, Commit: commit}, nil
-		},
+		}),
 	}
 	for name, h := range commands {
 		if err := r.Register(name, h); err != nil {

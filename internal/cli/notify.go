@@ -24,7 +24,7 @@ func newNotifyCommand(program *cobracli.Program, state *notRunning, secrets *red
 		Short: "Manage the notification channels of the host",
 		Long: "A channel receives the events it selected: a webhook, a Slack channel, a Telegram chat or an e-mail\n" +
 			"address. The parts that grant the right to send are stored as credentials by the service and never shown\n" +
-			"again. Only root may use the service channel, so run these commands with sudo. See 'qhost help notifications'.",
+			"again. list needs no sudo for an administrator in the group qhost; add, remove and test need sudo. See 'qhost help notifications'.",
 	}
 	group.AddCommand(newNotifyList(program, state), newNotifyAdd(program, state, secrets),
 		newNotifyRemove(program, state), newNotifyTest(program, state))

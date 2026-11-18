@@ -44,7 +44,7 @@ func registerStackActionCommands(r *control.Registry, eng *sourceSet, redact fun
 		control.StackStartCommand: engine.ActionStart, control.StackStopCommand: engine.ActionStop,
 		control.StackRestartCommand: engine.ActionRestart,
 	} {
-		if err := r.Register(command, handler(action)); err != nil {
+		if err := r.Register(command, writing(handler(action))); err != nil {
 			return err
 		}
 	}

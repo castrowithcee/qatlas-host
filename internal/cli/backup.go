@@ -23,8 +23,8 @@ func newBackupCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 		Short: "Back up, list and restore the data of a stack",
 		Long: "A backup saves the data directories and named volumes that the stack settings list, and the\n" +
 			"output of its backup command. The stack is stopped while it is saved and started again afterwards.\n" +
-			"Backups are kept under the service's state directory, readable by the service user only. Only root\n" +
-			"may use the service channel, so run these commands with sudo.",
+			"Backups are kept under the service's state directory, readable by the service user only. list needs\n" +
+			"no sudo for an administrator in the group qhost; create and restore need sudo.",
 	}
 	var gate *cobracli.Gate
 	create := &cobra.Command{

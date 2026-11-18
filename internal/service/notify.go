@@ -134,11 +134,11 @@ func (n *notifyService) updateAvailable(notice UpdateNotice) {
 }
 
 func registerNotifyCommands(r *control.Registry, n *notifyService) error {
-	for name, h := range map[string]control.Handler{
-		control.NotifyListCommand:   n.handleList,
-		control.NotifyAddCommand:    n.handleAdd,
-		control.NotifyRemoveCommand: n.handleRemove,
-		control.NotifyTestCommand:   n.handleTest,
+	for name, h := range map[string]control.Command{
+		control.NotifyListCommand:   reading(n.handleList),
+		control.NotifyAddCommand:    writing(n.handleAdd),
+		control.NotifyRemoveCommand: writing(n.handleRemove),
+		control.NotifyTestCommand:   writing(n.handleTest),
 	} {
 		if err := r.Register(name, h); err != nil {
 			return err

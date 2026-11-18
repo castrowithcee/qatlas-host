@@ -46,25 +46,57 @@ func TestWriteFrameLimit(t *testing.T) {
 func TestRegistry(t *testing.T) {
 	r := NewRegistry()
 	h := func(context.Context, json.RawMessage) (any, error) { return nil, nil }
-	if err := r.Register("status", h); err != nil {
+	read, write := Command{Access: AccessRead, Handle: h}, Command{Access: AccessWrite, Handle: h}
+	if err := r.Register("status", read); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.Register("stacks.list", h); err != nil {
+	if err := r.Register("stacks.list", write); err != nil {
 		t.Fatal(err)
 	}
 	for _, bad := range []string{"", "Status", "a b", "a..b", ".a", "a."} {
-		if r.Register(bad, h) == nil {
+		if r.Register(bad, read) == nil {
 			t.Errorf("name %q accepted", bad)
 		}
 	}
-	if r.Register("status", h) == nil || r.Register("other", nil) == nil {
+	if r.Register("status", read) == nil || r.Register("other", Command{Access: AccessRead}) == nil {
 		t.Error("duplicate or nil handler accepted")
 	}
-	if _, ok := r.Lookup("status"); !ok {
+	for _, unmarked := range []Command{{Handle: h}, {Access: 3, Handle: h}} {
+		if r.Register("unmarked", unmarked) == nil {
+			t.Errorf("command with access %v accepted", unmarked.Access)
+		}
+	}
+	if r.Register("raised", Command{Access: AccessWrite, Handle: h, Writes: func(json.RawMessage) bool { return true }}) == nil {
+		t.Error("a write command with Writes accepted")
+	}
+	if c, ok := r.Lookup("status"); !ok || c.Access != AccessRead {
 		t.Error("registered command not found")
 	}
 	if _, ok := r.Lookup("missing"); ok {
 		t.Error("unknown command found")
+	}
+	if got := strings.Join(r.Names(), ","); got != "stacks.list,status" {
+		t.Errorf("names = %s", got)
+	}
+}
+
+func TestAccessForRaisesOnlyAReadWithASideEffect(t *testing.T) {
+	h := func(context.Context, json.RawMessage) (any, error) { return nil, nil }
+	refresh := func(args json.RawMessage) bool { return string(args) != `{}` }
+	for _, tc := range []struct {
+		c    Command
+		args string
+		want Access
+	}{
+		{Command{Access: AccessRead, Handle: h}, `{"refresh":true}`, AccessRead},
+		{Command{Access: AccessRead, Handle: h, Writes: refresh}, `{}`, AccessRead},
+		{Command{Access: AccessRead, Handle: h, Writes: refresh}, `{"refresh":true}`, AccessWrite},
+		{Command{Access: AccessWrite, Handle: h}, `{}`, AccessWrite},
+		{Command{Handle: h}, `{}`, AccessWrite},
+	} {
+		if got := tc.c.AccessFor(json.RawMessage(tc.args)); got != tc.want {
+			t.Errorf("access of %v with %s = %v, want %v", tc.c.Access, tc.args, got, tc.want)
+		}
 	}
 }
 
