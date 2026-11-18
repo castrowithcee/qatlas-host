@@ -293,6 +293,10 @@ func (m *Model) containerLogKey(msg tea.KeyPressMsg) tea.Cmd {
 		case actSaveLog:
 			m.saveOpenLog()
 			return nil
+		case actDiagnose:
+			if l.service {
+				return m.startDiagnose()
+			}
 		}
 	}
 	l.view.Update(msg)
