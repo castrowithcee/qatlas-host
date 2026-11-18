@@ -17,19 +17,19 @@ import (
 	"github.com/castrowithcee/qatlas-kit/selfupdate"
 	"github.com/castrowithcee/qatlas-kit/sysservice"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/release"
+	"github.com/castrowithcee/qatlas-host/internal/release"
 )
 
 const (
 	// releaseAPI is the GitHub API base of the public repository the releases come from.
-	releaseAPI = "https://api.github.com/repos/castrowithcee/qatlas-deploy"
+	releaseAPI = "https://api.github.com/repos/castrowithcee/qatlas-host"
 	// minimumVersion is the oldest release that can be installed.
 	minimumVersion = "v0.1.0"
 	// programName is the executable, the service and the release archive prefix.
-	programName = "qdeploy"
+	programName = "qhost"
 	// manEntry is the main manpage inside the release archive; manPath is where the installer puts it.
-	manEntry = "share/man/man1/qdeploy.1"
-	manPath  = "/usr/local/share/man/man1/qdeploy.1"
+	manEntry = "share/man/man1/qhost.1"
+	manPath  = "/usr/local/share/man/man1/qhost.1"
 )
 
 // selfUpdateHost is everything the self-update takes from the host. Production code never changes it;
@@ -79,26 +79,26 @@ func (h selfUpdateHost) client() *selfupdate.Client {
 	}
 }
 
-// newSelfUpdateCommand is the self-update of the program. Stack updates are 'qdeploy stack update'.
+// newSelfUpdateCommand is the self-update of the program. Stack updates are 'qhost stack update'.
 func newSelfUpdateCommand(program *cobracli.Program) *cobra.Command {
 	var gate *cobracli.Gate
 	cmd := &cobra.Command{
 		Use:   "update [version]",
-		Short: "Update qdeploy to the latest stable release or to a given newer one",
+		Short: "Update qhost to the latest stable release or to a given newer one",
 		Long: "update replaces the installed program, its systemd unit and its main manpage with those of a signed\n" +
 			"release and restarts the service; drop-ins of the unit stay as they are. Without an argument it\n" +
 			"installs the newest stable release if that is newer than the running version; with a version such as\n" +
 			"v1.2.3 it installs exactly that release, which must be newer than the running one. Updating never\n" +
 			"installs an older release.\n" +
 			"The signature over the release's checksums.txt is verified against the release key built into\n" +
-			"qdeploy, then the archive's SHA-256 checksum; any failure leaves the installation unchanged.\n" +
+			"qhost, then the archive's SHA-256 checksum; any failure leaves the installation unchanged.\n" +
 			"Installing needs root. The service restarts afterwards, so installing needs --confirm and asks for\n" +
 			"confirmation on a terminal; --yes answers the question. To update the image versions of stacks use\n" +
-			"'qdeploy stack update'.",
+			"'qhost stack update'.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return usageFailure("update takes at most one argument, the release version",
-					"Run 'qdeploy update [version]'.")
+					"Run 'qhost update [version]'.")
 			}
 			return nil
 		},
@@ -133,7 +133,7 @@ func newSelfUpdateCommand(program *cobracli.Program) *cobra.Command {
 
 func runSelfUpdate(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, tag string) error {
 	if selfUpdate.euid() != 0 {
-		return &cli.Failure{Code: output.CodePermission, Message: "updating qdeploy needs root; run with sudo",
+		return &cli.Failure{Code: output.CodePermission, Message: "updating qhost needs root; run with sudo",
 			NextStep: "Run the same command with sudo."}
 	}
 	// A request without --confirm fails before the release server is asked.
@@ -164,7 +164,7 @@ func runSelfUpdate(c *cobra.Command, program *cobracli.Program, gate *cobracli.G
 	if err != nil {
 		var te *selfupdate.TargetError
 		if errors.As(err, &te) {
-			return usageFailure(err.Error(), "Run 'qdeploy update status' to see the latest stable release.")
+			return usageFailure(err.Error(), "Run 'qhost update status' to see the latest stable release.")
 		}
 		return selfUpdateFailure(err)
 	}
@@ -173,9 +173,9 @@ func runSelfUpdate(c *cobra.Command, program *cobracli.Program, gate *cobracli.G
 	}
 	if target.Older {
 		return usageFailure("release "+target.Version+" is older than the running version "+version+"; update never installs an older release",
-			"Run 'qdeploy update status' to see the latest stable release.")
+			"Run 'qhost update status' to see the latest stable release.")
 	}
-	question := fmt.Sprintf("Update qdeploy from %s to %s. The service restarts.", version, target.Version)
+	question := fmt.Sprintf("Update qhost from %s to %s. The service restarts.", version, target.Version)
 	return gate.Run(cobracli.Request{Question: question, Changes: true}, func() error {
 		prepared, err := updater.Prepare(ctx, target)
 		if err != nil {

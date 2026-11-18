@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 type fakeGit struct {
@@ -165,7 +165,7 @@ func TestFunctions(t *testing.T) {
 			FuncUpdate, true, "automatic", "updates DEMO_VERSION by itself", ""},
 		{"update manual", with(demoFiles(), map[string]string{settingsKey: "version: 1\n"}),
 			FuncUpdate, true, "manual", "reports new versions of DEMO_VERSION", ""},
-		{"update not switched on", demoFiles(), FuncUpdate, false, "none", "not switched on", "Switch on updates in the stack's settings in the qdeploy TUI"},
+		{"update not switched on", demoFiles(), FuncUpdate, false, "none", "not switched on", "Switch on updates in the stack's settings in the qhost TUI"},
 		{"fixed tag is deploy only", with(demoFiles(), map[string]string{"compose.yaml": "services:\n  app:\n    image: registry.example.test/demo/app:1.2.3\n"}),
 			FuncUpdate, false, "none", "fixed in the compose file: deploy only", "${SERVICE_VERSION}"},
 		{"digest is deploy only", with(demoFiles(), map[string]string{"compose.yaml": "services:\n  app:\n    image: registry.example.test/demo/app@sha256:0000\n"}),
@@ -189,14 +189,14 @@ func TestFunctions(t *testing.T) {
 		{"rollback without data", demoFiles(), FuncRollback, false, "", "previous commit, but leaves the data", "backup.paths"},
 
 		{"backup", with(demoFiles(), map[string]string{settingsKey: withBackup}), FuncBackup, true, "", "data/db and the volumes state", ""},
-		{"backup without a section", with(demoFiles(), map[string]string{settingsKey: "version: 1\n"}), FuncBackup, false, "", "no backup section", "qdeploy stack settings set demo-stack"},
+		{"backup without a section", with(demoFiles(), map[string]string{settingsKey: "version: 1\n"}), FuncBackup, false, "", "no backup section", "qhost stack settings set demo-stack"},
 		{"backup path outside data", with(demoFiles(), map[string]string{settingsKey: "version: 1\nbackup:\n  paths: [config]\n"}),
 			FuncBackup, false, "", "config is not below data/", "backup.paths"},
 		{"backup of a broken stack", with(demoFiles(), map[string]string{settingsKey: "version: 1\nbackup:\n  paths: [../x]\n"}), FuncBackup, false, "", "cannot be read", "deploy problem"},
 
 		{"redact secrets.env", with(demoFiles(), map[string]string{".env": goodEnv + "API_TOKEN=x\n"}), FuncRedact, true, "", "secrets.env (1 key(s)) and of the .env keys named like a secret (API_TOKEN)", ""},
 		{"redact by name only", with(demoFiles(), map[string]string{"secrets.env": "-", ".env": goodEnv + "DB_PASSWORD=x\n"}),
-			FuncRedact, true, "", "no secrets.env; the values of the .env keys named like a secret (DB_PASSWORD)", "qdeploy stack secret set demo-stack"},
+			FuncRedact, true, "", "no secrets.env; the values of the .env keys named like a secret (DB_PASSWORD)", "qhost stack secret set demo-stack"},
 		{"nothing to redact", with(demoFiles(), map[string]string{"secrets.env": "-"}), FuncRedact, false, "", "no value is redacted", "If the stack has secrets"},
 	}
 	for _, tc := range cases {
@@ -288,11 +288,11 @@ func TestRules(t *testing.T) {
 		{"compose file unsafe", with(demoFiles(), map[string]string{".env": goodEnv + "COMPOSE_FILE=../compose.yaml\n"}),
 			fakeGit{}, RuleInvalidComposeFile, SeverityError, "..", "relative path"},
 		{"rules invalid", with(demoFiles(), map[string]string{settingsKey: "version: 1\nupdate:\n  mode: sometimes\n"}),
-			fakeGit{}, RuleInvalidRules, SeverityError, "stack settings", "qdeploy stack settings set"},
+			fakeGit{}, RuleInvalidRules, SeverityError, "stack settings", "qhost stack settings set"},
 		{"rules unknown variable", with(demoFiles(), map[string]string{settingsKey: "version: 1\nupdate:\n  tags:\n    NOPE_VERSION: '^1$'\n"}),
 			fakeGit{}, RuleUnknownRulesVar, SeverityError, "NOPE_VERSION", "stack settings"},
-		{"old rules file", with(demoFiles(), map[string]string{"qdeploy.yaml": "version: 1\nupdate:\n  mode: automatic\n"}),
-			fakeGit{}, RuleOldRulesFile, SeverityWarning, "no settings and is not updated", "qdeploy stack settings set demo-stack"},
+		{"old rules file", with(demoFiles(), map[string]string{"qhost.yaml": "version: 1\nupdate:\n  mode: automatic\n"}),
+			fakeGit{}, RuleOldRulesFile, SeverityWarning, "no settings and is not updated", "qhost stack settings set demo-stack"},
 		{"unreadable stack", with(demoFiles(), map[string]string{".env": "not a line\n"}),
 			fakeGit{}, RuleUnreadableStack, SeverityWarning, ".env", "Correct"},
 	}
@@ -466,7 +466,7 @@ func TestComposeFilesOfRulesAreNamedInTheFinding(t *testing.T) {
 
 func TestOldRulesFileBesideSettingsNamesTheMode(t *testing.T) {
 	fs := checkFiles(t, with(demoFiles(), map[string]string{
-		"qdeploy.yaml": "version: 1\n", settingsKey: "version: 1\nupdate:\n  mode: automatic\n",
+		"qhost.yaml": "version: 1\n", settingsKey: "version: 1\nupdate:\n  mode: automatic\n",
 	}), fakeGit{})
 	if len(fs) != 1 || fs[0].Rule != RuleOldRulesFile || !strings.Contains(fs[0].Cause, "update mode automatic") {
 		t.Fatalf("findings: %+v", fs)

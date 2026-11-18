@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 
 	"testing"
 )
@@ -30,7 +30,7 @@ func TestGoldenMultiActionSummary(t *testing.T) {
 	}, "space", "down", "space", "end", "space", "i", "y")
 }
 
-// stoppedBackend is the demo host with mail-relay stopped through qdeploy.
+// stoppedBackend is the demo host with mail-relay stopped through qhost.
 func stoppedBackend() *fakeBackend {
 	b := demoBackend()
 	b.status.Engine.Stacks[1].Stopped = &control.HoldInfo{Since: at(29, 16, 40)}

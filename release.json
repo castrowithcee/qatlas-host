@@ -1,15 +1,15 @@
 {
   "package": ".",
-  "versionVariable": "github.com/castrowithcee/qatlas-deploy/internal/cli.version",
+  "versionVariable": "github.com/castrowithcee/qatlas-host/internal/cli.version",
   "targets": ["linux/amd64", "linux/arm64"],
   "manpageCommand": ["go", "run", ".", "manpage", "--dir", "{dir}"],
   "files": [],
   "installer": {
-    "displayName": "Qatlas Deploy",
-    "nextStep": "Next: run sudo qdeploy."
+    "displayName": "Qatlas Host",
+    "nextStep": "Next: run sudo qhost."
   },
   "service": {
-    "unit": "packaging/qdeploy.service",
+    "unit": "packaging/qhost.service",
     "groups": ["docker"],
     "addInstallingUser": false,
     "writableConfig": false

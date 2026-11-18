@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/release"
+	"github.com/castrowithcee/qatlas-host/internal/release"
 	"github.com/castrowithcee/qatlas-kit/release/installer"
 	"github.com/castrowithcee/qatlas-kit/release/releasebuild"
 	"github.com/castrowithcee/qatlas-kit/sysservice"
@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	program   = "qdeploy"
-	namespace = "qdeploy-release"
+	program   = "qhost"
+	namespace = "qhost-release"
 	repoRoot  = ".."
 )
 
@@ -49,8 +49,8 @@ func TestUnitPassesKitValidation(t *testing.T) {
 	}
 }
 
-// The service refuses to start unless /run/qdeploy belongs to qdeploy:qdeploy without access for others and
-// /var/lib/qdeploy has mode 0700, so the unit must ask systemd for exactly that.
+// The service refuses to start unless /run/qhost belongs to qhost:qhost without access for others and
+// /var/lib/qhost has mode 0700, so the unit must ask systemd for exactly that.
 func TestUnitMeetsRuntimeDirectoryContract(t *testing.T) {
 	unit := string(readFile(t, loadConfig(t).Service.Unit))
 	lines := map[string]bool{}
@@ -58,13 +58,13 @@ func TestUnitMeetsRuntimeDirectoryContract(t *testing.T) {
 		lines[strings.TrimSpace(l)] = true
 	}
 	for _, want := range []string{
-		"ExecStart=/usr/local/bin/qdeploy run",
-		"User=qdeploy",
-		"Group=qdeploy",
+		"ExecStart=/usr/local/bin/qhost run",
+		"User=qhost",
+		"Group=qhost",
 		"SupplementaryGroups=docker",
-		"RuntimeDirectory=qdeploy",
+		"RuntimeDirectory=qhost",
 		"RuntimeDirectoryMode=0750",
-		"StateDirectory=qdeploy",
+		"StateDirectory=qhost",
 		"StateDirectoryMode=0700",
 		"NoNewPrivileges=yes",
 		"ProtectSystem=strict",
@@ -86,7 +86,7 @@ func TestReleaseConfigSelectsTheSystemVariant(t *testing.T) {
 	if got, want := strings.Join(c.Targets, " "), "linux/amd64 linux/arm64"; got != want {
 		t.Errorf("targets = %q, want %q", got, want)
 	}
-	if c.VersionVariable != "github.com/castrowithcee/qatlas-deploy/internal/cli.version" {
+	if c.VersionVariable != "github.com/castrowithcee/qatlas-host/internal/cli.version" {
 		t.Errorf("version variable = %q", c.VersionVariable)
 	}
 	if strings.Join(c.Service.Groups, " ") != "docker" {
@@ -117,7 +117,7 @@ func TestInstallerRendersTheSystemVariant(t *testing.T) {
 	script, err := installer.Shell(installer.Params{
 		Program:        program,
 		DisplayName:    c.Installer.DisplayName,
-		ReleasesURL:    "https://github.com/castrowithcee/qatlas-deploy/releases",
+		ReleasesURL:    "https://github.com/castrowithcee/qatlas-host/releases",
 		Namespace:      namespace,
 		SignatureAsset: release.SignatureAsset,
 		TrustedKeys:    keys,

@@ -44,7 +44,7 @@ func TestCommitFileChangesOnlyTheFileOnTheRemoteHead(t *testing.T) {
 	if !strings.Contains(diff, "\n-APP_VERSION=1.0.0\n+APP_VERSION=1.1.0") || strings.Count(diff, "\n-") != 2 || strings.Count(diff, "\n+") != 2 {
 		t.Fatalf("diff = %q", diff)
 	}
-	if got := fixtureGit(t, r.dir, "show", "-s", "--format=%an <%ae>|%B", id); got != "qdeploy <qdeploy@localhost.invalid>|Update web APP_VERSION from 1.0.0 to 1.1.0 [31m" {
+	if got := fixtureGit(t, r.dir, "show", "-s", "--format=%an <%ae>|%B", id); got != "qhost <qhost@localhost.invalid>|Update web APP_VERSION from 1.0.0 to 1.1.0 [31m" {
 		t.Fatalf("commit = %q", got)
 	}
 
@@ -111,10 +111,10 @@ func TestCommitFileCreatesAMissingFile(t *testing.T) {
 	base, _ := r.RemoteHead(ctx)
 	idxBefore, bodyBefore := indexAndFiles(t, r)
 	got := []byte("not called")
-	id, err := r.CommitFile(ctx, ".qatlas/qdeploy/web.yaml", func(old []byte) ([]byte, error) {
+	id, err := r.CommitFile(ctx, ".qatlas/qhost/web.yaml", func(old []byte) ([]byte, error) {
 		got = old
 		return []byte("version: 1\n"), nil
-	}, "qdeploy: settings of web")
+	}, "qhost: settings of web")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,10 +124,10 @@ func TestCommitFileCreatesAMissingFile(t *testing.T) {
 	if idxAfter, bodyAfter := indexAndFiles(t, r); idxAfter != idxBefore || bodyAfter != bodyBefore {
 		t.Fatal("CommitFile touched the index or the working copy")
 	}
-	if d := fixtureGit(t, r.dir, "diff", "--name-status", base, id); d != "A\t.qatlas/qdeploy/web.yaml" {
+	if d := fixtureGit(t, r.dir, "diff", "--name-status", base, id); d != "A\t.qatlas/qhost/web.yaml" {
 		t.Fatalf("diff = %q", d)
 	}
-	if m := fixtureGit(t, r.dir, "ls-tree", id, "--", ".qatlas/qdeploy/web.yaml"); !strings.HasPrefix(m, "100644 blob ") {
+	if m := fixtureGit(t, r.dir, "ls-tree", id, "--", ".qatlas/qhost/web.yaml"); !strings.HasPrefix(m, "100644 blob ") {
 		t.Fatalf("ls-tree = %q", m)
 	}
 	if err := r.Push(ctx, id); err != nil {
@@ -140,7 +140,7 @@ func TestCommitFileCreatesAMissingFile(t *testing.T) {
 		t.Fatalf("status = %q", st)
 	}
 	same := func(old []byte) ([]byte, error) { return old, nil }
-	if _, err := r.CommitFile(ctx, ".qatlas/qdeploy/web.yaml", same, "m"); !errors.Is(err, ErrUnchanged) {
+	if _, err := r.CommitFile(ctx, ".qatlas/qhost/web.yaml", same, "m"); !errors.Is(err, ErrUnchanged) {
 		t.Fatalf("err = %v, want ErrUnchanged", err)
 	}
 }
@@ -149,9 +149,9 @@ func TestCommitFileRemovesAFile(t *testing.T) {
 	ctx := context.Background()
 	f := newRemote(t)
 	r, _ := cloneFixture(t, f)
-	path := ".qatlas/qdeploy/web.yaml"
+	path := ".qatlas/qhost/web.yaml"
 	create := func(old []byte) ([]byte, error) { return []byte("version: 1\n"), nil }
-	id, err := r.CommitFile(ctx, path, create, "qdeploy: settings of web")
+	id, err := r.CommitFile(ctx, path, create, "qhost: settings of web")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestCommitFileRemovesAFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	remove := func(old []byte) ([]byte, error) { return nil, nil }
-	del, err := r.CommitFile(ctx, path, remove, "qdeploy: remove settings of web")
+	del, err := r.CommitFile(ctx, path, remove, "qhost: remove settings of web")
 	if err != nil {
 		t.Fatal(err)
 	}

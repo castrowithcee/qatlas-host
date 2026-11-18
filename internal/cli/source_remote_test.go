@@ -7,7 +7,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 const (
@@ -50,7 +50,7 @@ func (r *remoteFake) handlers(inspect control.SourceInspectResult) fakeHandlers 
 				return r.refusal
 			}
 			return control.SourceRemoteResult{ID: "src-2", Path: a.Path, URL: a.URL, State: a.ExpectState, Branch: "main",
-				Head: "feedface0000", Pushed: a.ExpectState != control.SourceRemoteEqual, HistoryRef: "refs/qdeploy/local-before-remote"}
+				Head: "feedface0000", Pushed: a.ExpectState != control.SourceRemoteEqual, HistoryRef: "refs/qhost/local-before-remote"}
 		},
 		control.SourceAddCommand: func(raw json.RawMessage) any {
 			var a control.SourceAddArgs
@@ -125,7 +125,7 @@ func TestSourceRemoteYesPassesTheShownStateAndCommit(t *testing.T) {
 		t.Fatalf("invalid JSON %q: %v", stdout, err)
 	}
 	if res["id"] != "src-2" || res["url"] != remoteURL || res["state"] != "different" || res["branch"] != "main" ||
-		res["head"] != "feedface0000" || res["pushed"] != true || res["history_ref"] != "refs/qdeploy/local-before-remote" {
+		res["head"] != "feedface0000" || res["pushed"] != true || res["history_ref"] != "refs/qhost/local-before-remote" {
 		t.Fatalf("result = %v", res)
 	}
 	want := control.SourceRemoteArgs{Path: dir, URL: remoteURL, Fingerprint: remoteKeyPrint, ExpectState: "different", ExpectCommit: remoteCommit}
@@ -137,7 +137,7 @@ func TestSourceRemoteYesPassesTheShownStateAndCommit(t *testing.T) {
 func TestSourceRemoteAsksADifferentQuestionPerState(t *testing.T) {
 	for state, want := range map[string]string{
 		control.SourceRemoteEmpty:     "Push the local history to " + remoteURL + " (branch main)?",
-		control.SourceRemoteEqual:     "the local history stays under refs/qdeploy/local-before-remote?",
+		control.SourceRemoteEqual:     "the local history stays under refs/qhost/local-before-remote?",
 		control.SourceRemoteDifferent: "Put the state of the host as a commit on main and push it?",
 	} {
 		got, err := remoteQuestion(control.SourceCompareResult{State: state, Branch: "main"}, remoteURL)
@@ -253,7 +253,7 @@ func TestSourceAddFilesWithURLEmptyRemoteStopsWithAHint(t *testing.T) {
 
 	code, _, stderr := run(t, "source", "add", tree.dir, "--url", remoteURL, "--fingerprint", remoteKeyPrint, "--yes")
 	if code == 0 || !strings.Contains(stderr, "has no commit") || !strings.Contains(stderr, "without --url") ||
-		!strings.Contains(stderr, "qdeploy source remote "+tree.dir+" "+remoteURL) {
+		!strings.Contains(stderr, "qhost source remote "+tree.dir+" "+remoteURL) {
 		t.Fatalf("code %d, stderr %q", code, stderr)
 	}
 	if !fake.untouched() || !equalModes(before, tree.snapshot(t)) || len(d.lchowns) != 0 || d.dropIn(t) != "" {
@@ -273,7 +273,7 @@ func TestSourceAddFilesWithURLWithoutConfirmationChangesNothing(t *testing.T) {
 	if code != 2 || stdout != "" || !strings.Contains(stderr, "confirmation-required") {
 		t.Fatalf("code %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
-	for _, want := range []string{"State different", "  .env", "on the history of " + remoteURL, "one commit as qdeploy on main",
+	for _, want := range []string{"State different", "  .env", "on the history of " + remoteURL, "one commit as qhost on main",
 		"takes 3 files", "big.bin: too-large", "paths get the group"} {
 		if !strings.Contains(stderr, want) {
 			t.Errorf("preview lacks %q:\n%s", want, stderr)

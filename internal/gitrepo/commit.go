@@ -61,7 +61,7 @@ func (r *Repo) CommitFile(ctx context.Context, path string, edit func(old []byte
 		return "", ErrUnchanged
 	}
 
-	dir, err := os.MkdirTemp("", "qdeploy-commit-*")
+	dir, err := os.MkdirTemp("", "qhost-commit-*")
 	if err != nil {
 		return "", fmt.Errorf("create temporary directory: %w", err)
 	}

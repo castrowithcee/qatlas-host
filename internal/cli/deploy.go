@@ -11,7 +11,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 var runIDShape = regexp.MustCompile(`^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$`)
@@ -21,12 +21,12 @@ func newDeployCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 		Use:   "deploy <stack>",
 		Short: "Start a manual run of a stack",
 		Long: "deploy starts a run of the stack at the commit the working copy has now; it does not fetch. It returns as\n" +
-			"soon as the run is started and prints its id; follow it with 'qdeploy stack runs' and 'qdeploy stack log <run>'. A\n" +
+			"soon as the run is started and prints its id; follow it with 'qhost stack runs' and 'qhost stack log <run>'. A\n" +
 			"stack with a run in progress, with local changes, that cannot be read or that is paused is refused.\n\n" +
 			"A run stops the stack, backs up its data, pulls, starts and checks the new version. When a step after the\n" +
 			"stop fails, the run is rolled back: the data is restored from the run's backup, a commit that puts the\n" +
 			"stack folder back to its deployed state is pushed to the branch, and that state is started and checked.\n" +
-			"A stack whose rollback fails is left stopped and paused until 'qdeploy stack resume' is run.",
+			"A stack whose rollback fails is left stopped and paused until 'qhost stack resume' is run.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			var res control.DeployResult
@@ -47,8 +47,8 @@ func newResumeCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 		Long: "resume releases a halted automatic repair of the stack, so it tries again on the next failure, and clears the\n" +
 			"pause a failed rollback left on the stack, so polls and manual runs reach it again. It\n" +
 			"starts nothing and leaves the stack as it is: the failed commit stays marked, so the stack runs again on\n" +
-			"a new commit or with 'qdeploy stack deploy <stack>'. Find out first why the rollback failed with\n" +
-			"'qdeploy stack runs <stack>' and 'qdeploy stack log <run>'.",
+			"a new commit or with 'qhost stack deploy <stack>'. Find out first why the rollback failed with\n" +
+			"'qhost stack runs <stack>' and 'qhost stack log <run>'.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			var res control.ResumeResult
@@ -106,12 +106,12 @@ func newLogCommand(_ *cobracli.Program, state *notRunning) *cobra.Command {
 	return &cobra.Command{
 		Use:   "log <run>",
 		Short: "Print the log of one run",
-		Long:  "log prints the log of the run with the given id, as listed by 'qdeploy stack runs'.",
+		Long:  "log prints the log of the run with the given id, as listed by 'qhost stack runs'.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			if !runIDShape.MatchString(args[0]) {
 				return &cli.Failure{Code: output.CodeNotFound, Message: "no such run",
-					NextStep: "List the runs with 'qdeploy stack runs'.", Cause: fmt.Errorf("malformed run id")}
+					NextStep: "List the runs with 'qhost stack runs'.", Cause: fmt.Errorf("malformed run id")}
 			}
 			var res control.LogResult
 			if err := credentialCall(c, state, control.LogCommand, control.LogArgs{ID: args[0]}, &res); err != nil {

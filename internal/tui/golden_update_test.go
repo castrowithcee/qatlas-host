@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // The goldens of the update rules form: 80x24 and 120x40, in English and German.

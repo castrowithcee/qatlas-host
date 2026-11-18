@@ -6,7 +6,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/i18n"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 const foreignDir = "/srv/demo-foreign"

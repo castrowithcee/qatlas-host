@@ -16,9 +16,9 @@ import (
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/credentials"
 )
 
 // The sources of a value; tests replace them.
@@ -50,7 +50,7 @@ func newCredentialCommand(program *cobracli.Program, state *notRunning, secrets 
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return usageFailure("credential set takes exactly one argument, the credential name; the value is never accepted as an argument",
-					"Run 'qdeploy credential set <name>' and enter the value at the prompt or pipe it on standard input.")
+					"Run 'qhost credential set <name>' and enter the value at the prompt or pipe it on standard input.")
 			}
 			return nil
 		},
@@ -101,7 +101,7 @@ func newCredentialCommand(program *cobracli.Program, state *notRunning, secrets 
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			if !credentials.ValidName(args[0]) {
-				return usageFailure(credentials.ErrInvalidName.Error(), "Check the names with 'qdeploy credential list'.")
+				return usageFailure(credentials.ErrInvalidName.Error(), "Check the names with 'qhost credential list'.")
 			}
 			if err := credentialCall(c, state, control.CredentialDeleteCommand, control.CredentialNameArgs{Name: args[0]}, nil); err != nil {
 				return err

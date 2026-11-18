@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/changelog"
-	"github.com/castrowithcee/qatlas-deploy/internal/registry"
-	"github.com/castrowithcee/qatlas-deploy/internal/registry/registrytest"
+	"github.com/castrowithcee/qatlas-host/internal/changelog"
+	"github.com/castrowithcee/qatlas-host/internal/registry"
+	"github.com/castrowithcee/qatlas-host/internal/registry/registrytest"
 )
 
 func startChangelog(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // filesTree is a folder of files without a repository: two listed files, one in a subfolder, a large file the
@@ -21,7 +21,7 @@ type filesTree struct {
 
 func newFilesTree(t *testing.T) filesTree {
 	t.Helper()
-	root, err := os.MkdirTemp("/var/tmp", "qdeploy-files-")
+	root, err := os.MkdirTemp("/var/tmp", "qhost-files-")
 	if err != nil {
 		t.Skip("no /var/tmp:", err)
 	}
@@ -88,7 +88,7 @@ func TestSourceAddFilesWithoutConfirmationChangesNothing(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Case files", "Start a git repository", "branch main", "core.sharedRepository=group",
-		"first commit is made as qdeploy", "no file in the folder is written", "takes 3 files", "  compose.yaml",
+		"first commit is made as qhost", "no file in the folder is written", "takes 3 files", "  compose.yaml",
 		"big.bin: too-large", "data: bind-mount (stack demo)", "only in .git/info/exclude, never in .gitignore",
 		"paths get the group", "listed files: group rw", "bind-mount sources and everything below: data",
 		"files that are not listed stay as they are",
@@ -183,7 +183,7 @@ func TestSourceAddFilesWithYesPassesTheConfirmedList(t *testing.T) {
 	if svc.count(control.SourceAddCommand) != 1 || got.Path != tree.dir || strings.Join(got.Files, ",") != ".env,compose.yaml,conf/app.yaml" {
 		t.Fatalf("source.add args %+v, calls %d", got, svc.count(control.SourceAddCommand))
 	}
-	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) || strings.Join(d.cmds, ";") != "daemon-reload;restart qdeploy" {
+	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) || strings.Join(d.cmds, ";") != "daemon-reload;restart qhost" {
 		t.Fatalf("drop-in %q, commands %v", d.dropIn(t), d.cmds)
 	}
 	if tree.hasGit() {

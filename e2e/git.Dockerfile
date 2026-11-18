@@ -3,7 +3,7 @@
 ARG BASE
 FROM ${BASE}
 
-COPY git-sshd.conf /etc/ssh/sshd_config.d/qdeploye2e.conf
+COPY git-sshd.conf /etc/ssh/sshd_config.d/qhoste2e.conf
 COPY demo-stacks /usr/local/share/demo-stacks
 COPY demo-stacks-second /usr/local/share/demo-stacks-second
 COPY demo-stacks-root /usr/local/share/demo-stacks-root

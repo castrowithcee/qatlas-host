@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/channeltest"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 const inspectURL = "ssh://git.example.test/demo/stacks.git"

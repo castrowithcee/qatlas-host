@@ -12,8 +12,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
 )
 
 func newSourceRemoteCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
@@ -35,7 +35,7 @@ func newSourceRemoteCommand(program *cobracli.Program, state *notRunning) *cobra
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return usageFailure("source remote takes two arguments, the path of the folder and the SSH address",
-					"Run 'qdeploy source remote <path> <ssh-url>'.")
+					"Run 'qhost source remote <path> <ssh-url>'.")
 			}
 			return nil
 		},
@@ -73,7 +73,7 @@ func runSourceRemote(c *cobra.Command, program *cobracli.Program, gate *cobracli
 	}
 	if cmp.Case != control.SourceCaseLocal {
 		return usageFailure("source remote works on a local source; this folder is case "+cmp.Case,
-			"Run 'qdeploy source add "+path+" --url <ssh-url>' for a folder of files.")
+			"Run 'qhost source add "+path+" --url <ssh-url>' for a folder of files.")
 	}
 	w := c.ErrOrStderr()
 	_, _ = fmt.Fprintf(w, "Compare %s with %s:\n", path, url)
@@ -167,7 +167,7 @@ func refuseSecrets(cmp control.SourceCompareResult) error {
 
 func secretsFailure(message string) *cli.Failure {
 	return &cli.Failure{Code: output.Code(control.CodeSecrets), Message: message,
-		NextStep: "qdeploy cannot push these files and has no override. Remove them from the history yourself (rewrite " +
+		NextStep: "qhost cannot push these files and has no override. Remove them from the history yourself (rewrite " +
 			"it, or start a new history without them), then run the command again."}
 }
 

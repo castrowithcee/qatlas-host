@@ -17,7 +17,7 @@ seed_repo() {
 		cd "$seed"
 		git init -q --initial-branch=main
 		git add .
-		git -c user.name="E2E Seed" -c user.email=seed.qdeploye2e.test commit -q -m "Initial demo stacks"
+		git -c user.name="E2E Seed" -c user.email=seed.qhoste2e.test commit -q -m "Initial demo stacks"
 		git push -q "/srv/git/$1.git" main
 		rm -rf "$seed"
 	' sh "$1" "$2"

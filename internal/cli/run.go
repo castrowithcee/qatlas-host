@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/backup"
-	"github.com/castrowithcee/qatlas-deploy/internal/compose"
-	"github.com/castrowithcee/qatlas-deploy/internal/service"
+	"github.com/castrowithcee/qatlas-host/internal/backup"
+	"github.com/castrowithcee/qatlas-host/internal/compose"
+	"github.com/castrowithcee/qatlas-host/internal/service"
 )
 
 // stateDir names the credential store of the service; tests replace it.
@@ -21,7 +21,7 @@ func newRunCommand() *cobra.Command {
 	var backupImage, dockerSocket string
 	cmd := &cobra.Command{
 		Use:   "run",
-		Short: "Run the qdeploy service in the foreground",
+		Short: "Run the qhost service in the foreground",
 		Long: "run is what the service unit starts: it runs until it receives SIGTERM or SIGINT, then ends with\n" +
 			"exit code 0. It logs to stderr.",
 		RunE: func(c *cobra.Command, _ []string) error {

@@ -6,10 +6,10 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/backup"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/backup"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // registerSettingsCommands registers stack.settings.get, stack.settings.set and stack.settings.remove.
@@ -118,7 +118,7 @@ func settingsAnswer(err error, redact func(string) string) error {
 	case errors.Is(err, engine.ErrNoSettings):
 		return control.NewError(control.CodeNoSettings, "the stack has no settings; it is already deployed only")
 	case errors.Is(err, engine.ErrUnreadable):
-		return control.NewError(control.CodeUnreadable, "the stack cannot be read; 'qdeploy stack check' names the problem")
+		return control.NewError(control.CodeUnreadable, "the stack cannot be read; 'qhost stack check' names the problem")
 	case errors.Is(err, engine.ErrCopyChanges):
 		return control.NewError(control.CodeLocalChanges, "the working copy has local changes and cannot follow a new commit")
 	case errors.Is(err, context.DeadlineExceeded):

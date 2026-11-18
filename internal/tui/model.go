@@ -15,10 +15,10 @@ import (
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	"github.com/castrowithcee/qatlas-kit/uiprefs"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/datadir"
-	"github.com/castrowithcee/qatlas-deploy/internal/helptopics"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/datadir"
+	"github.com/castrowithcee/qatlas-host/internal/helptopics"
 )
 
 // defaultEuid and defaultMakeDirs are what a new model uses; tests replace them for the models they cannot reach.
@@ -59,7 +59,7 @@ const (
 )
 
 // productName stands at the left of the header.
-const productName = "qdeploy"
+const productName = "qhost"
 
 // config is what a Model is built from.
 type config struct {

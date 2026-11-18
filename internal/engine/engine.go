@@ -30,8 +30,8 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/configfile"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // Defaults and limits.
@@ -484,7 +484,7 @@ func (e *Engine) poll(ctx context.Context, b Binding) (PollResult, error) {
 		if old.Stopped != nil {
 			v.start = false
 			v.findings = append([]Finding{{Kind: FindingStopped, Detail: "stopped by the operator since " +
-				old.Stopped.Since.UTC().Format(time.RFC3339) + "; no run starts until 'qdeploy stack start'"}}, v.findings...)
+				old.Stopped.Since.UTC().Format(time.RFC3339) + "; no run starts until 'qhost stack start'"}}, v.findings...)
 		}
 		verdicts[st.Name] = v
 	}
@@ -730,7 +730,7 @@ type RunInfo struct {
 // Trigger starts a manual run of the stack at the commit the working copy has; it does not fetch. It returns
 // as soon as the run is started. A second trigger while a run of the stack is active is dropped with
 // ErrRunActive and noted in the state. A stack with local changes is refused with ErrLocalChanges, a paused
-// stack with ErrPaused, a stack stopped through qdeploy with ErrStackStopped.
+// stack with ErrPaused, a stack stopped through qhost with ErrStackStopped.
 func (e *Engine) Trigger(ctx context.Context, name string) (RunInfo, error) {
 	if e.cfg.Deployer == nil {
 		return RunInfo{}, ErrNoDeployer
@@ -925,7 +925,7 @@ func (e *Engine) RecordMonitor(stack string, failure *Failure, services []string
 }
 
 // UpdateStoppedContainers adds and removes container IDs of the stack's stop marker in one step, so a stop
-// through qdeploy and the monitor's cleanup never overwrite each other. A stack the engine has no state for is
+// through qhost and the monitor's cleanup never overwrite each other. A stack the engine has no state for is
 // ignored.
 func (e *Engine) UpdateStoppedContainers(stack string, add, remove []string) error {
 	_, err := e.store.Update(func(s State) (State, error) {

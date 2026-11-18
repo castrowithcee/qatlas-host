@@ -13,7 +13,7 @@ func newStackCommand(program *cobracli.Program, state *notRunning, secrets *reda
 		Use:   "stack",
 		Short: "List, check, configure, deploy, update, hold, start, stop, back up, create data directories and keep the secrets of the stacks of the host",
 		Long: "The stack commands act on the stacks of the bound stacks repository through the running service.\n" +
-			"Run 'qdeploy stack <command> --help' for one command.",
+			"Run 'qhost stack <command> --help' for one command.",
 	}
 	group.AddCommand(newStacksCommand(program, state), newCheckCommand(program, state), newDeployCommand(program, state),
 		newUpdateCommand(program, state), newUpdatesCommand(program, state), newChangelogCommand(program, state),

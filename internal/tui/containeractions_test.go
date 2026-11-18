@@ -7,7 +7,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/i18n"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // selectContainer moves the mark of the Containers list to the container name.

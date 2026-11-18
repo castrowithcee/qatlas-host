@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/compose"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/compose"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 const testCommit = "0123456789abcdef0123456789abcdef01234567"

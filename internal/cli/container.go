@@ -15,8 +15,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 func newContainerCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
@@ -26,7 +26,7 @@ func newContainerCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 		Long: "The container commands read every container of the host from the container engine: the stacks of this\n" +
 			"host (own), other Compose projects (foreign) and containers that belong to no project (single). list,\n" +
 			"show and logs change nothing; start, stop and restart act on one container after a question. Only root may\n" +
-			"use the service channel, so run them with sudo. See 'qdeploy help containers'.",
+			"use the service channel, so run them with sudo. See 'qhost help containers'.",
 	}
 	group.AddCommand(newContainerList(program, state), newContainerShow(program, state), newContainerLogs(program, state))
 	for _, verb := range []string{"start", "stop", "restart"} {
@@ -123,7 +123,7 @@ func newContainerAction(program *cobracli.Program, state *notRunning, verb strin
 				}
 				if res.NotReady != "" {
 					return &cli.Failure{Code: output.CodeRuntime, Message: "container " + res.Name + " is not ready: " + res.NotReady,
-						NextStep: "Check the container with 'qdeploy container show " + res.Name + "'."}
+						NextStep: "Check the container with 'qhost container show " + res.Name + "'."}
 				}
 				return nil
 			})
@@ -165,7 +165,7 @@ func containerCall(c *cobra.Command, state *notRunning, limit time.Duration, com
 		switch remote.Code {
 		case control.CodeDockerUnreachable:
 			return &cli.Failure{Code: output.CodeUnreachable, Message: "the container engine is not reachable",
-				NextStep: "Start the container engine, or point the service at its socket with 'qdeploy run --docker-socket'.", Cause: err}
+				NextStep: "Start the container engine, or point the service at its socket with 'qhost run --docker-socket'.", Cause: err}
 		case control.CodeDockerPermission:
 			return &cli.Failure{Code: output.CodePermission, Message: "the service may not use the container engine",
 				NextStep: "Give the service user access to the engine's socket, then run the command again.", Cause: err}
@@ -174,10 +174,10 @@ func containerCall(c *cobra.Command, state *notRunning, limit time.Duration, com
 				NextStep: "Check that the container engine is healthy, then run the command again.", Cause: err}
 		case control.CodeNotFound:
 			return &cli.Failure{Code: output.CodeNotFound, Message: "no such container",
-				NextStep: "List the containers with 'qdeploy container list'.", Cause: err}
+				NextStep: "List the containers with 'qhost container list'.", Cause: err}
 		case control.CodeTooLarge:
 			return &cli.Failure{Code: output.CodeRuntime, Message: "the answer is too large for the service channel: " + remote.Message,
-				NextStep: "Use 'qdeploy container show <name>' for single containers.", Cause: err}
+				NextStep: "Use 'qhost container show <name>' for single containers.", Cause: err}
 		}
 	}
 	return failureOf(err)

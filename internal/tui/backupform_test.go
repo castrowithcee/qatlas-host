@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // The ways to the backup and the compose files form of the first stack, and from there to the fields: data

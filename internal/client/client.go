@@ -13,14 +13,14 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/localipc"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // CallTimeout bounds one call that has no deadline of its own.
 const CallTimeout = 30 * time.Second
 
 // ErrNotRunning means nothing listens on the service channel.
-var ErrNotRunning = errors.New("the qdeploy service is not running")
+var ErrNotRunning = errors.New("the qhost service is not running")
 
 // ErrNoAccess means the operating system denies this user the service channel.
 var ErrNoAccess = errors.New("this user may not use the service channel")

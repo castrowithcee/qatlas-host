@@ -1,4 +1,4 @@
-// Package stackcheck reports per stack of a stacks-repo working copy which functions of qdeploy work with the
+// Package stackcheck reports per stack of a stacks-repo working copy which functions of qhost work with the
 // stack's files, which do not, why, and what a person would change, together with the findings about those
 // files. It reads; it never changes a file, and it never reads or reports a value from secrets.env, only the
 // key names.
@@ -12,9 +12,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/backup"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
-	"github.com/castrowithcee/qatlas-deploy/internal/version"
+	"github.com/castrowithcee/qatlas-host/internal/backup"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/version"
 )
 
 // Severities. An error is a stack that cannot be deployed or a secret that would reach a remote; everything
@@ -59,7 +59,7 @@ type Finding struct {
 	Fix      string
 }
 
-// Function says whether one function of qdeploy works with the stack's files. Mode is the update mode, set for
+// Function says whether one function of qhost works with the stack's files. Mode is the update mode, set for
 // FuncUpdate only; Action is empty when there is nothing to change.
 type Function struct {
 	Name   string
@@ -115,7 +115,7 @@ func checkStack(ctx context.Context, s stacks.Stack, git Git, remote bool) (Repo
 	if s.OldRulesFile {
 		add(RuleOldRulesFile, SeverityWarning,
 			stacks.OldRulesFile+" in the stack folder is no longer read; the stack has "+settingsState(s),
-			"Set the stack settings in the qdeploy TUI or with 'qdeploy stack settings set "+s.Name+" --file <file>', then delete "+
+			"Set the stack settings in the qhost TUI or with 'qhost stack settings set "+s.Name+" --file <file>', then delete "+
 				stacks.OldRulesFile+" from the stack folder.")
 	}
 	for _, f := range s.Ignored {
@@ -223,7 +223,7 @@ func deployFunction(s stacks.Stack, findings []Finding) Function {
 	}
 	reason := "Compose starts the stack from " + strings.Join(s.ComposeFiles, ", ")
 	if s.EnvErr != nil {
-		reason += "; qdeploy cannot read .env, Compose reads it itself"
+		reason += "; qhost cannot read .env, Compose reads it itself"
 	}
 	return Function{Name: FuncDeploy, Works: true, Reason: reason}
 }
@@ -238,7 +238,7 @@ func updateFunction(s stacks.Stack, deployOK bool, secretKeys []string) Function
 		f.Reason, f.Action = "the stack cannot be deployed", fixDeployFirst
 		return f
 	case s.EnvErr != nil:
-		f.Reason = "qdeploy cannot read .env, so it cannot change the image versions: " + s.EnvErr.Error()
+		f.Reason = "qhost cannot read .env, so it cannot change the image versions: " + s.EnvErr.Error()
 		f.Action = "Correct .env (KEY=VALUE per line)."
 		return f
 	}
@@ -303,12 +303,12 @@ func updateFunction(s stacks.Stack, deployOK bool, secretKeys []string) Function
 		return f
 	case f.Mode == stacks.ModeNone:
 		f.Reason = "the image versions (" + names + ") can be updated, but updates are not switched on"
-		f.Action = "Switch on updates in the stack's settings in the qdeploy TUI, or with 'qdeploy stack settings set " + s.Name + " --file <file>'."
+		f.Action = "Switch on updates in the stack's settings in the qhost TUI, or with 'qhost stack settings set " + s.Name + " --file <file>'."
 		return f
 	case f.Mode == stacks.ModeAutomatic:
 		f.Works, f.Reason = true, "the maintenance window updates "+names+" by itself"
 	default:
-		f.Works, f.Reason = true, "the maintenance window reports new versions of "+names+"; a person starts the update in the qdeploy TUI or with 'qdeploy stack update "+s.Name+"'"
+		f.Works, f.Reason = true, "the maintenance window reports new versions of "+names+"; a person starts the update in the qhost TUI or with 'qhost stack update "+s.Name+"'"
 	}
 	if len(skipped) > 0 {
 		f.Reason += "; not updated: " + skipped[0].cause
@@ -342,14 +342,14 @@ const dataRoot = "data"
 
 func backupFunction(s stacks.Stack) Function {
 	f := Function{Name: FuncBackup}
-	settings := "in the qdeploy TUI or with 'qdeploy stack settings set " + s.Name + " --file <file>'"
+	settings := "in the qhost TUI or with 'qhost stack settings set " + s.Name + " --file <file>'"
 	switch {
 	case s.Err != nil:
 		f.Reason, f.Action = "the stack cannot be read", fixDeployFirst
 		return f
 	case s.Rules == nil || s.Rules.Backup == nil:
 		f.Reason = "the stack settings have no backup section"
-		f.Action = "Add backup.paths, backup.volumes or backup.command to the stack settings " + settings + " (see qdeploy help backups)."
+		f.Action = "Add backup.paths, backup.volumes or backup.command to the stack settings " + settings + " (see qhost help backups)."
 		return f
 	case !backup.ValidStack(s.Name):
 		f.Reason = "the stack name " + s.Name + " cannot be used for backups: it needs lowercase letters, digits, - and _ and at most 63 characters"
@@ -388,7 +388,7 @@ func redactFunction(s stacks.Stack, secretKeys int, secretsExist bool, secretsEr
 		}
 	}
 	sort.Strings(envKeys)
-	keepInSecrets := "Keep the secrets in secrets.env: set them in the stack detail of the qdeploy TUI or with 'qdeploy stack secret set " + s.Name + " <KEY>'."
+	keepInSecrets := "Keep the secrets in secrets.env: set them in the stack detail of the qhost TUI or with 'qhost stack secret set " + s.Name + " <KEY>'."
 	switch {
 	case secretsErr != nil:
 		f.Reason = "secrets.env cannot be read, so its values are not redacted: " + secretsErr.Error()
@@ -420,7 +420,7 @@ func settingsState(s stacks.Stack) string {
 	return "settings of its own, update mode " + s.UpdateMode()
 }
 
-// errFindings turns the reason a stack could not be read into findings. Only an .env qdeploy cannot parse leaves
+// errFindings turns the reason a stack could not be read into findings. Only an .env qhost cannot parse leaves
 // the stack deployable, so that is a warning; everything else is an error.
 func errFindings(s stacks.Stack) []Finding {
 	if s.Err == nil && s.EnvErr != nil {
@@ -455,9 +455,9 @@ func errFindings(s stacks.Stack) []Finding {
 		return out
 	case errors.As(s.Err, &rules) && rules.Variable != "":
 		return []Finding{mk(RuleUnknownRulesVar, cause,
-			"Name an image version variable of this stack in the stack settings ('qdeploy stack settings set'), or add the variable to the image reference.")}
+			"Name an image version variable of this stack in the stack settings ('qhost stack settings set'), or add the variable to the image reference.")}
 	case errors.As(s.Err, &rules):
-		return []Finding{mk(RuleInvalidRules, cause, "Correct the stack settings in the qdeploy TUI or with 'qdeploy stack settings set'; 'qdeploy help stack-settings' lists the fields.")}
+		return []Finding{mk(RuleInvalidRules, cause, "Correct the stack settings in the qhost TUI or with 'qhost stack settings set'; 'qhost help stack-settings' lists the fields.")}
 	}
 	return []Finding{mk(RuleUnreadableStack, cause, "Correct the file named in the cause; the other checks cannot run on this stack before.")}
 }

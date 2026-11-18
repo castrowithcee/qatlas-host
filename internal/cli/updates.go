@@ -9,8 +9,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // The status shown for a stack that has no per-variable result to list.
@@ -32,10 +32,10 @@ func newUpdatesCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 			"ordered, for example 'latest') and error (the registry could not be asked); the error column says why.\n\n" +
 			"Without --refresh the result of the last check is shown with its time; a stack never checked says so.\n" +
 			"With --refresh the service asks the registries now and stores the result. Nothing in any stack, in the\n" +
-			"repository or in a deployment is changed. A private registry needs a stored login (see qdeploy help\n" +
+			"repository or in a deployment is changed. A private registry needs a stored login (see qhost help\n" +
 			"credentials); without one it is asked anonymously.\n\n" +
 			"With --changelog the release notes between the current and the available version are shown instead of\n" +
-			"the version table (see qdeploy stack changelog).",
+			"the version table (see qhost stack changelog).",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			a := control.UpdatesArgs{Refresh: refresh, Changelog: withChangelog}

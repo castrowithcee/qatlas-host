@@ -16,12 +16,12 @@ import (
 	"syscall"
 	"unicode"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/credentials"
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
-	"github.com/castrowithcee/qatlas-deploy/internal/hostkey"
-	"github.com/castrowithcee/qatlas-deploy/internal/stackcheck"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/hostkey"
+	"github.com/castrowithcee/qatlas-host/internal/stackcheck"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 const (
@@ -252,7 +252,7 @@ func (s *repoService) requireKey(dir, key string) error {
 	if _, err := s.keys.ShowNamedKey(key); err != nil {
 		if errors.Is(err, credentials.ErrNoKey) {
 			return control.NewError(control.CodeNoSuchKey, fmt.Sprintf(
-				"no deploy key exists for stack folder %s; run 'qdeploy key generate --dir %s' (or 'qdeploy key set --dir %s' to store one you have) and enter it in the git platform", dir, dir, dir))
+				"no deploy key exists for stack folder %s; run 'qhost key generate --dir %s' (or 'qhost key set --dir %s' to store one you have) and enter it in the git platform", dir, dir, dir))
 		}
 		return answerOf(err)
 	}
@@ -298,7 +298,7 @@ func checkWritableFolder(dir string) error {
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return control.NewError(control.CodeInvalid, fmt.Sprintf(
-			"stack folder %s does not exist; run sudo qdeploy to create it after confirming the path", dir))
+			"stack folder %s does not exist; run sudo qhost to create it after confirming the path", dir))
 	case err != nil:
 		return control.NewError(control.CodeInvalid, fmt.Sprintf("stack folder %s cannot be inspected by the service", dir))
 	case !info.IsDir():
@@ -306,7 +306,7 @@ func checkWritableFolder(dir string) error {
 	}
 	if err := syscall.Access(dir, 0x2); err != nil {
 		return control.NewError(control.CodeInvalid, fmt.Sprintf(
-			"stack folder %s is not writable by the service (%v); run sudo qdeploy to grant access", dir, err))
+			"stack folder %s is not writable by the service (%v); run sudo qhost to grant access", dir, err))
 	}
 	return nil
 }

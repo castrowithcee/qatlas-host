@@ -34,7 +34,7 @@ func Endpoint(t testing.TB) localipc.ServiceEndpoint {
 		t.Fatal(err)
 	}
 	return localipc.ServiceEndpoint{
-		Dir: dir, SocketBase: "control", ServiceUser: me.Username, Group: group.Name, ErrorName: "qdeploy service",
+		Dir: dir, SocketBase: "control", ServiceUser: me.Username, Group: group.Name, ErrorName: "qhost service",
 	}
 }
 

@@ -11,10 +11,10 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
-	"github.com/castrowithcee/qatlas-deploy/internal/hostkey/hostkeytest"
-	"github.com/castrowithcee/qatlas-deploy/internal/service/servicetest"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/hostkey/hostkeytest"
+	"github.com/castrowithcee/qatlas-host/internal/service/servicetest"
 )
 
 const (
@@ -544,7 +544,7 @@ func TestSourceCompareOfAFolderOfFilesAndTheInspectOfAnAddress(t *testing.T) {
 
 	// An address is no reason to refuse a folder of files, and still one for a repository without a remote.
 	local := localRepo(t, localFiles())
-	if res := r.inspect(local, r.url); res.Case != control.SourceCaseReject || !strings.Contains(res.Fix, "qdeploy source remote") {
+	if res := r.inspect(local, r.url); res.Case != control.SourceCaseReject || !strings.Contains(res.Fix, "qhost source remote") {
 		t.Fatalf("local with an address = %+v", res)
 	}
 

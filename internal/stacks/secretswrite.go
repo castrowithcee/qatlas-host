@@ -9,7 +9,7 @@ import (
 	"unicode/utf8"
 )
 
-// Limits of a secret that qdeploy writes. The minimum is the shortest value the redactor still masks.
+// Limits of a secret that qhost writes. The minimum is the shortest value the redactor still masks.
 const (
 	MinSecretValue = 4
 	MaxSecretValue = 8192

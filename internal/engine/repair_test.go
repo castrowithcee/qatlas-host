@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 func TestRepairStoresTheAttemptAndRestartsUnderTheSlot(t *testing.T) {

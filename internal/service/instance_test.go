@@ -9,7 +9,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/localipc"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/channeltest"
 )
 
 func TestSecondInstanceFailsBeforeTouchingTheStore(t *testing.T) {

@@ -12,8 +12,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // The status of a changelog row besides "release", which is one release of the range.
@@ -33,9 +33,9 @@ func newChangelogCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			"release notes after the current version up to and including the available one. The repository comes\n" +
 			"from update.changelog in the stack settings or else from the image label\n" +
 			"org.opencontainers.image.source. If no notes can be read, the row says why and shows a link instead;\n" +
-			"this never affects a deployment. Only the stored update check is used (see qdeploy stack updates --refresh).\n" +
+			"this never affects a deployment. Only the stored update check is used (see qhost stack updates --refresh).\n" +
 			"The table and compact formats show the first line of each release's notes; json and toon carry the\n" +
-			"full text as body. A GitHub token may be stored as the credential github.com (see qdeploy help\n" +
+			"full text as body. A GitHub token may be stored as the credential github.com (see qhost help\n" +
 			"credentials).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {

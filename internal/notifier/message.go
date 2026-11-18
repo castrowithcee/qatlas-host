@@ -140,7 +140,7 @@ func Message(ev Event) kitnotify.Message {
 		text = append(text, noun(ev.Kind)+nameSuffix(ev.Container)+" of stack "+ev.Stack+" is fine again; it had failed ("+ev.Kind+").",
 			"Failed since: "+utc(ev.Since)+" (down for "+ev.Time.Sub(ev.Since).Round(time.Second).String()+")")
 		if ev.Restarted {
-			text = append(text, "A restart by qdeploy fixed it.")
+			text = append(text, "A restart by qhost fixed it.")
 		}
 	case EventRecoveryFailed:
 		subject = "Stack " + ev.Stack + ": " + noun(ev.Kind) + nameSuffix(ev.Container) + " not repaired"
@@ -183,10 +183,10 @@ func Message(ev Event) kitnotify.Message {
 
 // TestMessage is what a test sends.
 func TestMessage() kitnotify.Message {
-	text := "This is a test message from the qdeploy service. If you can read it, the channel works."
+	text := "This is a test message from the qhost service. If you can read it, the channel works."
 	raw, _ := json.Marshal(struct {
 		Event string `json:"event"`
 		Text  string `json:"text"`
 	}{"test", text})
-	return kitnotify.Message{Event: "test", Subject: "qdeploy test message", Text: text, JSON: raw}
+	return kitnotify.Message{Event: "test", Subject: "qhost test message", Text: text, JSON: raw}
 }

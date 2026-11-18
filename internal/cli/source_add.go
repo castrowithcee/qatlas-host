@@ -13,7 +13,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
@@ -25,10 +25,10 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 		Long: "add inspects the folder like 'source inspect', shows the case, the answer and the changes it would make,\n" +
 			"and applies them only after you confirm: at a terminal by answering the question, without a terminal\n" +
 			"with --yes. It never overwrites silently. A folder that is missing or empty is cloned from --url like\n" +
-			"'repo set' (and created with owner qdeploy:qdeploy and mode 0755 when missing); a clone with an origin\n" +
+			"'repo set' (and created with owner qhost:qhost and mode 0755 when missing); a clone with an origin\n" +
 			"remote is taken over with that address; a repository without a remote is bound as a local source; a\n" +
 			"folder with files and no repository gets a repository with a first commit of the listed files (branch\n" +
-			"main, as qdeploy, files left out only in .git/info/exclude, no file written) and is bound as a local\n" +
+			"main, as qhost, files left out only in .git/info/exclude, no file written) and is bound as a local\n" +
 			"source. With --url, a folder of files is instead compared with the repository at that address, which\n" +
 			"must hold commits: add shows how they relate like 'source remote' does, stops at secret-like files in\n" +
 			"what a push would publish, and after you confirm starts the repository on the history of the remote\n" +
@@ -45,7 +45,7 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return usageFailure("source add takes exactly one argument, the path of the folder",
-					"Run 'qdeploy source add <path> [--url <ssh-url>]'.")
+					"Run 'qhost source add <path> [--url <ssh-url>]'.")
 			}
 			return nil
 		},
@@ -93,7 +93,7 @@ func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Ga
 
 	if res.Case == control.SourceCaseFiles && len(res.PlannedFiles) == 0 {
 		return usageFailure("the folder has no file a first commit could take; nothing was changed",
-			"Put the stack files into the folder, or look at what is left out with 'qdeploy source inspect "+path+"'.")
+			"Put the stack files into the folder, or look at what is left out with 'qhost source inspect "+path+"'.")
 	}
 	repoURL := res.URL
 	if repoURL == "" {
@@ -101,7 +101,7 @@ func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Ga
 	}
 	if res.Case != control.SourceCaseLocal && res.Case != control.SourceCaseFiles && repoURL == "" {
 		return usageFailure("this folder needs the SSH address of its repository; nothing was changed",
-			"Run 'qdeploy source add "+path+" --url <ssh-url>'.")
+			"Run 'qhost source add "+path+" --url <ssh-url>'.")
 	}
 
 	var remote *filesRemote
@@ -217,7 +217,7 @@ func executeSourceFiles(c *cobra.Command, program *cobracli.Program, state *notR
 	}
 	if diff := listDifference(shown, now); diff != "" {
 		return usageFailure("the folder changed since the list was shown ("+diff+"); nothing was changed",
-			"Run 'qdeploy source add "+path+"' again and review the new list.")
+			"Run 'qhost source add "+path+"' again and review the new list.")
 	}
 	changed := 0
 	if plan != nil {
@@ -301,7 +301,7 @@ func compareFiles(c *cobra.Command, state *notRunning, path, url, fingerprint st
 	case control.SourceRemoteEqual, control.SourceRemoteDifferent:
 	case control.SourceRemoteEmpty:
 		return nil, usageFailure("the repository at the address has no commit; nothing was changed",
-			"Take the folder over without --url, then run 'qdeploy source remote "+path+" "+url+"'.")
+			"Take the folder over without --url, then run 'qhost source remote "+path+" "+url+"'.")
 	default:
 		return nil, folderFailure("the service answered with the unknown state "+cmp.State, nil)
 	}

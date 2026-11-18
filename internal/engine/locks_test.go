@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // blockFetch makes every Fetch of the rig wait until the returned release is called; entered gets a value

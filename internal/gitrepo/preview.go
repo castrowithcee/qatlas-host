@@ -38,7 +38,7 @@ func OpenPreview(ctx context.Context, cfg Config, dir string, skip []string) (*P
 	if err != nil {
 		return nil, err
 	}
-	tmp, err := os.MkdirTemp("", "qdeploy-preview-*")
+	tmp, err := os.MkdirTemp("", "qhost-preview-*")
 	if err != nil {
 		return nil, fmt.Errorf("create temporary directory: %w", err)
 	}

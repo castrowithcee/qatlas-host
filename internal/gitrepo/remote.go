@@ -30,7 +30,7 @@ const MaxListedPaths = 50
 const defaultBranch = "main"
 
 // LocalHistoryRef keeps the local history that a remote with a history of its own replaces on the branch.
-const LocalHistoryRef = "refs/qdeploy/local-before-remote"
+const LocalHistoryRef = "refs/qhost/local-before-remote"
 
 const adoptMessage = "Add the stack files of this host"
 
@@ -136,7 +136,7 @@ func (r *Repo) compare(ctx context.Context, url, branch string, files []string, 
 		return Comparison{State: RemoteEmpty, Branch: branch}, nil
 	}
 
-	tmp, err := os.MkdirTemp("", "qdeploy-compare-*")
+	tmp, err := os.MkdirTemp("", "qhost-compare-*")
 	if err != nil {
 		return Comparison{}, fmt.Errorf("create temporary directory: %w", err)
 	}
@@ -434,7 +434,7 @@ func (r *Repo) ResetBranch(ctx context.Context, commit string) error {
 		if !safe {
 			return ErrHistoryNotSaved
 		}
-		if _, err := r.run(ctx, true, maxErrorText, "update-ref", "-m", "qdeploy: follow the remote",
+		if _, err := r.run(ctx, true, maxErrorText, "update-ref", "-m", "qhost: follow the remote",
 			"refs/heads/"+branch, commit, head); err != nil {
 			return fmt.Errorf("move the branch failed: %w", err)
 		}

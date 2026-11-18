@@ -18,10 +18,10 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& systemctl enable docker containerd ssh
 
-# The test registry mirrors Docker Hub for the images the stacks and qdeploy pull by their Hub names (the backup
+# The test registry mirrors Docker Hub for the images the stacks and qhost pull by their Hub names (the backup
 # helper busybox by digest); the host has no other way to reach Docker Hub.
 RUN mkdir -p /etc/docker \
-	&& echo '{"registry-mirrors": ["https://registry.qdeploye2e.test"]}' >/etc/docker/daemon.json
+	&& echo '{"registry-mirrors": ["https://registry.qhoste2e.test"]}' >/etc/docker/daemon.json
 
 # An administrator account the way a real host has one.
 RUN useradd --create-home --shell /bin/bash --groups sudo e2e-admin \
@@ -33,7 +33,7 @@ RUN useradd --create-home --shell /bin/bash --groups sudo e2e-admin \
 STOPSIGNAL SIGRTMIN+3
 CMD ["/bin/sh", "-c", "mount --make-rshared / && exec /sbin/init"]
 
-# Git platform: SSH access limited to git-shell with a key (account git, and qdeploy as a second name for it so
+# Git platform: SSH access limited to git-shell with a key (account git, and qhost as a second name for it so
 # the service reaches the repository by a URL without a user part), bare repositories under /srv/git.
 FROM debian:12-slim AS git
 
@@ -43,8 +43,8 @@ RUN apt-get update \
 	&& mkdir -p /run/sshd /srv/git \
 	&& useradd --home-dir /srv/git --shell /usr/bin/git-shell git \
 	&& usermod -p '*' git \
-	&& useradd -o -u "$(id -u git)" -g git --home-dir /srv/git --no-create-home --shell /usr/bin/git-shell qdeploy \
-	&& usermod -p '*' qdeploy \
+	&& useradd -o -u "$(id -u git)" -g git --home-dir /srv/git --no-create-home --shell /usr/bin/git-shell qhost \
+	&& usermod -p '*' qhost \
 	&& mkdir -p /srv/git/.ssh \
 	&& chown -R git:git /srv/git
 

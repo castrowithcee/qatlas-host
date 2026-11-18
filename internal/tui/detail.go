@@ -10,7 +10,7 @@ import (
 
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // Limits of the detail area. The service already bounds its answers; these keep one section from pushing the
@@ -270,7 +270,7 @@ func (m *Model) detailLines(r stackRow, width int) []string {
 	return lines
 }
 
-// stoppedSection is the mark of a stack stopped through qdeploy, since when, and how to lift it.
+// stoppedSection is the mark of a stack stopped through qhost, since when, and how to lift it.
 func (m *Model) stoppedSection(r stackRow, width int) []string {
 	if r.state != stateStopped {
 		return nil

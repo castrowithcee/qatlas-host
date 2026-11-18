@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // Defaults of the health check.

@@ -20,8 +20,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/compose"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/compose"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // DefaultImage is the helper image: busybox 1.37.0, pinned by the digest of its multi-platform index.

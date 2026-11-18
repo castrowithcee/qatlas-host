@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // stopTimeout bounds the stop that leaves a stack stopped after a run that could not be rolled back.

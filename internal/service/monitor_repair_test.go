@@ -9,7 +9,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/docker"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
 )
 
 // failingRig is a monitor rig whose app container exited at the first reading, at failedAt.

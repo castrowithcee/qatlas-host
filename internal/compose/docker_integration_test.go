@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // These tests run Docker Compose for real. They pull an image and create containers, so they refuse to run
-// anywhere but the simulated e2e host, which marks itself with QDEPLOY_E2E_HOST=1; QDEPLOY_E2E_IMAGE names the
+// anywhere but the simulated e2e host, which marks itself with QHOST_E2E_HOST=1; QHOST_E2E_IMAGE names the
 // demo image, whose healthcheck fails while DEMO_HEALTH=fail.
 
 type testLog struct{ t *testing.T }
@@ -28,18 +28,18 @@ func (l testLog) Printf(format string, args ...any) { l.t.Logf(format, args...) 
 // integrationStack writes a one-service stack into a temp dir and removes its containers when the test ends.
 func integrationStack(t *testing.T, health string) (stacks.Stack, *Executor) {
 	t.Helper()
-	if os.Getenv("QDEPLOY_E2E_HOST") != "1" {
-		t.Skip("runs only on the simulated e2e host (QDEPLOY_E2E_HOST=1)")
+	if os.Getenv("QHOST_E2E_HOST") != "1" {
+		t.Skip("runs only on the simulated e2e host (QHOST_E2E_HOST=1)")
 	}
-	image := os.Getenv("QDEPLOY_E2E_IMAGE")
+	image := os.Getenv("QHOST_E2E_IMAGE")
 	if image == "" {
-		t.Fatal("QDEPLOY_E2E_IMAGE is not set")
+		t.Fatal("QHOST_E2E_IMAGE is not set")
 	}
 	var rnd [4]byte
 	if _, err := rand.Read(rnd[:]); err != nil {
 		t.Fatal(err)
 	}
-	name := "qdeploye2e-it-" + hex.EncodeToString(rnd[:])
+	name := "qhoste2e-it-" + hex.EncodeToString(rnd[:])
 	dir := t.TempDir()
 	write := func(file, content string) {
 		if err := os.WriteFile(filepath.Join(dir, file), []byte(content), 0o600); err != nil {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/i18n"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 var clogStart = time.Date(2026, time.October, 30, 17, 0, 0, 0, time.UTC)

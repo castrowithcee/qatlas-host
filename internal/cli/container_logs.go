@@ -14,8 +14,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // logsPollInterval is how often --follow asks for new lines.
@@ -33,7 +33,7 @@ func newContainerLogs(program *cobracli.Program, state *notRunning) *cobra.Comma
 		Short: "Show the output of a container or of all containers of a stack, also as it comes in",
 		Long: "logs shows what a container wrote to stdout and stderr, or, with --stack, the merged output of all\n" +
 			"containers of a stack of this host, ordered by time, each line with its container. It is not the\n" +
-			"protocol of a qdeploy run (that is 'qdeploy stack log <run>'). Secret values of the stacks are\n" +
+			"protocol of a qhost run (that is 'qhost stack log <run>'). Secret values of the stacks are\n" +
 			"replaced by a mask and control characters by U+FFFD.\n\n" +
 			"--since and --until take a duration back from now (90s, 15m, 2h) or a time (2026-01-02T15:04:05Z).\n" +
 			"--tail shows the last n lines (default 100, 0 for all). --follow keeps running, asks about once a\n" +
@@ -42,7 +42,7 @@ func newContainerLogs(program *cobracli.Program, state *notRunning) *cobra.Comma
 		RunE: func(c *cobra.Command, args []string) error {
 			if (len(args) == 0) == (stack == "") {
 				return &cli.Failure{Code: output.CodeInvalidRequest, Message: "give exactly one of a container name and --stack",
-					Usage: true, NextStep: "Run 'qdeploy container logs <name>' or 'qdeploy container logs --stack <stack>'."}
+					Usage: true, NextStep: "Run 'qhost container logs <name>' or 'qhost container logs --stack <stack>'."}
 			}
 			a := control.ContainerLogsArgs{Stack: stack, Tail: tail}
 			if len(args) == 1 {

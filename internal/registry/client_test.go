@@ -18,7 +18,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/httpx"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/registry/registrytest"
+	"github.com/castrowithcee/qatlas-host/internal/registry/registrytest"
 )
 
 const (

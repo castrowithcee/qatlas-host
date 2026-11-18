@@ -1,4 +1,4 @@
-module github.com/castrowithcee/qatlas-deploy
+module github.com/castrowithcee/qatlas-host
 
 go 1.26.0
 

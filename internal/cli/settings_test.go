@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/service/servicetest"
+	"github.com/castrowithcee/qatlas-host/internal/service/servicetest"
 )
 
 func startSettingsService(t *testing.T) *repoEnv {
@@ -79,7 +79,7 @@ func TestStackSettingsSetFromFileAndStdin(t *testing.T) {
 	if got["stack"] != "plain-stack" || got["changed"] != true || got["commit"] == nil || update["ceiling"] != "patch" {
 		t.Fatalf("set = %v", got)
 	}
-	if p := e.git.Pushed(); !slices.Equal(p, []string{"qdeploy: settings of plain-stack"}) {
+	if p := e.git.Pushed(); !slices.Equal(p, []string{"qhost: settings of plain-stack"}) {
 		t.Fatalf("pushed = %v", p)
 	}
 	written, err := os.ReadFile(filepath.Join(e.dir, filepath.FromSlash(servicetest.Settings("plain-stack"))))
@@ -130,7 +130,7 @@ func TestStackSettingsSetRefusals(t *testing.T) {
 	if p := e.git.Pushed(); len(p) != 0 {
 		t.Fatalf("pushed = %v", p)
 	}
-	if _, err := os.Stat(filepath.Join(e.dir, ".qatlas", "qdeploy", "plain-stack.yaml")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(e.dir, ".qatlas", "qhost", "plain-stack.yaml")); !os.IsNotExist(err) {
 		t.Fatalf("settings were written: %v", err)
 	}
 }
@@ -142,7 +142,7 @@ func TestStackSettingsRemove(t *testing.T) {
 	if got := objectOf(t, out); code != 0 || got["stack"] != "demo-stack" || got["removed"] != true || got["commit"] == nil {
 		t.Fatalf("remove: %d %q %s", code, out, stderr)
 	}
-	if p := e.git.Pushed(); !slices.Equal(p, []string{"qdeploy: remove settings of demo-stack"}) {
+	if p := e.git.Pushed(); !slices.Equal(p, []string{"qhost: remove settings of demo-stack"}) {
 		t.Fatalf("pushed = %v", p)
 	}
 	if _, err := os.Stat(file); !os.IsNotExist(err) {

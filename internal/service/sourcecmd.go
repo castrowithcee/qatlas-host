@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
 )
 
 // sourceAddFix is what the answer to a folder the service cannot write tells the operator.
-const sourceAddFix = "run 'sudo qdeploy source add' to grant the service access"
+const sourceAddFix = "run 'sudo qhost source add' to grant the service access"
 
 func registerSourceCommands(r *control.Registry, s *inspectService) error {
 	commands := map[string]control.Handler{
@@ -61,10 +61,10 @@ func (s *inspectService) handleAdd(ctx context.Context, raw json.RawMessage) (an
 		return nil, control.NewError(control.CodeInvalid, fmt.Sprintf("%s. %s", v.reason, v.fix))
 	case control.SourceCaseClone:
 		return nil, control.NewError(control.CodeInvalid,
-			"the folder is missing or empty, so there is nothing to bind; clone a repository into it with 'qdeploy repo set'")
+			"the folder is missing or empty, so there is nothing to bind; clone a repository into it with 'qhost repo set'")
 	default:
 		return nil, control.NewError(control.CodeInvalid,
-			"the folder is a clone with a remote, which runs against that remote; bind it with 'qdeploy repo set'")
+			"the folder is a clone with a remote, which runs against that remote; bind it with 'qhost repo set'")
 	}
 	if !access.ServiceCanWrite || access.GitWritable == nil || !*access.GitWritable {
 		return nil, control.NewError(control.CodeInvalid, fmt.Sprintf(

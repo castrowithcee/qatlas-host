@@ -1,4 +1,4 @@
-// Package service holds the long-running loop of the qdeploy service and the channel the command line talks to
+// Package service holds the long-running loop of the qhost service and the channel the command line talks to
 // it over.
 package service
 
@@ -13,16 +13,16 @@ import (
 	"github.com/castrowithcee/qatlas-kit/notify"
 	"github.com/castrowithcee/qatlas-kit/redact"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/changelog"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/credentials"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	registryclient "github.com/castrowithcee/qatlas-deploy/internal/registry"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/changelog"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	registryclient "github.com/castrowithcee/qatlas-host/internal/registry"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // DefaultStateDir is the state directory of the service under systemd's StateDirectory convention.
-const DefaultStateDir = "/var/lib/qdeploy"
+const DefaultStateDir = "/var/lib/qhost"
 
 // Config is what Run needs from its caller.
 type Config struct {

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/channeltest"
 )
 
 // syncBuffer lets the test read the log while the service still writes it.

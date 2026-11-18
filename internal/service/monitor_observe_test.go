@@ -9,8 +9,8 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/docker"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/notifier"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/notifier"
 )
 
 // observeRig is a monitor rig whose stack web runs the update of commit a…, under observation from since for

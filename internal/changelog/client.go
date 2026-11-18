@@ -22,7 +22,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/httpx"
 	"github.com/castrowithcee/qatlas-kit/ratelimit"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/version"
+	"github.com/castrowithcee/qatlas-host/internal/version"
 )
 
 // Limits and defaults.
@@ -371,7 +371,7 @@ func (c *Client) get(ctx context.Context, rawURL string, out any) (http.Header, 
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", apiVersion)
-	req.Header.Set("User-Agent", "qdeploy")
+	req.Header.Set("User-Agent", "qhost")
 	// Redirects are never followed and pagination links stay on the API host, so this is the only place the
 	// token can go.
 	if c.opts.Token != "" {

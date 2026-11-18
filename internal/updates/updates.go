@@ -12,10 +12,10 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/httpx"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
-	"github.com/castrowithcee/qatlas-deploy/internal/registry"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
-	"github.com/castrowithcee/qatlas-deploy/internal/version"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/registry"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/version"
 )
 
 // The texts stored for a variable that could not be judged. They are fixed: what a registry or a lookup

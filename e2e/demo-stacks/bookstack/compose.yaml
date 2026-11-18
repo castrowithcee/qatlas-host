@@ -1,6 +1,6 @@
 services:
   bookstack:
-    image: registry.qdeploye2e.test/linuxserver/bookstack:${BOOKSTACK_VERSION}
+    image: registry.qhoste2e.test/linuxserver/bookstack:${BOOKSTACK_VERSION}
     restart: unless-stopped
     environment:
       PUID: "1000"
@@ -23,7 +23,7 @@ services:
         condition: service_healthy
 
   db:
-    image: registry.qdeploye2e.test/library/mariadb:${MARIADB_VERSION}
+    image: registry.qhoste2e.test/library/mariadb:${MARIADB_VERSION}
     restart: unless-stopped
     environment:
       MARIADB_DATABASE: bookstack

@@ -19,10 +19,10 @@ import (
 	"github.com/castrowithcee/qatlas-kit/selfupdate"
 	"github.com/castrowithcee/qatlas-kit/sysservice"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/release"
+	"github.com/castrowithcee/qatlas-host/internal/release"
 )
 
-const apiRepo = "/repos/castrowithcee/qatlas-deploy"
+const apiRepo = "/repos/castrowithcee/qatlas-host"
 
 type fakeAsset struct {
 	Name string `json:"name"`
@@ -48,11 +48,11 @@ func newFakeReleases(t *testing.T, signer ssh.Signer, tamper bool, tags ...strin
 	t.Cleanup(f.server.Close)
 	id := 0
 	for _, tag := range tags {
-		name := fmt.Sprintf("qdeploy_%s_linux_%s.tar.gz", tag, runtime.GOARCH)
+		name := fmt.Sprintf("qhost_%s_linux_%s.tar.gz", tag, runtime.GOARCH)
 		archive := releasetest.Archive(t, name,
-			releasetest.File{Name: "bin/qdeploy", Body: []byte("new program " + tag)},
-			releasetest.File{Name: sysservice.UnitEntry("qdeploy"), Body: []byte("[Service]\n# unit " + tag + "\n")},
-			releasetest.File{Name: manEntry, Body: []byte(".TH QDEPLOY 1 " + tag + "\n")})
+			releasetest.File{Name: "bin/qhost", Body: []byte("new program " + tag)},
+			releasetest.File{Name: sysservice.UnitEntry("qhost"), Body: []byte("[Service]\n# unit " + tag + "\n")},
+			releasetest.File{Name: manEntry, Body: []byte(".TH QHOST 1 " + tag + "\n")})
 		assets := releasetest.Release(t, signer, release.Namespace, release.SignatureAsset, map[string][]byte{name: archive})
 		if tamper {
 			assets["checksums.txt"] = append(assets["checksums.txt"], '\n')
@@ -106,8 +106,8 @@ type fakeHost struct {
 func useFakeHost(t *testing.T, f *fakeReleases, signer ssh.Signer, running string) *fakeHost {
 	t.Helper()
 	h := &fakeHost{dir: t.TempDir()}
-	h.exe = filepath.Join(h.dir, "qdeploy")
-	h.unit = filepath.Join(h.dir, "qdeploy.service")
+	h.exe = filepath.Join(h.dir, "qhost")
+	h.unit = filepath.Join(h.dir, "qhost.service")
 	if err := os.WriteFile(h.exe, []byte("old program"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -120,8 +120,8 @@ func useFakeHost(t *testing.T, f *fakeReleases, signer ssh.Signer, running strin
 		euid:       func() int { return 0 },
 		executable: func() (string, error) { return h.exe, nil },
 		companions: []selfupdate.Companion{
-			{Entry: sysservice.UnitEntry("qdeploy"), Path: h.unit},
-			{Entry: manEntry, Path: filepath.Join(h.dir, "qdeploy.1")},
+			{Entry: sysservice.UnitEntry("qhost"), Path: h.unit},
+			{Entry: manEntry, Path: filepath.Join(h.dir, "qhost.1")},
 		},
 		restart: func(_ context.Context, result selfupdate.Result) error {
 			h.restarts = append(h.restarts, result)

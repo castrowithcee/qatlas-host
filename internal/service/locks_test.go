@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // TestReadsAnswerWhileRepoFetchWaits: a "repo fetch" that hangs at the remote holds only the ref lock; the

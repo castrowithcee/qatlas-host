@@ -90,7 +90,7 @@ func wantSame(t *testing.T, what string, before, after map[string]fileState) {
 
 func wantNoTempLeft(t *testing.T) {
 	t.Helper()
-	left, _ := filepath.Glob(filepath.Join(os.TempDir(), "qdeploy-compare-*"))
+	left, _ := filepath.Glob(filepath.Join(os.TempDir(), "qhost-compare-*"))
 	if len(left) > 0 {
 		t.Fatalf("temporary repositories left: %v", left)
 	}

@@ -12,8 +12,8 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/docker"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
 )
 
 type monEngine struct {
@@ -263,7 +263,7 @@ func TestMonitorExitedOneFailedAndOneRecovered(t *testing.T) {
 	r.wantEvents(2, 1)
 }
 
-func TestMonitorQdeployStopIsNoFailure(t *testing.T) {
+func TestMonitorQhostStopIsNoFailure(t *testing.T) {
 	r := newMonRig(t)
 	app, db := ctr("1", "app"), ctr("2", "db")
 	r.dock.list = []docker.Container{app, db}

@@ -6,9 +6,9 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/backup"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/backup"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
 )
 
 // registerStackActionCommands registers stack.start, stack.stop and stack.restart. Only stacks of the working

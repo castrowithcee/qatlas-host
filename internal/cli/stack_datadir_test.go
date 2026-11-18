@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 type fakeDatadir struct {
@@ -136,7 +136,7 @@ func TestDatadirRefusals(t *testing.T) {
 		}
 	}
 	f.known = false
-	if code, _, stderr := run(t, "stack", "datadir", "nope", "--yes"); code == 0 || !strings.Contains(stderr, "qdeploy stack list") {
+	if code, _, stderr := run(t, "stack", "datadir", "nope", "--yes"); code == 0 || !strings.Contains(stderr, "qhost stack list") {
 		t.Fatalf("unknown stack: %d %q", code, stderr)
 	}
 	if entries, _ := os.ReadDir(f.dir); len(entries) != 0 || len(f.deployed) != 0 {

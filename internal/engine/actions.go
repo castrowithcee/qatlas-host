@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // The actions of StackAction.

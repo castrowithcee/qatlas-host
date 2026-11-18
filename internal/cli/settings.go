@@ -17,8 +17,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 const settingsFields = "The settings are one object with these members, each optional except version:\n\n" +
@@ -37,12 +37,12 @@ func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 		Use:   "settings <stack>",
 		Short: "Show, replace or remove the settings of a stack: update, backup, check and compose files",
 		Long: "settings shows the settings of the stack with every default written out. The service keeps them in\n" +
-			"the stacks repository and changes them only on request, from the TUI or with 'qdeploy stack settings\n" +
-			"set' and 'remove'; they are not edited by hand. --output json gives the object 'qdeploy stack\n" +
+			"the stacks repository and changes them only on request, from the TUI or with 'qhost stack settings\n" +
+			"set' and 'remove'; they are not edited by hand. --output json gives the object 'qhost stack\n" +
 			"settings set' takes as its settings member.\n\n" + settingsFields,
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
-				return usageFailure("settings takes exactly one stack", "Run 'qdeploy stack settings <stack>'; 'qdeploy stack list' names the stacks.")
+				return usageFailure("settings takes exactly one stack", "Run 'qhost stack settings <stack>'; 'qhost stack list' names the stacks.")
 			}
 			return nil
 		},
@@ -64,17 +64,17 @@ func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 		Short: "Replace the settings of a stack",
 		Long: "set replaces all settings of the stack with the object read from --file, as YAML or JSON; '-' reads\n" +
 			"standard input. A member left out takes its default, so give the whole object, for example the\n" +
-			"settings member of 'qdeploy stack settings <stack> --output json' with the changes made. The service\n" +
+			"settings member of 'qhost stack settings <stack> --output json' with the changes made. The service\n" +
 			"checks the settings against the stack, commits them to the stacks repository, pushes the commit and\n" +
 			"moves the working copy to it; the deploy key needs write access to the branch. It waits until no run\n" +
 			"is active. Settings that do not fit change nothing, and settings equal to the present ones commit\n" +
 			"nothing (changed false).\n\n" + settingsFields,
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
-				return usageFailure("settings set takes exactly one stack", "Run 'qdeploy stack settings set <stack> --file <path>'.")
+				return usageFailure("settings set takes exactly one stack", "Run 'qhost stack settings set <stack> --file <path>'.")
 			}
 			if file == "" {
-				return usageFailure("settings set needs --file", "Run 'qdeploy stack settings set <stack> --file <path>', or --file - to read standard input.")
+				return usageFailure("settings set needs --file", "Run 'qhost stack settings set <stack> --file <path>', or --file - to read standard input.")
 			}
 			return nil
 		},
@@ -106,7 +106,7 @@ func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 			"settings is reported and nothing is committed.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
-				return usageFailure("settings remove takes exactly one stack", "Run 'qdeploy stack settings remove <stack>'; 'qdeploy stack list' names the stacks.")
+				return usageFailure("settings remove takes exactly one stack", "Run 'qhost stack settings remove <stack>'; 'qhost stack list' names the stacks.")
 			}
 			return nil
 		},
@@ -148,7 +148,7 @@ func readSettingsFile(path string) (control.StackSettings, error) {
 	}
 	invalid := func(why string) error {
 		return usageFailure("the settings are not valid: "+why,
-			"Give one object as YAML or JSON with the members 'qdeploy stack settings --help' lists.")
+			"Give one object as YAML or JSON with the members 'qhost stack settings --help' lists.")
 	}
 	if len(data) > stacks.MaxFileSize {
 		return control.StackSettings{}, invalid(fmt.Sprintf("larger than %d bytes", stacks.MaxFileSize))

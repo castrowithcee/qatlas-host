@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/changelog"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/registry"
-	"github.com/castrowithcee/qatlas-deploy/internal/registry/registrytest"
-	"github.com/castrowithcee/qatlas-deploy/internal/service"
-	"github.com/castrowithcee/qatlas-deploy/internal/service/servicetest"
+	"github.com/castrowithcee/qatlas-host/internal/changelog"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/registry"
+	"github.com/castrowithcee/qatlas-host/internal/registry/registrytest"
+	"github.com/castrowithcee/qatlas-host/internal/service"
+	"github.com/castrowithcee/qatlas-host/internal/service/servicetest"
 )
 
 const (

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/channeltest"
 )
 
 const (
@@ -86,7 +86,7 @@ func TestNotifyAddFromStdinNeverShowsSecrets(t *testing.T) {
 		}
 	}
 	path, header, body := hook.last()
-	if path != "/hook/demo-path-secret" || header.Get("X-Qdeploy-Event") != "test" || header.Get("X-Qdeploy-Signature") == "" ||
+	if path != "/hook/demo-path-secret" || header.Get("X-Qhost-Event") != "test" || header.Get("X-Qhost-Signature") == "" ||
 		!strings.Contains(body, `"event":"test"`) {
 		t.Fatalf("the receiver got path %q, header %v, body %q", path, header, body)
 	}
@@ -107,9 +107,9 @@ func TestNotifyAddTypesAndSettings(t *testing.T) {
 		{hook.URL + "/slack/x\n", []string{"notify", "add", "chat", "--type", "slack"}, nil},
 		{"123456:demo-bot-token\n", []string{"notify", "add", "bot", "--type", "telegram", "--chat-id", "-1001", "--base-url", hook.URL + "/telegram"},
 			[]string{"chat_id=-1001", "base_url=" + hook.URL + "/telegram"}},
-		{demoSMTPLogin + "\n", []string{"notify", "add", "mail", "--type", "smtp", "--host", "mail.example.test", "--from", "qdeploy@example.test",
-			"--to", "ops@example.test,dev@example.test", "--user", "qdeploy"},
-			[]string{"host=mail.example.test", "security=starttls", "user=qdeploy", "to=ops@example.test,dev@example.test"}},
+		{demoSMTPLogin + "\n", []string{"notify", "add", "mail", "--type", "smtp", "--host", "mail.example.test", "--from", "qhost@example.test",
+			"--to", "ops@example.test,dev@example.test", "--user", "qhost"},
+			[]string{"host=mail.example.test", "security=starttls", "user=qhost", "to=ops@example.test,dev@example.test"}},
 	}
 	for _, c := range cases {
 		code, stdout, stderr := runWithStdin(t, c.stdin, c.args...)
@@ -133,7 +133,7 @@ func TestNotifyAddTypesAndSettings(t *testing.T) {
 	}
 	// A SMTP channel without a user reads no secret from standard input.
 	code, _, stderr := runWithStdin(t, "", "notify", "add", "relay", "--type", "smtp", "--host", "relay.example.test",
-		"--from", "qdeploy@example.test", "--to", "ops@example.test")
+		"--from", "qhost@example.test", "--to", "ops@example.test")
 	if code != 0 {
 		t.Fatalf("smtp without user: code %d, stderr %q", code, stderr)
 	}

@@ -160,7 +160,7 @@ func TestSymlinksAreRejected(t *testing.T) {
 			t.Fatal(err)
 		}
 		if name == ".qatlas" {
-			write(t, outside, "qdeploy/demo-stack.yaml", "version: 1\n")
+			write(t, outside, "qhost/demo-stack.yaml", "version: 1\n")
 		}
 		if err := os.Symlink(filepath.Join(outside, link), filepath.Join(root, name)); err != nil {
 			t.Fatal(err)
@@ -408,7 +408,7 @@ func TestDemoStacks(t *testing.T) {
 		if !ok || s.Err != nil {
 			t.Fatalf("%s = %+v", name, s)
 		}
-		if len(s.Images) != 1 || s.Images[0].Var != "DEMO_APP_VERSION" || s.Images[0].Image != "registry.qdeploye2e.test/demo/app" {
+		if len(s.Images) != 1 || s.Images[0].Var != "DEMO_APP_VERSION" || s.Images[0].Image != "registry.qhoste2e.test/demo/app" {
 			t.Errorf("%s images = %+v", name, s.Images)
 		}
 	}

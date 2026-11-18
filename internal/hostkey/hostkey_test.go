@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/hostkey"
-	"github.com/castrowithcee/qatlas-deploy/internal/hostkey/hostkeytest"
+	"github.com/castrowithcee/qatlas-host/internal/hostkey"
+	"github.com/castrowithcee/qatlas-host/internal/hostkey/hostkeytest"
 )
 
 func TestProbeReturnsTheServerKey(t *testing.T) {

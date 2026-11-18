@@ -73,7 +73,7 @@ func Probe(ctx context.Context, host, port string) (Key, error) {
 
 	var got ssh.PublicKey
 	cfg := &ssh.ClientConfig{
-		User: "qdeploy",
+		User: "qhost",
 		HostKeyCallback: func(_ string, _ net.Addr, k ssh.PublicKey) error {
 			got = k
 			return errCaptured

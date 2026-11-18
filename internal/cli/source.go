@@ -14,8 +14,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
 )
 
 // stRdonly is ST_RDONLY, the statfs flag of a file system mounted read-only.
@@ -28,7 +28,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 		Use:   "source",
 		Short: "Inspect, take over, list and release stack folders",
 		Long: "The source commands work on the stack folders of the host. Only root may use the service channel, so\n" +
-			"run them with sudo. See 'qdeploy help sources'.",
+			"run them with sudo. See 'qhost help sources'.",
 	}
 	var url string
 	inspect := &cobra.Command{
@@ -39,7 +39,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"without a repository; the first commit would take the listed files and leave out the listed ones with\n" +
 			"the reason) or reject (with the reason and what to do). It shows the owner, group and mode of the\n" +
 			"folder, whether the service can write there and whether source add would have to set permissions\n" +
-			"(group qdeploy, group write, setgid), and per stack the functions, the findings and the containers\n" +
+			"(group qhost, group write, setgid), and per stack the functions, the findings and the containers\n" +
 			"of other Compose projects that run in the stack's folder: deploying would create duplicates of them.\n" +
 			"--url is the SSH address to clone or to expect as origin. A folder on a read-only file system is\n" +
 			"rejected. A rejection is a complete answer and exits 0; read the case. Nothing is created, changed\n" +
@@ -47,7 +47,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return usageFailure("source inspect takes exactly one argument, the path of the folder",
-					"Run 'qdeploy source inspect <path> [--url <ssh-url>]'.")
+					"Run 'qhost source inspect <path> [--url <ssh-url>]'.")
 			}
 			return nil
 		},
@@ -73,7 +73,7 @@ func runSourceInspect(c *cobra.Command, program *cobracli.Program, state *notRun
 }
 
 const gitNotWritableWarning = "warning: the service cannot write .git; source add sets the group permissions, " +
-	"or commit as a member of the group qdeploy or with sudo -u qdeploy git"
+	"or commit as a member of the group qhost or with sudo -u qhost git"
 
 func structuredFormat(f output.Format) bool { return f == output.FormatJSON || f == output.FormatTOON }
 

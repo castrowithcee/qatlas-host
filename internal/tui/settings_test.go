@@ -10,7 +10,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/i18n"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // The values the tests type into masked fields. They are invented; every flow checks that they reach the
@@ -35,7 +35,7 @@ func settingsBackend() *fakeBackend {
 	b.notify = []control.NotifyChannelInfo{
 		{Name: "ops-hook", Type: control.NotifyWebhook, Events: []string{"failed", "rolled-back"}},
 		{Name: "ops-mail", Type: control.NotifySMTP, Host: "mail.example.test", Port: 587, Security: "starttls",
-			From: "qdeploy@example.test", To: []string{"ops@example.test"}},
+			From: "qhost@example.test", To: []string{"ops@example.test"}},
 	}
 	return b
 }
@@ -157,10 +157,10 @@ func TestDeployKeyIsGeneratedFromTheFormAndShown(t *testing.T) {
 
 func TestDeployKeyIsShownWhenOneExists(t *testing.T) {
 	b := keyBackend()
-	b.key = &control.KeyResult{PublicKey: "ssh-ed25519 AAAAexamplekey qdeploy", Fingerprint: fingerprint}
+	b.key = &control.KeyResult{PublicKey: "ssh-ed25519 AAAAexamplekey qhost", Fingerprint: fingerprint}
 	m := newSettingsModel(t, b)
 	send(m, toKey...)
-	contains(t, m, "ssh-ed25519 AAAAexamplekey qdeploy", fingerprint)
+	contains(t, m, "ssh-ed25519 AAAAexamplekey qhost", fingerprint)
 }
 
 func TestRegistryCredentialNames(t *testing.T) {
@@ -367,7 +367,7 @@ func TestSMTPChannelTakesItsSettings(t *testing.T) {
 	send(m, "down")
 	send(m, typed(hiddenA)...)
 	send(m, "down")
-	send(m, typed("qdeploy@example.test")...)
+	send(m, typed("qhost@example.test")...)
 	send(m, "down")
 	send(m, typed("ops@example.test, dev@example.test")...)
 	sendHidden(t, m, hidden, "f2", "y")
@@ -375,7 +375,7 @@ func TestSMTPChannelTakesItsSettings(t *testing.T) {
 		t.Fatalf("adds = %+v", b.adds)
 	}
 	want := control.NotifyAddArgs{Name: "alerts", Type: "smtp", Host: "mail.example.test", Port: 2525, Security: "tls", User: "qd",
-		Secret: hiddenA, From: "qdeploy@example.test", To: []string{"ops@example.test", "dev@example.test"}}
+		Secret: hiddenA, From: "qhost@example.test", To: []string{"ops@example.test", "dev@example.test"}}
 	got := b.adds[0]
 	if got.Name != want.Name || got.Type != want.Type || got.Host != want.Host || got.Port != want.Port || got.Security != want.Security ||
 		got.User != want.User || got.Secret != want.Secret || got.From != want.From || !slices.Equal(got.To, want.To) {

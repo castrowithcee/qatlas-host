@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // The folders the tests add, one per case of the inspection.
@@ -52,7 +52,7 @@ func foldersBackend() *fakeBackend {
 			Access: &control.SourceAccess{ModePath: adoptDir, Owner: "admin", Group: "admin", Mode: "0755", SetsPermissions: true, GitWritable: &no},
 			Stacks: []control.SourceStack{{Name: "wiki", Folder: "wiki", Functions: []control.StackFunction{{Function: "deploy", Works: true}}}}},
 		repoDir: {Path: repoDir, Case: control.SourceCaseLocal,
-			Access: &control.SourceAccess{ModePath: repoDir, Owner: "qdeploy", Group: "qdeploy", Mode: "0755", ServiceCanWrite: true},
+			Access: &control.SourceAccess{ModePath: repoDir, Owner: "qhost", Group: "qhost", Mode: "0755", ServiceCanWrite: true},
 			Stacks: []control.SourceStack{}},
 		rejectDir: {Path: rejectDir, Case: control.SourceCaseReject, Reason: "the folder is a repository whose origin is no SSH address",
 			Fix: "Set an SSH origin, or choose another folder.", Stacks: []control.SourceStack{}},
@@ -121,7 +121,7 @@ func TestFolderAddAsksForTheAddressOnlyForAMissingOrEmptyFolder(t *testing.T) {
 	b := foldersBackend()
 	m := newSettingsModel(t, b)
 	send(m, addKeys(cloneDir)...)
-	contains(t, m, "Clone a repository into "+cloneDir, "nearest existing folder is /srv", "created with owner qdeploy:qdeploy")
+	contains(t, m, "Clone a repository into "+cloneDir, "nearest existing folder is /srv", "created with owner qhost:qhost")
 	send(m, "y")
 	if m.set.form == nil || m.set.form.kind != formFolderURL {
 		t.Fatal("no address asked for an empty folder")
@@ -175,7 +175,7 @@ func TestFolderAddClonesAfterTheHostKeyAndTheLastQuestion(t *testing.T) {
 	send(m, "f2")
 	contains(t, m, "Trust this host key for", repoURL, "host: example.test", fingerprint)
 	send(m, "y")
-	contains(t, m, "Clone "+repoURL+" into "+cloneDir, "created with owner qdeploy:qdeploy")
+	contains(t, m, "Clone "+repoURL+" into "+cloneDir, "created with owner qhost:qhost")
 	noChange(t, b)
 	send(m, "y")
 	if got := b.host.changes(); !slices.Equal(got, []string{"grant:" + cloneDir + ":true"}) {

@@ -1,5 +1,5 @@
 // Package stacks reads the stacks of a stacks-repo working copy: which stacks exist, which image variables
-// their compose files use, and which settings (.qatlas/qdeploy/<stack>.yaml) they carry. It only reads;
+// their compose files use, and which settings (.qatlas/qhost/<stack>.yaml) they carry. It only reads;
 // nothing from the working copy is executed, interpolated through a shell, or written back.
 //
 // The working copy is untrusted data. Paths from it never leave the stack folder or the settings folder,
@@ -34,7 +34,7 @@ const (
 
 	// SettingsDir holds the settings of the stacks, one file per stack, relative to the repository root. Only
 	// the service writes it; see SettingsPath.
-	SettingsDir = SettingsTop + "/qdeploy"
+	SettingsDir = SettingsTop + "/qhost"
 	// SettingsTop is the top-level folder of SettingsDir. It belongs to no stack, not even to a root stack.
 	SettingsTop = ".qatlas"
 	// RootFolder is the Folder of a root stack: the root of the stacks repository holds a compose file, so the
@@ -42,7 +42,7 @@ const (
 	RootFolder = "."
 	// OldRulesFile is the rule file a stack folder held before the settings moved to SettingsDir. It is not
 	// read; Stack.OldRulesFile reports it.
-	OldRulesFile = "qdeploy.yaml"
+	OldRulesFile = "qhost.yaml"
 	envFile      = ".env"
 )
 
@@ -56,7 +56,7 @@ type Stack struct {
 	// command line. Until it is resolved, and for a stack that fails before, it is the folder name, for a root
 	// stack the name of the repository directory.
 	Name string
-	// NameDerived says Name is what Compose itself derives from the files and env files qdeploy passes, so the
+	// NameDerived says Name is what Compose itself derives from the files and env files qhost passes, so the
 	// command line needs no --project-name for it. It is false for a stack whose .env cannot be read.
 	NameDerived bool
 	// Folder is the directory name below the stacks repository root, or RootFolder; every path and git pathspec
@@ -76,16 +76,16 @@ type Stack struct {
 	Env map[string]string
 	// Images lists every service image whose tag is a variable.
 	Images []ImageVar
-	// Findings lists images with a fixed, floating or unset tag, for qdeploy stack check.
+	// Findings lists images with a fixed, floating or unset tag, for qhost stack check.
 	Findings []Finding
 	// Rules is nil when the stack has no settings: it is deployed but never updated.
 	Rules *Rules
-	// OldRulesFile says the stack folder holds a qdeploy.yaml, which is no longer read.
+	// OldRulesFile says the stack folder holds a qhost.yaml, which is no longer read.
 	OldRulesFile bool
 	// Ignored lists, for a root stack, the sorted subfolders that hold a compose file of their own; they are
 	// part of the root stack and not read as stacks.
 	Ignored []string
-	// EnvErr is set when .env cannot be parsed by qdeploy but the stack can still be deployed, because Compose
+	// EnvErr is set when .env cannot be parsed by qhost but the stack can still be deployed, because Compose
 	// reads .env itself: the stack is deploy-only and never updated. Env then holds only the lines that parse,
 	// and Images and Findings stay empty.
 	EnvErr error
@@ -418,7 +418,7 @@ func projectNameOf(folder string, env map[string]string, fileName string) (strin
 	}
 	if fileName != "" {
 		if strings.Contains(fileName, "$") {
-			return "", errors.New("the compose file's name uses variable interpolation, which qdeploy does not resolve; set COMPOSE_PROJECT_NAME in .env or write the name literally")
+			return "", errors.New("the compose file's name uses variable interpolation, which qhost does not resolve; set COMPOSE_PROJECT_NAME in .env or write the name literally")
 		}
 		if name := normalizeProjectName(fileName); name != "" {
 			return name, nil

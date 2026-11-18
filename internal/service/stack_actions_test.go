@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 func TestStackActionsMarkAndClearStopped(t *testing.T) {

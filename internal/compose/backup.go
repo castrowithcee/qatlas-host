@@ -9,7 +9,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // maxConfigOutput bounds the rendered Compose configuration; more than this is a failure.

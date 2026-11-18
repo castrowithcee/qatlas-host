@@ -10,7 +10,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/i18n"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // The stacks of the demo host in list order: demo-stack, mail-relay, old-tool, photo-album, web-shop, wiki.

@@ -10,8 +10,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 func newSecretCommand(program *cobracli.Program, state *notRunning, secrets *redact.Redactor) *cobra.Command {
@@ -20,7 +20,7 @@ func newSecretCommand(program *cobracli.Program, state *notRunning, secrets *red
 		Short: "Set, list and delete the secrets of a stack",
 		Long: "The secrets of a stack live in its secrets.env, which exists on this host only and is never versioned.\n" +
 			"A key stands in secrets.env or in .env, never in both. A change does not redeploy the stack: it applies\n" +
-			"at the next deployment, so run 'qdeploy stack deploy <stack>' afterwards. Values are never shown or\n" +
+			"at the next deployment, so run 'qhost stack deploy <stack>' afterwards. Values are never shown or\n" +
 			"logged. Only root may use the service channel, so run these commands with sudo.",
 	}
 	set := &cobra.Command{
@@ -36,7 +36,7 @@ func newSecretCommand(program *cobracli.Program, state *notRunning, secrets *red
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return usageFailure("secret set takes exactly two arguments, the stack and the key; the value is never accepted as an argument",
-					"Run 'qdeploy stack secret set <stack> <KEY>' and enter the value at the prompt or pipe it on standard input.")
+					"Run 'qhost stack secret set <stack> <KEY>' and enter the value at the prompt or pipe it on standard input.")
 			}
 			return nil
 		},
@@ -86,7 +86,7 @@ func newSecretCommand(program *cobracli.Program, state *notRunning, secrets *red
 		Args: cobra.ExactArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
 			if !stacks.ValidSecretKey(args[1]) {
-				return usageFailure(stacks.ErrInvalidSecretKey.Error(), "Check the keys with 'qdeploy stack secret list "+args[0]+"'.")
+				return usageFailure(stacks.ErrInvalidSecretKey.Error(), "Check the keys with 'qhost stack secret list "+args[0]+"'.")
 			}
 			var res control.SecretResult
 			if err := secretCall(c, state, control.SecretDeleteCommand,

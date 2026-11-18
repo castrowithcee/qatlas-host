@@ -15,7 +15,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/localipc"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // maxConns bounds the connections served at once; further ones are closed unanswered.

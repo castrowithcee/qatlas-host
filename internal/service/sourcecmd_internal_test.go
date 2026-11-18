@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/credentials"
 )
 
 func TestValidateSourcesKinds(t *testing.T) {

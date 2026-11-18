@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // FindingKind says why a path of a commit counts as secret-like.

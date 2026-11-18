@@ -1,4 +1,4 @@
-◆ qdeploy  Wartungsfenster zu                  [?] Hilfe
+◆ qhost  Wartungsfenster zu                    [?] Hilfe
   [1 Stacks] 2 3 4 5                                    
 ────────────────────────────────────────────────────────
       STACK        VERSION  VERFÜGBAR  ZUSTAND  BEFUNDE 
@@ -8,8 +8,8 @@
   ║ ⚠ demo-stack neu starten (restart)?              ║er
   ║                                                  ║  
   ║ Startet die Container des Stacks neu und prüft   ║u…
-  ║ den Stack. Ein über qdeploy gestoppter Stack     ║  
-  ║ wird abgelehnt; starte ihn stattdessen.          ║  
+  ║ den Stack. Ein über qhost gestoppter Stack wird  ║  
+  ║ abgelehnt; starte ihn stattdessen.               ║  
   ║                                                  ║  
   ║ [ ja, ausführen ]  > abbrechen <                 ║  
   ║ y ja, ausführen  n/esc/enter abbrechen           ║  

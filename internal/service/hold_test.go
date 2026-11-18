@@ -3,8 +3,8 @@ package service_test
 import (
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
 )
 
 func TestOperatorMarksAreSetClearedAndShownInStatus(t *testing.T) {

@@ -14,9 +14,9 @@ import (
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/credentials"
 )
 
 func newKeyCommand(program *cobracli.Program, state *notRunning, secrets *redact.Redactor) *cobra.Command {
@@ -93,7 +93,7 @@ func keyCall(c *cobra.Command, program *cobracli.Program, state *notRunning, com
 		f := failureOf(err)
 		var fail *cli.Failure
 		if command == control.KeySetCommand && errors.As(f, &fail) && fail.Code == output.CodeConfirmationRequired {
-			fail.NextStep = "Run 'qdeploy key set --replace' to replace it; the old key stops working at once."
+			fail.NextStep = "Run 'qhost key set --replace' to replace it; the old key stops working at once."
 		}
 		return f
 	}

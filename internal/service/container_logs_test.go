@@ -10,7 +10,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/docker"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 var logBase = time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC)

@@ -22,12 +22,12 @@ import (
 // Version is the protocol version every request and answer carries.
 const Version = 1
 
-// Endpoint returns the channel of the service. The service runs as the system user qdeploy, so the directory
+// Endpoint returns the channel of the service. The service runs as the system user qhost, so the directory
 // belongs to that user and its group and is closed to others; the service manager creates it. The transport
 // admits root and members of that group; the service narrows this to UID 0 (see service.RequireRoot).
 func Endpoint() localipc.ServiceEndpoint {
 	return localipc.ServiceEndpoint{
-		Dir: "/run/qdeploy", SocketBase: "control", ServiceUser: "qdeploy", Group: "qdeploy", ErrorName: "qdeploy service",
+		Dir: "/run/qhost", SocketBase: "control", ServiceUser: "qhost", Group: "qhost", ErrorName: "qhost service",
 	}
 }
 
@@ -263,13 +263,13 @@ type StackStatus struct {
 	// OperatorPause and Pinned are the operator's marks for the maintenance window, unrelated to Paused.
 	OperatorPause *HoldInfo `json:"operator_pause,omitempty"`
 	Pinned        *HoldInfo `json:"pinned,omitempty"`
-	// Stopped is set while the stack was stopped through qdeploy and gets no runs until it is started.
+	// Stopped is set while the stack was stopped through qhost and gets no runs until it is started.
 	Stopped *HoldInfo `json:"stopped,omitempty"`
 	// Failure is the container failure the monitoring found; it is cleared when the monitoring finds it recovered.
 	Failure *FailureInfo `json:"failure,omitempty"`
 	// Repair is the state of the automatic repair of a failure; nil when there is none.
 	Repair *RepairInfo `json:"repair,omitempty"`
-	// Observe is the update by qdeploy whose observation time is running; nil when none is.
+	// Observe is the update by qhost whose observation time is running; nil when none is.
 	Observe *ObserveInfo `json:"observe,omitempty"`
 }
 
@@ -712,7 +712,7 @@ type StackInfo struct {
 	Volumes  []string `json:"volumes,omitempty"`
 	Findings int      `json:"findings"`
 	Error    string   `json:"error,omitempty"`
-	// Stopped is set while the stack was stopped through qdeploy.
+	// Stopped is set while the stack was stopped through qhost.
 	Stopped *HoldInfo `json:"stopped,omitempty"`
 	// Source and SourceDir are the id and the path of the stack folder the stack comes from.
 	Source    string `json:"source"`
@@ -986,7 +986,7 @@ type SourceRemoveResult struct {
 // SourceAccess is the permission information of a folder. ModePath is the folder Mode belongs to: Path, or the
 // nearest existing parent while Path is missing. Owner and Group are empty when the id has no name.
 // ServiceCanWrite says the service may create files there; SetsPermissions says source add will then change the
-// permissions (group qdeploy, group write, setgid), which it does exactly when the service cannot write.
+// permissions (group qhost, group write, setgid), which it does exactly when the service cannot write.
 // GitWritable is set for an existing repository and says the service may write its .git folder.
 type SourceAccess struct {
 	ModePath        string `json:"mode_path"`

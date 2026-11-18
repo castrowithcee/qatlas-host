@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 func TestTUIFoldersPlanChangesNothingAndApplyDoesWhatSourceAddDoes(t *testing.T) {

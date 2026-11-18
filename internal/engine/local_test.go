@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/gitrepo"
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // localRig is a rig whose working copy has no remote, deployed at commit 1.
@@ -158,7 +158,7 @@ func TestLocalSettingsLandOnTheBranch(t *testing.T) {
 	if err != nil || c != commit(2001) {
 		t.Fatalf("set = %q, %v", c, err)
 	}
-	if cs := r.copy.commits; len(cs) != 1 || cs[0].Base != commit(1) || cs[0].Path != ".qatlas/qdeploy/web.yaml" {
+	if cs := r.copy.commits; len(cs) != 1 || cs[0].Base != commit(1) || cs[0].Path != ".qatlas/qhost/web.yaml" {
 		t.Fatalf("commits = %+v", cs)
 	}
 	head, _ := r.copy.Head(ctx)

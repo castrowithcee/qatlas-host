@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // loadAt writes the files of demoFiles below prefix of a stacks folder named demo-stack and loads it: prefix

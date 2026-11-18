@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/channeltest"
 )
 
 func objectOf(t *testing.T, out string) map[string]any {

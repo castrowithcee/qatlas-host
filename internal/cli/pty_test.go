@@ -15,10 +15,10 @@ import (
 	"github.com/castrowithcee/qatlas-kit/ptytest"
 )
 
-// The service channel of qdeploy is fixed, so a separately built binary cannot be pointed at a test service.
+// The service channel of qhost is fixed, so a separately built binary cannot be pointed at a test service.
 // The test binary therefore runs the command line itself: the parent re-executes it with this variable set,
 // and the child calls Run on its own standard streams the way main does, against a service it starts.
-const cliChild = "QDEPLOY_CLI_PTY_CHILD"
+const cliChild = "QHOST_CLI_PTY_CHILD"
 
 // TestCommandLineChild is the child of the tests below. The arguments after -- are the command line.
 func TestCommandLineChild(t *testing.T) {

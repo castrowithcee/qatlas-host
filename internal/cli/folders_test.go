@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/channeltest"
 )
 
 // hostDouble stands in for the host: a temporary root for /etc, a recorded systemctl and a service that
@@ -112,7 +112,7 @@ func TestRepoSetCreateMakesTheFolderAndTheDropIn(t *testing.T) {
 	if want := "[Service]\nReadWritePaths=-" + missing + "\n"; d.dropIn(t) != want {
 		t.Fatalf("drop-in = %q, want %q", d.dropIn(t), want)
 	}
-	if got := strings.Join(d.cmds, ";"); got != "daemon-reload;restart qdeploy" || d.waited != 1 {
+	if got := strings.Join(d.cmds, ";"); got != "daemon-reload;restart qhost" || d.waited != 1 {
 		t.Fatalf("commands %q, waits %d", got, d.waited)
 	}
 	if e.git.Clones() != 1 {
@@ -200,7 +200,7 @@ func TestRepairBoundFolderWritesTheMissingDropInOnce(t *testing.T) {
 	if want := "[Service]\nReadWritePaths=-" + e.dir + "\n"; d.dropIn(t) != want {
 		t.Fatalf("drop-in = %q, want %q", d.dropIn(t), want)
 	}
-	if got := strings.Join(d.cmds, ";"); got != "daemon-reload;try-restart qdeploy;is-active --quiet qdeploy" || d.waited != 1 {
+	if got := strings.Join(d.cmds, ";"); got != "daemon-reload;try-restart qhost;is-active --quiet qhost" || d.waited != 1 {
 		t.Fatalf("commands %q, waits %d", got, d.waited)
 	}
 	d.cmds = nil
@@ -254,7 +254,7 @@ func TestRepairBoundFolderLeavesAStoppedServiceStopped(t *testing.T) {
 	if want := "[Service]\nReadWritePaths=-" + e.dir + "\n"; d.dropIn(t) != want {
 		t.Fatalf("drop-in = %q", d.dropIn(t))
 	}
-	if got := strings.Join(d.cmds, ";"); got != "daemon-reload;try-restart qdeploy;is-active --quiet qdeploy" || d.waited != 0 {
+	if got := strings.Join(d.cmds, ";"); got != "daemon-reload;try-restart qhost;is-active --quiet qhost" || d.waited != 0 {
 		t.Fatalf("commands %q, waits %d", got, d.waited)
 	}
 	for _, c := range d.cmds {

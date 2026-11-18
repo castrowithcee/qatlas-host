@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // fakeBackend answers from fixed results. A set error makes that call fail.
@@ -380,7 +380,7 @@ func demoBackend() *fakeBackend {
 			{Stack: "wiki", Functions: []control.StackFunction{
 				{Function: "deploy", Works: true, Reason: "Compose starts the stack from compose.yaml"},
 				{Function: "update", Mode: "none", Reason: "the image versions (WIKI_VERSION) can be updated, but updates are not switched on",
-					Action: "Switch on updates in the stack's settings in the qdeploy TUI."},
+					Action: "Switch on updates in the stack's settings in the qhost TUI."},
 			}, Findings: []control.CheckFinding{
 				{Stack: "wiki", Rule: "duplicate-key", Severity: "warning"},
 				{Stack: "wiki", Rule: "tracked-data", Severity: "warning"},
@@ -601,7 +601,7 @@ func (f *fakeBackend) KeyGenerate(_ context.Context, dir string, replace bool) (
 	if f.keySlot(dir) != nil && !replace {
 		return control.KeyResult{}, control.NewError(control.CodeKeyExists, "a deploy key already exists")
 	}
-	k := control.KeyResult{PublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyForTestsOnly qdeploy",
+	k := control.KeyResult{PublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyForTestsOnly qhost",
 		Fingerprint: "SHA256:ExampleKeyFingerprintForTestsOnly000000000"}
 	f.putKey(dir, k)
 	return k, nil

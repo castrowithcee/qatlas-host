@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-kit/i18n"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
@@ -135,7 +135,7 @@ func emptyHost() *fakeBackend {
 
 func TestWithoutFolderStacksLeadsToAdding(t *testing.T) {
 	m := folderModel(t, emptyHost())
-	contains(t, m, "No stack folders yet.", "a adds one", "sudo qdeploy source add <path>")
+	contains(t, m, "No stack folders yet.", "a adds one", "sudo qhost source add <path>")
 	x, y := cellOf(t, m, "No stack folders yet.")
 	clickAt(m, x, y)
 	if m.set.form == nil || m.set.form.kind != formFolder {

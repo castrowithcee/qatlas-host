@@ -16,8 +16,8 @@ import (
 	"github.com/castrowithcee/qatlas-kit/docker"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/service"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/service"
 )
 
 const (
@@ -124,7 +124,7 @@ func tempBase(t *testing.T) string {
 		if inside {
 			continue
 		}
-		if d, err := os.MkdirTemp(base, "qdeploy-inspect-*"); err == nil {
+		if d, err := os.MkdirTemp(base, "qhost-inspect-*"); err == nil {
 			t.Cleanup(func() { _ = os.RemoveAll(d) })
 			return d
 		}

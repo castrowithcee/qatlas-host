@@ -10,7 +10,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 func newStacksCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
@@ -20,7 +20,7 @@ func newStacksCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 		Long: "list reads the working copy of the bound stacks repository and lists each stack with the image\n" +
 			"version variables of its compose files, their current values and its update mode (none without stack\n" +
 			"settings). A stack that cannot be read shows its problem and does not hide the others. Run it\n" +
-			"after 'qdeploy repo set'; it reads the working copy as it is and does not fetch.",
+			"after 'qhost repo set'; it reads the working copy as it is and does not fetch.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			var res control.StacksResult

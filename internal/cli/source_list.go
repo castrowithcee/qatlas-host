@@ -10,7 +10,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 func newSourceListCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
@@ -68,7 +68,7 @@ func newSourceRemoveCommand(program *cobracli.Program, state *notRunning) *cobra
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return usageFailure("source remove takes exactly one argument, the path of the folder",
-					"Run 'qdeploy source remove <path>'.")
+					"Run 'qhost source remove <path>'.")
 			}
 			return nil
 		},

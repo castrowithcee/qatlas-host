@@ -11,9 +11,9 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/uiprefs"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/channeltest"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
-	"github.com/castrowithcee/qatlas-deploy/internal/tui"
+	"github.com/castrowithcee/qatlas-host/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/tui"
 )
 
 // fakeTerminal makes standard input and the returned stdout count as terminals and records whether the
@@ -61,7 +61,7 @@ func TestNoArgumentsAtATerminalStartsTheInterface(t *testing.T) {
 func TestTUICommandReadsThePreferences(t *testing.T) {
 	startService(t, func(net.Conn) error { return nil })
 	out, started := fakeTerminal(t)
-	dir := filepath.Join(os.Getenv("HOME"), ".qatlas", "qdeploy")
+	dir := filepath.Join(os.Getenv("HOME"), ".qatlas", "qhost")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}

@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // twoFoldersBackend is the demo host with a second, local stack folder that brings one stack and a stack

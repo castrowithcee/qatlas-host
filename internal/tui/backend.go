@@ -1,4 +1,4 @@
-// Package tui is the terminal interface of qdeploy. It acts only through a Backend, which reaches the service
+// Package tui is the terminal interface of qhost. It acts only through a Backend, which reaches the service
 // over its channel; it never touches the stacks repository, Docker or the files of the service. It changes
 // something only after the person confirmed it.
 package tui
@@ -9,8 +9,8 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/localipc"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/client"
-	"github.com/castrowithcee/qatlas-deploy/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // Backend is what the interface asks of the service, one method per channel command. Calls run off the event

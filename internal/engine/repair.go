@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // ErrNotRepairable means a repair attempt was refused: the stack is unknown to the state, never deployed,

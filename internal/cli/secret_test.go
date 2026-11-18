@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/hostkey/hostkeytest"
-	"github.com/castrowithcee/qatlas-deploy/internal/service/servicetest"
+	"github.com/castrowithcee/qatlas-host/internal/hostkey/hostkeytest"
+	"github.com/castrowithcee/qatlas-host/internal/service/servicetest"
 )
 
 const (

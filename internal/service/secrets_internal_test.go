@@ -7,7 +7,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/redact"
 
-	"github.com/castrowithcee/qatlas-deploy/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 func TestSecretLikeEnvValuesAreRedacted(t *testing.T) {
