@@ -164,7 +164,11 @@ func (m *Model) fillProposals() {
 	if !m.prop.noted {
 		m.prop.noted = true
 		if n := openProposals(m.prop.list); n > 0 && m.notice == "" {
-			m.notice = m.text.Lookup(kittui.TextWarning, m.text.Lookup(textPropNotice, n, areaKeys[len(areaKeys)-1]))
+			id := textPropNotice
+			if n == 1 {
+				id = textPropNoticeOne
+			}
+			m.notice = m.text.Lookup(kittui.TextWarning, m.text.Lookup(id, n, areaKeys[len(areaKeys)-1]))
 		}
 	}
 }

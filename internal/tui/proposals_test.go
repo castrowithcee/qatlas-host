@@ -94,10 +94,15 @@ func TestProposalsNoticeOnlyWithOpenProposals(t *testing.T) {
 	if !strings.Contains(m.render(), "3 open proposals") {
 		t.Fatalf("no notice with open proposals:\n%s", m.render())
 	}
+	one := proposalBackend()
+	one.proposals = one.proposals[2:]
+	if r := proposalModel(t, i18n.English, one, true, 100, 30).render(); !strings.Contains(r, "1 open proposal waits") {
+		t.Fatalf("no singular notice with one open proposal:\n%s", r)
+	}
 	b := proposalBackend()
 	b.proposals = b.proposals[3:]
 	m = proposalModel(t, i18n.English, b, true, 100, 30)
-	if strings.Contains(m.render(), "proposals wait") {
+	if strings.Contains(m.render(), "proposals wait") || strings.Contains(m.render(), "proposal waits") {
 		t.Fatalf("a notice without open proposals:\n%s", m.render())
 	}
 }

@@ -12,9 +12,10 @@ const (
 	textColSubmitted kittui.TextID = "col.submitted"
 	textColExpires   kittui.TextID = "col.expires"
 
-	textPropEmpty   kittui.TextID = "prop.empty"
-	textPropLoading kittui.TextID = "prop.loading"
-	textPropNotice  kittui.TextID = "prop.notice"
+	textPropEmpty     kittui.TextID = "prop.empty"
+	textPropLoading   kittui.TextID = "prop.loading"
+	textPropNotice    kittui.TextID = "prop.notice"
+	textPropNoticeOne kittui.TextID = "prop.notice.one"
 
 	textPropKindSourceAdd kittui.TextID = "prop.kind.sourceadd"
 	textPropOpen          kittui.TextID = "prop.state.open"
@@ -52,9 +53,10 @@ func proposalEnglish() map[kittui.TextID]string {
 		textColSubmitted: "submitted",
 		textColExpires:   "expires",
 
-		textPropEmpty:   "No proposals.",
-		textPropLoading: "Reading the proposals…",
-		textPropNotice:  "%d open proposals wait for you. Press %s to review them.",
+		textPropEmpty:     "No proposals.",
+		textPropLoading:   "Reading the proposals…",
+		textPropNotice:    "%d open proposals wait for you. Press %s to review them.",
+		textPropNoticeOne: "%d open proposal waits for you. Press %s to review it.",
 
 		textPropKindSourceAdd: "stack folder",
 		textPropOpen:          "open",
@@ -93,9 +95,10 @@ func proposalGerman() map[kittui.TextID]string {
 		textColSubmitted: "eingereicht",
 		textColExpires:   "läuft ab",
 
-		textPropEmpty:   "Keine Vorschläge.",
-		textPropLoading: "Vorschläge werden gelesen…",
-		textPropNotice:  "%d offene Vorschläge warten auf dich. Mit %s prüfst du sie.",
+		textPropEmpty:     "Keine Vorschläge.",
+		textPropLoading:   "Vorschläge werden gelesen…",
+		textPropNotice:    "%d offene Vorschläge warten auf dich. Mit %s prüfst du sie.",
+		textPropNoticeOne: "%d offener Vorschlag wartet auf dich. Mit %s prüfst du ihn.",
 
 		textPropKindSourceAdd: "Stack-Ordner",
 		textPropOpen:          "offen",
