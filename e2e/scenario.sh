@@ -1372,6 +1372,8 @@ scenario_stacks_repo() {
 
 	scenario_adopt
 
+	scenario_tui_proposals
+
 	scenario_tui_setup
 
 	scenario_tui_rules
@@ -3645,6 +3647,121 @@ EOF2
 	docker exec "$host" sh -ec "cd '$base' && docker compose down" >/dev/null 2>&1 || fail 'cannot shut down the foreign project'
 	docker exec "$host" rm -rf /srv/qd-foreign
 	wait_for 'the qhost service to answer' 30 qd status
+}
+
+# prop_submit submits a source-add proposal for the folder $1 with the address $2 as the administrator without sudo
+# and prints its id.
+prop_submit() {
+	out=$(printf '{"path":"%s","url":"%s"}' "$1" "$2" | as_admin 'qhost --output json proposal submit --kind source-add' 2>&1) ||
+		fail "qhost proposal submit without sudo failed: $out"
+	printf '%s' "$out" | sed -n 's/.*"id": *"\(p-[0-9a-f]*\)".*/\1/p' | head -n 1
+}
+
+# prop_state prints the state of the proposal $1 as the administrator without sudo reads it.
+prop_state() {
+	as_admin "qhost --output json proposal show $1" | sed -n 's/.*"state": *"\([a-z]*\)".*/\1/p' | head -n 1
+}
+
+# prop_is succeeds when the proposal $1 is in the state $2.
+prop_is() {
+	[ "$(prop_state "$1")" = "$2" ]
+}
+
+# prop_tui starts the interface under sudo in a fresh tmux session and waits for the notice of the open proposals.
+prop_tui() {
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_wait '1 open proposal waits for you' 30
+}
+
+# scenario_tui_proposals proves approving a proposal in the interface. An administrator without sudo proposes to
+# add a missing folder as a clone; under sudo the interface lists it with its effect, and approving it runs the
+# way of adding a folder by hand: the host key is confirmed, the folder is cloned and bound, and the proposal
+# is applied. A second proposal is approved after its folder was changed: the approval is refused and nothing
+# is bound. The repository holds one file and no stack, so nothing is deployed.
+scenario_tui_proposals() {
+	pa=/srv/qd-prop-a
+	pb=/srv/qd-prop-b
+	url7=git.$domain:stacks7.git
+
+	step 'a repository without a stack and a deploy key for the folder of the first proposal'
+	docker exec "$host" rm -rf "$pa" "$pb"
+	docker exec "$prefix-git" su git -s /bin/sh -c "rm -rf /srv/git/stacks7.git && git init -q --bare --initial-branch=main /srv/git/stacks7.git" ||
+		fail 'cannot create the repository stacks7'
+	as_admin "rm -rf ~/stacks7 && mkdir -p ~/stacks7/notes && cd ~/stacks7 && printf 'notes\\n' >notes/readme.txt && git init -q -b main &&
+		git add -A && git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -m 'Add the notes' &&
+		git push -q $url7 main" || fail 'cannot fill the repository stacks7'
+	register_folder_key "$pa"
+	if list_has_path "$pa" || list_has_path "$pb"; then fail 'a folder of the proposals is bound before them'; fi
+
+	step 'a proposal of an administrator without sudo shows in the interface with its effect'
+	id1=$(prop_submit "$pa" "$url7")
+	[ -n "$id1" ] || fail 'the first proposal has no id'
+	prop_tui
+	tui_send 6
+	tui_wait 'stack folder' 15
+	tui_send Enter
+	tui_wait 'Effect if applied now' 30
+	tui_wait "path: $pa" 10
+	tui_wait "address: $url7" 10
+	tui_has "$id1" || fail "the view does not show $id1: $(tui_screen)"
+	[ "$(prop_state "$id1")" = open ] || fail 'the proposal is not open before the approval'
+
+	step 'A leads through the clone, the address and the host key to the question; nothing is bound before yes'
+	tui_send A
+	tui_wait "Clone a repository into $pa?" 30
+	tui_send y
+	tui_wait 'Address of the repository to clone' 10
+	tui_has "$url7" || fail "the address of the proposal is not prefilled: $(tui_screen)"
+	tui_send F2
+	tui_wait 'Trust this host key for' 60
+	tui_has "$(git_ed25519_fingerprint)" || fail "the host key question does not show the fingerprint: $(tui_screen)"
+	tui_send y
+	tui_wait "Approve proposal $id1 and apply these changes to $pa?" 30
+	[ "$(prop_state "$id1")" = open ] || fail 'the proposal left the state open before the last answer'
+	if list_has_path "$pa"; then fail 'the folder is bound before the last answer'; fi
+	if docker exec "$host" test -e "$pa"; then fail 'the folder exists before the last answer'; fi
+
+	step 'yes binds the folder and the proposal is applied'
+	tui_send y
+	tui_wait "The stack folder $pa is bound" 120
+	tui_send Enter
+	wait_for 'the qhost service to answer' 30 qd status
+	list_has_path "$pa" || fail "source list does not show $pa: $(qd --output json source list)"
+	docker exec "$host" test -f "$pa/notes/readme.txt" || fail 'the clone is missing in the folder of the proposal'
+	tui_wait 'applied' 30
+	wait_for 'the proposal to be applied' 30 prop_is "$id1" applied
+	tui_tmux kill-server >/dev/null 2>&1 || true
+
+	step 'a folder that changed between the view and the approval is refused and nothing is bound'
+	id2=$(prop_submit "$pb" "$url7")
+	[ -n "$id2" ] || fail 'the second proposal has no id'
+	prop_tui
+	tui_send 6
+	tui_wait 'stack folder' 15
+	tui_send Enter
+	tui_wait 'Effect if applied now' 30
+	tui_wait "path: $pb" 10
+	# A folder with a file is a folder of files and no longer a missing one to clone into: the effect differs.
+	docker exec "$host" sh -ec "mkdir -p '$pb' && chmod 0755 '$pb' && printf 'late\\n' >'$pb/late.txt' && chmod 0644 '$pb/late.txt'" ||
+		fail "cannot change the folder $pb"
+	tui_send A
+	tui_wait 'changed since it was shown; nothing was applied' 30
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	[ "$(prop_state "$id2")" = open ] || fail "the refused proposal is not open: $(prop_state "$id2")"
+	if list_has_path "$pb"; then fail 'the refused approval bound the folder'; fi
+	[ "$(docker exec "$host" ls -A "$pb")" = late.txt ] || fail 'the refused approval changed the folder'
+
+	step 'the folders are released and removed'
+	out=$(qd --output json source remove "$pa" --yes) || fail "source remove of $pa failed: $out"
+	out=$(as_admin "qhost --output json proposal withdraw $id2 2>&1") || fail "withdrawing the refused proposal failed: $out"
+	docker exec "$host" rm -rf "$pa" "$pb"
+	as_admin 'rm -rf ~/stacks7'
+	docker exec "$prefix-git" rm -rf /srv/git/stacks7.git
+	wait_for 'the qhost service to answer' 30 qd status
+	log "scenario: proposal $id1 was approved in the interface and applied; proposal $id2 was refused after its folder changed"
 }
 
 # --- First setup of a fresh service through the terminal interface only ---
