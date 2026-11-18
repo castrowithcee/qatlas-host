@@ -1,6 +1,8 @@
 package userfile
 
 import (
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -200,5 +202,75 @@ func TestNameUsesSafeParts(t *testing.T) {
 	}
 	if Slug("") != "unnamed" || Slug("...") != "unnamed" || len(Slug(strings.Repeat("a", 500))) != maxSubjectRunes {
 		t.Fatal("slug limits")
+	}
+}
+
+func TestSavePathWithWritesANewPrivateFile(t *testing.T) {
+	p, home := person(t)
+	path := filepath.Join(home, "out.bin")
+	got, err := p.SavePathWith(path, func(w io.Writer) error { _, err := w.Write([]byte("data")); return err })
+	if err != nil || got != path {
+		t.Fatalf("%q, %v", got, err)
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o600 || info.Mode()&os.ModeType != 0 {
+		t.Fatalf("%v, %v", info, err)
+	}
+	if b, _ := os.ReadFile(path); string(b) != "data" {
+		t.Fatalf("content %q", b)
+	}
+}
+
+func TestSavePathWithRefusesWhatExistsAndLinks(t *testing.T) {
+	p, home := person(t)
+	noop := func(io.Writer) error { return nil }
+	existing := filepath.Join(home, "old")
+	if err := os.WriteFile(existing, []byte("keep"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.SavePathWith(existing, noop); err == nil {
+		t.Fatal("an existing file was replaced")
+	}
+	if b, _ := os.ReadFile(existing); string(b) != "keep" {
+		t.Fatalf("content changed: %q", b)
+	}
+	if _, err := os.Stat(filepath.Join(home, "old-2")); err == nil {
+		t.Fatal("a counter name was used for an explicit path")
+	}
+	target := filepath.Join(home, "target")
+	link := filepath.Join(home, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.SavePathWith(link, noop); err == nil {
+		t.Fatal("a link was followed")
+	}
+	if _, err := os.Stat(target); err == nil {
+		t.Fatal("the target of the link was created")
+	}
+	for _, bad := range []string{"relative", filepath.Join(home, "missing", "f"), home + "/"} {
+		if _, err := p.SavePathWith(bad, noop); err == nil {
+			t.Errorf("%q was accepted", bad)
+		}
+	}
+}
+
+func TestSavePathWithRemovesAHalfWrittenFile(t *testing.T) {
+	p, home := person(t)
+	path := filepath.Join(home, "half")
+	if _, err := p.SavePathWith(path, func(w io.Writer) error {
+		_, _ = w.Write([]byte("part"))
+		return errors.New("broken")
+	}); err == nil {
+		t.Fatal("the failure was lost")
+	}
+	if _, err := os.Stat(path); err == nil {
+		t.Fatal("the half file stays")
+	}
+	if _, err := p.SaveWith("half.txt", func(io.Writer) error { return errors.New("broken") }); err == nil {
+		t.Fatal("the failure was lost")
+	}
+	if entries, _ := os.ReadDir(p.Dir()); len(entries) != 0 {
+		t.Fatalf("the half file stays: %v", entries)
 	}
 }
