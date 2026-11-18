@@ -565,6 +565,10 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			if cmd, ok := m.openServiceLog(); ok {
 				return cmd
 			}
+		case actSaveLog:
+			if m.saveOpenLog() {
+				return nil
+			}
 		case actFetch, actAdd, actRemove, actEdit, actTest, actEnter, actRestore, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actRemote:
 			switch m.area {
 			case areaSettings:
@@ -906,7 +910,7 @@ func (m *Model) footer() []kittui.Hint {
 		if m.clog.service {
 			common = append([]kittui.Hint{{Action: actLogLevel, Label: textKeyLogLevel, Priority: 2}}, common...)
 		}
-		return append(m.clog.view.Hints(), common...)
+		return append(m.clog.view.Hints(), append([]kittui.Hint{saveLogHint()}, common...)...)
 	case m.area == areaSettings:
 		return m.settingsFooter(common, nav)
 	case (m.area == areaDetail || m.area == areaStacks) && m.set.form != nil:
@@ -938,7 +942,7 @@ func (m *Model) footer() []kittui.Hint {
 		if m.log.view.Searching() || m.log.view.FilterOpen() {
 			return m.log.view.Hints()
 		}
-		return append(m.log.view.Hints(), common...)
+		return append(m.log.view.Hints(), append([]kittui.Hint{saveLogHint()}, common...)...)
 	case m.area == areaRuns:
 		return m.listFooter(m.runsList, len(m.runByID), textKeyLog, append(
 			[]kittui.Hint{m.stackOnlyHint(), {Action: actServiceLog, Label: textKeySvcLog, Priority: 2}}, common...), nav)
@@ -946,6 +950,10 @@ func (m *Model) footer() []kittui.Hint {
 		return m.stacksFooter(common, nav)
 	}
 	return common
+}
+
+func saveLogHint() kittui.Hint {
+	return kittui.Hint{Action: actSaveLog, Label: textKeySaveLog, Priority: 2}
 }
 
 func containerLogsHint() kittui.Hint {
@@ -1174,9 +1182,9 @@ func (m *Model) render() string {
 func (m *Model) filteringLogView() *kittui.LogView {
 	switch {
 	case m.clogShown() && m.clog.view.FilterOpen():
-		return m.clog.view
+		return m.clog.view.LogView
 	case m.area == areaRuns && m.log.open && m.log.view.FilterOpen():
-		return m.log.view
+		return m.log.view.LogView
 	}
 	return nil
 }

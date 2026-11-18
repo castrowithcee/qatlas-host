@@ -174,7 +174,7 @@ func (m *Model) toggleStackOnly() {
 type runLog struct {
 	open bool
 	row  runRow
-	view *kittui.LogView
+	view *heldLogView
 	// consumed is the part of the log text the view holds: complete lines only while the run is active.
 	consumed string
 	loaded   bool
@@ -216,9 +216,13 @@ func (m *Model) showLog(row runRow) tea.Cmd {
 }
 
 // newLogView builds a log view that starts with the period filter.
-func (m *Model) newLogView(filter kittui.LogFilter) (*kittui.LogView, error) {
-	return kittui.NewLogView(kittui.LogViewSpec{Lines: logBufferLines, Keys: logKeys(), Filter: filter, Now: m.now,
+func (m *Model) newLogView(filter kittui.LogFilter) (*heldLogView, error) {
+	view, err := kittui.NewLogView(kittui.LogViewSpec{Lines: logBufferLines, Keys: logKeys(), Filter: filter, Now: m.now,
 		Units: []kittui.LogFilterUnit{kittui.LogUnitMinutes, kittui.LogUnitHours, kittui.LogUnitDays}}, m.keys, m.text)
+	if err != nil {
+		return nil, err
+	}
+	return &heldLogView{LogView: view, now: m.now, size: logBufferLines}, nil
 }
 
 // refeedFilteredLog fills the view again after the person chose another period. The log is the one already
@@ -371,6 +375,6 @@ func (m *Model) logPane(width, height int) string {
 	}
 	room := max(height-len(lines), 1)
 	view, targets := l.view.View(m.styles, width, room)
-	m.logPart(l.view, targets, width, room, len(lines))
+	m.logPart(l.view.LogView, targets, width, room, len(lines))
 	return strings.Join(lines, "\n") + "\n" + view
 }

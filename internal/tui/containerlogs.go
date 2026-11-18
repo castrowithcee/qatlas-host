@@ -25,7 +25,7 @@ type containerLog struct {
 	area kittui.AreaID
 	// name is the container, stack the stack whose containers are merged; exactly one is set.
 	name, stack string
-	view        *kittui.LogView
+	view        *heldLogView
 	loaded      bool
 	err         error
 	// cursor is where the next read continues; zero until a line has arrived.
@@ -290,6 +290,9 @@ func (m *Model) containerLogKey(msg tea.KeyPressMsg) tea.Cmd {
 			if l.service {
 				return m.cycleServiceLogLevel()
 			}
+		case actSaveLog:
+			m.saveOpenLog()
+			return nil
 		}
 	}
 	l.view.Update(msg)
@@ -349,6 +352,6 @@ func (m *Model) containerLogPane(width, height int) string {
 	}
 	room := max(height-len(lines), 1)
 	view, targets := l.view.View(m.styles, width, room)
-	m.logPart(l.view, targets, width, room, len(lines))
+	m.logPart(l.view.LogView, targets, width, room, len(lines))
 	return strings.Join(lines, "\n") + "\n" + view
 }

@@ -20,5 +20,5 @@ No lines yet.
                                                                                 
                                                                                 
 [ L following ]  [ / search ]  [ T period: all ]  [ w off ]  [ t off ]          
-/ search  L follow  T period  w wrap lines  t timestamps  r reload  1-5 area    
-q quit                                                                ↑/↓ scroll
+/ search  L follow  T period  w wrap lines  t timestamps  W save log  r reload  
+1-5 area  q quit                                                      ↑/↓ scroll

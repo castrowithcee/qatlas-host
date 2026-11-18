@@ -95,16 +95,16 @@ func TestTheWheelScrollsTheRunLogAndTheContainerLog(t *testing.T) {
 	run := func(t *testing.T) (*Model, *kittui.LogView) {
 		m := followed(t, i18n.English, demoBackend())
 		m.mouseOn = true
-		fillLog(m.log.view, 60)
+		fillLog(m.log.view.LogView, 60)
 		m.render()
-		return m, m.log.view
+		return m, m.log.view.LogView
 	}
 	ct := func(t *testing.T) (*Model, *kittui.LogView) {
 		m := openAppLog(t, clogBackend())
 		m.mouseOn = true
-		fillLog(m.clog.view, 100)
+		fillLog(m.clog.view.LogView, 100)
 		m.render()
-		return m, m.clog.view
+		return m, m.clog.view.LogView
 	}
 	for name, setup := range map[string]func(*testing.T) (*Model, *kittui.LogView){"run log": run, "container log": ct} {
 		t.Run(name, func(t *testing.T) {
@@ -132,11 +132,11 @@ func TestAClickOnALogButtonActsLikeItsKey(t *testing.T) {
 	logs := map[string]func(t *testing.T) (*Model, *kittui.LogView){
 		"run log": func(t *testing.T) (*Model, *kittui.LogView) {
 			m := followed(t, i18n.English, demoBackend())
-			return m, m.log.view
+			return m, m.log.view.LogView
 		},
 		"container log": func(t *testing.T) (*Model, *kittui.LogView) {
 			m := openAppLog(t, clogBackend())
-			return m, m.clog.view
+			return m, m.clog.view.LogView
 		},
 	}
 	for name, setup := range logs {
@@ -171,7 +171,7 @@ func TestAClickOnALogButtonActsLikeItsKey(t *testing.T) {
 func TestATargetOfAnEarlierLogFrameDoesNothing(t *testing.T) {
 	m := followed(t, i18n.English, demoBackend())
 	m.mouseOn = true
-	fillLog(m.log.view, 60)
+	fillLog(m.log.view.LogView, 60)
 	m.render()
 	x, y := cellOf(t, m, "w wrap")
 	send(m, "esc") // the log closes; the frame on screen is the list of runs
@@ -188,7 +188,7 @@ func TestATargetOfAnEarlierLogFrameDoesNothing(t *testing.T) {
 func TestTheWheelUnderAnOpenQuestionScrollsNoLog(t *testing.T) {
 	m := followed(t, i18n.English, demoBackend())
 	m.mouseOn = true
-	fillLog(m.log.view, 60)
+	fillLog(m.log.view.LogView, 60)
 	m.render()
 	m.ask(textAnswerYes, "Remove the thing?", "It is gone.", nil, false, func() tea.Cmd { return nil })
 	m.render()
