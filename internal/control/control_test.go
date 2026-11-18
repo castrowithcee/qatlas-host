@@ -61,7 +61,7 @@ func TestRegistry(t *testing.T) {
 	if r.Register("status", read) == nil || r.Register("other", Command{Access: AccessRead}) == nil {
 		t.Error("duplicate or nil handler accepted")
 	}
-	for _, unmarked := range []Command{{Handle: h}, {Access: 3, Handle: h}} {
+	for _, unmarked := range []Command{{Handle: h}, {Access: 4, Handle: h}} {
 		if r.Register("unmarked", unmarked) == nil {
 			t.Errorf("command with access %v accepted", unmarked.Access)
 		}
