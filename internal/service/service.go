@@ -167,6 +167,14 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 	if err := registerStackActionCommands(registry, eng, secrets.Apply, log); err != nil {
 		return err
 	}
+	db := groupDB{group: cmp.Or(cfg.GroupFile, defaultGroupFile), passwd: cmp.Or(cfg.PasswdFile, defaultPasswdFile)}
+	var proposalNow func() time.Time
+	if cfg.Clock != nil {
+		proposalNow = cfg.Clock.Now
+	}
+	if err := registerProposalCommands(registry, newProposalService(cfg.StateDir, db.passwd, proposalNow, log)); err != nil {
+		return err
+	}
 	if err := registerSettingsCommands(registry, eng, secrets.Apply, log); err != nil {
 		return err
 	}
@@ -234,7 +242,6 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 	if check == nil {
 		check = kernelPeer
 	}
-	db := groupDB{group: cmp.Or(cfg.GroupFile, defaultGroupFile), passwd: cmp.Or(cfg.PasswdFile, defaultPasswdFile)}
 	log.Info("service started")
 	serve(ctx, l, registry, check, db.authorize, log)
 	log.Info("service stopped")

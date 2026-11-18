@@ -24,6 +24,10 @@ const (
 	AccessRead Access = iota + 1
 	// AccessWrite marks every other command. Only root may run it.
 	AccessWrite
+	// AccessPropose marks a command that only submits or withdraws a proposal of the caller. Its one effect is
+	// the stored proposal of the caller's own, which changes nothing on the host. Root and the administrators
+	// of the service group may run it.
+	AccessPropose
 )
 
 func (a Access) String() string {
@@ -32,6 +36,8 @@ func (a Access) String() string {
 		return "read"
 	case AccessWrite:
 		return "write"
+	case AccessPropose:
+		return "propose"
 	}
 	return "unmarked"
 }
@@ -45,8 +51,12 @@ type Command struct {
 	Writes func(args json.RawMessage) bool
 }
 
-// AccessFor returns the access one request with these arguments needs; anything but a plain read is a write.
+// AccessFor returns the access one request with these arguments needs; anything but a plain read or a proposal
+// is a write.
 func (c Command) AccessFor(args json.RawMessage) Access {
+	if c.Access == AccessPropose {
+		return AccessPropose
+	}
 	if c.Access == AccessRead && (c.Writes == nil || !c.Writes(args)) {
 		return AccessRead
 	}
@@ -70,8 +80,8 @@ func (r *Registry) Register(name string, c Command) error {
 	if !commandName.MatchString(name) || c.Handle == nil {
 		return fmt.Errorf("invalid command registration %q", name)
 	}
-	if c.Access != AccessRead && c.Access != AccessWrite {
-		return fmt.Errorf("command %q is not marked as read or write", name)
+	if c.Access != AccessRead && c.Access != AccessWrite && c.Access != AccessPropose {
+		return fmt.Errorf("command %q is not marked as read, write or propose", name)
 	}
 	if c.Writes != nil && c.Access != AccessRead {
 		return fmt.Errorf("command %q is a write and cannot raise its access", name)
@@ -103,4 +113,18 @@ func (r *Registry) Names() []string {
 	}
 	slices.Sort(names)
 	return names
+}
+
+type peerKey struct{}
+
+// WithPeer returns ctx carrying the user ID the kernel reported for the connection of the request, so a handler
+// can tell whose request it serves.
+func WithPeer(ctx context.Context, uid uint32) context.Context {
+	return context.WithValue(ctx, peerKey{}, uid)
+}
+
+// PeerUID returns the user ID of the peer of the request a handler serves; false when the context carries none.
+func PeerUID(ctx context.Context) (uint32, bool) {
+	uid, ok := ctx.Value(peerKey{}).(uint32)
+	return uid, ok
 }

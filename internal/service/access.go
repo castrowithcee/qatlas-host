@@ -31,7 +31,7 @@ type groupDB struct {
 
 // authorize decides whether the user uid may run a command that needs access. Root may run every command.
 // Anyone else needs to be, per the group database, a member of control.ServiceGroup and of adminGroup, each as
-// a supplementary or the primary group, and may then run commands that read. Any doubt means no access.
+// a supplementary or the primary group, and may then run commands that read or propose. Any doubt means no access.
 func (db groupDB) authorize(uid uint32, access control.Access) error {
 	if uid == 0 {
 		return nil
@@ -40,7 +40,7 @@ func (db groupDB) authorize(uid uint32, access control.Access) error {
 	if err != nil || !ok {
 		return control.ErrNoAccess()
 	}
-	if access != control.AccessRead {
+	if access != control.AccessRead && access != control.AccessPropose {
 		return control.ErrNotRoot()
 	}
 	return nil

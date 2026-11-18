@@ -311,6 +311,34 @@ scenario_read_access() {
 	log 'scenario: e2e-viewer (group qhost, no sudo) and e2e-outsider (no group) got no data'
 }
 
+# scenario_proposals proves that an administrator of the group qhost submits a proposal for a stack folder without
+# sudo, sees it with list and show and withdraws it, and that the proposed folder stays untouched and unbound.
+scenario_proposals() {
+	step 'an administrator of the group qhost submits, lists, shows and withdraws a proposal without sudo'
+	folder=$(as_admin 'echo $HOME')/proposed-stacks
+	as_admin "rm -rf $folder && mkdir -p $folder/demo && printf 'services: {}\\n' > $folder/demo/compose.yaml"
+	folder_before=$(as_admin "find $folder -printf '%p %y %s %T@\\n' | sort")
+	[ -n "$folder_before" ] || fail 'cannot read the proposed folder'
+	out=$(printf '{"path":"%s","url":"ssh://git.example.test/proposed.git"}' "$folder" | as_admin 'qhost --output json proposal submit --kind source-add' 2>&1) ||
+		fail "qhost proposal submit without sudo failed: $out"
+	id=$(printf '%s' "$out" | sed -n 's/.*"id": *"\(p-[0-9a-f]*\)".*/\1/p' | head -n 1)
+	[ -n "$id" ] || fail "qhost proposal submit printed no id: $out"
+	printf '%s' "$out" | grep -q '"state": *"open"' || fail "the new proposal is not open: $out"
+	out=$(as_admin 'qhost proposal list 2>&1') || fail "qhost proposal list without sudo failed: $out"
+	printf '%s' "$out" | grep -q -- "$id" || fail "qhost proposal list does not show $id: $out"
+	out=$(as_admin "qhost proposal show $id 2>&1") || fail "qhost proposal show without sudo failed: $out"
+	printf '%s' "$out" | grep -qF -- "$folder" || fail "qhost proposal show does not show the folder $folder: $out"
+	out=$(as_admin "qhost --output json proposal withdraw $id 2>&1") || fail "qhost proposal withdraw without sudo failed: $out"
+	printf '%s' "$out" | grep -q '"state": *"withdrawn"' || fail "the proposal is not withdrawn: $out"
+	out=$(as_admin "qhost --output json proposal show $id 2>&1") || fail "qhost proposal show after the withdrawal failed: $out"
+	printf '%s' "$out" | grep -q '"state": *"withdrawn"' || fail "the proposal does not show as withdrawn: $out"
+	[ "$(as_admin "find $folder -printf '%p %y %s %T@\\n' | sort")" = "$folder_before" ] || fail "the proposed folder $folder changed"
+	out=$(as_admin 'qhost source list 2>&1') || fail "qhost source list without sudo failed: $out"
+	if printf '%s' "$out" | grep -qF -- "$folder"; then fail "the proposed folder is bound: $out"; fi
+	as_admin "rm -rf $folder"
+	log "scenario: proposal $id was submitted, listed, shown and withdrawn without sudo; the folder is unchanged and not bound"
+}
+
 # scenario_compose_integration runs the Docker integration tests of the deployer inside the host. The test
 # binary is built here and refuses to run without the marker of the simulated host.
 scenario_compose_integration() {
@@ -1259,6 +1287,8 @@ scenario_stacks_repo() {
 	scenario_container_logs
 
 	scenario_read_access
+
+	scenario_proposals
 
 	scenario_container_actions
 

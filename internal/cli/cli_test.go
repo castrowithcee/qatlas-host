@@ -92,7 +92,7 @@ func TestCommandTree(t *testing.T) {
 		}
 	}
 	slices.Sort(top)
-	want := []string{"container", "credential", "key", "manpage", "notify", "repo", "run", "service", "source", "stack", "status", "tui", "update", "version", "window"}
+	want := []string{"container", "credential", "key", "manpage", "notify", "proposal", "repo", "run", "service", "source", "stack", "status", "tui", "update", "version", "window"}
 	// Cobra adds help and completion itself; they are not part of the qhost surface.
 	var got []string
 	for _, n := range top {
