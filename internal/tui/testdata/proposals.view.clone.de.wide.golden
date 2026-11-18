@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container  [6 ◈ Vorschläge]                     
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Stack-Ordner                                                                                                    p-0004
+                                                                                                                        
+  von          ben (1002)                                                                                               
+  eingereicht  10-30 09:00                                                                                              
+  läuft ab     11-13 09:00                                                                                              
+  Zustand      offen                                                                                                    
+                                                                                                                        
+  Vorgeschlagen                                                                                                         
+    Pfad: /srv/new-example                                                                                              
+    Adresse: ssh://git.example.test/demo/stacks.git                                                                     
+                                                                                                                        
+  Wirkung bei Anwendung jetzt                                                                                           
+                                                                                                                        
+    Ordner: /srv/new-example                                                                                            
+    Fall: clone (der Ordner fehlt oder ist leer und bekommt einen Klon eines Repositorys)                               
+    der Ordner fehlt; der nächste vorhandene Ordner ist /srv                                                            
+    Eigentümer: root, Gruppe: root, Modus: 0755                                                                         
+    der Dienst kann ihn schreiben: nein                                                                                 
+    Rechte werden gesetzt: nein                                                                                         
+                                                                                                                        
+  Änderungen nach Ja                                                                                                    
+    Der Ordner wird mit Eigentümer qhost:qhost und Modus 0755 angelegt.                                                 
+    Der Hostschlüssel wird gespeichert und das Repository in den Ordner geklont.                                        
+    Keine Rechteänderung: Der Dienst kann bereits schreiben.                                                            
+    Der Ordner wird in das systemd-Drop-in des Dienstes eingetragen, der einmal neu startet.                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+esc Zurück  r Neu laden  1-6 Bereich  q Beenden                                                             ↑/↓ Scrollen

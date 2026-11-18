@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
-   1 Stacks   2 Stack-Details   3 Läufe   4 Einstellungen  [5 Container]        
+  1 Stacks 2 Stack-Details 3 Läufe 4 Einstellungen [5 Container] 6 Vorschläge   
 ────────────────────────────────────────────────────────────────────────────────
     NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS 
 > ▸ ■ eigener Stack demo-stack (2)                                              
@@ -21,4 +21,4 @@
                                                                                 
                                                                                 
 enter Details  / Suchen  o Log  S start  X stop  Z restart  r Neu laden         
-1-5 Bereich  q Beenden                                        ↑/↓ Auswählen  1/6
+1-6 Bereich  q Beenden                                        ↑/↓ Auswählen  1/6

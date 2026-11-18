@@ -78,7 +78,12 @@ type fakeBackend struct {
 
 	// containers is the list the service reads from the container engine, and containerDetails the detail by
 	// name; errs "containers:" and "container:<name>" fail those calls.
-	containers       control.ContainerListResult
+	containers control.ContainerListResult
+	// proposals is the list the service holds, newest first, and proposalContents the content by ID; errs
+	// "proposals:" and "proposal:<id>" fail those calls. proposalActs records approve, reject and result calls.
+	proposals        []control.ProposalInfo
+	proposalContents map[string]string
+	proposalActs     []string
 	containerDetails map[string]control.ContainerDetail
 	// ctNotReady is the reason a start or restart answers with as NotReady; "" means ready.
 	ctNotReady string
@@ -919,4 +924,52 @@ func (f *fakeBackend) ServiceLog(_ context.Context, a control.ServiceLogArgs) (c
 	}
 	res.Cursor = strconv.Itoa(pos)
 	return res, nil
+}
+
+func (f *fakeBackend) ProposalList(context.Context) (control.ProposalListResult, error) {
+	f.count("proposals")
+	if err := f.fail("proposals", ""); err != nil {
+		return control.ProposalListResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return control.ProposalListResult{Proposals: slices.Clone(f.proposals)}, nil
+}
+
+func (f *fakeBackend) ProposalShow(_ context.Context, id string) (control.ProposalShowResult, error) {
+	f.count("proposal")
+	if err := f.fail("proposal", id); err != nil {
+		return control.ProposalShowResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, p := range f.proposals {
+		if p.ID == id {
+			return control.ProposalShowResult{ProposalInfo: p, Content: []byte(f.proposalContents[id])}, nil
+		}
+	}
+	return control.ProposalShowResult{}, control.NewError(control.CodeNotFound, "no such proposal")
+}
+
+func (f *fakeBackend) proposalAct(call string, id string) error {
+	f.count(call)
+	if err := f.fail(call, id); err != nil {
+		return err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.proposalActs = append(f.proposalActs, call+":"+id)
+	return nil
+}
+
+func (f *fakeBackend) ProposalApprove(_ context.Context, args control.ProposalApproveArgs) (control.ProposalInfo, error) {
+	return control.ProposalInfo{ID: args.ID}, f.proposalAct("proposalapprove", args.ID)
+}
+
+func (f *fakeBackend) ProposalReject(_ context.Context, args control.ProposalRejectArgs) (control.ProposalInfo, error) {
+	return control.ProposalInfo{ID: args.ID}, f.proposalAct("proposalreject", args.ID)
+}
+
+func (f *fakeBackend) ProposalResult(_ context.Context, args control.ProposalResultArgs) (control.ProposalInfo, error) {
+	return control.ProposalInfo{ID: args.ID}, f.proposalAct("proposalresult", args.ID)
 }

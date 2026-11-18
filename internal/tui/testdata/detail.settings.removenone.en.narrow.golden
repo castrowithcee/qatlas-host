@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed                          [esc] back  [?] help
-   1 ▤ Stacks  [2 ▣ Stack detail]  3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers     
+   1 Stacks  [2 Stack detail]  3 Runs   4 Settings   5 Containers   6 Proposals 
 ────────────────────────────────────────────────────────────────────────────────
   demo-stack                                                                    
                                                                                 
@@ -21,4 +21,4 @@
 warning: The stack demo-stack has no settings. It is already deploy only;       
 nothing was removed.                                                            
 e update rules  b backup  C compose  k checks  E clear settings  o log          
-a set secret  x delete secret  R restore backup  r reload  1-5 area  q quit     
+a set secret  x delete secret  R restore backup  r reload  1-6 area  q quit     

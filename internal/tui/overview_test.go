@@ -455,7 +455,7 @@ func TestOverviewOnlyReads(t *testing.T) {
 	send(m, "enter", "r", "esc", "3", "enter", "L", "r", "esc", "esc")
 	for name := range b.calls {
 		switch name {
-		case "status", "stacks", "check", "updates", "runs", "log", "changelog", "backups", "secrets", "containers":
+		case "status", "stacks", "check", "updates", "runs", "log", "changelog", "backups", "secrets", "containers", "proposals":
 		default:
 			t.Errorf("unexpected call %s", name)
 		}

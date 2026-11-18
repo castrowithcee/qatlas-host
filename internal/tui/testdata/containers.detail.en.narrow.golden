@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed                          [esc] back  [?] help
-   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings  [5 ▦ Containers]    
+   1 Stacks   2 Stack detail   3 Runs   4 Settings  [5 Containers]  6 Proposals 
 ────────────────────────────────────────────────────────────────────────────────
   demo-stack-app-1                                                              
                                                                                 
@@ -20,5 +20,5 @@
 ╭─ Networks ───────────────────────────────────────────────────────────────────╮
 │ demo-stack_default 172.18.0.2                                                │
 ╰──────────────────────────────────────────────────────────────────────────────╯
-esc back  o log  S start  X stop  Z restart  r reload  1-5 area  q quit         
+esc back  o log  S start  X stop  Z restart  r reload  1-6 area  q quit         
                                                                ↑/↓ scroll  19/27
