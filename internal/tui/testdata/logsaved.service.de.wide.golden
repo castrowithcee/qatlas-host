@@ -10,5 +10,5 @@
                                                                                                                         
 [ L mitlaufend ]  [ / Suchen ]  [ T Zeitraum: alle ]  [ w Zeilen umbrechen aus ]  [ t aus ]             Zeilen 1-4 von 4
 Log gespeichert unter /home/demo/qhost/qhost-service-qhost-20261030-180000.log                                          
-/ Suchen  L mitlaufen  T Zeitraum  w Zeilen umbrechen  t Zeitstempel  W Log speichern  V Stufe  r Neu laden  1-5 Bereich
-q Beenden                                                                                                   ↑/↓ Scrollen
+/ Suchen  L mitlaufen  T Zeitraum  w Zeilen umbrechen  t Zeitstempel  W Log speichern  V Stufe  D Diagnose  r Neu laden 
+1-5 Bereich  q Beenden                                                                                      ↑/↓ Scrollen

@@ -5,6 +5,7 @@ package userfile
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -122,6 +123,14 @@ func (p Person) Create(name string) (*os.File, string, error) {
 // Save writes data to a new file called name, as Create does, and returns the full path. A file that could
 // not be written completely is removed again.
 func (p Person) Save(name string, data []byte) (string, error) {
+	return p.SaveWith(name, func(w io.Writer) error {
+		_, err := w.Write(data)
+		return err
+	})
+}
+
+// SaveWith is Save for content that write produces. A file whose write failed is removed again.
+func (p Person) SaveWith(name string, write func(io.Writer) error) (string, error) {
 	dir, err := p.openDir()
 	if err != nil {
 		return "", err
@@ -132,16 +141,64 @@ func (p Person) Save(name string, data []byte) (string, error) {
 		return "", err
 	}
 	path := filepath.Join(p.Dir(), used)
+	if err := finish(dir, used, path, fd, write); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// SavePathWith writes a new file at exactly path, which must be absolute, with the content write produces.
+// It is for a path the person chose: an existing entry at path, a link included, is an error and never
+// replaced or followed, and no counter is added to the name. The folder above the file must exist and is
+// opened as the path names it. The file belongs to the person with mode 0600, and a file whose write failed
+// is removed again. It returns the cleaned path.
+func (p Person) SavePathWith(path string, write func(io.Writer) error) (string, error) {
+	if !filepath.IsAbs(path) {
+		return "", fmt.Errorf("%q is not an absolute path", path)
+	}
+	path = filepath.Clean(path)
+	parent, base := filepath.Split(path)
+	if err := checkName(base); err != nil {
+		return "", err
+	}
+	dir, err := unix.Open(filepath.Clean(parent), unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return "", fmt.Errorf("open the folder of %s: %w", path, err)
+	}
+	defer unix.Close(dir)
+	fd, err := unix.Openat(dir, base, unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0o600)
+	if err != nil {
+		if errors.Is(err, unix.EEXIST) {
+			return "", fmt.Errorf("%s exists already; it is not replaced", path)
+		}
+		return "", fmt.Errorf("create %s: %w", path, err)
+	}
+	if err = unix.Fchown(fd, p.UID, p.GID); err == nil {
+		err = unix.Fchmod(fd, 0o600) // the umask may have taken bits of the creation mode
+	}
+	if err != nil {
+		unix.Close(fd)
+		_ = unix.Unlinkat(dir, base, 0)
+		return "", fmt.Errorf("set the owner of %s: %w", path, err)
+	}
+	if err := finish(dir, base, path, fd, write); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// finish writes to the new file, closes it and removes it again when that failed.
+func finish(dir int, name, path string, fd int, write func(io.Writer) error) error {
 	f := os.NewFile(uintptr(fd), path)
-	_, err = f.Write(data)
+	err := write(f)
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
 	if err != nil {
-		_ = unix.Unlinkat(dir, used, 0)
-		return "", fmt.Errorf("write %s: %w", path, err)
+		_ = unix.Unlinkat(dir, name, 0)
+		return fmt.Errorf("write %s: %w", path, err)
 	}
-	return path, nil
+	return nil
 }
 
 // openDir opens the folder without following a link from the home on, and creates it when it is missing.

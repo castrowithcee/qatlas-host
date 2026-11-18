@@ -63,6 +63,8 @@ const (
 	// actServiceLog opens the log of the service from the Runs list, actLogLevel chooses its minimum level.
 	actServiceLog kittui.ActionID = "servicelog"
 	actLogLevel   kittui.ActionID = "loglevel"
+	// actDiagnose writes the diagnostic package from the service log.
+	actDiagnose kittui.ActionID = "diagnose"
 	// actSaveLog saves the lines a log view holds as a file.
 	actSaveLog kittui.ActionID = "savelog"
 	// actBackup and actCompose open the backup and the compose file forms in the stack detail.
@@ -129,6 +131,7 @@ func keyTable() []kittui.Action {
 		act(actServiceLog, kittui.LevelLetter, textKeySvcLog, "v"),
 		act(actLogLevel, kittui.LevelLetter, textKeyLogLevel, "V"),
 		act(actSaveLog, kittui.LevelLetter, textKeySaveLog, "W"),
+		act(actDiagnose, kittui.LevelLetter, textKeyDiagnose, "D"),
 		act(actBackup, kittui.LevelLetter, textKeyBackupForm, "b"),
 		act(actCompose, kittui.LevelLetter, textKeyComposeForm, "C"),
 		act(actCheckForm, kittui.LevelLetter, textKeyCheckForm, "k"),

@@ -311,6 +311,59 @@ scenario_read_access() {
 	log 'scenario: e2e-viewer (group qhost, no sudo) and e2e-outsider (no group) got no data'
 }
 
+# scenario_diagnose proves qhost diagnose as an administrator without sudo: the package is a new file of mode 0600
+# owned by the administrator, holds all twenty files with the log of a failed run, the service log and the
+# containers, and holds neither the stack secret nor a registry token. It needs a failed run and a secret of demo-stack.
+scenario_diagnose() {
+	step 'qhost diagnose writes a package for an administrator without sudo that holds no secret value'
+	diag_secret=not-a-real-secret-e2e
+	token=diag-registry-token-e2e
+	cred=registry.$tui_registry_host
+	home=$(as_admin 'echo "$HOME"')
+	file=$home/diag-e2e.tar.gz
+	as_admin 'rm -rf ~/diag-e2e.tar.gz ~/diag-e2e'
+	out=$(qd_in "$token" credential set "$cred") || fail "credential set failed: $out"
+	failed_run=$(qd stack runs | grep 'rolled-back' | grep -m 1 -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
+	[ -n "$failed_run" ] || fail "there is no failed run to find in the package: $(qd stack runs)"
+
+	out=$(as_admin "qhost diagnose --out $file 2>&1") || fail "qhost diagnose without sudo failed: $out"
+	printf '%s' "$out" | grep -qF -- "$file" || fail "qhost diagnose does not name the full path $file: $out"
+	printf '%s' "$out" | grep -qF 'holds the host name and paths' || fail "qhost diagnose gives no notice about the host name and paths: $out"
+	[ "$(as_admin "stat -c %a:%U $file")" = "600:$admin" ] || fail "the package has the wrong mode or owner: $(as_admin "stat -c %a:%U $file")"
+	names=$(as_admin "tar -tzf $file") || fail 'the package is not a readable archive'
+	[ "$(printf '%s\n' "$names" | grep -c .)" = 20 ] || fail "the package does not hold 20 files: $names"
+	for part in manifest version services sources stacks check runs run-logs service-log containers; do
+		for ext in txt json; do
+			printf '%s\n' "$names" | grep -qx "$part.$ext" || fail "the package lacks $part.$ext: $names"
+		done
+	done
+	as_admin "mkdir ~/diag-e2e && tar -xzf $file -C ~/diag-e2e" || fail 'the package cannot be unpacked'
+	as_admin "grep -qF 'result rolled-back' ~/diag-e2e/run-logs.txt && grep -qF '$failed_run' ~/diag-e2e/run-logs.txt" ||
+		fail "run-logs.txt holds no log of the failed run $failed_run"
+	as_admin "grep -q '^20[0-9-]*T' ~/diag-e2e/service-log.txt" || fail 'service-log.txt has no entry'
+	ct=$(docker exec "$host" docker ps --format '{{.Names}}' | head -n 1)
+	[ -n "$ct" ] || fail 'no container runs'
+	as_admin "grep -qF '$ct' ~/diag-e2e/containers.txt" || fail "containers.txt does not name $ct"
+	for value in "$diag_secret" "$token"; do
+		if as_admin "grep -rqF -- '$value' ~/diag-e2e"; then fail 'a secret value or a registry token shows in the package'; fi
+	done
+	log "scenario: qhost diagnose wrote $file without sudo, with 20 files, the log of $failed_run and no secret value"
+
+	step 'a second qhost diagnose with the same --out fails and leaves the file unchanged'
+	sum=$(as_admin "sha256sum $file")
+	if out=$(as_admin "qhost diagnose --out $file 2>&1"); then fail "qhost diagnose replaced an existing file: $out"; fi
+	[ "$(as_admin "sha256sum $file")" = "$sum" ] || fail 'a refused qhost diagnose changed the file'
+
+	step 'qhost diagnose without --out writes into the folder qhost of the administrator'
+	out=$(as_admin 'qhost diagnose 2>&1') || fail "qhost diagnose without --out failed: $out"
+	default=$(printf '%s' "$out" | grep -m 1 -o "$home/qhost/qhost-diagnose-[^ ]*\.tar\.gz")
+	[ -n "$default" ] || fail "qhost diagnose without --out names no file in $home/qhost: $out"
+	[ "$(as_admin "stat -c %a:%U $default")" = "600:$admin" ] || fail "the default package has the wrong mode or owner: $(as_admin "stat -c %a:%U $default")"
+	as_admin "rm -rf ~/diag-e2e $file $default"
+	out=$(qd credential delete "$cred") || fail "credential delete failed: $out"
+	log "scenario: qhost diagnose refused to replace a file and wrote its default file $default"
+}
+
 # scenario_proposals proves that an administrator of the group qhost submits a proposal for a stack folder without
 # sudo, sees it with list and show and withdraws it, and that the proposed folder stays untouched and unbound.
 scenario_proposals() {
@@ -1303,6 +1356,8 @@ scenario_stacks_repo() {
 	scenario_updates
 
 	scenario_rollback
+
+	scenario_diagnose
 
 	scenario_update
 
