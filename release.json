@@ -6,12 +6,12 @@
   "files": [],
   "installer": {
     "displayName": "Qatlas Host",
-    "nextStep": "Next: run sudo qhost."
+    "nextStep": "Next: sign in again, then run qhost; a change needs sudo qhost."
   },
   "service": {
     "unit": "packaging/qhost.service",
     "groups": ["docker"],
-    "addInstallingUser": false,
+    "addInstallingUser": true,
     "writableConfig": false
   }
 }

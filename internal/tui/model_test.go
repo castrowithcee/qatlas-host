@@ -191,8 +191,9 @@ func TestFailedRefreshKeepsTheRows(t *testing.T) {
 func TestErrorTexts(t *testing.T) {
 	m := newTestModel(t, i18n.German, demoBackend(), wideWidth, goldenRows)
 	for err, want := range map[error]string{
-		client.ErrNoAccess:                         "nur root",
-		control.ErrNotRoot():                       "nur root",
+		client.ErrNoAccess:                         "nicht nutzen",
+		control.ErrNotRoot():                       "braucht root; beende und starte sudo qhost",
+		control.ErrNoAccess():                      "Administratoren (sudo) vorbehalten",
 		control.NewError(control.CodeBusy, "busy"): "abgelehnt: busy",
 		fmt.Errorf("broken pipe"):                  "keine Verbindung zum Dienst: broken pipe",
 	} {

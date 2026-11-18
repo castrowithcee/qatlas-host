@@ -26,7 +26,7 @@ func newWindowCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"update; a step that has begun runs to its end. What did not begin waits for the next window. The work runs\n" +
 			"once per opening, also across a restart of the service. 'qhost stack update', 'qhost stack updates --refresh' and\n" +
 			"'qhost stack deploy' work at any time. The window is a setting of the service and kept in its own state.\n" +
-			"Only root may use the service channel, so run these commands with sudo.",
+			"show needs no sudo for an administrator in the group qhost; set needs sudo.",
 	}
 	show := &cobra.Command{
 		Use:   "show",

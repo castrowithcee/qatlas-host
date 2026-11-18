@@ -27,8 +27,8 @@ func newKeyCommand(program *cobracli.Program, state *notRunning, secrets *redact
 			"example from a password manager (set). The private key never leaves the service; the public key is\n" +
 			"entered in the git platform. A git platform accepts a deploy key in one repository\n" +
 			"only, so every stack folder has its own key: without --dir the commands manage the key of the folder\n" +
-			"bound first, with --dir the key of that folder, also before it is bound. Only root may use the\n" +
-			"service channel, so run these commands with sudo.",
+			"bound first, with --dir the key of that folder, also before it is bound. show needs no sudo for an\n" +
+			"administrator in the group qhost; generate and set need sudo.",
 	}
 	var replace bool
 	var dir string

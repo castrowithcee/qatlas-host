@@ -89,6 +89,8 @@ const (
 	textDetailNone        kittui.TextID = "detail.none"
 	textErrNotRunning     kittui.TextID = "error.notrunning"
 	textErrNoAccess       kittui.TextID = "error.noaccess"
+	textErrNotRoot        kittui.TextID = "error.notroot"
+	textErrReserved       kittui.TextID = "error.reserved"
 	textErrService        kittui.TextID = "error.service"
 	textErrChannel        kittui.TextID = "error.channel"
 	textErrUnshownStacks  kittui.TextID = "error.unshownstacks"
@@ -306,7 +308,9 @@ func baseCatalog() i18n.Catalogs[kittui.TextID] {
 			textStacksEmpty:       "No stack folders yet. {add} adds one; on the command line: sudo qhost source add <path>",
 			textDetailNone:        "No stack chosen. Choose one in Stacks and press {enter}.",
 			textErrNotRunning:     "the qhost service is not running; start it, then press {reload}",
-			textErrNoAccess:       "only root may use the qhost service; quit and run qhost with sudo",
+			textErrNoAccess:       "this user may not use the qhost service; join the group qhost or run qhost with sudo",
+			textErrNotRoot:        "this needs root; quit and run sudo qhost",
+			textErrReserved:       "qhost is reserved for administrators (sudo)",
 			textErrService:        "the service refused the request: %s",
 			textErrChannel:        "cannot talk to the service: %s",
 			textErrUnshownStacks:  "the stack list could not be shown: %s",
@@ -499,7 +503,9 @@ func baseCatalog() i18n.Catalogs[kittui.TextID] {
 			textStacksEmpty:       "Noch keine Stack-Ordner. {add} fügt einen hinzu; auf der Kommandozeile: sudo qhost source add <path>",
 			textDetailNone:        "Kein Stack gewählt. Wähle einen unter Stacks und drücke {enter}.",
 			textErrNotRunning:     "der qhost-Dienst läuft nicht; starte ihn und drücke dann {reload}",
-			textErrNoAccess:       "nur root darf den qhost-Dienst nutzen; beende und starte qhost mit sudo",
+			textErrNoAccess:       "dieser Benutzer darf den qhost-Dienst nicht nutzen; tritt der Gruppe qhost bei oder starte qhost mit sudo",
+			textErrNotRoot:        "das braucht root; beende und starte sudo qhost",
+			textErrReserved:       "qhost ist Administratoren (sudo) vorbehalten",
 			textErrService:        "der Dienst hat die Anfrage abgelehnt: %s",
 			textErrChannel:        "keine Verbindung zum Dienst: %s",
 			textErrUnshownStacks:  "die Stack-Liste ließ sich nicht anzeigen: %s",

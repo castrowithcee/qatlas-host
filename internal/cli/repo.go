@@ -28,8 +28,8 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 		Use:   "repo",
 		Short: "Bind and update the stacks repositories",
 		Long: "The service clones each stacks repository over SSH into its own stack folder, with a deploy key per\n" +
-			"folder, and keeps the servers' host keys in its own known_hosts file. Only root may use the service\n" +
-			"channel, so run these commands with sudo.",
+			"folder, and keeps the servers' host keys in its own known_hosts file. These commands change the host, so run them\n" +
+			"with sudo.",
 	}
 	var dir, fingerprint string
 	var create bool

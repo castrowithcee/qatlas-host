@@ -1,0 +1,47 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  1 [2 Stack-Details] 3 4 5                             
+────────────────────────────────────────────────────────
+  demo-stack                                            
+                                                        
+  Modus    automatisch                                  
+  Zustand  deployt                                      
+  Befunde  1 Warnung                                    
+                                                        
+╭─ Image-Versionen ────────────────────────────────────╮
+│ APP_VERSION  example/app                             │
+│   1.4.2 -> 1.5.0  Update verfügbar                   │
+╰──────────────────────────────────────────────────────╯
+╭─ Container ──────────────────────────────────────────╮
+│ Keine Container dieses Stacks.                       │
+╰──────────────────────────────────────────────────────╯
+╭─ Changelog ──────────────────────────────────────────╮
+│ Fehler: das braucht root; beende und starte sudo     │
+│ qhost                                                │
+╰──────────────────────────────────────────────────────╯
+╭─ Geheimnisse ────────────────────────────────────────╮
+│ API_SIGNING_KEY                                      │
+│ DB_PASSWORD                                          │
+╰──────────────────────────────────────────────────────╯
+╭─ Backups ────────────────────────────────────────────╮
+│ 20261030T140100Z-0123abcd                            │
+│   10-30 14:01  12.0 MiB                              │
+│ 20261023T031000Z-4567cdef                            │
+│   10-23 03:10  11.0 MiB                              │
+│ 20261016T031000Z-89abcdef                            │
+│   0 B  unvollständig                                 │
+╰──────────────────────────────────────────────────────╯
+╭─ Letzte Läufe ───────────────────────────────────────╮
+│ erfolgreich  10-30 14:02  update  48s                │
+│   20261030T140200Z-0000000c                          │
+│ fehlgeschlagen  10-29 02:00  poll  850ms             │
+│   20261029T020000Z-00000010                          │
+│   compose pull failed: registry unreachable          │
+╰──────────────────────────────────────────────────────╯
+╭─ Funktionen ─────────────────────────────────────────╮
+│ Deploy  geht                                         │
+│   Compose starts the stack from compose.yaml         │
+│ Update  geht, automatisch                            │
+│   the maintenance window updates APP_VERSION by      │
+│   itself                                             │
+e Update-Regeln  b Backup  C Compose  o Log             
+a Geheimnis setzen  r Neu laden  q Beenden              

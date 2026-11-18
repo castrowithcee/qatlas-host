@@ -127,6 +127,17 @@ func TestStatusAsNonRootNamesSudo(t *testing.T) {
 	}
 }
 
+func TestStatusWithoutAccessSaysReservedAndShowsNoData(t *testing.T) {
+	startService(t, func(net.Conn) (uint32, error) { return 0, control.ErrNoAccess() })
+	code, stdout, stderr := run(t, "status")
+	if code != 1 || !strings.Contains(stderr, "qhost is reserved for administrators (sudo)") || strings.Contains(stderr, "only root") {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("a refused user got data: %q", stdout)
+	}
+}
+
 func TestStatusFieldsAreUniqueAcrossSources(t *testing.T) {
 	head := strings.Repeat("a", 40)
 	polled := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
