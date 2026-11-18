@@ -116,7 +116,7 @@ type Backend interface {
 	// ProposalList lists the proposals, newest first; ProposalShow reads one with its content.
 	ProposalList(ctx context.Context) (control.ProposalListResult, error)
 	ProposalShow(ctx context.Context, id string) (control.ProposalShowResult, error)
-	// ProposalApprove, ProposalReject and ProposalResult are root's; the interface does not call them yet.
+	// ProposalApprove, ProposalReject and ProposalResult are root's; the interface calls them only after the person decided.
 	ProposalApprove(ctx context.Context, args control.ProposalApproveArgs) (control.ProposalInfo, error)
 	ProposalReject(ctx context.Context, args control.ProposalRejectArgs) (control.ProposalInfo, error)
 	ProposalResult(ctx context.Context, args control.ProposalResultArgs) (control.ProposalInfo, error)

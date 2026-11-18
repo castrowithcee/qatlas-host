@@ -37,4 +37,4 @@
   Changes after yes                                                                                                     
     A git repository is started with branch main and a first commit of the listed files as qhost; no file in the folder 
     is written. It is taken over as a local stack folder.                                                               
-esc back  r reload  1-6 area  q quit                                                                   ↑/↓ scroll  36/38
+esc back  A approve  D reject  r reload  1-6 area  q quit                                              ↑/↓ scroll  36/38

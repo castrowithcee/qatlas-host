@@ -119,6 +119,8 @@ type Model struct {
 	loaded, loading bool
 	// failure is the error of the last refresh; notice a warning that stays until the next key.
 	failure, notice string
+	// keep is a failure that the refresh a decided proposal starts must not wipe; each refresh puts it back until the next key.
+	keep string
 	// result is the success of a change without details; it stays until the next key.
 	result string
 	// chosen is the stack the detail area shows.
@@ -384,6 +386,9 @@ func (m *Model) apply(msg refreshMsg) {
 	if msg.problem != nil {
 		m.failure = m.errorText(msg.problem)
 	}
+	if m.keep != "" && m.failure == "" {
+		m.failure = m.keep
+	}
 	m.fillStacks()
 	m.fillProposals()
 }
@@ -484,6 +489,9 @@ func (m *Model) input() kittui.InputFocus {
 		}
 		return m.runsList.Input()
 	case areaProposals:
+		if m.set.form != nil {
+			return m.set.form.input()
+		}
 		if m.pv.open {
 			return kittui.InputNavigation
 		}
@@ -521,7 +529,7 @@ func (m *Model) typed(msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool) {
 }
 
 func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
-	m.notice, m.result = "", ""
+	m.notice, m.result, m.keep = "", "", ""
 	if m.modal != nil {
 		return m.modalKey(msg)
 	}
@@ -592,8 +600,14 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			if m.saveOpenLog() {
 				return nil
 			}
-		case actFetch, actAdd, actRemove, actEdit, actTest, actEnter, actRestore, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actRemote:
+		case actFetch, actAdd, actRemove, actEdit, actTest, actEnter, actRestore, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actRemote, actApprove, actReject:
 			switch m.area {
+			case areaProposals:
+				if m.pv.open {
+					if cmd, handled := m.proposalAction(id); handled {
+						return cmd
+					}
+				}
 			case areaSettings:
 				if cmd, handled := m.settingsAction(id); handled {
 					return cmd
@@ -958,7 +972,7 @@ func (m *Model) footer() []kittui.Hint {
 		return append(m.clog.view.Hints(), append([]kittui.Hint{saveLogHint()}, common...)...)
 	case m.area == areaSettings:
 		return m.settingsFooter(common, nav)
-	case (m.area == areaDetail || m.area == areaStacks) && m.set.form != nil:
+	case (m.area == areaDetail || m.area == areaStacks || m.area == areaProposals) && m.set.form != nil:
 		if e := m.set.form.editor; e != nil {
 			return m.editorHints(e)
 		}
@@ -984,7 +998,7 @@ func (m *Model) footer() []kittui.Hint {
 		}
 		return m.listFooter(m.ctList, len(m.ctNames), textKeyDetails, common, nav)
 	case m.area == areaProposals && m.pv.open:
-		return append(append([]kittui.Hint{{Action: actBack, Label: kittui.TextKeyBack, Priority: 1}}, common...), scrollHints()...)
+		return append(append(append([]kittui.Hint{{Action: actBack, Label: kittui.TextKeyBack, Priority: 1}}, m.proposalHints()...), common...), scrollHints()...)
 	case m.area == areaProposals:
 		return m.listFooter(m.propList, len(m.propByID), textKeyDetails, common, nav)
 	case m.area == areaRuns && m.log.open:
@@ -1113,7 +1127,7 @@ func (m *Model) frameSpec() kittui.FrameSpec {
 	switch {
 	case m.clogShown():
 		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
-	case m.area == areaStacks && (m.set.keyOpen || m.set.form != nil):
+	case (m.area == areaStacks || m.area == areaProposals) && m.set.form != nil, m.area == areaStacks && m.set.keyOpen:
 		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
 	case m.area == areaStacks:
 		spec.Position = m.list.Position()

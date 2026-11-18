@@ -21,4 +21,4 @@
     the service can write it: no                                                
     permissions are set: yes                                                    
                                                                                 
-esc back  r reload  1-6 area  q quit                           ↑/↓ scroll  20/43
+esc back  A approve  D reject  r reload  1-6 area  q quit      ↑/↓ scroll  20/43

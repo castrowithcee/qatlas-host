@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+   1 Stacks   2 Stack detail   3 Runs   4 Settings   5 Containers  [6 Proposals]
+────────────────────────────────────────────────────────────────────────────────
+  ⚠ Approve proposal p-0004 and apply these changes to /srv/new-example?        
+                                                                                
+  Yes marks the proposal as approved and then makes the changes shown, the way  
+  adding the folder by hand makes them. Right before that the proposal and its  
+  effect are read again, and nothing is applied if either differs from what you 
+  saw. The result is kept on the proposal.                                      
+    host: example.test                                                          
+    key type: ssh-ed25519                                                       
+    fingerprint: SHA256:ExampleFingerprintForTestsOnly0000000000                
+    folder: /srv/new-example                                                    
+                                                                                
+  Changes after yes                                                             
+    The folder is created with owner qhost:qhost and mode 0755.                 
+    The host key is stored and the repository is cloned into the folder.        
+    No permission changes: the service can write already.                       
+    The folder is added to the systemd drop-in of the service, which restarts   
+    once.                                                                       
+                                                                                
+                                                                                
+                                                                                
+y yes, do it  n/esc/enter cancel                                      ↑/↓ scroll

@@ -124,3 +124,72 @@ func proposalGerman() map[kittui.TextID]string {
 		textPropEffectFailed:   "Die Wirkung konnte nicht berechnet werden: %s",
 	}
 }
+
+// The texts of approving and rejecting a proposal.
+const (
+	textKeyApprove kittui.TextID = "key.propapprove"
+	textKeyReject  kittui.TextID = "key.propreject"
+
+	textTitleProposalApprove kittui.TextID = "title.propapprove"
+	textTitleProposalReject  kittui.TextID = "title.propreject"
+	textAskProposalApprove   kittui.TextID = "ask.propapprove"
+	textWhatProposalApprove  kittui.TextID = "what.propapprove"
+	textAskProposalReject    kittui.TextID = "ask.propreject"
+	textWhatProposalReject   kittui.TextID = "what.propreject"
+	textFieldPropReason      kittui.TextID = "field.propreason"
+	textHintPropReason       kittui.TextID = "hint.propreason"
+	textProblemPropReason    kittui.TextID = "problem.propreason"
+	textDonePropRejected     kittui.TextID = "done.proprejected"
+	textPropChanged          kittui.TextID = "prop.changed"
+	textPropNotOpen          kittui.TextID = "prop.notopen"
+	textPropCannotApprove    kittui.TextID = "prop.cannotapprove"
+	textPropResultLost       kittui.TextID = "prop.resultlost"
+)
+
+func proposalDecideEnglish() map[kittui.TextID]string {
+	return map[kittui.TextID]string{
+		textKeyApprove: "approve",
+		textKeyReject:  "reject",
+
+		textTitleProposalApprove: "Approve a proposal",
+		textTitleProposalReject:  "Reject a proposal",
+		textAskProposalApprove:   "Approve proposal %s and apply these changes to %s?",
+		textWhatProposalApprove: "Yes marks the proposal as approved and then makes the changes shown, the way adding the folder by hand makes them. " +
+			"Right before that the proposal and its effect are read again, and nothing is applied if either differs from what you saw. " +
+			"The result is kept on the proposal.",
+		textAskProposalReject:  "Reject proposal %s?",
+		textWhatProposalReject: "The proposal is closed as rejected and nothing on the host changes. The reason, if you give one, is shown to the submitter.",
+		textFieldPropReason:    "reason",
+		textHintPropReason:     "optional, at most 300 characters; the submitter reads it with qhost proposal show",
+		textProblemPropReason:  "The reason has at most 300 characters and no control characters.",
+		textDonePropRejected:   "Proposal %s is rejected.",
+		textPropChanged:        "The proposal or its effect changed since it was shown; nothing was applied. The view shows it as it is now.",
+		textPropNotOpen:        "This proposal is no longer open.",
+		textPropCannotApprove:  "This version cannot approve this proposal.",
+		textPropResultLost:     "The result could not be kept on the proposal: %s. Look at its state in the view.",
+	}
+}
+
+func proposalDecideGerman() map[kittui.TextID]string {
+	return map[kittui.TextID]string{
+		textKeyApprove: "freigeben",
+		textKeyReject:  "ablehnen",
+
+		textTitleProposalApprove: "Vorschlag freigeben",
+		textTitleProposalReject:  "Vorschlag ablehnen",
+		textAskProposalApprove:   "Vorschlag %s freigeben und diese Änderungen an %s anwenden?",
+		textWhatProposalApprove: "Ja markiert den Vorschlag als freigegeben und nimmt dann die gezeigten Änderungen vor, so wie das Hinzufügen des Ordners von Hand. " +
+			"Direkt davor werden der Vorschlag und seine Wirkung neu gelesen, und nichts wird angewendet, wenn eines von beiden vom Gezeigten abweicht. " +
+			"Das Ergebnis bleibt am Vorschlag.",
+		textAskProposalReject:  "Vorschlag %s ablehnen?",
+		textWhatProposalReject: "Der Vorschlag wird als abgelehnt geschlossen, am Host ändert sich nichts. Der Grund, falls du einen nennst, wird dem Einreicher gezeigt.",
+		textFieldPropReason:    "Grund",
+		textHintPropReason:     "optional, höchstens 300 Zeichen; der Einreicher liest ihn mit qhost proposal show",
+		textProblemPropReason:  "Der Grund hat höchstens 300 Zeichen und keine Steuerzeichen.",
+		textDonePropRejected:   "Vorschlag %s ist abgelehnt.",
+		textPropChanged:        "Der Vorschlag oder seine Wirkung hat sich seit der Anzeige geändert, nichts wurde angewendet. Die Ansicht zeigt den jetzigen Stand.",
+		textPropNotOpen:        "Dieser Vorschlag ist nicht mehr offen.",
+		textPropCannotApprove:  "Diese Version kann diesen Vorschlag nicht freigeben.",
+		textPropResultLost:     "Das Ergebnis konnte nicht am Vorschlag festgehalten werden: %s. Sieh den Zustand in der Ansicht an.",
+	}
+}

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -194,29 +195,33 @@ func (m *Model) readProposal() tea.Cmd {
 	}
 	v.loading = true
 	ctx, b, host, gen, id, root := m.ctx, m.backend, m.folders, v.gen, v.id, m.euid() == 0
-	return func() tea.Msg {
-		msg := proposalMsg{gen: gen, id: id}
-		if msg.res, msg.err = b.ProposalShow(ctx, id); msg.err != nil {
-			return msg
-		}
-		if msg.res.Kind != control.ProposalKindSourceAdd {
-			return msg
-		}
-		if msg.content, msg.bad = sourceAddContent(msg.res.Content); msg.bad || msg.res.State != control.ProposalOpen {
-			return msg
-		}
-		if !root || host == nil {
-			msg.needsRoot = true
-			return msg
-		}
-		res, err := inspectFolder(ctx, b, host, msg.content.Path)
-		if err != nil {
-			msg.effectErr = err
-			return msg
-		}
-		msg.flow = res.(inspected).flow
+	return func() tea.Msg { return loadProposal(ctx, b, host, gen, id, root) }
+}
+
+// loadProposal reads the proposal id and, while it is an open one of the kind source-add with readable content
+// and the interface runs with root, works out its effect. It only reads.
+func loadProposal(ctx context.Context, b Backend, host Folders, gen int, id string, root bool) proposalMsg {
+	msg := proposalMsg{gen: gen, id: id}
+	if msg.res, msg.err = b.ProposalShow(ctx, id); msg.err != nil {
 		return msg
 	}
+	if msg.res.Kind != control.ProposalKindSourceAdd {
+		return msg
+	}
+	if msg.content, msg.bad = sourceAddContent(msg.res.Content); msg.bad || msg.res.State != control.ProposalOpen {
+		return msg
+	}
+	if !root || host == nil {
+		msg.needsRoot = true
+		return msg
+	}
+	res, err := inspectFolder(ctx, b, host, msg.content.Path)
+	if err != nil {
+		msg.effectErr = err
+		return msg
+	}
+	msg.flow = res.(inspected).flow
+	return msg
 }
 
 // sourceAddContent reads the content of a proposal of the kind source-add; bad is set for content that is not

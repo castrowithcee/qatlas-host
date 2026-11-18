@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 Stacks 2 Stack-Details 3 Läufe 4 Einstellungen 5 Container [6 Vorschläge]   
+────────────────────────────────────────────────────────────────────────────────
+  ⚠ Vorschlag p-0004 freigeben und diese Änderungen an /srv/new-example         
+    anwenden?                                                                   
+                                                                                
+  Ja markiert den Vorschlag als freigegeben und nimmt dann die gezeigten        
+  Änderungen vor, so wie das Hinzufügen des Ordners von Hand. Direkt davor      
+  werden der Vorschlag und seine Wirkung neu gelesen, und nichts wird           
+  angewendet, wenn eines von beiden vom Gezeigten abweicht. Das Ergebnis bleibt 
+  am Vorschlag.                                                                 
+    Host: example.test                                                          
+    Schlüsseltyp: ssh-ed25519                                                   
+    Fingerabdruck: SHA256:ExampleFingerprintForTestsOnly0000000000              
+    Ordner: /srv/new-example                                                    
+                                                                                
+  Änderungen nach Ja                                                            
+    Der Ordner wird mit Eigentümer qhost:qhost und Modus 0755 angelegt.         
+    Der Hostschlüssel wird gespeichert und das Repository in den Ordner geklont.
+    Keine Rechteänderung: Der Dienst kann bereits schreiben.                    
+    Der Ordner wird in das systemd-Drop-in des Dienstes eingetragen, der einmal 
+    neu startet.                                                                
+                                                                                
+y ja, ausführen  n/esc/enter abbrechen                              ↑/↓ Scrollen

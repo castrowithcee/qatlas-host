@@ -74,6 +74,9 @@ const (
 	// actMoveUp and actMoveDown move an entry of an ordered list in its editor.
 	actMoveUp   kittui.ActionID = "moveup"
 	actMoveDown kittui.ActionID = "movedown"
+	// actApprove and actReject decide the proposal shown in the Proposals area.
+	actApprove kittui.ActionID = "approve"
+	actReject  kittui.ActionID = "reject"
 )
 
 // areaKeys are the keys of actArea, one per area in the order of the tab line.
@@ -135,6 +138,8 @@ func keyTable() []kittui.Action {
 		act(actRemoveSettings, kittui.LevelLetter, textKeyRemoveSettings, "E"),
 		act(actMoveUp, kittui.LevelLetter, textKeyMoveUp, "K"),
 		act(actMoveDown, kittui.LevelLetter, textKeyMoveDown, "J"),
+		act(actApprove, kittui.LevelLetter, textKeyApprove, "A"),
+		act(actReject, kittui.LevelLetter, textKeyReject, "D"),
 		act(actYes, kittui.LevelConfirm, textAnswerYes, "y"),
 		act(actNo, kittui.LevelConfirm, textAnswerCancel, "n", "esc"),
 		act(actShowLog, kittui.LevelConfirm, textAnswerLog, "l"),

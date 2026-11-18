@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+   1 Stacks   2 Stack detail   3 Runs   4 Settings   5 Containers  [6 Proposals]
+────────────────────────────────────────────────────────────────────────────────
+  ⚠ Approve proposal p-0005 and apply these changes to /srv/files-example?      
+                                                                                
+  Yes marks the proposal as approved and then makes the changes shown, the way  
+  adding the folder by hand makes them. Right before that the proposal and its  
+  effect are read again, and nothing is applied if either differs from what you 
+  saw. The result is kept on the proposal.                                      
+                                                                                
+    folder: /srv/files-example                                                  
+    case: files (files without a repository; a first commit takes the listed    
+    files)                                                                      
+    owner: root, group: root, mode: 0755                                        
+    the service can write it: no                                                
+    permissions are set: yes                                                    
+                                                                                
+  Files of the first commit (2)                                                 
+    demo/.env                                                                   
+    demo/compose.yaml                                                           
+                                                                                
+  Left out (1), recorded only in .git/info/exclude                              
+    demo/data: bind-mount (stack demo)                                          
+y yes, do it  w with a remote  n/esc/enter cancel              ↑/↓ scroll  20/37

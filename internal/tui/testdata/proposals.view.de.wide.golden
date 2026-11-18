@@ -37,4 +37,4 @@
   Änderungen nach Ja                                                                                                    
     Ein Git-Repository wird mit Branch main und einem ersten Commit der aufgeführten Dateien als qhost angelegt; keine  
     Datei im Ordner wird geschrieben. Es wird als lokaler Stack-Ordner übernommen.                                      
-esc Zurück  r Neu laden  1-6 Bereich  q Beenden                                                      ↑/↓ Scrollen  36/38
+esc Zurück  A freigeben  D ablehnen  r Neu laden  1-6 Bereich  q Beenden                             ↑/↓ Scrollen  36/38
