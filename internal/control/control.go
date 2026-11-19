@@ -1694,6 +1694,10 @@ const ProposalKindSourceAdd = "source-add"
 // ProposalKindStackSettings proposes the settings of a stack; its content is a ProposalStackSettings.
 const ProposalKindStackSettings = "stack-settings"
 
+// ProposalKindWindow proposes the maintenance window of the host; its content is a WindowSetArgs, whose parts
+// are kept in their canonical form and of which at least one is named. The schema has no secret member.
+const ProposalKindWindow = "window"
+
 // The states of a proposal. A proposal that is open and older than ProposalLifetime is answered as expired, and
 // one that has been approving for longer than ProposalApprovalWindow is answered as failed.
 const (

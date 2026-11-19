@@ -27,6 +27,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/window"
 )
 
 const (
@@ -109,6 +110,7 @@ func invalid(format string, a ...any) *control.Error {
 var proposalNormalizers = map[string]func(p *proposalService, content json.RawMessage) (any, *control.Error){
 	control.ProposalKindSourceAdd:     (*proposalService).normalizeSourceAdd,
 	control.ProposalKindStackSettings: (*proposalService).normalizeStackSettings,
+	control.ProposalKindWindow:        (*proposalService).normalizeWindow,
 }
 
 func (p *proposalService) normalizeProposal(kind string, content json.RawMessage) (any, *control.Error) {
@@ -162,6 +164,40 @@ func (p *proposalService) normalizeStackSettings(content json.RawMessage) (any, 
 		return nil, invalid("the settings cannot be encoded")
 	}
 	return control.ProposalStackSettings{Stack: c.Stack, Settings: canonical}, nil
+}
+
+// normalizeWindow checks the parts with the parsers of window.set and stores each in its canonical form. It
+// writes nothing. The schema has no secret member, so any other field refuses the proposal.
+func (p *proposalService) normalizeWindow(content json.RawMessage) (any, *control.Error) {
+	var c control.WindowSetArgs
+	if err := decodeStrict(content, &c); err != nil {
+		return nil, invalid("the content of a %s proposal must be a JSON object with the fields days, start, duration and zone only", control.ProposalKindWindow)
+	}
+	if c.Days == nil && c.Start == "" && c.Duration == "" && c.Zone == "" {
+		return nil, invalid("name at least one part of the window")
+	}
+	change, err := windowChange(c)
+	if err != nil {
+		var ie *window.InvalidError
+		if errors.As(err, &ie) {
+			return nil, invalid("%s", printable(ie.Text))
+		}
+		return nil, invalid("the window is not valid")
+	}
+	var out control.WindowSetArgs
+	if change.Days != nil {
+		out.Days = change.Days.Names()
+	}
+	if change.Start != nil {
+		out.Start = window.FormatStart(*change.Start)
+	}
+	if change.Duration != nil {
+		out.Duration = window.FormatDuration(*change.Duration)
+	}
+	if change.Zone != nil {
+		out.Zone = *change.Zone
+	}
+	return out, nil
 }
 
 func decodeStrict(raw json.RawMessage, into any) error {

@@ -38,13 +38,14 @@ func newProposalCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var kind, file string
 	c := &cobra.Command{
-		Use:   "submit --kind source-add|stack-settings [--file <path>|-]",
+		Use:   "submit --kind source-add|stack-settings|window [--file <path>|-]",
 		Short: "Submit a proposal read as JSON from a file or standard input",
 		Long: "submit sends the content of a proposal to the service, which checks and stores it, and prints its id. The\n" +
 			"content is a JSON object in the schema of the kind, read from --file or, without it or with '-', from\n" +
 			"standard input; the file is read as the calling user, at most a little over 64 KiB. The kind source-add\n" +
 			"takes {\"path\": \"/absolute/folder\", \"url\": \"ssh://...\"}, url optional. The kind stack-settings takes\n" +
-			"{\"stack\": \"name\", \"settings\": {\"version\": 1, ...}}, with the settings of 'qhost stack settings'. Nothing\n" +
+			"{\"stack\": \"name\", \"settings\": {\"version\": 1, ...}}, with the settings of 'qhost stack settings'. The kind window takes\n" +
+			"{\"days\": [\"mon\"], \"start\": \"03:00\", \"duration\": \"2h\", \"zone\": \"UTC\"}, at least one part. Nothing\n" +
 			"on the host changes. See\n" +
 			"'qhost help proposals'.",
 		Args: cobra.NoArgs,
@@ -64,7 +65,7 @@ func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Comm
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: proposalFields(program.Format(), res)})
 		},
 	}
-	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add or stack-settings")
+	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add, stack-settings or window")
 	c.Flags().StringVar(&file, "file", "", "file with the content as JSON, or - for standard input (default)")
 	return c
 }

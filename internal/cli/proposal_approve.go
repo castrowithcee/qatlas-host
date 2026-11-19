@@ -99,6 +99,7 @@ func requirePerson(program *cobracli.Program, what string) error {
 var proposalApprovers = map[string]func(c *cobra.Command, program *cobracli.Program, state *notRunning, shown control.ProposalShowResult, url string) error{
 	control.ProposalKindSourceAdd:     approveSourceAdd,
 	control.ProposalKindStackSettings: approveStackSettings,
+	control.ProposalKindWindow:        approveWindow,
 }
 
 func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notRunning, id, url string) error {
