@@ -485,6 +485,10 @@ type Folders interface {
 	// ReadOnly reports whether the file system of the folder, or of its nearest existing parent, is read-only;
 	// only the host can tell, because the service sees every folder it may not write as read-only.
 	ReadOnly(path string) (bool, error)
+	// Engines adds to the answer of SourceInspect the containers that run in the stack folders in the rootless
+	// engines of other users, and the engines that could not be asked; only the host can read them, and only
+	// as root. It only reads and returns res unchanged for a rejection or an answer without stacks.
+	Engines(ctx context.Context, res control.SourceInspectResult) control.SourceInspectResult
 }
 
 // PermPlan is a plan of permission changes for a folder. Changed is the number of paths it changes and Summary

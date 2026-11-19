@@ -59,27 +59,31 @@ func effectSignature(flow *addFlow) string {
 		slices.Sort(out)
 		return out
 	}
-	var left, conflicts []string
+	var left, conflicts, notChecked []string
 	for _, e := range flow.res.Excluded {
 		left = append(left, e.Path+"\x00"+e.Reason+"\x00"+e.Stack)
 	}
 	for _, st := range flow.res.Stacks {
 		for _, c := range st.Conflicts {
-			conflicts = append(conflicts, st.Name+"\x00"+c.Container+"\x00"+c.Project)
+			conflicts = append(conflicts, st.Name+"\x00"+c.Container+"\x00"+c.Project+"\x00"+engineName(c.Engine))
 		}
 	}
+	for _, nc := range flow.res.EnginesNotChecked {
+		notChecked = append(notChecked, nc.Engine+"\x00"+nc.Reason)
+	}
 	raw, _ := json.Marshal(struct {
-		Case      string
-		Reason    string
-		ReadOnly  bool
-		Missing   bool
-		Files     []string
-		Excluded  []string
-		Conflicts []string
-		Changed   int
-		Plan      []string
+		Case       string
+		Reason     string
+		ReadOnly   bool
+		Missing    bool
+		Files      []string
+		Excluded   []string
+		Conflicts  []string
+		NotChecked []string
+		Changed    int
+		Plan       []string
 	}{flow.res.Case, flow.res.Reason, flow.readOnly, flow.missing, sorted(flow.res.PlannedFiles), sorted(left),
-		sorted(conflicts), flow.plan.Changed, flow.plan.Summary})
+		sorted(conflicts), sorted(notChecked), flow.plan.Changed, flow.plan.Summary})
 	return string(raw)
 }
 
@@ -256,8 +260,12 @@ func (m *Model) finalQuestion(flow *addFlow, question string) string {
 
 // finalConsequence is the sentence on what follows the last question; for a proposal it also names the check.
 func (m *Model) finalConsequence(flow *addFlow, folder kittui.TextID) string {
+	what := m.text.Lookup(folder)
 	if flow.proposal != nil {
-		return m.text.Lookup(textWhatProposalApprove)
+		what = m.text.Lookup(textWhatProposalApprove)
 	}
-	return m.text.Lookup(folder)
+	if hasConflicts(flow.res) {
+		what += " " + m.text.Lookup(textConflictConsequence)
+	}
+	return what
 }

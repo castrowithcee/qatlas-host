@@ -232,6 +232,8 @@ const (
 	textStackFails            kittui.TextID = "stack.fails"
 	textStackFinding          kittui.TextID = "stack.finding"
 	textStackConflict         kittui.TextID = "stack.conflict"
+	textEngineNotChecked      kittui.TextID = "engine.notchecked"
+	textConflictConsequence   kittui.TextID = "conflict.consequence"
 	textStacksError           kittui.TextID = "stacks.error"
 	textContainersError       kittui.TextID = "containers.error"
 	textHeadChanges           kittui.TextID = "head.changes"
@@ -503,7 +505,9 @@ func settingsEnglish() map[kittui.TextID]string {
 		textStackWorks:            "works: %s",
 		textStackFails:            "does not work: %s",
 		textStackFinding:          "%s %s: %s",
-		textStackConflict:         "conflict: the container %s of the project %s runs in the folder",
+		textStackConflict:         "conflict: the container %s of the project %s runs in the folder, in the engine %s",
+		textEngineNotChecked:      "engine %s was not checked: %s",
+		textConflictConsequence:   "Containers of these stacks already run, so deploying would create duplicate containers and take their ports twice. qhost only warns.",
 		textStacksError:           "the stacks cannot be read: %s",
 		textContainersError:       "the containers were not checked: %s",
 		textHeadChanges:           "Changes after yes",
@@ -776,7 +780,9 @@ func settingsGerman() map[kittui.TextID]string {
 		textStackWorks:            "funktioniert: %s",
 		textStackFails:            "funktioniert nicht: %s",
 		textStackFinding:          "%s %s: %s",
-		textStackConflict:         "Konflikt: Der Container %s des Projekts %s läuft im Ordner",
+		textStackConflict:         "Konflikt: Der Container %s des Projekts %s läuft im Ordner, in der Engine %s",
+		textEngineNotChecked:      "Engine %s wurde nicht geprüft: %s",
+		textConflictConsequence:   "Container dieser Stacks laufen bereits, ein Deploy würde daher doppelte Container erzeugen und deren Ports doppelt belegen. qhost warnt nur.",
 		textStacksError:           "die Stacks sind nicht lesbar: %s",
 		textContainersError:       "die Container wurden nicht geprüft: %s",
 		textHeadChanges:           "Änderungen nach Ja",

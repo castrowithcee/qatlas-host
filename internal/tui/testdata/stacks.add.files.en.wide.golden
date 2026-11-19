@@ -3,7 +3,8 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   ⚠ Start a git repository in /srv/files-example and take it over?                                                      
                                                                                                                         
-  Yes looks at the folder once more and makes the changes listed below only if its list is unchanged.                   
+  Yes looks at the folder once more and makes the changes listed below only if its list is unchanged. Containers of     
+  these stacks already run, so deploying would create duplicate containers and take their ports twice. qhost only warns.
                                                                                                                         
     folder: /srv/files-example                                                                                          
     case: files (files without a repository; a first commit takes the listed files)                                     
@@ -20,5 +21,4 @@
                                                                                                                         
   Stacks (1)                                                                                                            
     demo (folder demo)                                                                                                  
-      works: deploy                                                                                                     
-y yes, do it  w with a remote  n/esc/enter cancel                                                      ↑/↓ scroll  20/29
+y yes, do it  w with a remote  n/esc/enter cancel                                                      ↑/↓ scroll  20/30

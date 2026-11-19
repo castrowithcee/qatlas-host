@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/rootless"
 )
 
 // hostDouble stands in for the host: a temporary root for /etc, a recorded systemctl and a service that
@@ -61,6 +62,8 @@ func useFolderHost(t *testing.T) *hostDouble {
 			return os.Lchown(path, uid, gid)
 		},
 		chmod: os.Chmod,
+		// No user, so a test never reads the engines of the real host.
+		detector: rootless.Detector{Users: []rootless.User{}},
 	}
 	t.Cleanup(func() { folders = old })
 	return d

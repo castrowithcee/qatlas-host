@@ -5,7 +5,8 @@
                                                                                                                         
   Yes marks the proposal as approved and then makes the changes shown, the way adding the folder by hand makes them.    
   Right before that the proposal and its effect are read again, and nothing is applied if either differs from what you  
-  saw. The result is kept on the proposal.                                                                              
+  saw. The result is kept on the proposal. Containers of these stacks already run, so deploying would create duplicate  
+  containers and take their ports twice. qhost only warns.                                                              
                                                                                                                         
     folder: /srv/files-example                                                                                          
     case: files (files without a repository; a first commit takes the listed files)                                     
@@ -25,14 +26,13 @@
       works: deploy                                                                                                     
       does not work: backup                                                                                             
       warning secrets-env-not-ignored: secrets.env is not listed in .gitignore                                          
-      conflict: the container demo-app-1 of the project old-demo runs in the folder                                     
+      conflict: the container demo-app-1 of the project old-demo runs in the folder, in the engine system               
                                                                                                                         
   Changes after yes                                                                                                     
     A git repository is started with branch main and a first commit of the listed files as qhost; no file in the folder 
     is written. It is taken over as a local stack folder.                                                               
     3 paths get the group of the service account with group write; the owner stays                                      
     The folder is added to the systemd drop-in of the service, which restarts once.                                     
-                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         

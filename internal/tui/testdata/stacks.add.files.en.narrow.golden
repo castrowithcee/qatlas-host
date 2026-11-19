@@ -6,6 +6,9 @@
                                                         
   Yes looks at the folder once more and makes the       
   changes listed below only if its list is unchanged.   
+  Containers of these stacks already run, so deploying  
+  would create duplicate containers and take their ports
+  twice. qhost only warns.                              
                                                         
     folder: /srv/files-example                          
     case: files (files without a repository; a first    
@@ -17,8 +20,5 @@
   Files of the first commit (2)                         
     demo/.env                                           
     demo/compose.yaml                                   
-                                                        
-  Left out (1), recorded only in .git/info/exclude      
-    demo/data: bind-mount (stack demo)                  
 y yes, do it  w with a remote  n/esc/enter cancel       
-                                       ↑/↓ scroll  19/38
+                                       ↑/↓ scroll  19/41

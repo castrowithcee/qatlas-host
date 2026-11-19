@@ -349,6 +349,8 @@ func inspectFolder(ctx context.Context, b Backend, host Folders, path string) (a
 		flow.res = control.SourceInspectResult{Path: res.Path, Case: control.SourceCaseReject, Stacks: []control.SourceStack{}}
 		return inspected{flow}, nil
 	}
+	res = host.Engines(ctx, res)
+	flow.res = res
 	if res.Case == control.SourceCaseClone {
 		if flow.missing, err = host.Missing(path); err != nil {
 			return nil, hostError{err}
@@ -696,8 +698,11 @@ func (m *Model) stackLines(res control.SourceInspectResult, width int) []string 
 			lines = append(lines, text(detailIndent+2, style, t.Lookup(textStackFinding, f.Severity, f.Rule, f.Cause))...)
 		}
 		for _, c := range st.Conflicts {
-			lines = append(lines, text(detailIndent+2, kittui.StyleWarn, t.Lookup(textStackConflict, c.Container, c.Project))...)
+			lines = append(lines, text(detailIndent+2, kittui.StyleWarn, t.Lookup(textStackConflict, c.Container, c.Project, engineName(c.Engine)))...)
 		}
+	}
+	for _, nc := range res.EnginesNotChecked {
+		lines = append(lines, text(detailIndent, kittui.StyleWarn, t.Lookup(textEngineNotChecked, nc.Engine, nc.Reason))...)
 	}
 	if res.StacksError != "" {
 		lines = append(lines, text(detailIndent, kittui.StyleFail, t.Lookup(textStacksError, res.StacksError))...)
@@ -755,4 +760,22 @@ func nameOrID(name string, id uint32) string {
 		return name
 	}
 	return strconv.FormatUint(uint64(id), 10)
+}
+
+// engineName is the engine of a conflict as shown; an answer without one comes from the engine of the service.
+func engineName(engine string) string {
+	if engine == "" {
+		return control.EngineSystem
+	}
+	return engine
+}
+
+// hasConflicts says containers of the stack folders already run, so that deploying would duplicate them.
+func hasConflicts(res control.SourceInspectResult) bool {
+	for _, st := range res.Stacks {
+		if len(st.Conflicts) > 0 {
+			return true
+		}
+	}
+	return false
 }

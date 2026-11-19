@@ -184,7 +184,11 @@ func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 			return err
 		}
 	}
-	if err := askApproval(c, "Approve proposal "+shown.ID+" and apply these changes?"); err != nil {
+	approveQuestion := "Approve proposal " + shown.ID + " and apply these changes?"
+	if warn := conflictConsequence(sa.res); warn != "" {
+		approveQuestion = warn + " " + approveQuestion
+	}
+	if err := askApproval(c, approveQuestion); err != nil {
 		return err
 	}
 
@@ -292,7 +296,8 @@ func effectOf(sa *sourceAdd, text string) (string, error) {
 		Question string   `json:"question"`
 		Files    []string `json:"files"`
 		Excluded []string `json:"excluded"`
-	}{text, sa.question, sa.res.PlannedFiles, left})
+		Engines  []string `json:"engines"`
+	}{text, sa.question, sa.res.PlannedFiles, left, engineSignature(sa.res)})
 }
 
 // ensureDeployKey shows the deploy key of the folder, or offers to generate one and waits until the person has

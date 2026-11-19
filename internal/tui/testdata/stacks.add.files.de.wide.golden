@@ -4,6 +4,8 @@
   ⚠ In /srv/files-example ein Git-Repository anlegen und übernehmen?                                                    
                                                                                                                         
   Ja prüft den Ordner noch einmal und nimmt die unten aufgeführten Änderungen nur vor, wenn seine Liste unverändert ist.
+  Container dieser Stacks laufen bereits, ein Deploy würde daher doppelte Container erzeugen und deren Ports doppelt    
+  belegen. qhost warnt nur.                                                                                             
                                                                                                                         
     Ordner: /srv/files-example                                                                                          
     Fall: files (Dateien ohne Repository; ein erster Commit nimmt die aufgeführten Dateien)                             
@@ -19,6 +21,4 @@
     demo/data: bind-mount (Stack demo)                                                                                  
                                                                                                                         
   Stacks (1)                                                                                                            
-    demo (Ordner demo)                                                                                                  
-      funktioniert: deploy                                                                                              
-y ja, ausführen  w mit Remote  n/esc/enter abbrechen                                                 ↑/↓ Scrollen  20/29
+y ja, ausführen  w mit Remote  n/esc/enter abbrechen                                                 ↑/↓ Scrollen  20/31
