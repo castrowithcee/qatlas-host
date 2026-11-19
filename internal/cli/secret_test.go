@@ -36,6 +36,11 @@ func startSecretService(t *testing.T, log *syncBuffer) *repoEnv {
 	if code, _, stderr := run(t, "repo", "set", e.srv.URL(), "--dir", e.dir, "--fingerprint", e.srv.Key().Fingerprint); code != 0 {
 		t.Fatalf("repo set: %d %s", code, stderr)
 	}
+	// With a deployer the binding starts a rollout of the stacks; a write to a stack before it ends meets an
+	// active run. Without one no run starts.
+	if testDeployer != nil {
+		settle(t)
+	}
 	return e
 }
 
