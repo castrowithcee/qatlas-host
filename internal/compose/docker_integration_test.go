@@ -49,7 +49,7 @@ func integrationStack(t *testing.T, health string) (stacks.Stack, *Executor) {
 	write("compose.yaml", "services:\n  app:\n    image: "+image+"\n    environment:\n      DEMO_HEALTH: ${DEMO_HEALTH}\n")
 	write(".env", "DEMO_HEALTH="+health+"\n")
 	st := stacks.Stack{Name: name, Dir: dir, ComposeFiles: []string{"compose.yaml"}}
-	x := &Executor{Runner: &ExecRunner{}, Env: ProductionEnv(os.Getenv)}
+	x := &Executor{Runner: &ExecRunner{}, Env: ProductionEnv(os.Getenv, "")}
 	t.Cleanup(func() {
 		down := exec.Command("docker", "compose", "--project-name", name, "down", "--volumes", "--remove-orphans")
 		down.Dir = dir

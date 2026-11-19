@@ -434,13 +434,64 @@ func TestHTTPCheckRunsAfterContainers(t *testing.T) {
 }
 
 func TestParseProductionEnv(t *testing.T) {
-	env := ProductionEnv(func(k string) string {
+	getenv := func(k string) string {
 		return map[string]string{"HOME": "/home/demo", "DOCKER_HOST": "tcp://example.invalid:1", "DOCKER_CONFIG": ""}[k]
-	})
+	}
+	env := ProductionEnv(getenv, "")
 	got := strings.Join(env, " ")
-	if !strings.Contains(got, "HOME=/home/demo") || strings.Contains(got, "DOCKER_HOST") || strings.Contains(got, "DOCKER_CONFIG") {
+	if !strings.Contains(got, "HOME=/home/demo") || strings.Contains(got, "example.invalid") || strings.Contains(got, "DOCKER_CONFIG") {
 		t.Errorf("env = %q", env)
 	}
+	if !strings.Contains(got, "DOCKER_HOST=unix:///var/run/docker.sock") {
+		t.Errorf("default socket missing: %q", env)
+	}
+	got = strings.Join(ProductionEnv(getenv, "/run/user/1000/docker.sock"), " ")
+	if !strings.Contains(got, "DOCKER_HOST=unix:///run/user/1000/docker.sock") || strings.Contains(got, "example.invalid") {
+		t.Errorf("named socket: %q", got)
+	}
+}
+
+func TestNewPassesTheSocketToEveryDockerCall(t *testing.T) {
+	d := New(nil, "/run/demo/docker.sock")
+	want := "DOCKER_HOST=unix:///run/demo/docker.sock"
+	if !slicesContain(d.Exec.Env, want) || d.Checker.Exec != d.Exec {
+		t.Errorf("deployer env = %q", d.Exec.Env)
+	}
+	if !slicesContain(New(nil, "").Exec.Env, "DOCKER_HOST=unix:///var/run/docker.sock") {
+		t.Error("empty socket must mean the default")
+	}
+}
+
+func TestEveryComposeCallCarriesTheSocket(t *testing.T) {
+	st := newStack(t, true)
+	r := &fakeRunner{ps: []string{runningJSON}}
+	d, _ := newDeployer(r)
+	d.Exec.Env = ProductionEnv(func(string) string { return "" }, "/run/demo/docker.sock")
+	ctx := context.Background()
+	log := &fakeLog{}
+	_ = d.deploy(ctx, st, log)
+	_ = d.Exec.Stop(ctx, st, log)
+	_ = d.Exec.Start(ctx, st, log)
+	_ = d.Exec.Restart(ctx, st, log)
+	_ = d.Checker.Check(ctx, st, &fakeLog{})
+	_, _ = d.Exec.VolumeNames(ctx, st, log)
+	if len(r.calls) < 6 {
+		t.Fatalf("only %d calls", len(r.calls))
+	}
+	for _, c := range r.calls {
+		if !slicesContain(c.Env, "DOCKER_HOST=unix:///run/demo/docker.sock") {
+			t.Errorf("call %v has env %q", c.Args, c.Env)
+		}
+	}
+}
+
+func slicesContain(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
 
 func TestVolumeNamesReadsOnlyTheNames(t *testing.T) {

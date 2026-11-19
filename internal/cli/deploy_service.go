@@ -41,20 +41,21 @@ func newDeployRunCommand() *cobra.Command {
 		Use:   "run",
 		Short: "Run the deploy service in the foreground",
 		Long: "run is what the deploy service unit starts: it runs until it receives SIGTERM or SIGINT, then ends with\n" +
-			"exit code 0. It logs to stderr.",
+			"exit code 0. It logs to stderr. --docker-socket names the one container engine the service uses for\n" +
+			"everything: container list and actions, logs, monitoring, Compose, checks, backups and restores.",
 		RunE: func(c *cobra.Command, _ []string) error {
 			ctx, stop := signal.NotifyContext(c.Context(), syscall.SIGTERM, syscall.SIGINT)
 			defer stop()
-			backups := backup.NewManager(filepath.Join(stateDir(), "backups"))
+			backups := backup.NewManager(filepath.Join(stateDir(), "backups"), dockerSocket)
 			backups.Image = backupImage
 			return service.Run(ctx, slog.New(slog.NewTextHandler(c.ErrOrStderr(), nil)).With("pid", os.Getpid()),
 				service.Config{Version: version, Endpoint: serviceEndpoint(), StateDir: stateDir(),
-					Deployer: compose.New(backups.ForRuns()), Backups: backups, DockerSocket: dockerSocket})
+					Deployer: compose.New(backups.ForRuns(), dockerSocket), Backups: backups, DockerSocket: dockerSocket})
 		},
 	}
 	cmd.Flags().StringVar(&backupImage, "backup-image", backup.DefaultImage,
 		"helper image of backups and restores; it needs a POSIX shell, find, rm and a tar that knows --numeric-owner")
 	cmd.Flags().StringVar(&dockerSocket, "docker-socket", service.DefaultDockerSocket,
-		"socket of the container engine the service reads containers from")
+		"socket of the container engine for every Docker access of the service")
 	return cmd
 }

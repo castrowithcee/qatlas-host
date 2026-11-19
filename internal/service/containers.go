@@ -16,12 +16,13 @@ import (
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 
+	"github.com/castrowithcee/qatlas-host/internal/compose"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 // DefaultDockerSocket is the socket of the container engine unless the configuration names another.
-const DefaultDockerSocket = "/var/run/docker.sock"
+const DefaultDockerSocket = compose.DefaultDockerSocket
 
 const (
 	// metricsWorkers bounds the readings in flight; each one takes about two seconds at the engine.
