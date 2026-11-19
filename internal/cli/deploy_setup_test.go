@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -141,7 +142,7 @@ func TestStatusWithoutSetupShowsBothServices(t *testing.T) {
 
 func TestStatusShowsTheHostServiceNextToTheDeployService(t *testing.T) {
 	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
-	startHost(t)
+	startHost(t, true)
 	code, stdout, stderr := run(t, "status", "--output", "json")
 	if code != 0 || stderr != "" {
 		t.Fatalf("code %d, stderr %q", code, stderr)
@@ -150,27 +151,62 @@ func TestStatusShowsTheHostServiceNextToTheDeployService(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout), &got); err != nil {
 		t.Fatal(err)
 	}
-	// The service answers root with its version and everybody else with "running": both keep the deploy data.
-	host, _ := got["host_service"].(string)
-	if got["running"] != true || got["version"] != "9.9.9" || got["deploy_service"] != "running" || !strings.HasPrefix(host, "running") {
+	if got["running"] != true || got["version"] != "9.9.9" || got["deploy_service"] != "running" ||
+		got["host_service"] != "running" || got["host_version"] != "8.8.8" {
 		t.Fatalf("status = %v", got)
-	}
-	if os.Geteuid() != 0 && host != "running (details need root)" {
-		t.Fatalf("host_service = %q", host)
 	}
 }
 
-// startHost runs a host service on a channel of its own and makes the commands talk to it.
-func startHost(t *testing.T) {
+func TestStatusShowsAHostServiceReservedForAdministrators(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root is always served")
+	}
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
+	startHost(t, false)
+	code, stdout, stderr := run(t, "status", "--output", "json")
+	if code != 0 || stderr != "" {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(stdout), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["deploy_service"] != "running" || got["host_service"] != "running (reserved for administrators)" || got["host_version"] != nil {
+		t.Fatalf("status = %v", got)
+	}
+}
+
+// startHost runs a host service on a channel of its own and makes the commands talk to it. Its group database
+// makes the user of the test an administrator, or a member of the group qhost without sudo. It returns the state
+// directory.
+func startHost(t *testing.T, admin bool) string {
 	t.Helper()
+	me, err := user.Current()
+	if err != nil {
+		t.Skipf("current user unknown: %v", err)
+	}
+	dir := t.TempDir()
+	group, passwd := filepath.Join(dir, "group"), filepath.Join(dir, "passwd")
+	groups := "qhost:x:990:" + me.Username + "\nsudo:x:27:example-other\n"
+	if admin {
+		groups = "qhost:x:990:" + me.Username + "\nsudo:x:27:" + me.Username + "\n"
+	}
+	if err := os.WriteFile(group, []byte(groups), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(passwd, []byte(me.Username+":x:"+me.Uid+":"+me.Gid+"::/nonexistent:/usr/sbin/nologin\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	ep := channeltest.Endpoint(t)
 	useHostEndpoint(t, ep)
+	state := filepath.Join(dir, "state")
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
 		done <- hostservice.Run(ctx, slog.New(slog.NewTextHandler(io.Discard, nil)),
-			hostservice.Config{Version: "8.8.8", Endpoint: ep, StateDir: filepath.Join(t.TempDir(), "state")})
+			hostservice.Config{Version: "8.8.8", Endpoint: ep, StateDir: state, GroupFile: group, PasswdFile: passwd})
 	}()
 	t.Cleanup(func() { cancel(); <-done })
 	channeltest.WaitReady(t, ep)
+	return state
 }

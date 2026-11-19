@@ -120,10 +120,16 @@ func TestArchitecture(t *testing.T) {
 			Hint:  "containers belong to the deploy part; the host administration never talks to the container engine",
 		},
 		{
-			Name:  "host-service-imports-only-the-protocol",
+			Name:  "host-service-imports-only-the-protocol-the-admin-check-and-the-action-log",
 			Files: archtest.Files{Under: []string{"internal/hostservice"}, Tests: archtest.WithTests},
-			Check: archtest.AllowImports("internal/control", "internal/client", "internal/channeltest"),
-			Hint:  "the host service knows the wire protocol and nothing of the deploy part, the command surface or the host administration",
+			Check: archtest.AllowImports("internal/control", "internal/client", "internal/channeltest", "internal/admins", "internal/host/auditlog"),
+			Hint:  "the host service knows the wire protocol, the administrator check and the action log, and nothing of the deploy part, the command surface or the changes of the host",
+		},
+		{
+			Name:  "admins-know-the-protocol-only",
+			Files: archtest.Files{Under: []string{"internal/admins"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports("internal/control"),
+			Hint:  "the administrator check is shared by both services and knows neither",
 		},
 		{
 			Name:  "host-service-does-not-touch-the-container-engine",

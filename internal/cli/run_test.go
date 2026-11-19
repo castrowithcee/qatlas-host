@@ -41,11 +41,12 @@ func TestRunEndsCleanlyOnSignal(t *testing.T) {
 		use  func(*testing.T)
 	}{
 		{"host", []string{"run"}, func(t *testing.T) {
-			old, oldDir := hostEndpoint, hostStateDir
+			old, oldDir, oldProtect := hostEndpoint, hostStateDir, protectMemory
 			ep, dir := channeltest.Endpoint(t), filepath.Join(t.TempDir(), "state")
 			hostEndpoint = func() localipc.ServiceEndpoint { return ep }
 			hostStateDir = func() string { return dir }
-			t.Cleanup(func() { hostEndpoint, hostStateDir = old, oldDir })
+			protectMemory = func() error { return nil }
+			t.Cleanup(func() { hostEndpoint, hostStateDir, protectMemory = old, oldDir, oldProtect })
 		}},
 		{"deploy", []string{"deploy-service", "run"}, func(t *testing.T) {
 			useEndpoint(t, channeltest.Endpoint(t))

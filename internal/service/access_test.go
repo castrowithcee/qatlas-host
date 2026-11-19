@@ -45,39 +45,6 @@ func writeDatabase(t *testing.T, groups, users string) (group, passwd string) {
 	return group, passwd
 }
 
-func TestAdminInDatabase(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		groups string
-		uid    uint32
-		want   bool
-	}{
-		{"member of both", inventedGroups, 4100, true},
-		{"admin group as primary group", inventedGroups, 4101, true},
-		{"service group only", inventedGroups, 4102, false},
-		{"admin group only", inventedGroups, 4103, false},
-		{"service group as primary group only", inventedGroups, 4104, false},
-		{"second user of a member's name", inventedGroups, 4105, true},
-		{"unknown user", inventedGroups, 4999, false},
-		{"no service group", "sudo:x:27:example-admin\n", 4100, false},
-		{"no admin group", "qhost:x:990:example-admin\n", 4100, false},
-		{"malformed lines", "sudo:x\nqhost\n", 4100, false},
-		{"primary service group and admin member", "sudo:x:27:example-qhost\nqhost:x:990:\n", 4104, true},
-		{"empty group id never matches", "sudo:x::example-empty\nqhost:x::\n", 4106, false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := adminInDatabase(strings.NewReader(tc.groups), strings.NewReader(inventedUsers), tc.uid)
-			if err != nil || got != tc.want {
-				t.Fatalf("admin(%d) = %v, %v; want %v", tc.uid, got, err, tc.want)
-			}
-		})
-	}
-	long := "qhost:x:990:" + strings.Repeat("x", maxDatabaseLine) + "\n"
-	if ok, err := adminInDatabase(strings.NewReader(long), strings.NewReader(inventedUsers), 4100); ok || err == nil {
-		t.Fatalf("an overlong line = %v, %v", ok, err)
-	}
-}
-
 func TestAuthorize(t *testing.T) {
 	group, passwd := writeDatabase(t, inventedGroups, inventedUsers)
 	db := groupDB{group: group, passwd: passwd}
