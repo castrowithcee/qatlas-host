@@ -26,7 +26,7 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 		Long: "add inspects the folder like 'source inspect', shows the case, the answer and the changes it would make,\n" +
 			"and applies them only after you confirm: at a terminal by answering the question, without a terminal\n" +
 			"with --yes. It never overwrites silently. A folder that is missing or empty is cloned from --url like\n" +
-			"'repo set' (and created with owner qhost:qhost and mode 0755 when missing); a clone with an origin\n" +
+			"'repo set' (and created with owner qhost-deploy:qhost-deploy and mode 0755 when missing); a clone with an origin\n" +
 			"remote is taken over with that address; a repository without a remote is bound as a local source; a\n" +
 			"folder with files and no repository gets a repository with a first commit of the listed files (branch\n" +
 			"main, as qhost, files left out only in .git/info/exclude, no file written) and is bound as a local\n" +

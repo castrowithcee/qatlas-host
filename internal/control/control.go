@@ -1012,7 +1012,7 @@ type SourceRemoveResult struct {
 // SourceAccess is the permission information of a folder. ModePath is the folder Mode belongs to: Path, or the
 // nearest existing parent while Path is missing. Owner and Group are empty when the id has no name.
 // ServiceCanWrite says the service may create files there; SetsPermissions says source add will then change the
-// permissions (group qhost, group write, setgid), which it does exactly when the service cannot write.
+// permissions (group qhost-deploy, group write, setgid), which it does exactly when the service cannot write.
 // GitWritable is set for an existing repository and says the service may write its .git folder.
 type SourceAccess struct {
 	ModePath        string `json:"mode_path"`

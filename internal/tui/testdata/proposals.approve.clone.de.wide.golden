@@ -12,7 +12,7 @@
     Ordner: /srv/new-example                                                                                            
                                                                                                                         
   Änderungen nach Ja                                                                                                    
-    Der Ordner wird mit Eigentümer qhost:qhost und Modus 0755 angelegt.                                                 
+    Der Ordner wird mit Eigentümer qhost-deploy:qhost-deploy und Modus 0755 angelegt.                                   
     Der Hostschlüssel wird gespeichert und das Repository in den Ordner geklont.                                        
     Keine Rechteänderung: Der Dienst kann bereits schreiben.                                                            
     Der Ordner wird in das systemd-Drop-in des Dienstes eingetragen, der einmal neu startet.                            

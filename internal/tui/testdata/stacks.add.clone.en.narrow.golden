@@ -16,8 +16,8 @@
     permissions are set: no                             
                                                         
   Changes after yes                                     
-    The folder is created with owner qhost:qhost and    
-    mode 0755.                                          
+    The folder is created with owner qhost-deploy:qhost-
+    deploy and mode 0755.                               
     The host key is stored and the repository is cloned 
     into the folder.                                    
     No permission changes: the service can write        
