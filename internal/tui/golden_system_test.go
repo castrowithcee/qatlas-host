@@ -210,3 +210,40 @@ func TestGoldenSystemFolderSystemConfirm(t *testing.T) {
 		send(m, "e", "f2")
 	})
 }
+
+// changesRead opens the changes page and reads the invented journal through the fake sudo.
+func changesRead(t *testing.T, m *Model) {
+	toChangesPage(t, m)
+	f := &fakeRoot{report: demoJournal}
+	m.root = f.hook()
+	readChanges(t, m, f)
+}
+
+func TestGoldenSystemChangesHint(t *testing.T) {
+	goldenSystem(t, "system.changes.hint", toChangesPage)
+}
+
+func TestGoldenSystemChangesList(t *testing.T) {
+	goldenSystem(t, "system.changes", changesRead)
+}
+
+func TestGoldenSystemUndoConfirm(t *testing.T) {
+	goldenSystem(t, "system.undo.confirm", func(t *testing.T, m *Model) {
+		changesRead(t, m)
+		send(m, "enter")
+	})
+}
+
+func TestGoldenSystemNoUndo(t *testing.T) {
+	goldenSystem(t, "system.undo.none", func(t *testing.T, m *Model) {
+		changesRead(t, m)
+		send(m, "down", "enter")
+	})
+}
+
+func TestGoldenSystemLog(t *testing.T) {
+	goldenSystem(t, "system.log", func(t *testing.T, m *Model) {
+		m.hostLog = demoHostLog()
+		toLogPage(t, m)
+	})
+}

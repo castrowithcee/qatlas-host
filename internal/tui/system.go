@@ -27,6 +27,8 @@ const (
 	pageUsers   systemPage = "users"
 	pageGroups  systemPage = "groups"
 	pageFolders systemPage = "folders"
+	pageChanges systemPage = "changes"
+	pageLog     systemPage = "log"
 )
 
 type systemEntry struct {
@@ -39,6 +41,8 @@ var systemPages = []systemEntry{
 	{pageUsers, textPageUsers},
 	{pageGroups, textPageGroups},
 	{pageFolders, textPageFolders},
+	{pageChanges, textPageChanges},
+	{pageLog, textPageLog},
 }
 
 // systemTabs are the sub-tabs of the System area.
@@ -71,8 +75,10 @@ type systemState struct {
 	// changes is the choice of a change for the user changeFor, nil while none is open.
 	changes   *kittui.List
 	changeFor hostadmin.User
-	// fold is the folders page.
+	// fold is the folders page, jrnl the changes page and hlog the log page.
 	fold folderPage
+	jrnl journalPage
+	hlog hostLogPage
 }
 
 // systemMsg carries a read of the account files.
@@ -103,11 +109,18 @@ func newSystem(keys *kittui.Keymap, text kittui.Translator) (*systemState, error
 		l.SetFocused(true)
 		l.SetGrouped(true)
 	}
+	s.jrnl.byID = map[kittui.ItemID]journalEntry{}
+	if s.jrnl.list, err = newJournalList(keys, text); err != nil {
+		return nil, err
+	}
+	if s.hlog.list, err = newHostLogList(keys, text); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
 // activeList is the list the System area shows: the choice of a change while it is open, else the list of the
-// page; nil on the folders page, which has none.
+// page; nil on the folders page, which has none, and on the changes and log pages before they were read.
 func (s *systemState) activeList() *kittui.List {
 	switch {
 	case s.changes != nil:
@@ -116,6 +129,16 @@ func (s *systemState) activeList() *kittui.List {
 		return s.groupList
 	case s.page == pageFolders:
 		return nil
+	case s.page == pageChanges:
+		if !s.jrnl.read {
+			return nil
+		}
+		return s.jrnl.list
+	case s.page == pageLog:
+		if !s.hlog.read {
+			return nil
+		}
+		return s.hlog.list
 	}
 	return s.userList
 }
@@ -293,6 +316,35 @@ func (m *Model) selectSystemTab(id kittui.TabID) tea.Cmd {
 	}
 	m.setZone(kittui.ZoneSubtabs)
 	m.sys.page, m.sys.changes = page, nil
+	return m.showSystemPage()
+}
+
+// showSystemPage starts what the page shown reads on its own. The action log is read when its page opens for the
+// first time and when the host was changed from here since. The journal is read on its own only by an interface
+// that runs as root, where no password is asked; otherwise r reads it.
+func (m *Model) showSystemPage() tea.Cmd {
+	s := m.sys
+	switch s.page {
+	case pageChanges:
+		if m.euid() == 0 && (!s.jrnl.read || s.jrnl.stale) {
+			return m.readJournal()
+		}
+	case pageLog:
+		if !s.hlog.read || s.hlog.stale {
+			return m.readHostLog()
+		}
+	}
+	return nil
+}
+
+// reloadSystemPage reads what the page shown holds beyond the accounts, as on r.
+func (m *Model) reloadSystemPage() tea.Cmd {
+	switch m.sys.page {
+	case pageChanges:
+		return m.readJournal()
+	case pageLog:
+		return m.readHostLog()
+	}
 	return nil
 }
 
@@ -337,6 +389,8 @@ func (m *Model) systemTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 		return m.openChanges(), true
 	case s.page == pageGroups:
 		return m.openGroupMembers(), true
+	case s.page == pageChanges:
+		return m.askUndo(), true
 	}
 	return nil, handled
 }
@@ -420,6 +474,10 @@ func (m *Model) systemFooter(common, nav []kittui.Hint) []kittui.Hint {
 		return append(own, common...)
 	case s.page == pageFolders:
 		return append(append(own, m.foldersFooter()...), common...)
+	case s.page == pageChanges:
+		return m.changesFooter(own, common, nav)
+	case s.page == pageLog:
+		return m.hostLogFooter(own, common, nav)
 	case s.page == pageUsers:
 		own = append(own, kittui.Hint{Action: actAdd, Label: textKeyNewUser, Priority: 3})
 		if _, ok := m.selectedUser(); ok {
@@ -468,6 +526,10 @@ func (m *Model) systemView(width, height int) string {
 		return m.listView(s.groupList, width, height, 0)
 	case pageFolders:
 		return m.foldersView(width, height)
+	case pageChanges:
+		return m.changesView(width, height)
+	case pageLog:
+		return m.hostLogView(width, height)
 	}
 	var detail []string
 	if u, ok := m.selectedUser(); ok {

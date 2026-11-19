@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
+   Users   Groups   Folders   Changes  [Log]                                    
+────────────────────────────────────────────────────────────────────────────────
+  Chain of hashes intact: 2 days with 42 entries checked.                       
+                                                                                
+  TIME                 USER  ACTION          RESULT              CHANGE         
+> 2026-11-02 09:05:00  ada   host.change     success             folder.set-per…
+  2026-11-02 09:04:00  root  control.refuse  failure: not-admin                 
+  2026-11-02 09:03:00  ada   log.list        success                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+/ search  r reload  1-7 area  q quit                             ↑/↓ choose  1/3

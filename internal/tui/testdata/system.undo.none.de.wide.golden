@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge  [7 ◎ System]        
+   Benutzer   Gruppen   Ordner  [Änderungen]  Protokoll                                                                 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ZEIT              VON   ÄNDERUNG                                                        ERGEBNIS            RÜCKGÄNGIG
+  2026-11-02 09:00  ada   Change /srv/media: owner cleo, group media; the owner gets re…  erledigt            möglich   
+> 2026-11-01 17:00  ada   Delete the user ben together with its home and mail spool.      erledigt            -         
+  2026-11-01 08:00  root  Lock cleo: no login is possible any more, with a password or …  rückgängig gemacht  -         
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Host ═══════════════════════════════════════════════════════╗                            
+                            ║ Nicht rückgängig gemacht: Delete the user ben together with  ║                            
+                            ║ its home and mail spool.                                     ║                            
+                            ║                                                              ║                            
+                            ║ Diese Änderung lässt sich nicht rückgängig machen, etwa ein  ║                            
+                            ║ gelöschtes Home oder ein Rückgängigmachen selbst.            ║                            
+                            ║                                                              ║                            
+                            ║ > schließen <                                                ║                            
+                            ║ n/esc/enter schließen                                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+╭─ 20261101T170000.000000Z-d4e5f6 ─────────────────────────────────────────────────────────────────────────────────────╮
+│ Diese Änderung lässt sich nicht rückgängig machen, etwa ein gelöschtes Home oder ein Rückgängigmachen selbst.        │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                     2/3

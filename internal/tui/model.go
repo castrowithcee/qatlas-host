@@ -88,6 +88,8 @@ type config struct {
 	// root runs commands as root for System; accounts are the account files it reads, nil for the real ones.
 	root     hostRoot
 	accounts *hostadmin.Host
+	// hostLog reads the action log of the host service for System; nil when the interface cannot reach it.
+	hostLog HostLog
 }
 
 // tickMsg starts a periodic refresh.
@@ -189,6 +191,8 @@ type Model struct {
 	accounts *hostadmin.Host
 	hostReg  *hostchange.Registry
 	human    func() int
+	// hostLog reads the action log of the host service; nil when the interface cannot reach it.
+	hostLog HostLog
 	// parts are the widgets the last workspace drawing registered, in workspace cells; mouseParts are those of
 	// the frame on the screen, in screen cells.
 	parts, mouseParts []mousePart
@@ -214,7 +218,7 @@ func newModel(c config) (*Model, error) {
 		runTones: map[string]kittui.TextStyle{}, runByID: map[kittui.ItemID]runRow{}, after: tea.Tick,
 		ctTones: map[string]kittui.TextStyle{}, ctNames: map[kittui.ItemID]string{},
 		propTones: map[string]kittui.TextStyle{}, propByID: map[kittui.ItemID]control.ProposalInfo{},
-		euid: defaultEuid, makeDirs: defaultMakeDirs, mouseOn: c.mouse, root: c.root, accounts: c.accounts}
+		euid: defaultEuid, makeDirs: defaultMakeDirs, mouseOn: c.mouse, root: c.root, accounts: c.accounts, hostLog: c.hostLog}
 	if m.ctx == nil {
 		m.ctx = context.Background()
 	}
@@ -304,7 +308,7 @@ func (m *Model) Init() tea.Cmd {
 		cmds = append(cmds, m.startContainers())
 	}
 	if m.area == areaSystem {
-		cmds = append(cmds, m.loadSystem(false))
+		cmds = append(cmds, m.loadSystem(false), m.showSystemPage())
 	}
 	if m.themes.AsksTerminalColors(m.theme, m.profile) {
 		cmds = append(cmds, tea.RequestForegroundColor, tea.RequestBackgroundColor)
@@ -372,6 +376,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applySystem(msg)
 	case folderMsg:
 		m.applyFolder(msg)
+	case hostLogMsg:
+		m.applyHostLog(msg)
+	case hostVerifyMsg:
+		m.applyHostVerify(msg)
 	case hostRanMsg:
 		m.sys.busy = false
 		return m, msg.after(msg.out, msg.err)
@@ -853,7 +861,7 @@ func (m *Model) reloadAll() tea.Cmd {
 	case m.area == areaSettings:
 		cmds = append(cmds, m.loadPage(true))
 	case m.area == areaSystem:
-		cmds = append(cmds, m.loadSystem(true))
+		cmds = append(cmds, m.loadSystem(true), m.reloadSystemPage())
 	case m.area == areaRuns && m.log.open && !m.log.busy:
 		m.log.busy = true
 		cmds = append(cmds, m.readLog())
@@ -892,7 +900,7 @@ func (m *Model) enter(area kittui.AreaID) tea.Cmd {
 	case areaSettings:
 		return m.showPage(false)
 	case areaSystem:
-		return m.loadSystem(true)
+		return tea.Batch(m.loadSystem(true), m.showSystemPage())
 	}
 	return nil
 }
@@ -936,7 +944,7 @@ func (m *Model) setZone(z kittui.FocusZone) {
 		lists = append(lists, m.set.credList, m.set.notifyList)
 	}
 	if m.sys != nil {
-		lists = append(lists, m.sys.userList, m.sys.groupList, m.sys.changes)
+		lists = append(lists, m.sys.userList, m.sys.groupList, m.sys.changes, m.sys.jrnl.list, m.sys.hlog.list)
 	}
 	if m.pick != nil {
 		lists = append(lists, m.pick.list)

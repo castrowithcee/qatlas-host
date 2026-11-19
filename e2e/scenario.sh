@@ -602,6 +602,96 @@ scenario_tui_system() {
 	log "scenario: the interface without sudo created $ts_group and $ts_user in it through sudo; qhost host users shows both"
 }
 
+# scenario_tui_changes proves System > Folders, Changes and Log of the interface started without sudo. The
+# administrator takes the permissions of everyone else from a test folder through sudo qhost host apply; Changes reads
+# the journal through sudo qhost host journal on r and lists the change; its undo through sudo qhost host undo brings
+# back owner, group and mode, as stat shows; Log shows the change of the host under an intact chain of hashes. The
+# rule of $admin lets sudo run a command without the password, so none is asked here.
+scenario_tui_changes() {
+	tui_log=$work/tui-changes-screens.log
+	: >"$tui_log"
+	tc_dir=/home/$admin/e2e-tui-folder
+	as_admin "rm -rf '$tc_dir' && mkdir '$tc_dir' && chmod 0755 '$tc_dir' && touch '$tc_dir/note.txt'" || fail 'cannot make the test folder'
+	tc_before=$(as_admin "stat -c %U:%G:%a '$tc_dir'")
+	[ "${tc_before##*:}" = 755 ] || fail "the test folder starts as $tc_before, want the mode 755"
+
+	step 'the interface without sudo takes the permissions of everyone else from a folder on System > Folders'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 7
+	tui_wait 'DOCKER' 15
+	tui_system_tab Folders
+	tui_wait 'to choose a folder' 10
+	tui_send Enter
+	tui_wait 'Type the absolute path of the folder.' 10
+	tui_type "$tc_dir"
+	tui_send Enter
+	tui_wait "Owner $admin may: read and write" 10
+	tui_has 'Everyone else may: read' || fail "the folder does not show that everyone else may read: $(tui_screen)"
+	tui_send e
+	tui_wait 'Everyone else may' 10
+	tui_send Down Down Down Down
+	sleep 0.2
+	tui_send Left
+	sleep 0.2
+	tui_send F2
+	tui_wait 'everyone else nothing.' 10
+	tui_has 'chmod' || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	tui_wait "Done: Change $tc_dir" 60
+	tui_send Enter
+	[ "$(as_admin "stat -c %a '$tc_dir'")" = 750 ] || fail "the folder has the mode $(as_admin "stat -c %a '$tc_dir'") after the change, want 750"
+
+	step 'System > Changes reads the journal through sudo on r and lists the change of the folder'
+	tui_system_tab Changes
+	tui_wait 'only root can read' 10
+	tui_send r
+	tui_wait "Change $tc_dir" 60
+	i=0
+	until tui_screen | grep "^> " | grep -q "Change $tc_dir"; do
+		i=$((i + 1))
+		[ "$i" -lt 20 ] || fail "the newest change is not the change of $tc_dir under the cursor: $(tui_screen)"
+		sleep 0.25
+	done
+	tui_screen | grep "^> " | grep -q possible || fail "the change of $tc_dir offers no undo: $(tui_screen)"
+	tui_has 'Undo: Restore the previous owner, group and permissions' || fail "the undo of the change is not shown: $(tui_screen)"
+
+	step 'the undo through sudo qhost host undo restores owner, group and mode of the folder'
+	tui_send Enter
+	tui_wait 'Undo the change: Change' 10
+	# The dialog wraps its text, so the sentence may stand on two lines.
+	{ tui_has 'The undo itself' && tui_has 'cannot be undone.'; } || fail "the question does not say that the undo cannot be undone: $(tui_screen)"
+	tui_has 'chown -h --' || fail "the question does not show the commands of the undo: $(tui_screen)"
+	tui_send y
+	tui_wait 'Done: Undo the change' 60
+	tui_send Enter
+	tc_after=$(as_admin "stat -c %U:%G:%a '$tc_dir'")
+	[ "$tc_after" = "$tc_before" ] || fail "the undo left the folder as $tc_after, want $tc_before"
+	i=0
+	until tui_screen | grep "Change $tc_dir" | grep -q undone; do
+		i=$((i + 1))
+		[ "$i" -lt 20 ] || fail "the undone change is not shown as undone: $(tui_screen)"
+		sleep 0.25
+	done
+	journal=$(as_admin 'sudo qhost --output json host journal 2>&1') || fail "sudo qhost host journal failed: $journal"
+	printf '%s' "$journal" | tr -d ' \n' | grep -q '"result":"undone"' || fail "the journal does not mark the change undone: $journal"
+
+	step 'System > Log shows the change of the host under an intact chain of hashes'
+	tui_system_tab Log
+	tui_wait 'Chain of hashes intact' 30
+	tui_has 'host.change' || fail "the log does not show the change of the host: $(tui_screen)"
+	tui_has 'folder.set-permissions' || fail "the log does not name the action of the change: $(tui_screen)"
+	tui_send Escape
+	tui_send q
+	tui_wait 'qhost-exit=0' 10
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the changes from the interface: $out"
+	as_admin "rm -rf '$tc_dir'"
+	log "scenario: the interface without sudo changed $tc_dir to 750, listed the change on Changes and undid it back to $tc_before"
+}
+
 # service_log_warn_count prints how many entries of the service log at the level warn or above say that the window
 # could not read the stacks, read as the administrator without sudo.
 service_log_warn_count() {
@@ -1652,6 +1742,7 @@ scenario_stacks_repo() {
 	scenario_host_service
 	scenario_host_changes
 	scenario_tui_system
+	scenario_tui_changes
 	url=git.$domain:stacks.git
 
 	scenario_service_log
