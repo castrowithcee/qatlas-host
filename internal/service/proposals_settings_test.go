@@ -12,7 +12,7 @@ const okSettings = `{"stack":"web","settings":{"version":1,"update":{"mode":"aut
 
 func settingsHarness(t *testing.T) *proposalHarness {
 	h := newProposalHarness(t)
-	h.p.stackKnown = func(name string) bool { return name == "web" }
+	h.hooks.stackKnown = func(name string) bool { return name == "web" }
 	return h
 }
 

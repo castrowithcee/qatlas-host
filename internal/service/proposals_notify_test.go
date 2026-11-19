@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -73,9 +74,8 @@ func TestNotifyChannelProposalRefusals(t *testing.T) {
 			}
 		})
 	}
-	all, _ := h.p.load()
-	if len(all) != 0 {
-		t.Fatalf("a refused proposal was stored: %d", len(all))
+	if entries, _ := os.ReadDir(h.dir); len(entries) != 0 {
+		t.Fatalf("a refused proposal was stored: %d", len(entries))
 	}
 }
 
@@ -88,7 +88,7 @@ func TestNotifyChannelProposalNeverStoresASecret(t *testing.T) {
 
 func TestNotifyChannelProposalRefusesATakenName(t *testing.T) {
 	h := newProposalHarness(t)
-	h.p.channelKnown = func(name string) (bool, error) { return name == "hook", nil }
+	h.hooks.channelKnown = func(name string) (bool, error) { return name == "hook", nil }
 	_, err := h.submit(admin, control.ProposalKindNotifyChannel, `{"name":"hook","type":"webhook"}`)
 	if codeOf(t, err) != control.CodeInvalid || !strings.Contains(err.Error(), "exists") {
 		t.Fatalf("err = %v", err)
@@ -96,7 +96,7 @@ func TestNotifyChannelProposalRefusesATakenName(t *testing.T) {
 	if _, err := h.submit(admin, control.ProposalKindNotifyChannel, `{"name":"other","type":"webhook"}`); err != nil {
 		t.Fatal(err)
 	}
-	h.p.channelKnown = func(string) (bool, error) { return false, errors.New("unreadable") }
+	h.hooks.channelKnown = func(string) (bool, error) { return false, errors.New("unreadable") }
 	_, err = h.submit(admin, control.ProposalKindNotifyChannel, `{"name":"third","type":"webhook"}`)
 	if codeOf(t, err) != control.CodeInternal {
 		t.Fatalf("err = %v", err)

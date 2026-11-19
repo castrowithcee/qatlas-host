@@ -126,6 +126,12 @@ func TestArchitecture(t *testing.T) {
 			Hint:  "the host service knows the wire protocol, the administrator check and the action log, and nothing of the deploy part, the command surface or the changes of the host",
 		},
 		{
+			Name:  "proposals-know-the-protocol-only",
+			Files: archtest.Files{Under: []string{"internal/proposals"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports("internal/control"),
+			Hint:  "the proposal store is shared by both services and knows neither, nor any kind of proposal",
+		},
+		{
 			Name:  "admins-know-the-protocol-only",
 			Files: archtest.Files{Under: []string{"internal/admins"}, Tests: archtest.WithTests},
 			Check: archtest.AllowImports("internal/control"),
