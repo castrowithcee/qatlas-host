@@ -1,0 +1,325 @@
+package cli
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/castrowithcee/qatlas-kit/cli"
+	"github.com/castrowithcee/qatlas-kit/cobracli"
+	"github.com/castrowithcee/qatlas-kit/output"
+	"github.com/castrowithcee/qatlas-kit/redact"
+
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
+)
+
+// maxSecretInput bounds what apply reads from standard input.
+const maxSecretInput = 64 << 10
+
+// codeChangeRefused marks a change that a protection rule or the state of the host refused before anything ran.
+const codeChangeRefused output.Code = "change-refused"
+
+// changeEnv is everything apply, undo and journal take from the host. Production code never changes it; tests
+// replace it so that no real change is made.
+var changeEnv = changeEnvironment{
+	registry: hostchange.Default, exec: hostchange.SystemExecutor{},
+	journalDir: hostchange.DefaultJournalDir, now: time.Now, sudoUID: sudoUID, record: recordChange,
+}
+
+type changeEnvironment struct {
+	registry func() *hostchange.Registry
+	exec     hostchange.Executor
+	// journalDir and ownerUID name the journal and the user that must own it; root owns it.
+	journalDir string
+	ownerUID   int
+	now        func() time.Time
+	// sudoUID is the human behind the sudo call, 0 when unknown.
+	sudoUID func() int
+	// record hands a finished change to the action log of the host service.
+	record hostchange.Recorder
+}
+
+// sudoUID reads SUDO_UID strictly: plain decimal digits without sign, space or leading zero. Anything else,
+// and a missing variable, counts as 0, the narrow reading that root itself made the change; the journal
+// and the audit entry then name root rather than a guessed user.
+func sudoUID() int {
+	text := os.Getenv("SUDO_UID")
+	if text == "" || (len(text) > 1 && text[0] == '0') {
+		return 0
+	}
+	uid, err := strconv.ParseUint(text, 10, 31)
+	if err != nil {
+		return 0
+	}
+	return int(uid)
+}
+
+// recordChange hands a finished change to the action log of the host service. Only a final result is
+// recorded; the sentence and the commands stay in the journal.
+func recordChange(a hostchange.AuditEntry) error {
+	args := control.HostRecordArgs{Action: a.Action, Result: a.Result, SudoUID: uint32(a.SudoUID), JournalID: a.ID, UndoOf: a.UndoOf}
+	err := call(context.Background(), hostEndpoint(), control.HostRecordCommand, args, nil)
+	if errors.Is(err, client.ErrNotRunning) {
+		return errors.New("the host service is not running")
+	}
+	return err
+}
+
+func (e changeEnvironment) runner(j *hostchange.Journal) *hostchange.Runner {
+	return &hostchange.Runner{
+		Registry: e.registry(), Journal: j, Exec: e.exec, Now: e.now, SudoUID: e.sudoUID(), Record: e.record,
+	}
+}
+
+func (e changeEnvironment) openJournal() (*hostchange.Journal, error) {
+	return hostchange.OpenJournal(e.journalDir, e.ownerUID)
+}
+
+func requireRoot(action string) error {
+	if hostEnv.euid() != 0 {
+		return &cli.Failure{Code: output.CodePermission, Message: action + " must run as root",
+			NextStep:      "Repeat the command with sudo.",
+			AgentNextStep: "Do not run this yourself; ask the user to run it with sudo."}
+	}
+	return nil
+}
+
+// changeFailed is a change that did not stand, or an error around it.
+func changeFailed(err error) error {
+	return &cli.Failure{Code: output.CodeRuntime, Message: err.Error(), Cause: err,
+		NextStep:      "Read the report and the journal entry for what ran, then fix the cause before repeating the change.",
+		AgentNextStep: "The change did not stand. Do not repeat it; tell the user what failed."}
+}
+
+func newHostApplyCommand(program *cobracli.Program, secrets *redact.Redactor) *cobra.Command {
+	var gate *cobracli.Gate
+	cmd := &cobra.Command{
+		Use:   "apply <action-id> [args...]",
+		Short: "Change the host with a registered action (needs root)",
+		Long: "Runs one registered action as root: records the previous state in the journal, runs the commands,\n" +
+			"checks the result and restores the previous state when the change or its check fails, then reports it\n" +
+			"to the action log of the host service. A secret input (a password, an SSH key) is read from standard\n" +
+			"input only, never from an argument. A protection rule refuses a change before anything runs. It needs\n" +
+			"--confirm; there is no question here. See 'qhost help host-admin' for the actions.",
+		Args: func(_ *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return errNoAction
+			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := requireRoot("host apply"); err != nil {
+				return err
+			}
+			return gate.Run(cobracli.Request{Changes: true}, func() error { return applyChange(c, program, secrets, args) })
+		},
+	}
+	gate = program.AddGate(cmd, cobracli.Gates{Change: true})
+	return cmd
+}
+
+func applyChange(c *cobra.Command, program *cobracli.Program, secrets *redact.Redactor, args []string) error {
+	def, ok := changeEnv.registry().Lookup(args[0])
+	if !ok {
+		return usageFailure(fmt.Sprintf("unknown action %q", args[0]), "Use an action id that 'qhost help host-admin' lists.")
+	}
+	var secret []byte
+	if def.WantsSecret {
+		var err error
+		if secret, err = readChangeSecret(stdinStream()); err != nil {
+			return err
+		}
+		secrets.Add(string(secret))
+		var in hostchange.CreateInput
+		if json.Unmarshal(secret, &in) == nil && in.Password != "" {
+			secrets.Add(in.Password)
+		}
+	}
+	journal, err := changeEnv.openJournal()
+	if err != nil {
+		return changeFailed(fmt.Errorf("host apply: %w", err))
+	}
+	res, err := changeEnv.runner(journal).Apply(c.Context(), args[0], args[1:], secret)
+	if err != nil {
+		if refused, ok := refusedChange(c, program, args[0], err); ok {
+			return refused
+		}
+		var arg *hostchange.ArgumentError
+		if errors.As(err, &arg) {
+			return usageFailure(err.Error(), "Correct the arguments of the action.")
+		}
+		return changeFailed(fmt.Errorf("host apply: %w", err))
+	}
+	return finishChange(c, program, res)
+}
+
+func newHostUndoCommand(program *cobracli.Program) *cobra.Command {
+	var gate *cobracli.Gate
+	cmd := &cobra.Command{
+		Use:   "undo <journal-id>",
+		Short: "Undo a journaled change of the host (needs root)",
+		Long: "Runs the inverse of a reversible change as root, with the same protection rules, check and restore\n" +
+			"as 'host apply', records the undo as a new journal entry and reports it to the action log. It needs\n" +
+			"--confirm; there is no question here.",
+		Args: exactlyOne("journal id"),
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := requireRoot("host undo"); err != nil {
+				return err
+			}
+			return gate.Run(cobracli.Request{Changes: true}, func() error {
+				journal, err := changeEnv.openJournal()
+				if err != nil {
+					return changeFailed(fmt.Errorf("host undo: %w", err))
+				}
+				res, err := changeEnv.runner(journal).Undo(c.Context(), args[0])
+				if err != nil {
+					if refused, ok := refusedChange(c, program, "", err); ok {
+						return refused
+					}
+					return changeFailed(fmt.Errorf("host undo: %w", err))
+				}
+				return finishChange(c, program, res)
+			})
+		},
+	}
+	gate = program.AddGate(cmd, cobracli.Gates{Change: true})
+	return cmd
+}
+
+func newHostJournalCommand(program *cobracli.Program) *cobra.Command {
+	return &cobra.Command{
+		Use:   "journal",
+		Short: "List the latest changes of the host (needs root)",
+		Long: fmt.Sprintf("Lists the latest %d changes, newest first, with what an undo of each would do. The journal is readable by\n"+
+			"root only.", hostchange.KeepEntries),
+		Args: cobra.NoArgs,
+		RunE: func(c *cobra.Command, _ []string) error {
+			if err := requireRoot("host journal"); err != nil {
+				return err
+			}
+			journal, err := changeEnv.openJournal()
+			if err != nil {
+				return hostError("host journal", err)
+			}
+			entries, err := journal.List()
+			if err != nil {
+				return hostError("host journal", err)
+			}
+			registry := changeEnv.registry()
+			result := output.Collection{Columns: []string{"id", "time", "action", "sentence", "result", "reversible",
+				"sudo_uid", "undo_sentence", "undo_commands"}}
+			for _, e := range entries {
+				reversible := e.Reversible && e.Result == hostchange.ResultApplied && e.UndoneBy == ""
+				undoSentence, undoCommands := undoPlan(registry, e, reversible)
+				result.Rows = append(result.Rows, output.Row{
+					"id": e.ID, "time": e.Time.UTC().Format(time.RFC3339), "action": e.Action, "sentence": e.Sentence,
+					"result": e.Result, "reversible": reversible, "sudo_uid": int64(e.SudoUID),
+					"undo_sentence": undoSentence, "undo_commands": listValueSep(program, undoCommands, "; "),
+				})
+			}
+			return output.Encode(c.OutOrStdout(), program.Format(), result)
+		},
+	}
+}
+
+// undoPlan is the text of the undo of a reversible entry: the sentence and the displayed commands of its
+// inverse, secrets as placeholders. An inverse that cannot be built leaves both empty, so no undo is offered.
+func undoPlan(registry *hostchange.Registry, e hostchange.Entry, reversible bool) (string, []string) {
+	def, ok := registry.Lookup(e.Action)
+	if !reversible || !ok || def.Inverse == nil {
+		return "", []string{}
+	}
+	plan, err := def.Inverse(e.Previous)
+	if err != nil {
+		return "", []string{}
+	}
+	commands := make([]string, len(plan.Commands))
+	for i, c := range plan.Commands {
+		commands[i] = c.Display()
+	}
+	return plan.Sentence, commands
+}
+
+// refusedChange reports a change that a rule refused before anything ran: the report object with the result
+// "refused" and the reason, then an error for the exit code. No journal entry exists for it.
+func refusedChange(c *cobra.Command, program *cobracli.Program, action string, err error) (error, bool) {
+	var refusal *hostchange.RefusedError
+	if !errors.As(err, &refusal) {
+		return nil, false
+	}
+	if emitErr := output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
+		{Name: "journal_id", Value: ""},
+		{Name: "action", Value: action},
+		{Name: "sentence", Value: ""},
+		{Name: "commands", Value: listValue(program, nil)},
+		{Name: "result", Value: hostchange.ResultRefused},
+		{Name: "check", Value: ""},
+		{Name: "check_error", Value: ""},
+		{Name: "restored", Value: false},
+		{Name: "reversible", Value: false},
+		{Name: "error", Value: refusal.Msg},
+		{Name: "warning", Value: ""},
+	}}); emitErr != nil {
+		return emitErr, true
+	}
+	return &cli.Failure{Code: codeChangeRefused, Message: "refused: " + refusal.Msg, Cause: err,
+		NextStep:      "Nothing was changed. Choose another target or action, or fix what the reason names.",
+		AgentNextStep: "Nothing ran. Do not try to work around the rule; tell the user the reason."}, true
+}
+
+// finishChange prints the report. A change that did not stand is an error after the report, so that the exit
+// code tells the caller and the report still arrives on standard output. A change that stands but has no entry
+// in the action log says so on standard error and in the report.
+func finishChange(c *cobra.Command, program *cobracli.Program, res hostchange.Result) error {
+	e := res.Entry
+	if err := output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
+		{Name: "journal_id", Value: e.ID},
+		{Name: "action", Value: e.Action},
+		{Name: "sentence", Value: e.Sentence},
+		{Name: "commands", Value: listValueSep(program, e.Commands, "; ")},
+		{Name: "result", Value: e.Result},
+		{Name: "check", Value: e.Check},
+		{Name: "check_error", Value: e.CheckError},
+		{Name: "restored", Value: e.Restored},
+		{Name: "reversible", Value: e.Reversible},
+		{Name: "error", Value: e.Error},
+		{Name: "warning", Value: res.Warning},
+	}}); err != nil {
+		return err
+	}
+	if res.Warning != "" {
+		fmt.Fprintf(c.ErrOrStderr(), "warning: %s\n", res.Warning)
+	}
+	switch e.Result {
+	case hostchange.ResultApplied:
+		return nil
+	case hostchange.ResultRestored:
+		return changeFailed(fmt.Errorf("the change did not succeed and the previous state is back: %s", e.Error))
+	}
+	return changeFailed(fmt.Errorf("the change did not succeed: %s", e.Error))
+}
+
+func readChangeSecret(in io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(in, maxSecretInput+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxSecretInput {
+		return nil, usageFailure("the secret input on standard input is too long", "Provide a shorter secret on standard input.")
+	}
+	data = bytes.TrimSuffix(data, []byte("\n"))
+	if len(data) == 0 {
+		return nil, usageFailure("this action reads its secret from standard input, which is empty", "Provide the secret on standard input.")
+	}
+	return data, nil
+}

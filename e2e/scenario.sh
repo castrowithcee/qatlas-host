@@ -8,7 +8,9 @@
 # state, that the two services cannot reach each other's state, and that an administrator of the group reads
 # status without sudo while a change needs root. The host service serves an administrator of the group without sudo,
 # answers a user of the group without sudo not-admin, turns away a user outside the group and a revoked administrator,
-# and the check of its action log reports a changed line. Then bind the stacks repository with its own deploy key, list the
+# and the check of its action log reports a changed line. Changes of the host follow: sudo qhost host apply changes the
+# permissions of a folder, the journal shows it, the undo restores them and the action log names the person behind
+# sudo; a user is created, put in a group, locked and deleted, and the protection rules refuse the rest. Then bind the stacks repository with its own deploy key, list the
 # stacks, deploy a new commit, show the available image versions per update ceiling without changing anything,
 # roll back a commit with a failing healthcheck (data restored from the run's backup, revert commit on the
 # remote), leave a stack whose rollback fails stopped and paused until resume, and refuse a changed host key of the git server.
@@ -362,6 +364,126 @@ scenario_host_service() {
 	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the line was restored: $out"
 	if printf '%s' "$out" | grep -q 'broken'; then fail "qhost audit verify still reports a broken day: $out"; fi
 	[ "$(docker exec "$host" stat -c %U:%a "$file")" = qhost:600 ] || fail 'the day file lost its owner or mode'
+}
+
+# host_audit_rows prints the host changes of the action log as JSON with every space and line break removed.
+host_audit_rows() {
+	as_admin 'qhost --output json audit --action host.change --limit 100' | tr -d ' \n'
+}
+
+# scenario_host_changes proves the changes of the host through the CLI. A folder gets other permissions with sudo
+# qhost host apply, the journal lists the change with what its undo does, the undo brings the permissions back, and
+# the action log names the journal entry and the person behind sudo for both. A user is created with its password on
+# standard input only, put in a group, locked and deleted, with the group deleted after it. The protection rules
+# refuse changing one's own account and the group sudo, a change needs root and --confirm, and neither the
+# password nor anything else secret reaches the journal or the action log. It runs after the setup, when the host
+# service keeps the action log.
+scenario_host_changes() {
+	step 'a change of the host needs root and --confirm, and the journal is closed to everyone else'
+	dir=/home/$admin/e2e-host-folder
+	grp=$(as_admin 'id -gn')
+	as_admin "rm -rf '$dir' && mkdir '$dir' && chmod 0755 '$dir'" || fail 'cannot make the test folder'
+	if out=$(as_admin "qhost host apply folder.set-permissions '$dir' $admin $grp read-write read nothing --confirm 2>&1"); then
+		fail "host apply without root succeeded: $out"
+	fi
+	printf '%s' "$out" | grep -q 'must run as root' || fail "host apply without root does not say that it needs root: $out"
+	if out=$(as_admin 'qhost host journal 2>&1'); then fail "host journal without root succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'must run as root' || fail "host journal without root does not say that it needs root: $out"
+	if out=$(as_admin "sudo qhost host apply folder.set-permissions '$dir' $admin $grp read-write read nothing 2>&1"); then
+		fail "host apply without --confirm succeeded: $out"
+	fi
+	printf '%s' "$out" | grep -q -- '--confirm' || fail "host apply without --confirm does not name the flag: $out"
+	[ "$(as_admin "stat -c %a '$dir'")" = 755 ] || fail 'a refused change touched the folder'
+	reader=$(as_user e2e-hostreader 'qhost host users 2>&1 || true')
+	printf '%s' "$reader" | grep -q 'qhost is reserved for administrators (sudo)' || fail "e2e-hostreader reads the users of the host: $reader"
+	out=$(as_admin 'qhost --output json host users 2>&1') || fail "qhost host users without sudo failed for an administrator: $out"
+	printf '%s' "$out" | grep -q "\"name\": *\"$admin\"" || fail "qhost host users does not list $admin: $out"
+	out=$(as_admin "qhost --output json host folder '$dir' 2>&1") || fail "qhost host folder failed: $out"
+	printf '%s' "$out" | grep -q '"mode": *"[0-7]*755"' || fail "qhost host folder does not show the mode 755: $out"
+
+	step 'sudo qhost host apply folder.set-permissions changes the permissions, the journal shows the entry and the undo restores them'
+	admin_uid=$(docker exec "$host" id -u "$admin")
+	out=$(as_admin "sudo qhost --output json host apply folder.set-permissions '$dir' $admin $grp read-write read nothing --confirm 2>&1") ||
+		fail "host apply folder.set-permissions failed: $out"
+	change_id=$(json_value "$(printf '%s' "$out" | tr -d ' \n')" journal_id)
+	[ -n "$change_id" ] || fail "host apply reports no journal entry: $out"
+	printf '%s' "$out" | tr -d ' \n' | grep -q '"result":"applied"' || fail "host apply does not report the result applied: $out"
+	printf '%s' "$out" | tr -d ' \n' | grep -q '"warning":""' || fail "host apply warns although the host service runs: $out"
+	[ "$(as_admin "stat -c %a '$dir'")" = 750 ] || fail "the folder has the mode $(as_admin "stat -c %a '$dir'") after the change, want 750"
+	journal=$(as_admin 'sudo qhost --output json host journal 2>&1') || fail "sudo qhost host journal failed: $journal"
+	flat=$(printf '%s' "$journal" | tr -d ' \n')
+	printf '%s' "$flat" | grep -q "\"id\":\"$change_id\"" || fail "the journal does not list $change_id: $journal"
+	printf '%s' "$flat" | grep -q "\"action\":\"folder.set-permissions\"" || fail "the journal does not name the action: $journal"
+	printf '%s' "$flat" | grep -q "\"sudo_uid\":$admin_uid" || fail "the journal does not name the user behind sudo ($admin_uid): $journal"
+	printf '%s' "$flat" | grep -q '"reversible":true' || fail "the journal does not offer the undo: $journal"
+	[ "$(docker exec "$host" stat -c %U:%a /var/lib/qhost-host/journal)" = root:700 ] ||
+		fail "the journal folder is $(docker exec "$host" stat -c %U:%a /var/lib/qhost-host/journal), want root:700"
+	[ "$(docker exec "$host" stat -c %U:%a "/var/lib/qhost-host/journal/$change_id.json")" = root:600 ] ||
+		fail 'the journal entry is not root:600'
+	out=$(as_admin "sudo qhost --output json host undo $change_id --confirm 2>&1") || fail "host undo failed: $out"
+	undo_id=$(json_value "$(printf '%s' "$out" | tr -d ' \n')" journal_id)
+	[ -n "$undo_id" ] && [ "$undo_id" != "$change_id" ] || fail "host undo reports no new journal entry: $out"
+	[ "$(as_admin "stat -c %a '$dir'")" = 755 ] || fail "the undo left the mode $(as_admin "stat -c %a '$dir'"), want 755"
+	if out=$(as_admin "sudo qhost host undo $change_id --confirm 2>&1"); then fail "a second undo succeeded: $out"; fi
+	log "scenario: folder.set-permissions $change_id changed 755 to 750, undo $undo_id restored 755"
+
+	step 'the action log names the person behind sudo and the journal entry of the change and of its undo'
+	rows=$(host_audit_rows)
+	printf '%s' "$rows" | grep -q "\"client_uid\":$admin_uid,\"action\":\"host.change\",\"result\":\"success\"[^}]*\"change\":\"folder.set-permissions$change_id\"" ||
+		fail "the action log does not record $change_id for uid $admin_uid: $rows"
+	printf '%s' "$rows" | grep -q "\"client_uid\":$admin_uid,\"action\":\"host.change\",\"result\":\"success\"[^}]*\"change\":\"folder.set-permissions${undo_id}undoof$change_id\"" ||
+		fail "the action log does not record the undo $undo_id of $change_id for uid $admin_uid: $rows"
+	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the changes: $out"
+	as_admin "rm -rf '$dir'"
+
+	step 'the protection rules refuse changing the own account, the group sudo and a system path, and leave no journal entry'
+	before=$(docker exec "$host" sh -c 'ls /var/lib/qhost-host/journal | wc -l')
+	for refused in "user.lock $admin|you cannot lock yourself" "user.delete $admin|you cannot delete your own account" \
+		"user.set-admin $admin off|from yourself" "group.delete sudo|" "group.delete qhost|" "folder.set-permissions /etc $admin $grp read-write read nothing|system path"; do
+		args=${refused%%|*}
+		want=${refused#*|}
+		if out=$(as_admin "sudo qhost --output json host apply $args --confirm 2>&1"); then fail "the rule did not refuse 'host apply $args': $out"; fi
+		printf '%s' "$out" | tr -d ' \n' | grep -q '"result":"refused"' || fail "'host apply $args' is not reported as refused: $out"
+		[ -z "$want" ] || printf '%s' "$out" | grep -q "$want" || fail "'host apply $args' does not give the reason '$want': $out"
+	done
+	[ "$(docker exec "$host" sh -c 'ls /var/lib/qhost-host/journal | wc -l')" = "$before" ] || fail 'a refused change wrote a journal entry'
+	[ "$(docker exec "$host" stat -c %a /etc)" = 755 ] || fail 'a refused change touched /etc'
+	docker exec "$host" getent group sudo >/dev/null || fail 'the group sudo is gone'
+
+	step 'a user is created with the password on standard input, put in a group, locked and deleted'
+	pw=E2e-demo-Pw-7731
+	docker exec "$host" sh -c 'id e2e-hostuser >/dev/null 2>&1 && userdel -r e2e-hostuser; getent group e2e-hostgroup >/dev/null && groupdel e2e-hostgroup; rm -rf /home/e2e-hostuser; true'
+	out=$(printf '{"password":"%s"}' "$pw" | docker exec -i -u "$admin" "$host" sudo qhost --output json host apply user.create e2e-hostuser --confirm 2>&1) ||
+		fail "host apply user.create failed: $out"
+	printf '%s' "$out" | tr -d ' \n' | grep -q '"result":"applied"' || fail "user.create is not reported as applied: $out"
+	if printf '%s' "$out" | grep -q "$pw"; then fail "the report of user.create shows the password: $out"; fi
+	docker exec "$host" id e2e-hostuser >/dev/null || fail 'the user e2e-hostuser does not exist after user.create'
+	out=$(as_admin 'qhost --output json host user e2e-hostuser 2>&1') || fail "qhost host user failed: $out"
+	printf '%s' "$out" | grep -q '"name": *"e2e-hostuser"' || fail "qhost host user does not show the new user: $out"
+	out=$(as_admin 'sudo qhost --output json host apply group.create e2e-hostgroup --confirm 2>&1') || fail "host apply group.create failed: $out"
+	out=$(as_admin 'sudo qhost --output json host apply user.add-groups e2e-hostuser e2e-hostgroup --confirm 2>&1') || fail "host apply user.add-groups failed: $out"
+	docker exec "$host" id -nG e2e-hostuser | tr ' ' '\n' | grep -qx e2e-hostgroup || fail "e2e-hostuser is not in e2e-hostgroup: $(docker exec "$host" id -nG e2e-hostuser)"
+	out=$(as_admin 'qhost --output json host group e2e-hostgroup 2>&1') || fail "qhost host group failed: $out"
+	printf '%s' "$out" | tr -d ' \n' | grep -q '"members":\[[^]]*"e2e-hostuser"' || fail "qhost host group does not list e2e-hostuser: $out"
+	out=$(as_admin 'sudo qhost --output json host apply user.lock e2e-hostuser --confirm 2>&1') || fail "host apply user.lock failed: $out"
+	out=$(as_admin 'sudo qhost --output json host user e2e-hostuser 2>&1') || fail "sudo qhost host user failed: $out"
+	printf '%s' "$out" | grep -q '"locked": *true' || fail "e2e-hostuser is not shown as locked: $out"
+	[ "$(docker exec "$host" passwd -S e2e-hostuser | cut -d ' ' -f 2)" = L ] || fail 'passwd does not report e2e-hostuser as locked'
+	out=$(as_admin 'sudo qhost --output json host apply user.delete e2e-hostuser --confirm 2>&1') || fail "host apply user.delete failed: $out"
+	if docker exec "$host" id e2e-hostuser >/dev/null 2>&1; then fail 'the user e2e-hostuser exists after user.delete'; fi
+	out=$(as_admin 'sudo qhost --output json host apply group.delete e2e-hostgroup --confirm 2>&1') || fail "host apply group.delete failed: $out"
+	if docker exec "$host" getent group e2e-hostgroup >/dev/null; then fail 'the group e2e-hostgroup exists after group.delete'; fi
+	docker exec "$host" rm -rf /home/e2e-hostuser
+
+	step 'the action log lists every change of the user, and no secret reaches the journal or the action log'
+	rows=$(host_audit_rows)
+	for action in user.create group.create user.add-groups user.lock user.delete group.delete; do
+		printf '%s' "$rows" | grep -q "\"client_uid\":$admin_uid,\"action\":\"host.change\",\"result\":\"success\"[^}]*\"change\":\"$action[0-9]" ||
+			fail "the action log does not record $action for uid $admin_uid: $rows"
+	done
+	if docker exec "$host" grep -rqF "$pw" /var/lib/qhost-host /var/lib/qhost; then fail 'the password reached the journal or the action log'; fi
+	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the user changes: $out"
+	log 'scenario: user e2e-hostuser created, put in e2e-hostgroup, locked and deleted; every change is in the action log with uid '"$admin_uid"
 }
 
 # service_log_warn_count prints how many entries of the service log at the level warn or above say that the window
@@ -1412,6 +1534,7 @@ scenario_update() {
 scenario_stacks_repo() {
 	setup_service
 	scenario_host_service
+	scenario_host_changes
 	url=git.$domain:stacks.git
 
 	scenario_service_log

@@ -20,6 +20,7 @@ func All() []helptopics.Topic {
 		{Name: "notifications", Short: "Notification channels: events, types and secrets", Text: notificationsTopic},
 		{Name: "proposals", Short: "Proposals: asking for a change of the setup without sudo, the kinds source-add, stack-settings, window and notify-channel, limits and states", Text: proposalsTopic},
 		{Name: "containers", Short: "The containers of the host: kinds, states, metrics, start, stop, restart", Text: containersTopic},
+		{Name: "host-admin", Short: "Read and change the users, groups and folder permissions of the host", Text: hostAdminTopic},
 	}
 }
 
@@ -62,6 +63,8 @@ Commands:
 - qhost container logs <name>|--stack <stack> [--since T] [--until T] [--tail N] [--follow]: show the output of a container or of a whole stack (runs without sudo for an administrator in the group qhost; see qhost help containers)
 - qhost service log [--since T] [--level debug|info|warn|error] [--tail N] [--follow] [--source S]: show the log of the qhost service itself, with start and stop, maintenance windows, source calls, warnings and errors; the service keeps a bounded copy of its log with secret values masked (runs without sudo for an administrator in the group qhost; the terminal interface shows it with v in Runs)
 - qhost audit [--since T] [--until T] [--action A] [--result success|failure] [--limit N]: show the action log of the host service, newest first: one entry per request on its channel and per change of the host, never with an argument or a secret value. qhost audit verify: check the hash chain of the action log day by day; a broken chain ends with exit code 1 (both run without sudo for an administrator in the group qhost)
+- qhost host users|user <name>|groups|group <name>|folder <path>: read the local users, groups and folder permissions; changes nothing (run without sudo for an administrator in the group qhost; see qhost help host-admin)
+- qhost host apply <action> [args...] --confirm, qhost host undo <journal-id> --confirm, qhost host journal: change the host with a registered action that keeps the previous state in a root-only journal, undo a change, and list the latest changes; every change appears in qhost audit (all three need sudo; see qhost help host-admin)
 - qhost diagnose [--out <path>]: write a diagnostic package, an archive (tar.gz) with a text file and a JSON file per part, with the versions, the state of the service and the sources, the stacks and their check, the last 20 runs with the logs of the 5 newest and of every failed one, the service log of the last 24 hours and the list of the containers, but no container logs, env files or compose files; secret values are masked by the service, a part that cannot be collected is in the package with its reason. Without --out it goes to the folder qhost in your home; the file is new, mode 0600 and yours. It holds the host name and paths: check it before you pass it on (runs without sudo for an administrator in the group qhost)
 - qhost container start|stop|restart <name> [--yes]: start, stop or restart one container of the host after a question (run with sudo; see qhost help containers)
 - qhost version: print the version
@@ -389,3 +392,45 @@ Limits: at most 20 open proposals per submitter, at most 64 KiB per proposal, an
 States: open, withdrawn, rejected, approving, applied, failed and expired. An open proposal past its time shows as expired and cannot be approved. The fingerprint identifies exactly the content, and the service accepts an approval only with the fingerprint that was shown. Once accepted, the proposal is approving: it can no longer be withdrawn, rejected or approved again, and it ends as applied or as failed with a message. An approval that gets no result within 15 minutes, for example after an interrupted command, shows as failed; the submitter then submits a new proposal. The reason of a rejection and the message of a failure show in qhost proposal show.
 
 Text of a submitter is shown with control characters replaced; --output json keeps the text as submitted.`
+
+const hostAdminTopic = `The host commands read the local users, groups and folder permissions and change them through registered actions. Reading changes nothing and runs without sudo for root and for the administrators of the group qhost, everyone else gets one line and exit code 1. Changing needs root.
+
+Reading:
+  qhost host users
+  qhost host user <name>
+  qhost host groups
+  qhost host group <name>
+  qhost host folder <path>
+
+A user or group is a system user or group when its ID lies outside 1000 to 60000, so root and nobody count as system accounts. A user is an admin in the group sudo, a docker user in the group docker, and enabled in the group qhost. A group lists the users whose primary group it is as members.
+
+Whether an account is locked or expired and which SSH keys it has are only readable as root. Otherwise they are unknown: absent in JSON and 'unknown' in the other formats. Keys are shown as type, comment and SHA256 fingerprint, never as the key itself.
+
+A folder or file shows owner, group and the level of owner, group and others: nothing, read, or read and write. For a directory read and write both need the right to enter it; write without read counts as nothing. It also shows whether ACLs are set, the special bits setuid, setgid and sticky, and whether the path is protected: /, /etc, /usr, /boot, /proc, /sys and everything below the last five. Links and .. are resolved before that check.
+
+Changing:
+  sudo qhost host apply <action> [args...] --confirm
+  sudo qhost host undo <journal-id> --confirm
+  sudo qhost host journal
+
+apply and undo ask no question, they need --confirm. A change first records the previous state in the journal, then runs its commands, checks the result and, when a later command or the check fails, restores the previous state. A first command that fails changed nothing and is not taken back. The report shows the sentence, the exact commands, the check and the result applied, failed or restored, and a failed or restored change ends with exit code 1. A protection rule refuses a change before anything runs, shows the reason with the result refused and ends with exit code 1; it leaves no journal entry. Put -- before the action when an argument starts with a dash.
+
+The journal lives in /var/lib/qhost-host/journal (folder 0700, files 0600, readable by root only), holds the latest 50 changes and, for each, what an undo would do. Secrets, passwords and key texts are read from standard input only, never from an argument, and appear nowhere in the report, the journal or the action log. Each change is reported to the host service, so qhost audit lists it with the action, the journal entry and the person behind sudo (SUDO_UID). When the host service is not running the change still stands, and the report warns that the audit entry is missing.
+
+Actions (a secret input is marked with stdin):
+  user.create <name> [admin] [docker] [group=<name>]...  (stdin: JSON {"password": "...", "keys": ["..."]}, keys optional)
+  user.create-service <name> [home] [docker] [group=<name>]...
+  user.set-password <name> [must-change]  (stdin: the new password)
+  user.set-admin <name> on|off [without-qhost]
+  user.set-docker <name> on|off
+  user.enable <name>
+  user.lock <name>, user.unlock <name>
+  user.delete <name> [with-home]
+  user.add-groups <name> <group>..., user.remove-groups <name> <group>...
+  user.add-key <name>  (stdin: one public key line)
+  user.remove-key <name> <SHA256 fingerprint>
+  group.create <name>, group.delete <name>, group.rename <old> <new>
+  group.set-members <group> +<user>|-<user>...
+  folder.set-permissions <path> <owner> <group> <user-level> <group-level> <other-level> [recursive] [system-path]  (levels: nothing, read, read-write)
+
+Protection rules: nobody takes administrator rights or access to qhost from themselves, locks or deletes their own account, and the last administrator stays; the groups sudo and qhost are neither renamed nor deleted; a user with running processes and a group that is the primary group of a user are not deleted; a system path is changed only with system-path and never together with everything below it. Lock is the normal way to stop someone: it blocks every login, also by SSH key, while running sessions stay open. Deleting a user keeps the home by default and can be undone, which creates the account again with the same UID, groups and password; with-home deletes the home and mail spool and cannot be undone.`
