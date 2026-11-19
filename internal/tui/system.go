@@ -11,6 +11,7 @@ import (
 
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
+	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/host/hostadmin"
 	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
 )
@@ -24,11 +25,12 @@ const areaSystem kittui.AreaID = "system"
 type systemPage string
 
 const (
-	pageUsers   systemPage = "users"
-	pageGroups  systemPage = "groups"
-	pageFolders systemPage = "folders"
-	pageChanges systemPage = "changes"
-	pageLog     systemPage = "log"
+	pageUsers     systemPage = "users"
+	pageGroups    systemPage = "groups"
+	pageFolders   systemPage = "folders"
+	pageProposals systemPage = "proposals"
+	pageChanges   systemPage = "changes"
+	pageLog       systemPage = "log"
 )
 
 type systemEntry struct {
@@ -41,6 +43,7 @@ var systemPages = []systemEntry{
 	{pageUsers, textPageUsers},
 	{pageGroups, textPageGroups},
 	{pageFolders, textPageFolders},
+	{pageProposals, textPageProposals},
 	{pageChanges, textPageChanges},
 	{pageLog, textPageLog},
 }
@@ -79,6 +82,8 @@ type systemState struct {
 	fold folderPage
 	jrnl journalPage
 	hlog hostLogPage
+	// prop is the proposals page.
+	prop hostProposalPage
 }
 
 // systemMsg carries a read of the account files.
@@ -116,6 +121,10 @@ func newSystem(keys *kittui.Keymap, text kittui.Translator) (*systemState, error
 	if s.hlog.list, err = newHostLogList(keys, text); err != nil {
 		return nil, err
 	}
+	s.prop.tones, s.prop.byID = map[string]kittui.TextStyle{}, map[kittui.ItemID]control.ProposalInfo{}
+	if s.prop.list, err = newHostProposalList(keys, text, s.prop.tones); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -129,6 +138,11 @@ func (s *systemState) activeList() *kittui.List {
 		return s.groupList
 	case s.page == pageFolders:
 		return nil
+	case s.page == pageProposals:
+		if !s.prop.read {
+			return nil
+		}
+		return s.prop.list
 	case s.page == pageChanges:
 		if !s.jrnl.read {
 			return nil
@@ -333,6 +347,10 @@ func (m *Model) showSystemPage() tea.Cmd {
 		if !s.hlog.read || s.hlog.stale {
 			return m.readHostLog()
 		}
+	case pageProposals:
+		if !s.prop.read || s.prop.stale {
+			return m.readHostProposals()
+		}
 	}
 	return nil
 }
@@ -344,6 +362,8 @@ func (m *Model) reloadSystemPage() tea.Cmd {
 		return m.readJournal()
 	case pageLog:
 		return m.readHostLog()
+	case pageProposals:
+		return m.readHostProposals()
 	}
 	return nil
 }
@@ -391,6 +411,8 @@ func (m *Model) systemTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 		return m.openGroupMembers(), true
 	case s.page == pageChanges:
 		return m.askUndo(), true
+	case s.page == pageProposals:
+		return m.askHostProposal(false), true
 	}
 	return nil, handled
 }
@@ -422,6 +444,10 @@ func (m *Model) systemAction(id kittui.ActionID) (tea.Cmd, bool) {
 		return m.openFolderPath(), true
 	case s.page == pageFolders && id == actEdit:
 		act = m.openFolderChange
+	case s.page == pageProposals && id == actApprove:
+		act = func() tea.Cmd { return m.askHostProposal(true) }
+	case s.page == pageProposals && id == actReject:
+		act = m.askHostProposalReject
 	default:
 		return nil, false
 	}
@@ -478,6 +504,8 @@ func (m *Model) systemFooter(common, nav []kittui.Hint) []kittui.Hint {
 		return m.changesFooter(own, common, nav)
 	case s.page == pageLog:
 		return m.hostLogFooter(own, common, nav)
+	case s.page == pageProposals:
+		return m.hostProposalFooter(own, common, nav)
 	case s.page == pageUsers:
 		own = append(own, kittui.Hint{Action: actAdd, Label: textKeyNewUser, Priority: 3})
 		if _, ok := m.selectedUser(); ok {
@@ -530,6 +558,8 @@ func (m *Model) systemView(width, height int) string {
 		return m.changesView(width, height)
 	case pageLog:
 		return m.hostLogView(width, height)
+	case pageProposals:
+		return m.hostProposalsView(width, height)
 	}
 	var detail []string
 	if u, ok := m.selectedUser(); ok {

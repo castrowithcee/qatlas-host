@@ -91,7 +91,7 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"files in what would be pushed stop it, with no way around. Adding a folder of files offers the same\n" +
 			"comparison with an address.\n\n" +
 			"System lists the local users and groups of the host, read from its account files, so it works without the\n" +
-			"deploy service; Users, Groups, Folders, Changes and Log are its sub-tabs. On Users, a creates a user with an initial\n" +
+			"deploy service; Users, Groups, Folders, Proposals, Changes and Log are its sub-tabs. On Users, a creates a user with an initial\n" +
 			"password that must be changed at the first login, e or enter offers the changes of the marked user\n" +
 			"(administrator, Docker, groups, password, SSH keys, lock and unlock) and x deletes it, keeping its home\n" +
 			"unless deleting it is chosen. On Groups, a creates a group, e or enter adds and removes members of the\n" +
@@ -105,7 +105,10 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"Changes lists the latest changes of the host from the journal, which only root can read: started with\n" +
 			"sudo the interface reads it on its own, otherwise r reads it through sudo qhost host journal. enter on a\n" +
 			"change asks to undo it with the sentence and the exact commands, and y runs sudo qhost host undo; a change\n" +
-			"that cannot be undone says why instead. Log shows the action log of the host service with the result of\n" +
+			"that cannot be undone says why instead. Proposals lists the proposals of administrators for the host, shows\n" +
+			"the sentence, the exact commands and a proposed key, marks Docker rights and changes of root, system\n" +
+			"accounts, groups and paths in red, and A approves through sudo qhost host apply --proposal, N rejects.\n" +
+			"Log shows the action log of the host service with the result of\n" +
 			"the check of its chain of hashes; it is read when the page opens for the first time, after a change and on r.\n\n" +
 			"The mouse works too: click a tab, a key in the header or footer, or a row, and turn the wheel to scroll.\n" +
 			"A click does what the key does, so every action still asks first. The mouse is on by default; with it\n" +
@@ -139,8 +142,9 @@ func newTUICommand(state *notRunning) *cobra.Command {
 				}
 				return failureOf(err)
 			}
+			hostChannel := tui.NewHostChannel(hostEndpoint())
 			opts := tui.Options{Backend: backend, Folders: tuiFolders{}, Deploy: tuiDeploySetup{}, In: in, Out: out, HostRun: hostRunner,
-				HostLog: tui.NewHostChannel(hostEndpoint())}
+				HostLog: hostChannel, HostProposals: hostChannel}
 			schema, err := tui.PrefsSchema()
 			if err != nil {
 				return &cli.Failure{Code: output.CodeRuntime, Message: "the terminal interface cannot start: " + err.Error(),
@@ -172,7 +176,7 @@ var (
 	regroupArgs       = func() []string { return os.Args[1:] }
 )
 
-// hostRunner builds `sudo <this program> host ...` for the System area of the interface. sudo prompts on the
+// hostRunner builds `sudo <this program> host ...` (`proposal ...` for a request about a proposal) for the System area of the interface. sudo prompts on the
 // terminal, so the password never reaches this program. Standard input belongs to that prompt, so a request with
 // a secret runs in two steps: the interface first runs the Validate request (sudo -v) on the terminal, then this
 // one with sudo -n, which never prompts, and the secret on the standard input of the command. The secret goes into
@@ -183,13 +187,21 @@ func hostRunner(req tui.HostRequest) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot find this program: %w", err)
 	}
+	group := "host"
+	if req.Proposal {
+		group = "proposal"
+	}
 	if tuiEuid() == 0 {
 		if req.Validate {
 			return nil, nil
 		}
-		cmd := exec.Command(exe, append([]string{"host"}, req.Args...)...)
-		if len(req.Secret) > 0 {
+		cmd := exec.Command(exe, append([]string{group}, req.Args...)...)
+		switch {
+		case len(req.Secret) > 0:
 			cmd.Stdin = bytes.NewReader(req.Secret)
+		case req.Proposal:
+			// Rejecting a proposal wants a terminal on standard input; the command only checks for one.
+			cmd.Stdin = os.Stdin
 		}
 		return cmd, nil
 	}
@@ -201,9 +213,9 @@ func hostRunner(req tui.HostRequest) (*exec.Cmd, error) {
 		return exec.Command(sudo, "-v"), nil
 	}
 	if len(req.Secret) == 0 {
-		return exec.Command(sudo, append([]string{exe, "host"}, req.Args...)...), nil
+		return exec.Command(sudo, append([]string{exe, group}, req.Args...)...), nil
 	}
-	cmd := exec.Command(sudo, append([]string{"-n", exe, "host"}, req.Args...)...)
+	cmd := exec.Command(sudo, append([]string{"-n", exe, group}, req.Args...)...)
 	cmd.Stdin = bytes.NewReader(req.Secret)
 	cmd.Env = append(os.Environ(), "LC_ALL=C")
 	return cmd, nil

@@ -50,6 +50,8 @@ type settingsForm struct {
 	group *hostadmin.Group
 	// folder is the folder a form of System > Folders changes.
 	folder *hostadmin.Folder
+	// hprop is the proposal of the host a password form belongs to.
+	hprop *hostProposalDetail
 	// titleArg is the name of the host the title of the form names.
 	titleArg string
 }
@@ -258,6 +260,8 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitGroupRename(f, v)
 	case formHostFolder:
 		return m.submitFolderChange(f, v)
+	case formProposalPassword:
+		return m.submitProposalPassword(f, v)
 	}
 	return nil
 }

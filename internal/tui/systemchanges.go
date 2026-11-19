@@ -223,7 +223,7 @@ func (m *Model) markUndone(id string) {
 // password reads them again at once.
 func (m *Model) afterHostChange() tea.Cmd {
 	s := m.sys
-	s.jrnl.stale, s.hlog.stale = true, true
+	s.jrnl.stale, s.hlog.stale, s.prop.stale = true, true, true
 	if m.area != areaSystem {
 		return nil
 	}

@@ -90,6 +90,8 @@ type config struct {
 	accounts *hostadmin.Host
 	// hostLog reads the action log of the host service for System; nil when the interface cannot reach it.
 	hostLog HostLog
+	// hostProps reads the proposals of the host service; nil when the interface cannot reach it.
+	hostProps HostProposals
 }
 
 // tickMsg starts a periodic refresh.
@@ -193,6 +195,8 @@ type Model struct {
 	human    func() int
 	// hostLog reads the action log of the host service; nil when the interface cannot reach it.
 	hostLog HostLog
+	// hostProps reads the proposals of the host service; nil when the interface cannot reach it.
+	hostProps HostProposals
 	// parts are the widgets the last workspace drawing registered, in workspace cells; mouseParts are those of
 	// the frame on the screen, in screen cells.
 	parts, mouseParts []mousePart
@@ -218,7 +222,7 @@ func newModel(c config) (*Model, error) {
 		runTones: map[string]kittui.TextStyle{}, runByID: map[kittui.ItemID]runRow{}, after: tea.Tick,
 		ctTones: map[string]kittui.TextStyle{}, ctNames: map[kittui.ItemID]string{},
 		propTones: map[string]kittui.TextStyle{}, propByID: map[kittui.ItemID]control.ProposalInfo{},
-		euid: defaultEuid, makeDirs: defaultMakeDirs, mouseOn: c.mouse, root: c.root, accounts: c.accounts, hostLog: c.hostLog}
+		euid: defaultEuid, makeDirs: defaultMakeDirs, mouseOn: c.mouse, root: c.root, accounts: c.accounts, hostLog: c.hostLog, hostProps: c.hostProps}
 	if m.ctx == nil {
 		m.ctx = context.Background()
 	}
@@ -303,7 +307,7 @@ func (m *Model) restyle() bool {
 }
 
 func (m *Model) Init() tea.Cmd {
-	cmds := []tea.Cmd{m.reload(), m.tick()}
+	cmds := []tea.Cmd{m.reload(), m.tick(), m.readHostProposals()}
 	if m.area == areaContainers {
 		cmds = append(cmds, m.startContainers())
 	}
@@ -380,6 +384,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applyHostLog(msg)
 	case hostVerifyMsg:
 		m.applyHostVerify(msg)
+	case hostProposalsMsg:
+		m.applyHostProposals(msg)
+	case hostProposalMsg:
+		return m, m.applyHostProposal(msg)
 	case hostRanMsg:
 		m.sys.busy = false
 		return m, msg.after(msg.out, msg.err)
@@ -425,6 +433,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // apply takes a refresh. A failed one keeps the rows read before.
 func (m *Model) apply(msg refreshMsg) {
 	m.loading = false
+	m.prop.deployDone = true
+	defer m.noteProposals()
 	if msg.err != nil {
 		if m.markNotSetUp(msg.err) {
 			m.failure, m.loaded = "", true

@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge  [7 ◎ System]        
+   Benutzer   Gruppen   Ordner  [Vorschläge]  Änderungen   Protokoll                                                    
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Vorschlag h-0001 von ben                                                                                            
+                                                                                                                        
+  Ja führt zur Rückfrage mit den Befehlen. Vorher wird nichts angewendet.                                               
+  von          ben (1001)                                                                                               
+  eingereicht  10-30 16:00                                                                                              
+  läuft ab     11-13 16:00                                                                                              
+  Zustand      offen                                                                                                    
+                                                                                                                        
+  Die Änderung                                                                                                          
+    Give cleo access to Docker (group docker).                                                                          
+                                                                                                                        
+    ⚠ Das Docker-Recht bedeutet volle Kontrolle über diesen Host.                                                       
+                                                                                                                        
+  Befehle, wie von Hand eingegeben                                                                                      
+    $ usermod -aG docker cleo                                                                                           
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+y freigeben  n/esc/enter schließen                                                                          ↑/↓ Scrollen

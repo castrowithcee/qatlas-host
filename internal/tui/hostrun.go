@@ -20,6 +20,8 @@ import (
 // HostRequest is one call of the root hook: the arguments after "qhost host".
 type HostRequest struct {
 	Args []string
+	// Proposal runs `qhost proposal` with Args instead of `qhost host`.
+	Proposal bool
 	// Validate asks for the command that makes sudo ask for the password on the terminal and remember it
 	// (sudo -v); Args and Secret are empty then. A hook that needs no password returns no command for it.
 	Validate bool

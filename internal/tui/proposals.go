@@ -29,6 +29,9 @@ type proposalState struct {
 	loaded bool
 	// noted is set once the start notice was decided, so a later refresh never raises it again.
 	noted bool
+	// deployDone and hostDone are set once the deploy service and the host service answered, or failed to, at
+	// the start; the notice waits for both.
+	deployDone, hostDone bool
 }
 
 // proposalView is one proposal opened from the list, with the effect worked out when it was read.
@@ -170,16 +173,31 @@ func (m *Model) fillProposals() {
 	if err := m.propList.SetItems(items); err != nil {
 		m.prop.err = err
 	}
-	if !m.prop.noted {
-		m.prop.noted = true
-		if n := openProposals(m.prop.list); n > 0 && m.notice == "" {
-			id := textPropNotice
-			if n == 1 {
-				id = textPropNoticeOne
-			}
-			m.notice = m.text.Lookup(kittui.TextWarning, m.text.Lookup(id, n, areaKeys[len(areaKeys)-1]))
-		}
+}
+
+// noteProposals tells the person once about the open proposals of both services, when both have answered. A
+// service that cannot be reached counts for none, so the other one still counts.
+func (m *Model) noteProposals() {
+	p := &m.prop
+	if p.noted || !p.deployDone || !p.hostDone && m.hostProps != nil {
+		return
 	}
+	p.noted = true
+	n := 0
+	if p.loaded && p.err == nil {
+		n += openProposals(p.list)
+	}
+	if hp := &m.sys.prop; hp.read && hp.err == nil {
+		n += openProposals(hp.items)
+	}
+	if n == 0 || m.notice != "" {
+		return
+	}
+	id := textPropNotice
+	if n == 1 {
+		id = textPropNoticeOne
+	}
+	m.notice = m.text.Lookup(kittui.TextWarning, m.text.Lookup(id, n, areaKeys[len(areaKeys)-1]))
 }
 
 func (m *Model) proposalTime(t time.Time) string {
