@@ -15,6 +15,7 @@ RUN apt-get update \
 		>/etc/apt/sources.list.d/docker.list \
 	&& apt-get update \
 	&& apt-get install -y --no-install-recommends docker-ce docker-ce-cli containerd.io docker-compose-plugin \
+		docker-ce-rootless-extras uidmap dbus-user-session slirp4netns iproute2 \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& systemctl enable docker containerd ssh
 
@@ -27,6 +28,15 @@ RUN mkdir -p /etc/docker \
 RUN useradd --create-home --shell /bin/bash --groups sudo e2e-admin \
 	&& echo 'e2e-admin ALL=(ALL) NOPASSWD:ALL' >/etc/sudoers.d/e2e-admin \
 	&& chmod 0440 /etc/sudoers.d/e2e-admin
+
+# A user with a rootless Docker engine of its own, which e2e/run.sh up starts; not in sudo or docker. Its sub-IDs
+# lie below 65536 because a rootless Docker on the machine gives the simulated host only that many IDs. The
+# engine keeps its data on a volume mounted at its data folder, which takes over the owner of the folder here.
+RUN useradd --create-home --uid 1001 --shell /bin/bash e2e-rootless \
+	&& touch /etc/subuid /etc/subgid && sed -i '/^e2e-rootless:/d' /etc/subuid /etc/subgid \
+	&& echo 'e2e-rootless:10000:55000' | tee -a /etc/subuid >>/etc/subgid \
+	&& install -d -o e2e-rootless -g e2e-rootless /home/e2e-rootless/.local /home/e2e-rootless/.local/share \
+		/home/e2e-rootless/.local/share/docker
 
 # systemd leaves mount propagation to the container manager, and Docker makes every mount private. A real host
 # has shared mounts, which systemd needs to pass credentials to a service (LoadCredentialEncrypted).
