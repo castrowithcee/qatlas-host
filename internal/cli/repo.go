@@ -42,9 +42,9 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 			"folder --dir, which is required and can be any absolute path, also under /mnt or /srv. The URL is\n" +
 			"user@host:path or ssh://[user@]host[:port]/path. The folder must be empty or already a clone of this\n" +
 			"URL. A folder that does not exist is created only after you confirmed its exact path: by answering\n" +
-			"the question at a terminal or by passing --create; it gets the owner qhost:qhost and mode 0755.\n" +
+			"the question at a terminal or by passing --create; it gets the owner qhost-deploy:qhost-deploy and mode 0755.\n" +
 			"The service runs sandboxed, so the folder is added to the systemd drop-in\n" +
-			"/etc/systemd/system/qhost.service.d/10-stack-folders.conf (entries are only ever added) and the\n" +
+			"/etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf (entries are only ever added) and the\n" +
 			"service restarts once. A host that is pinned with another key is refused and the pinned key is never\n" +
 			"replaced. Each further folder becomes a further source next to those bound earlier; a folder bound\n" +
 			"earlier is never rebound to another URL. The first folder uses the deploy key of 'qhost key\n" +

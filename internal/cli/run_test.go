@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/castrowithcee/qatlas-kit/localipc"
 
 	"github.com/castrowithcee/qatlas-host/internal/channeltest"
 )
@@ -32,38 +35,57 @@ func (s *syncBuffer) String() string {
 }
 
 func TestRunEndsCleanlyOnSignal(t *testing.T) {
-	for _, sig := range []syscall.Signal{syscall.SIGTERM, syscall.SIGINT} {
-		t.Run(sig.String(), func(t *testing.T) {
+	for _, svc := range []struct {
+		name string
+		args []string
+		use  func(*testing.T)
+	}{
+		{"host", []string{"run"}, func(t *testing.T) {
+			old, oldDir := hostEndpoint, hostStateDir
+			ep, dir := channeltest.Endpoint(t), filepath.Join(t.TempDir(), "state")
+			hostEndpoint = func() localipc.ServiceEndpoint { return ep }
+			hostStateDir = func() string { return dir }
+			t.Cleanup(func() { hostEndpoint, hostStateDir = old, oldDir })
+		}},
+		{"deploy", []string{"deploy-service", "run"}, func(t *testing.T) {
 			useEndpoint(t, channeltest.Endpoint(t))
 			useStateDir(t)
-			var stderr syncBuffer
-			done := make(chan int, 1)
-			go func() { done <- Run([]string{"run"}, io.Discard, &stderr) }()
+		}},
+	} {
+		for _, sig := range []syscall.Signal{syscall.SIGTERM, syscall.SIGINT} {
+			t.Run(svc.name+"/"+sig.String(), func(t *testing.T) { runEndsOnSignal(t, svc.use, svc.args, sig) })
+		}
+	}
+}
 
-			// The handler is installed before the service logs its start, so the signal is safe afterwards.
-			deadline := time.Now().Add(10 * time.Second)
-			for !strings.Contains(stderr.String(), "service started") {
-				select {
-				case code := <-done:
-					t.Fatalf("run ended early with %d: %s", code, stderr.String())
-				default:
-				}
-				if time.Now().After(deadline) {
-					t.Fatalf("service did not start: %s", stderr.String())
-				}
-				time.Sleep(5 * time.Millisecond)
-			}
-			if err := syscall.Kill(os.Getpid(), sig); err != nil {
-				t.Fatal(err)
-			}
-			select {
-			case code := <-done:
-				if code != 0 {
-					t.Fatalf("exit code %d: %s", code, stderr.String())
-				}
-			case <-time.After(10 * time.Second):
-				t.Fatal("service did not end after the signal")
-			}
-		})
+func runEndsOnSignal(t *testing.T, use func(*testing.T), args []string, sig syscall.Signal) {
+	use(t)
+	var stderr syncBuffer
+	done := make(chan int, 1)
+	go func() { done <- Run(args, io.Discard, &stderr) }()
+
+	// The handler is installed before the service logs its start, so the signal is safe afterwards.
+	deadline := time.Now().Add(10 * time.Second)
+	for !strings.Contains(stderr.String(), "service started") {
+		select {
+		case code := <-done:
+			t.Fatalf("run ended early with %d: %s", code, stderr.String())
+		default:
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("service did not start: %s", stderr.String())
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if err := syscall.Kill(os.Getpid(), sig); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case code := <-done:
+		if code != 0 {
+			t.Fatalf("exit code %d: %s", code, stderr.String())
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("service did not end after the signal")
 	}
 }

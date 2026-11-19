@@ -3,14 +3,16 @@
   "versionVariable": "github.com/castrowithcee/qatlas-host/internal/cli.version",
   "targets": ["linux/amd64", "linux/arm64"],
   "manpageCommand": ["go", "run", ".", "manpage", "--dir", "{dir}"],
-  "files": [],
+  "files": [
+    {"source": "packaging/qhost-deploy.service", "path": "lib/systemd/system/qhost-deploy.service"}
+  ],
   "installer": {
     "displayName": "Qatlas Host",
     "nextStep": "Next: sign in again, then run qhost; a change needs sudo qhost."
   },
   "service": {
     "unit": "packaging/qhost.service",
-    "groups": ["docker"],
+    "groups": [],
     "addInstallingUser": true,
     "writableConfig": false
   }

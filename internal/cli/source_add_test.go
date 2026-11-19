@@ -371,7 +371,7 @@ func TestSourceAddLocalWithYesGrantsAndBinds(t *testing.T) {
 	if svc.count(control.SourceAddCommand) != 1 {
 		t.Fatalf("source.add calls = %d", svc.count(control.SourceAddCommand))
 	}
-	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) || strings.Join(d.cmds, ";") != "daemon-reload;restart qhost" {
+	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) || strings.Join(d.cmds, ";") != "daemon-reload;restart qhost-deploy" {
 		t.Fatalf("drop-in %q, commands %v", d.dropIn(t), d.cmds)
 	}
 	if modeOf(t, tree.dir)&fs.ModeSetgid == 0 || gitConfigIn(t, tree.dir, "core.sharedRepository") != "group" {
@@ -506,7 +506,7 @@ func TestSourceInspectWarnsWhenGitIsNotWritable(t *testing.T) {
 	useFolderHost(t)
 	startFakeService(t, fakeHandlers{control.SourceInspectCommand: inspectWith(localInspect(true))})
 	_, _, stderr := run(t, "source", "inspect", "/srv/demo")
-	for _, want := range []string{"the service cannot write .git", "source add sets the group permissions", "sudo -u qhost git"} {
+	for _, want := range []string{"the service cannot write .git", "source add sets the group permissions", "sudo -u qhost-deploy git"} {
 		if !strings.Contains(stderr, want) {
 			t.Errorf("warning lacks %q: %q", want, stderr)
 		}

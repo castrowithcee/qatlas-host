@@ -39,7 +39,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"without a repository; the first commit would take the listed files and leave out the listed ones with\n" +
 			"the reason) or reject (with the reason and what to do). It shows the owner, group and mode of the\n" +
 			"folder, whether the service can write there and whether source add would have to set permissions\n" +
-			"(group qhost, group write, setgid), and per stack the functions, the findings and the containers\n" +
+			"(group qhost-deploy, group write, setgid), and per stack the functions, the findings and the containers\n" +
 			"of other Compose projects that run in the stack's folder: deploying would create duplicates of them.\n" +
 			"--url is the SSH address to clone or to expect as origin. A folder on a read-only file system is\n" +
 			"rejected. A rejection is a complete answer and exits 0; read the case. Nothing is created, changed\n" +
@@ -73,7 +73,7 @@ func runSourceInspect(c *cobra.Command, program *cobracli.Program, state *notRun
 }
 
 const gitNotWritableWarning = "warning: the service cannot write .git; source add sets the group permissions, " +
-	"or commit as a member of the group qhost or with sudo -u qhost git"
+	"or commit as a member of the group qhost-deploy or with sudo -u qhost-deploy git"
 
 func structuredFormat(f output.Format) bool { return f == output.FormatJSON || f == output.FormatTOON }
 

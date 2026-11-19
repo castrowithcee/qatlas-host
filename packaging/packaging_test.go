@@ -40,7 +40,9 @@ func loadConfig(t *testing.T) releasebuild.Config {
 	return c
 }
 
-func TestUnitPassesKitValidation(t *testing.T) {
+const deployService = "qhost-deploy"
+
+func TestHostUnitPassesKitValidation(t *testing.T) {
 	c := loadConfig(t)
 	unit := readFile(t, c.Service.Unit)
 	rules := sysservice.UnitRules{Program: program, Groups: c.Service.Groups, WritableConfig: c.Service.WritableConfig}
@@ -49,19 +51,46 @@ func TestUnitPassesKitValidation(t *testing.T) {
 	}
 }
 
-// The service refuses to start unless /run/qhost belongs to qhost:qhost without access for others and
-// /var/lib/qhost has mode 0700, so the unit must ask systemd for exactly that.
-func TestUnitMeetsRuntimeDirectoryContract(t *testing.T) {
-	unit := string(readFile(t, loadConfig(t).Service.Unit))
+func deployRules() sysservice.UnitRules {
+	return sysservice.UnitRules{Program: program, Service: deployService, Groups: []string{"docker"}}
+}
+
+func TestDeployUnitPassesKitValidation(t *testing.T) {
+	if err := sysservice.ValidateUnit(readFile(t, "packaging/qhost-deploy.service"), deployRules()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeployUnitWithRootFailsKitValidation(t *testing.T) {
+	unit := strings.NewReplacer("User=qhost-deploy", "User=root", "Group=qhost-deploy", "Group=root").
+		Replace(string(readFile(t, "packaging/qhost-deploy.service")))
+	if err := sysservice.ValidateUnit([]byte(unit), deployRules()); err == nil {
+		t.Fatal("a deploy unit that runs as root passed the validation")
+	}
+}
+
+func TestEmbeddedDeployUnitIsTheShippedFile(t *testing.T) {
+	if string(DeployUnit) != string(readFile(t, "packaging/qhost-deploy.service")) {
+		t.Fatal("the embedded deploy unit differs from packaging/qhost-deploy.service")
+	}
+}
+
+func unitLines(unit []byte) map[string]bool {
 	lines := map[string]bool{}
-	for _, l := range strings.Split(unit, "\n") {
+	for _, l := range strings.Split(string(unit), "\n") {
 		lines[strings.TrimSpace(l)] = true
 	}
+	return lines
+}
+
+// The host service refuses to start unless /run/qhost belongs to qhost:qhost without access for others, so the
+// unit must ask systemd for exactly that. It never has the container engine's group.
+func TestHostUnitMeetsRuntimeDirectoryContract(t *testing.T) {
+	lines := unitLines(readFile(t, loadConfig(t).Service.Unit))
 	for _, want := range []string{
 		"ExecStart=/usr/local/bin/qhost run",
 		"User=qhost",
 		"Group=qhost",
-		"SupplementaryGroups=docker",
 		"RuntimeDirectory=qhost",
 		"RuntimeDirectoryMode=0750",
 		"StateDirectory=qhost",
@@ -70,13 +99,41 @@ func TestUnitMeetsRuntimeDirectoryContract(t *testing.T) {
 		"ProtectSystem=strict",
 	} {
 		if !lines[want] {
-			t.Errorf("unit lacks the line %q", want)
+			t.Errorf("host unit lacks the line %q", want)
 		}
 	}
-	// The stack folders are the host's choice and reach the unit only through a drop-in.
 	for l := range lines {
-		if strings.HasPrefix(l, "ReadWritePaths=") {
-			t.Errorf("the shipped unit names a writable path: %q", l)
+		if strings.HasPrefix(l, "SupplementaryGroups=") || strings.HasPrefix(l, "ReadWritePaths=") || strings.Contains(l, "docker.service") {
+			t.Errorf("host unit has the line %q", l)
+		}
+	}
+}
+
+// The deploy service's channel directory is made by the setup, not by systemd, so the unit only releases it
+// for writing. The stack folders are the host's choice and reach the unit only through a drop-in.
+func TestDeployUnitMeetsChannelContract(t *testing.T) {
+	lines := unitLines(readFile(t, "packaging/qhost-deploy.service"))
+	for _, want := range []string{
+		"ExecStart=/usr/local/bin/qhost deploy-service run",
+		"User=qhost-deploy",
+		"Group=qhost-deploy",
+		"SupplementaryGroups=docker",
+		"ReadWritePaths=/run/qhost-deploy",
+		"StateDirectory=qhost-deploy",
+		"StateDirectoryMode=0700",
+		"NoNewPrivileges=yes",
+		"ProtectSystem=strict",
+	} {
+		if !lines[want] {
+			t.Errorf("deploy unit lacks the line %q", want)
+		}
+	}
+	for l := range lines {
+		if strings.HasPrefix(l, "RuntimeDirectory") {
+			t.Errorf("deploy unit lets systemd create its runtime directory: %q", l)
+		}
+		if strings.HasPrefix(l, "ReadWritePaths=") && l != "ReadWritePaths=/run/qhost-deploy" {
+			t.Errorf("deploy unit names a writable path: %q", l)
 		}
 	}
 }
@@ -89,8 +146,11 @@ func TestReleaseConfigSelectsTheSystemVariant(t *testing.T) {
 	if c.VersionVariable != "github.com/castrowithcee/qatlas-host/internal/cli.version" {
 		t.Errorf("version variable = %q", c.VersionVariable)
 	}
-	if strings.Join(c.Service.Groups, " ") != "docker" {
-		t.Errorf("service groups = %v, want [docker]", c.Service.Groups)
+	if len(c.Service.Groups) != 0 {
+		t.Errorf("service groups = %v, want none", c.Service.Groups)
+	}
+	if len(c.Files) != 1 || c.Files[0].Source != "packaging/qhost-deploy.service" || c.Files[0].Path != sysservice.UnitEntry(deployService) {
+		t.Errorf("release files = %+v, want the deploy unit at %s", c.Files, sysservice.UnitEntry(deployService))
 	}
 	if !c.Service.AddInstallingUser {
 		t.Error("an administrator in the service group reads without sudo, so the installing user joins the group")
@@ -138,7 +198,7 @@ func TestInstallerRendersTheSystemVariant(t *testing.T) {
 	text := string(script)
 	for _, want := range []string{
 		"unit_entry='" + sysservice.UnitEntry(program) + "'",
-		"groups='docker'",
+		"groups=''",
 		"namespace='" + namespace + "'",
 		"--uninstall",
 	} {

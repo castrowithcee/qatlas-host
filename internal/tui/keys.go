@@ -76,6 +76,8 @@ const (
 	// actMoveUp and actMoveDown move an entry of an ordered list in its editor.
 	actMoveUp   kittui.ActionID = "moveup"
 	actMoveDown kittui.ActionID = "movedown"
+	// actSetupDeploy asks to set up the deploy service where it does not exist yet.
+	actSetupDeploy kittui.ActionID = "setupdeploy"
 	// actApprove and actReject decide the proposal shown in the Proposals area.
 	actApprove kittui.ActionID = "approve"
 	actReject  kittui.ActionID = "reject"
@@ -141,6 +143,7 @@ func keyTable() []kittui.Action {
 		act(actRemoveSettings, kittui.LevelLetter, textKeyRemoveSettings, "E"),
 		act(actMoveUp, kittui.LevelLetter, textKeyMoveUp, "K"),
 		act(actMoveDown, kittui.LevelLetter, textKeyMoveDown, "J"),
+		act(actSetupDeploy, kittui.LevelLetter, textKeySetupDeploy, "G"),
 		act(actApprove, kittui.LevelLetter, textKeyApprove, "A"),
 		act(actReject, kittui.LevelLetter, textKeyReject, "N"),
 		act(actYes, kittui.LevelConfirm, textAnswerYes, "y"),

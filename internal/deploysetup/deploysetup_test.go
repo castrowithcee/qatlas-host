@@ -1,0 +1,225 @@
+package deploysetup
+
+import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/castrowithcee/qatlas-host/packaging"
+)
+
+// fakeHost is a root directory with the user database of a host with Docker and qhost installed, and a runner
+// that keeps the database and the service state like the real programs would.
+type fakeHost struct {
+	t       *testing.T
+	root    string
+	calls   []string
+	enabled bool
+	active  bool
+	failOn  string
+	host    Host
+}
+
+func newFakeHost(t *testing.T, groups, passwd string) *fakeHost {
+	t.Helper()
+	f := &fakeHost{t: t, root: t.TempDir()}
+	f.put("/etc/group", groups)
+	f.put("/etc/passwd", passwd)
+	f.host = Host{Root: f.root, Run: f.run}
+	return f
+}
+
+const baseGroups = "root:x:0:\ndocker:x:998:alice\nqhost:x:997:\n"
+const basePasswd = "root:x:0:0::/root:/bin/bash\nqhost:x:997:997::/var/lib/qhost:/usr/sbin/nologin\n"
+
+func (f *fakeHost) put(p, content string) {
+	f.t.Helper()
+	full := filepath.Join(f.root, filepath.FromSlash(p))
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		f.t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+		f.t.Fatal(err)
+	}
+}
+
+func (f *fakeHost) read(p string) string {
+	f.t.Helper()
+	b, err := os.ReadFile(filepath.Join(f.root, filepath.FromSlash(p)))
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return string(b)
+}
+
+func (f *fakeHost) appendTo(p, line string) { f.put(p, f.read(p)+line) }
+
+func (f *fakeHost) run(_ context.Context, name string, args ...string) error {
+	line := name + " " + strings.Join(args, " ")
+	if f.failOn != "" && strings.HasPrefix(line, f.failOn) {
+		return errors.New("failed")
+	}
+	switch {
+	case line == "systemctl is-enabled --quiet qhost-deploy":
+		if !f.enabled {
+			return errors.New("disabled")
+		}
+		return nil
+	case line == "systemctl is-active --quiet qhost-deploy":
+		if !f.active {
+			return errors.New("inactive")
+		}
+		return nil
+	}
+	f.calls = append(f.calls, line)
+	switch {
+	case strings.HasPrefix(line, "groupadd --system"):
+		f.appendTo("/etc/group", "qhost-deploy:x:996:\n")
+	case strings.HasPrefix(line, "useradd "):
+		f.appendTo("/etc/passwd", "qhost-deploy:x:996:996::/var/lib/qhost-deploy:/usr/sbin/nologin\n")
+	case strings.HasPrefix(line, "usermod "):
+		f.put("/etc/group", strings.Replace(f.read("/etc/group"), "docker:x:998:alice", "docker:x:998:alice,qhost-deploy", 1))
+	case strings.HasPrefix(line, "systemd-tmpfiles "):
+		if err := os.MkdirAll(filepath.Join(f.root, "run/qhost-deploy"), 0o755); err != nil {
+			f.t.Fatal(err)
+		}
+	case line == "systemctl enable --now qhost-deploy":
+		f.enabled, f.active = true, true
+	}
+	return nil
+}
+
+func (f *fakeHost) setUp() (Plan, error) {
+	f.t.Helper()
+	p, err := f.host.Plan(context.Background())
+	if err != nil {
+		return p, err
+	}
+	return p, p.Apply(context.Background())
+}
+
+func TestSetupCreatesEverythingAndRepeatsWithoutChange(t *testing.T) {
+	f := newFakeHost(t, baseGroups, basePasswd)
+	plan, err := f.setUp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"groupadd --system qhost-deploy",
+		"useradd --system --gid qhost-deploy --no-create-home --home-dir /var/lib/qhost-deploy --shell /usr/sbin/nologin qhost-deploy",
+		"usermod --append --groups docker qhost-deploy",
+		"systemd-tmpfiles --create /etc/tmpfiles.d/qhost-deploy.conf",
+		"systemctl daemon-reload",
+		"systemctl enable --now qhost-deploy",
+	}
+	if !slices.Equal(f.calls, want) {
+		t.Fatalf("commands run:\n%v\nwant\n%v", f.calls, want)
+	}
+	if got := len(plan.Commands()); got != len(want)+2 {
+		t.Fatalf("the plan lists %d steps, want %d: %v", got, len(want)+2, plan.Commands())
+	}
+	if got := f.read("/etc/tmpfiles.d/qhost-deploy.conf"); got != "d /run/qhost-deploy 2750 qhost-deploy qhost -\n" {
+		t.Fatalf("tmpfiles rule: %q", got)
+	}
+	if got := f.read(UnitPath()); got != string(packaging.DeployUnit) {
+		t.Fatal("the installed unit differs from the embedded one")
+	}
+	if info, err := os.Stat(filepath.Join(f.root, filepath.FromSlash(UnitPath()))); err != nil || info.Mode().Perm() != 0o644 {
+		t.Fatalf("unit mode: %v %v", info, err)
+	}
+	if !Installed(f.root) {
+		t.Fatal("the unit is not reported as installed")
+	}
+
+	f.calls = nil
+	again, err := f.setUp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !again.Empty() || len(f.calls) != 0 {
+		t.Fatalf("a repeated setup changes something: %v %v", again.Commands(), f.calls)
+	}
+}
+
+func TestSetupSkipsWhatIsDone(t *testing.T) {
+	f := newFakeHost(t, baseGroups+"qhost-deploy:x:996:\n", basePasswd+"qhost-deploy:x:996:996::/var/lib/qhost-deploy:/usr/sbin/nologin\n")
+	f.put("/etc/group", "root:x:0:\ndocker:x:998:alice,qhost-deploy\nqhost:x:997:\nqhost-deploy:x:996:\n")
+	if _, err := f.setUp(); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range f.calls {
+		if strings.HasPrefix(c, "groupadd") || strings.HasPrefix(c, "useradd") || strings.HasPrefix(c, "usermod") {
+			t.Errorf("ran %q although it was done", c)
+		}
+	}
+}
+
+func TestSetupRestartsNothingForAnUnchangedRunningService(t *testing.T) {
+	f := newFakeHost(t, baseGroups, basePasswd)
+	if _, err := f.setUp(); err != nil {
+		t.Fatal(err)
+	}
+	f.calls = nil
+	f.active = false
+	p, err := f.host.Plan(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := p.Commands(); len(got) != 1 || got[0] != "systemctl enable --now qhost-deploy" {
+		t.Fatalf("a stopped service needs only its start: %v", got)
+	}
+}
+
+func TestSetupNeedsTheGroupDocker(t *testing.T) {
+	f := newFakeHost(t, "root:x:0:\nqhost:x:997:\n", basePasswd)
+	_, err := f.host.Plan(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "group docker") {
+		t.Fatalf("err = %v", err)
+	}
+	if len(f.calls) != 0 {
+		t.Fatalf("ran %v", f.calls)
+	}
+	if _, statErr := os.Stat(filepath.Join(f.root, "etc/tmpfiles.d")); statErr == nil {
+		t.Fatal("the setup wrote a file")
+	}
+}
+
+func TestSetupNeedsTheGroupQhost(t *testing.T) {
+	f := newFakeHost(t, "root:x:0:\ndocker:x:998:\n", basePasswd)
+	if _, err := f.host.Plan(context.Background()); err == nil || !strings.Contains(err.Error(), "group qhost") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestSetupStopsAtTheFirstFailure(t *testing.T) {
+	f := newFakeHost(t, baseGroups, basePasswd)
+	f.failOn = "useradd"
+	if _, err := f.setUp(); err == nil || !strings.Contains(err.Error(), "useradd") {
+		t.Fatalf("err = %v", err)
+	}
+	if Installed(f.root) {
+		t.Fatal("the unit was installed after a failed step")
+	}
+	for _, c := range f.calls {
+		if strings.HasPrefix(c, "systemctl") {
+			t.Errorf("ran %q after the failure", c)
+		}
+	}
+}
+
+func TestPlanNeverAddsTheServiceUserToQhost(t *testing.T) {
+	f := newFakeHost(t, baseGroups, basePasswd)
+	p, err := f.host.Plan(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range p.Commands() {
+		if strings.Contains(c, "groups qhost") || strings.Contains(c, "-G qhost") {
+			t.Errorf("command %q touches the group qhost", c)
+		}
+	}
+}

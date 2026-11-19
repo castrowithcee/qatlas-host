@@ -1,6 +1,6 @@
 [Unit]
-Description=qhost stack deployment service
-After=network-online.target docker.service
+Description=qhost host service
+After=network-online.target
 Wants=network-online.target
 
 [Service]
@@ -8,7 +8,6 @@ Type=exec
 ExecStart=/usr/local/bin/qhost run
 User=qhost
 Group=qhost
-SupplementaryGroups=docker
 RuntimeDirectory=qhost
 RuntimeDirectoryMode=0750
 StateDirectory=qhost
