@@ -156,8 +156,10 @@ func (m *Model) relocalize(lang i18n.Lang) tea.Cmd {
 		return nil
 	}
 	s := m.set
-	old := []**kittui.List{&m.list, &m.runsList, &m.ctList, &m.propList, &s.credList, &s.notifyList, &m.sys.userList, &m.sys.groupList}
-	fresh := []*kittui.List{stacks, runs, containers, proposals, set.credList, set.notifyList, sys.userList, sys.groupList}
+	old := []**kittui.List{&m.list, &m.runsList, &m.ctList, &m.propList, &s.credList, &s.notifyList, &m.sys.userList, &m.sys.groupList,
+		&m.sys.jrnl.list, &m.sys.hlog.list}
+	fresh := []*kittui.List{stacks, runs, containers, proposals, set.credList, set.notifyList, sys.userList, sys.groupList,
+		sys.jrnl.list, sys.hlog.list}
 	mem := make([]listMemory, len(old))
 	for i, l := range old {
 		mem[i] = remember(*l)
@@ -177,6 +179,12 @@ func (m *Model) relocalize(lang i18n.Lang) tea.Cmd {
 	m.setChannels(s.notifyRead)
 	if m.sys.loaded {
 		m.fillSystem()
+	}
+	if m.sys.jrnl.read {
+		m.fillJournal()
+	}
+	if m.sys.hlog.read {
+		m.fillHostLog()
 	}
 	// The choice of a change holds its rows only inside its list; e opens it again.
 	m.sys.changes = nil

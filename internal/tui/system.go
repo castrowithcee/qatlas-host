@@ -15,17 +15,20 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
 )
 
-// areaSystem holds the users and groups of the host. It reads them from the account files of the host, not over
-// a service, so it works while the deploy service is not set up; it is the last area so the keys of the others
-// stay.
+// areaSystem holds the users, groups and folder permissions of the host. It reads them from the account files
+// and the file system of the host, not over a service, so it works while the deploy service is not set up; it is
+// the last area so the keys of the others stay.
 const areaSystem kittui.AreaID = "system"
 
 // systemPage is one page of the System area, shown under its sub-tab.
 type systemPage string
 
 const (
-	pageUsers  systemPage = "users"
-	pageGroups systemPage = "groups"
+	pageUsers   systemPage = "users"
+	pageGroups  systemPage = "groups"
+	pageFolders systemPage = "folders"
+	pageChanges systemPage = "changes"
+	pageLog     systemPage = "log"
 )
 
 type systemEntry struct {
@@ -37,6 +40,9 @@ type systemEntry struct {
 var systemPages = []systemEntry{
 	{pageUsers, textPageUsers},
 	{pageGroups, textPageGroups},
+	{pageFolders, textPageFolders},
+	{pageChanges, textPageChanges},
+	{pageLog, textPageLog},
 }
 
 // systemTabs are the sub-tabs of the System area.
@@ -69,6 +75,10 @@ type systemState struct {
 	// changes is the choice of a change for the user changeFor, nil while none is open.
 	changes   *kittui.List
 	changeFor hostadmin.User
+	// fold is the folders page, jrnl the changes page and hlog the log page.
+	fold folderPage
+	jrnl journalPage
+	hlog hostLogPage
 }
 
 // systemMsg carries a read of the account files.
@@ -99,17 +109,36 @@ func newSystem(keys *kittui.Keymap, text kittui.Translator) (*systemState, error
 		l.SetFocused(true)
 		l.SetGrouped(true)
 	}
+	s.jrnl.byID = map[kittui.ItemID]journalEntry{}
+	if s.jrnl.list, err = newJournalList(keys, text); err != nil {
+		return nil, err
+	}
+	if s.hlog.list, err = newHostLogList(keys, text); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 
 // activeList is the list the System area shows: the choice of a change while it is open, else the list of the
-// page.
+// page; nil on the folders page, which has none, and on the changes and log pages before they were read.
 func (s *systemState) activeList() *kittui.List {
 	switch {
 	case s.changes != nil:
 		return s.changes
 	case s.page == pageGroups:
 		return s.groupList
+	case s.page == pageFolders:
+		return nil
+	case s.page == pageChanges:
+		if !s.jrnl.read {
+			return nil
+		}
+		return s.jrnl.list
+	case s.page == pageLog:
+		if !s.hlog.read {
+			return nil
+		}
+		return s.hlog.list
 	}
 	return s.userList
 }
@@ -130,23 +159,28 @@ func (m *Model) hostRegistry() *hostchange.Registry {
 	return m.hostReg
 }
 
-// loadSystem reads the users and the groups unless a read is under way; force reads also what was read before.
+// loadSystem reads the users and the groups unless a read is under way; force reads also what was read before,
+// and the folder shown on the folders page.
 func (m *Model) loadSystem(force bool) tea.Cmd {
 	s := m.sys
+	var folder tea.Cmd
+	if force {
+		folder = m.rereadFolder()
+	}
 	if s.loading || s.loaded && !force {
-		return nil
+		return folder
 	}
 	s.loading = true
 	s.gen++
 	gen, h := s.gen, m.accountsReader()
-	return func() tea.Msg {
+	return tea.Batch(func() tea.Msg {
 		users, err := h.Users()
 		if err != nil {
 			return systemMsg{gen: gen, err: err}
 		}
 		groups, err := h.Groups()
 		return systemMsg{gen: gen, users: users, groups: groups, err: err}
-	}
+	}, folder)
 }
 
 // applySystem takes a read. A failed read keeps what was read before.
@@ -282,6 +316,35 @@ func (m *Model) selectSystemTab(id kittui.TabID) tea.Cmd {
 	}
 	m.setZone(kittui.ZoneSubtabs)
 	m.sys.page, m.sys.changes = page, nil
+	return m.showSystemPage()
+}
+
+// showSystemPage starts what the page shown reads on its own. The action log is read when its page opens for the
+// first time and when the host was changed from here since. The journal is read on its own only by an interface
+// that runs as root, where no password is asked; otherwise r reads it.
+func (m *Model) showSystemPage() tea.Cmd {
+	s := m.sys
+	switch s.page {
+	case pageChanges:
+		if m.euid() == 0 && (!s.jrnl.read || s.jrnl.stale) {
+			return m.readJournal()
+		}
+	case pageLog:
+		if !s.hlog.read || s.hlog.stale {
+			return m.readHostLog()
+		}
+	}
+	return nil
+}
+
+// reloadSystemPage reads what the page shown holds beyond the accounts, as on r.
+func (m *Model) reloadSystemPage() tea.Cmd {
+	switch m.sys.page {
+	case pageChanges:
+		return m.readJournal()
+	case pageLog:
+		return m.readHostLog()
+	}
 	return nil
 }
 
@@ -300,17 +363,22 @@ func (m *Model) systemInput() kittui.InputFocus {
 	if f := m.set.form; f != nil {
 		return f.input()
 	}
-	if f := m.focus(); f == kittui.ZoneTabs || f == kittui.ZoneSubtabs {
+	l := m.sys.activeList()
+	if f := m.focus(); f == kittui.ZoneTabs || f == kittui.ZoneSubtabs || l == nil {
 		return kittui.InputNavigation
 	}
-	return m.sys.activeList().Input()
+	return l.Input()
 }
 
 // systemTyped gives a key to the list shown; enter on a user opens the choice of a change, on a change picks it,
 // and on a group opens its members.
 func (m *Model) systemTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	s := m.sys
-	open, handled := s.activeList().Update(msg)
+	l := s.activeList()
+	if l == nil {
+		return nil, false
+	}
+	open, handled := l.Update(msg)
 	if open == "" {
 		return nil, handled
 	}
@@ -321,6 +389,8 @@ func (m *Model) systemTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 		return m.openChanges(), true
 	case s.page == pageGroups:
 		return m.openGroupMembers(), true
+	case s.page == pageChanges:
+		return m.askUndo(), true
 	}
 	return nil, handled
 }
@@ -347,6 +417,11 @@ func (m *Model) systemAction(id kittui.ActionID) (tea.Cmd, bool) {
 		act = m.openGroupRename
 	case s.page == pageGroups && id == actRemove:
 		act = m.askGroupDelete
+	case s.page == pageFolders && id == actEnter:
+		// Reading a folder changes nothing, so it is not held back by a change under way.
+		return m.openFolderPath(), true
+	case s.page == pageFolders && id == actEdit:
+		act = m.openFolderChange
 	default:
 		return nil, false
 	}
@@ -372,7 +447,11 @@ func (m *Model) systemBack(msg tea.KeyPressMsg) {
 			}
 			return
 		}
-		m.back(s.activeList(), msg)
+		if l := s.activeList(); l != nil {
+			m.back(l, msg)
+		} else {
+			m.setZone(m.above())
+		}
 	}
 }
 
@@ -393,6 +472,12 @@ func (m *Model) systemFooter(common, nav []kittui.Hint) []kittui.Hint {
 			common...), nav...)
 	case !s.loaded:
 		return append(own, common...)
+	case s.page == pageFolders:
+		return append(append(own, m.foldersFooter()...), common...)
+	case s.page == pageChanges:
+		return m.changesFooter(own, common, nav)
+	case s.page == pageLog:
+		return m.hostLogFooter(own, common, nav)
 	case s.page == pageUsers:
 		own = append(own, kittui.Hint{Action: actAdd, Label: textKeyNewUser, Priority: 3})
 		if _, ok := m.selectedUser(); ok {
@@ -412,10 +497,11 @@ func (m *Model) systemFooter(common, nav []kittui.Hint) []kittui.Hint {
 
 // systemPosition is the position text of the header.
 func (m *Model) systemPosition() string {
-	if !m.sys.loaded {
+	l := m.sys.activeList()
+	if !m.sys.loaded || l == nil {
 		return ""
 	}
-	return m.sys.activeList().Position()
+	return l.Position()
 }
 
 // systemView draws the System area in width by height cells.
@@ -435,8 +521,15 @@ func (m *Model) systemView(width, height int) string {
 		head := m.line(detailMargin, kittui.StyleActive, m.text.Lookup(textTitleChangeUser, s.changeFor.Name), width) + "\n\n"
 		return head + m.listView(s.changes, width, max(height-2, 1), 2)
 	}
-	if s.page == pageGroups {
+	switch s.page {
+	case pageGroups:
 		return m.listView(s.groupList, width, height, 0)
+	case pageFolders:
+		return m.foldersView(width, height)
+	case pageChanges:
+		return m.changesView(width, height)
+	case pageLog:
+		return m.hostLogView(width, height)
 	}
 	var detail []string
 	if u, ok := m.selectedUser(); ok {

@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
+   Users   Groups  [Folders]  Changes   Log                                     
+────────────────────────────────────────────────────────────────────────────────
+╭─ /srv/media ─────────────────────────────────────────────────────────────────╮
+│ Type: folder                                                                 │
+│ Owner cleo may: read and write                                               │
+│ Group ╔═ Change the host ════════════════════════════════════════════╗       │
+│ Everyo║ ⚠ Change /srv/media and everything below it: owner cleo,     ║       │
+│ Mode: ║   group media; the owner may read and write, the group read, ║       │
+╰───────║   everyone else nothing.                                     ║───────╯
+        ║                                                              ║        
+        ║ 42 entries change: the folder and everything below it. Runs  ║        
+        ║ with sudo, goes into the journal and can be undone.          ║        
+        ║ $ chown -R -h -- cleo:media /srv/media                       ║        
+        ║ $ chmod -R -- u=rwX,g=rX,o= /srv/media                       ║        
+        ║                                                              ║        
+        ║ [ yes, with sudo ]  > cancel <                               ║        
+        ║ y yes, with sudo  n/esc/enter cancel                         ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                                

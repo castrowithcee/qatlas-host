@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
+   Users   Groups   Folders  [Changes]  Log                                                                             
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  TIME              BY    CHANGE                                                                        RESULT  UNDO    
+> 2026-11-02 09:00  ada   Change /srv/media: owner cleo, group media; the owner gets read and write, …  done    possible
+  2026-11-01 17:00  ada   Delete the user ben together with its home and mail spool.                    done    -       
+  2026-11-01 08:00  root  Lock cleo: no login is possible any more, with a password or an SSH key.      undone  -       
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+╭─ 20261102T090000.000000Z-a1b2c3 ─────────────────────────────────────────────────────────────────────────────────────╮
+│ Undo: Restore the previous owner, group and permissions of the folder /srv/media.                                    │
+│ $ chown -h -- 1000:1000 /srv/media                                                                                   │
+│ $ chmod -- 0755 /srv/media                                                                                           │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+enter undo  / search  r reload  1-7 area  q quit                                                         ↑/↓ choose  1/3

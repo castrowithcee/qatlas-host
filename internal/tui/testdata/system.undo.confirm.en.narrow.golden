@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
+   Users   Groups   Folders  [Changes]  Log                                     
+────────────────────────────────────────────────────────────────────────────────
+  TIME              BY    CHANGE                                RESULT  UNDO    
+> 2026-11-02 09:00  ada   Change /srv/media: owner cleo, grou…  done    possible
+  2026-1╔═ Change the host ════════════════════════════════════════════╗-       
+  2026-1║ ⚠ Undo the change: Change /srv/media: owner cleo, group      ║-       
+        ║   media; the owner gets read and write, the group read,      ║        
+        ║   everyone else nothing.                                     ║        
+        ║                                                              ║        
+        ║ Runs with sudo and goes into the journal. The undo itself    ║        
+        ║ cannot be undone.                                            ║        
+        ║ Restore the previous owner, group and permissions of the     ║        
+        ║ folder /srv/media.                                           ║        
+        ║ $ chown -h -- 1000:1000 /srv/media                           ║        
+        ║ $ chmod -- 0755 /srv/media                                   ║        
+╭─ 20261║                                                              ║───────╮
+│ Undo: ║ [ yes, with sudo ]  > cancel <                               ║       │
+│ /srv/m║ y yes, with sudo  n/esc/enter cancel                         ║       │
+│ $ chow╚══════════════════════════════════════════════════════════════╝       │
+│ $ chmod -- 0755 /srv/media                                                   │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                             1/3

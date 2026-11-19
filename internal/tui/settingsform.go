@@ -48,6 +48,8 @@ type settingsForm struct {
 	// user is what a form of System > Users is about, group what a form of System > Groups is about.
 	user  *userForm
 	group *hostadmin.Group
+	// folder is the folder a form of System > Folders changes.
+	folder *hostadmin.Folder
 	// titleArg is the name of the host the title of the form names.
 	titleArg string
 }
@@ -254,6 +256,8 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitGroupMembers(f, v)
 	case formGroupRename:
 		return m.submitGroupRename(f, v)
+	case formHostFolder:
+		return m.submitFolderChange(f, v)
 	}
 	return nil
 }

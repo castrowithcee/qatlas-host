@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge  [7 ◎ System]        
+   Benutzer   Gruppen  [Ordner]  Änderungen   Protokoll                                                                 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+╭─ /srv/media ─────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Art: Ordner                                                                                                          │
+│ Besitzer cleo darf: lesen und schreiben                                                                              │
+│ Gruppe media darf: lesen                                                                                             │
+│ Alle anderen dürfen: nichts                                                                                          │
+│ Modus: 0750                                                                                                          │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Host ändern ════════════════════════════════════════════════╗                            
+                            ║ ⚠ /srv/media und alles darunter ändern: Besitzer cleo,       ║                            
+                            ║   Gruppe media. Der Besitzer darf lesen und schreiben, die   ║                            
+                            ║   Gruppe lesen, alle anderen nichts.                         ║                            
+                            ║                                                              ║                            
+                            ║ 42 Einträge ändern sich: der Ordner und alles darunter.      ║                            
+                            ║ Läuft mit sudo, steht im Journal und lässt sich rückgängig   ║                            
+                            ║ machen.                                                      ║                            
+                            ║ $ chown -R -h -- cleo:media /srv/media                       ║                            
+                            ║ $ chmod -R -- u=rwX,g=rX,o= /srv/media                       ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        

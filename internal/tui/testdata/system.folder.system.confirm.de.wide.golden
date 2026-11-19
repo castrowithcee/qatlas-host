@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge  [7 ◎ System]        
+   Benutzer   Gruppen  [Ordner]  Änderungen   Protokoll                                                                 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+╭─ /etc/demo ──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Art: Ordner                                                                                                          │
+│ Besitzer cleo darf: lesen und schreiben                                                                              │
+│ Gruppe media darf: lesen                                                                                             │
+│ Alle anderen dürfen: nichts                                                                                          │
+│ Modus: 0750                                                                                                          │
+│ Das ist ein Systempfad: Falsche Besitzer oder Rechte können hier den Host beschädigen.                               │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Host ändern ════════════════════════════════════════════════╗                            
+                            ║ ⚠ /etc/demo ändern: Besitzer cleo, Gruppe media. Der         ║                            
+                            ║   Besitzer darf lesen und schreiben, die Gruppe lesen, alle  ║                            
+                            ║   anderen nichts.                                            ║                            
+                            ║                                                              ║                            
+                            ║ Das ist ein Systempfad: Falsche Besitzer oder Rechte können  ║                            
+                            ║ hier Dienste stoppen und Anmeldungen auf diesem Host         ║                            
+                            ║ blockieren. Läuft mit sudo, steht im Journal und lässt sich  ║                            
+                            ║ rückgängig machen.                                           ║                            
+                            ║ $ chown -- cleo:media /etc/demo                              ║                            
+                            ║ $ chmod -- u=rwX,g=rX,o= /etc/demo                           ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        

@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
+   Users   Groups   Folders  [Changes]  Log                                     
+────────────────────────────────────────────────────────────────────────────────
+  TIME              BY    CHANGE                                RESULT  UNDO    
+  2026-11-02 09:00  ada   Change /srv/media: owner cleo, grou…  done    possible
+> 2026-11-01 17:00  ada   Delete the user ben together with i…  done    -       
+  2026-11-01 08:00  root  Lock cleo: no login is possible any…  undone  -       
+        ╔═ Host ═══════════════════════════════════════════════════════╗        
+        ║ Not undone: Delete the user ben together with its home and   ║        
+        ║ mail spool.                                                  ║        
+        ║                                                              ║        
+        ║ This change cannot be undone, as a deleted home or an undo   ║        
+        ║ itself.                                                      ║        
+        ║                                                              ║        
+        ║ > close <                                                    ║        
+        ║ n/esc/enter close                                            ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+╭─ 20261101T170000.000000Z-d4e5f6 ─────────────────────────────────────────────╮
+│ This change cannot be undone, as a deleted home or an undo itself.           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                             2/3

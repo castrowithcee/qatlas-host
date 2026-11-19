@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 5 6 [7 System]                                                        
+   Benutzer   Gruppen  [Ordner]  Änderungen   Protokoll                         
+────────────────────────────────────────────────────────────────────────────────
+  /srv/media ändern                                                             
+                                                                                
+Besitzer, Gruppe und was jeder darf. Lesen erlaubt Öffnen und Auflisten, lesen  
+und schreiben auch das Ändern des Inhalts.                                      
+                                                                                
+  …                                                                             
+                      ╔════════════════════════════════════════════════════════╗
+> Besitzer darf       ║ lesen                                                ▾ ║
+                      ╚════════════════════════════════════════════════════════╝
+                      nichts, lesen oder lesen und schreiben.                   
+                      ╭────────────────────────────────────────────────────────╮
+  Gruppe darf         │ lesen                                                ▾ │
+                      ╰────────────────────────────────────────────────────────╯
+  …                                                                             
+                                                                                
+                                                                                
+                                                                                
+[ F2 speichern ]  [ esc Verwerfen ]                                             
+enter Auswählen  F2 Speichern  esc verwerfen                                    
+                                       tab Nächstes Feld  shift+tab Voriges Feld

@@ -124,7 +124,9 @@ type modal struct {
 	// alt is what the answer actWithRemote does, for a question that offers it.
 	alt func() tea.Cmd
 	// drop runs on every answer but yes, so a question that holds a secret overwrites it.
-	drop       func()
+	drop func()
+	// input is what the answer enter of a dialog with an input does with the text typed.
+	input      func(typed string) tea.Cmd
 	changelogs map[string]*changelogEntry
 	// summary
 	title    string
@@ -372,6 +374,10 @@ func (m *Model) applyPreview(msg previewMsg) tea.Cmd {
 func (m *Model) modalKey(msg tea.KeyPressMsg) tea.Cmd {
 	md := m.modal
 	if answer, handled := md.dialog.Update(msg); handled {
+		// A key that edits the input or moves over its suggestions answers nothing and keeps the dialog.
+		if answer == "" {
+			return nil
+		}
 		return m.answer(answer)
 	}
 	if id, ok := m.keys.Match(msg, kittui.InputNavigation); ok {
@@ -426,6 +432,10 @@ func (m *Model) answer(answer kittui.ActionID) tea.Cmd {
 	case actWithRemote:
 		if md.alt != nil {
 			return md.alt()
+		}
+	case actEnter:
+		if md.input != nil {
+			return md.input(md.dialog.Value())
 		}
 	case actShowLog:
 		return m.showRuns(md.runs())

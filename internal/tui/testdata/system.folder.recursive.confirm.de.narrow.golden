@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 5 6 [7 System]                                                        
+   Benutzer   Gruppen  [Ordner]  Änderungen   Protokoll                         
+────────────────────────────────────────────────────────────────────────────────
+╭─ /srv/media ─────────────────────────────────────────────────────────────────╮
+│ Art: Ordner                                                                  │
+│ Besitz╔═ Host ändern ════════════════════════════════════════════════╗       │
+│ Gruppe║ ⚠ /srv/media und alles darunter ändern: Besitzer cleo,       ║       │
+│ Alle a║   Gruppe media. Der Besitzer darf lesen und schreiben, die   ║       │
+│ Modus:║   Gruppe lesen, alle anderen nichts.                         ║       │
+╰───────║                                                              ║───────╯
+        ║ 42 Einträge ändern sich: der Ordner und alles darunter.      ║        
+        ║ Läuft mit sudo, steht im Journal und lässt sich rückgängig   ║        
+        ║ machen.                                                      ║        
+        ║ $ chown -R -h -- cleo:media /srv/media                       ║        
+        ║ $ chmod -R -- u=rwX,g=rX,o= /srv/media                       ║        
+        ║                                                              ║        
+        ║ [ ja, mit sudo ]  > abbrechen <                              ║        
+        ║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                                

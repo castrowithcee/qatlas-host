@@ -1,6 +1,6 @@
 ◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
    1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge  [7 ◎ System]        
-  [Benutzer]  Gruppen                                                                                                   
+  [Benutzer]  Gruppen   Ordner   Änderungen   Protokoll                                                                 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     NAME            UID    ADMIN           DOCKER  LOGIN      GRUPPEN                                                   
   ▾ ■ Benutzer (3)                                                                                                      
@@ -17,7 +17,7 @@
                             ║ Erledigt: cleo sperren: Danach ist kein Login mehr möglich,  ║                            
                             ║ weder mit Passwort noch mit SSH-Schlüssel.                   ║                            
                             ║                                                              ║                            
-                            ║ Journaleintrag 20261102T090000-0001. sudo qhost host undo    ║                            
+                            ║ Journaleintrag 20261102T090000-0001. System > Änderungen     ║                            
                             ║ nimmt ihn zurück.                                            ║                            
                             ║                                                              ║                            
                             ║ Prüfung: bestanden.                                          ║                            

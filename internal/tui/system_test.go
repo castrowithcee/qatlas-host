@@ -104,7 +104,10 @@ func (f *fakeRoot) exec(cmd *exec.Cmd, fn tea.ExecCallback) tea.Cmd {
 
 func (f *fakeRoot) bg(cmd *exec.Cmd) error {
 	f.bgs = append(f.bgs, cmd)
-	in, _ := io.ReadAll(cmd.Stdin)
+	var in []byte
+	if cmd.Stdin != nil {
+		in, _ = io.ReadAll(cmd.Stdin)
+	}
 	f.stdins = append(f.stdins, in)
 	_, _ = io.WriteString(cmd.Stdout, f.report)
 	_, _ = io.WriteString(cmd.Stderr, f.stderr)

@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 5 6 [7 System]                                                        
+   Benutzer   Gruppen   Ordner  [Änderungen]  Protokoll                         
+────────────────────────────────────────────────────────────────────────────────
+  ZEIT              VON   ÄNDERUNG                ERGEBNIS            RÜCKGÄNGIG
+> 2026-11-02 09:00  ada   Change /srv/media: ow…  erledigt            möglich   
+  2026-1╔═ Host ändern ════════════════════════════════════════════════╗        
+  2026-1║ ⚠ Änderung rückgängig machen: Change /srv/media: owner cleo, ║        
+        ║   group media; the owner gets read and write, the group      ║        
+        ║   read, everyone else nothing.                               ║        
+        ║                                                              ║        
+        ║ Läuft mit sudo und steht im Journal. Das Rückgängigmachen    ║        
+        ║ selbst lässt sich nicht rückgängig machen.                   ║        
+        ║ Restore the previous owner, group and permissions of the     ║        
+        ║ folder /srv/media.                                           ║        
+        ║ $ chown -h -- 1000:1000 /srv/media                           ║        
+        ║ $ chmod -- 0755 /srv/media                                   ║        
+╭─ 20261║                                                              ║───────╮
+│ Rückgä║ [ ja, mit sudo ]  > abbrechen <                              ║older  │
+│ /srv/m║ y ja, mit sudo  n/esc/enter abbrechen                        ║       │
+│ $ chow╚══════════════════════════════════════════════════════════════╝       │
+│ $ chmod -- 0755 /srv/media                                                   │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                             1/3

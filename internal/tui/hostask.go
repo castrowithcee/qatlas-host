@@ -36,6 +36,8 @@ type hostAsk struct {
 	danger bool
 	// self is set where the change gives the person behind the interface the group qhost.
 	self bool
+	// undo marks the undo of a journal entry, whose report names the new entry, which is not undone in turn.
+	undo bool
 }
 
 // wipe overwrites the secret of the change.
@@ -96,11 +98,19 @@ func (m *Model) confirmHost(p hostPlanned) {
 	if a.risk != "" {
 		consequence, irreversible, danger = a.risk+" "+consequence, true, true
 	}
-	details := make([]kittui.DialogLine, len(p.commands))
-	for i, c := range p.commands {
-		details[i] = kittui.DialogLine{Prefix: "$ ", Text: c, Style: kittui.StyleHint}
+	m.askChange(a.question, consequence, irreversible, danger, nil, p.commands, func() tea.Cmd { return m.runHostChange(a) }, a.wipe)
+}
+
+// askChange shows the question of a change of the host: the sentence, the consequence, the lead lines and the exact
+// commands dimmed below them, and y or n. y calls yes; every other answer, and a dialog that cannot be shown, calls
+// drop where it is set. danger makes the yes red.
+func (m *Model) askChange(question, consequence string, irreversible, danger bool, lead []kittui.DialogLine, commands []string,
+	yes func() tea.Cmd, drop func()) {
+	details := append([]kittui.DialogLine{}, lead...)
+	for _, c := range commands {
+		details = append(details, kittui.DialogLine{Prefix: "$ ", Text: c, Style: kittui.StyleHint})
 	}
-	spec := kittui.DialogSpec{Title: textTitleHostChange, Question: a.question, Consequence: consequence, Details: details,
+	spec := kittui.DialogSpec{Title: textTitleHostChange, Question: question, Consequence: consequence, Details: details,
 		Irreversible: irreversible, Answers: []kittui.Answer{{Action: actYes, Label: textAnswerRunChange}, {Action: actNo, Label: textAnswerCancel}},
 		Default: actNo, Keys: kittui.DialogKeys{Enter: actEnter}}
 	if danger {
@@ -108,11 +118,13 @@ func (m *Model) confirmHost(p hostPlanned) {
 	}
 	dialog, err := kittui.NewDialog(spec, m.keys, m.text)
 	if err != nil {
-		a.wipe()
-		m.failure = t.Lookup(kittui.TextError, err.Error())
+		if drop != nil {
+			drop()
+		}
+		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, yes: func() tea.Cmd { return m.runHostChange(a) }, drop: a.wipe}
+	m.modal = &modal{kind: modalAsk, dialog: dialog, yes: yes, drop: drop}
 }
 
 // runHostChange runs host apply and shows what it reported. The lists are read again afterwards: the host may
@@ -124,13 +136,13 @@ func (m *Model) runHostChange(a hostAsk) tea.Cmd {
 		report, ok := parseReport(out)
 		if !ok {
 			m.hostFailed(out, err, true)
-			return m.loadSystem(true)
+			return tea.Batch(m.loadSystem(true), m.afterHostChange())
 		}
 		m.hostResult(report, a)
 		if report.Result == hostchange.ResultRefused {
 			return nil
 		}
-		return m.loadSystem(true)
+		return tea.Batch(m.loadSystem(true), m.afterHostChange())
 	}
 	if len(a.secret) > 0 {
 		return m.runHostSecret(req, a.mask, after)
@@ -148,7 +160,10 @@ func (m *Model) hostResult(r hostReport, a hostAsk) {
 	case hostchange.ResultApplied:
 		title = t.Lookup(textHostDone, a.question)
 		note = kittui.DialogLine{Text: t.Lookup(textHostDoneUndo, r.JournalID), Style: kittui.StyleHint}
-		if !r.Reversible {
+		switch {
+		case a.undo:
+			note = kittui.DialogLine{Text: t.Lookup(textUndoDone, r.JournalID), Style: kittui.StyleHint}
+		case !r.Reversible:
 			note = kittui.DialogLine{Text: t.Lookup(textHostDoneFinal), Style: kittui.StyleHint}
 		}
 	case hostchange.ResultRefused:

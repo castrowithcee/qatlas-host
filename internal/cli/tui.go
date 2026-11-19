@@ -66,7 +66,8 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"the log of a run, which follows a run in progress; Settings holds what applies to the whole host or\n" +
 			"this device, on four sub-tabs below the tab line: General (the preferences of this device),\n" +
 			"Credentials, Maintenance window and Notifications; Containers lists every container of the\n" +
-			"host; Proposals lists the proposals of agents; System lists the users and groups of the host.\n" +
+			"host; Proposals lists the proposals of agents; System lists the users and groups of the host, its\n" +
+			"latest changes and the action log of the host service.\n" +
 			"? opens the help, r reads the service again, q quits.\n\n" +
 			"The sub-tabs of Settings are a second line under the tab line. From the tab line, down leads to it, and\n" +
 			"there left and right choose the sub-tab with wrap-around and show its content at once; down, enter or\n" +
@@ -90,14 +91,22 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"files in what would be pushed stop it, with no way around. Adding a folder of files offers the same\n" +
 			"comparison with an address.\n\n" +
 			"System lists the local users and groups of the host, read from its account files, so it works without the\n" +
-			"deploy service; Users and Groups are its sub-tabs. On Users, a creates a user with an initial password that\n" +
-			"must be changed at the first login, e or enter offers the changes of the marked user (administrator, Docker,\n" +
-			"groups, password, SSH keys, lock and unlock) and x deletes it, keeping its home unless deleting it is chosen.\n" +
-			"On Groups, a creates a group, e or enter adds and removes members of the marked group, several at once, n\n" +
-			"renames it and x deletes it. Every change shows a sentence and the exact commands; y hands the terminal to\n" +
-			"sudo qhost host apply, which asks for the password itself, and started with sudo the interface runs it\n" +
-			"directly. A password or key is never shown and never goes into a command line. Changes of root, of system\n" +
-			"accounts and of system groups and every rename of a group ask in red (see qhost help host-tui).\n\n" +
+			"deploy service; Users, Groups, Folders, Changes and Log are its sub-tabs. On Users, a creates a user with an initial\n" +
+			"password that must be changed at the first login, e or enter offers the changes of the marked user\n" +
+			"(administrator, Docker, groups, password, SSH keys, lock and unlock) and x deletes it, keeping its home\n" +
+			"unless deleting it is chosen. On Groups, a creates a group, e or enter adds and removes members of the\n" +
+			"marked group, several at once, n renames it and x deletes it. On Folders, enter chooses a folder and e\n" +
+			"changes its owner, group and what the owner, the group and everyone else may (nothing, read, or read and\n" +
+			"write), optionally for everything below it, which names the number of entries first. Every change shows a\n" +
+			"sentence and the exact commands; y hands the terminal to sudo qhost host apply, which asks for the password\n" +
+			"itself, and started with sudo the interface runs it directly. A password or key is never shown and never\n" +
+			"goes into a command line. Changes of root, of system accounts, of system groups and of system paths and\n" +
+			"every rename of a group ask in red (see qhost help host-tui).\n\n" +
+			"Changes lists the latest changes of the host from the journal, which only root can read: started with\n" +
+			"sudo the interface reads it on its own, otherwise r reads it through sudo qhost host journal. enter on a\n" +
+			"change asks to undo it with the sentence and the exact commands, and y runs sudo qhost host undo; a change\n" +
+			"that cannot be undone says why instead. Log shows the action log of the host service with the result of\n" +
+			"the check of its chain of hashes; it is read when the page opens for the first time, after a change and on r.\n\n" +
 			"The mouse works too: click a tab, a key in the header or footer, or a row, and turn the wheel to scroll.\n" +
 			"A click does what the key does, so every action still asks first. The mouse is on by default; with it\n" +
 			"on, hold Shift to select text. Settings, General switches it off.\n\n" +
@@ -130,7 +139,8 @@ func newTUICommand(state *notRunning) *cobra.Command {
 				}
 				return failureOf(err)
 			}
-			opts := tui.Options{Backend: backend, Folders: tuiFolders{}, Deploy: tuiDeploySetup{}, In: in, Out: out, HostRun: hostRunner}
+			opts := tui.Options{Backend: backend, Folders: tuiFolders{}, Deploy: tuiDeploySetup{}, In: in, Out: out, HostRun: hostRunner,
+				HostLog: tui.NewHostChannel(hostEndpoint())}
 			schema, err := tui.PrefsSchema()
 			if err != nil {
 				return &cli.Failure{Code: output.CodeRuntime, Message: "the terminal interface cannot start: " + err.Error(),

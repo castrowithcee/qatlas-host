@@ -1,6 +1,6 @@
 ◆ qhost  maintenance window closed                          [esc] back  [?] help
   1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
-  [Users]  Groups                                                               
+  [Users]  Groups   Folders   Changes   Log                                     
 ────────────────────────────────────────────────────────────────────────────────
     NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS             
   ▾ ■ Users (3)                                                                 
@@ -9,8 +9,8 @@
 >   cleo║ Done: Lock cleo: no login is possible any more, with a       ║        
   ▾ ■ Sy║ password or an SSH key.                                      ║        
     root║                                                              ║        
-    daem║ Journal entry 20261102T090000-0001. sudo qhost host undo     ║        
-    nobo║ takes it back.                                               ║        
+    daem║ Journal entry 20261102T090000-0001. System > Changes takes   ║        
+    nobo║ it back.                                                     ║        
         ║                                                              ║        
         ║ Check: passed.                                               ║        
 ╭─ cleo ║                                                              ║───────╮
