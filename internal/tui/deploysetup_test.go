@@ -55,7 +55,7 @@ func notSetUpModel(t *testing.T, lang i18n.Lang, d *fakeDeploy, euid, width, row
 	m, err := newModel(config{ctx: context.Background(), backend: b, deploy: d, lang: lang, theme: kittui.ThemeTerminal,
 		profile: kittui.ProfileNone, charset: kittui.CharsetUnicode, loc: time.UTC,
 		prefs: uiprefs.Prefs{Theme: kittui.ThemeTerminal, Start: string(areaStacks), Icons: uiprefs.IconsUnicode,
-			Language: uiprefs.LanguageEnglish, MouseEnabled: true}})
+			Language: uiprefs.LanguageEnglish, MouseEnabled: true}, accounts: testAccounts(false)})
 	if err != nil {
 		t.Fatal(err)
 	}

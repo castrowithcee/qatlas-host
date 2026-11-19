@@ -10,7 +10,9 @@
 # answers a user of the group without sudo not-admin, turns away a user outside the group and a revoked administrator,
 # and the check of its action log reports a changed line. Changes of the host follow: sudo qhost host apply changes the
 # permissions of a folder, the journal shows it, the undo restores them and the action log names the person behind
-# sudo; a user is created, put in a group, locked and deleted, and the protection rules refuse the rest. Then bind the stacks repository with its own deploy key, list the
+# sudo; a user is created, put in a group, locked and deleted, and the protection rules refuse the rest. The terminal
+# interface, started without sudo, creates a group and a user with an initial password in it through the real sudo,
+# and qhost host users shows the user with the group. Then bind the stacks repository with its own deploy key, list the
 # stacks, deploy a new commit, show the available image versions per update ceiling without changing anything,
 # roll back a commit with a failing healthcheck (data restored from the run's backup, revert commit on the
 # remote), leave a stack whose rollback fails stopped and paused until resume, and refuse a changed host key of the git server.
@@ -484,6 +486,120 @@ scenario_host_changes() {
 	if docker exec "$host" grep -rqF "$pw" /var/lib/qhost-host /var/lib/qhost; then fail 'the password reached the journal or the action log'; fi
 	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the user changes: $out"
 	log 'scenario: user e2e-hostuser created, put in e2e-hostgroup, locked and deleted; every change is in the action log with uid '"$admin_uid"
+}
+
+# tui_system_tab clicks the sub-tab $1 of the System area on the third line of the screen (header, tab line,
+# sub-tab line) and leads the focus into its content.
+tui_system_tab() {
+	cell=$(tui_screen | awk -v t="$1" 'NR == 3 && (i = index($0, t)) { print i, NR; exit }')
+	[ -n "$cell" ] || fail "cannot click the sub-tab '$1', it is not on the sub-tab line: $(tui_screen)"
+	set -- $cell
+	tui_send -l "$(printf '\033[<0;%d;%dM\033[<0;%d;%dm' "$1" "$2" "$1" "$2")"
+	sleep 0.4
+	tui_send Down
+	sleep 0.3
+}
+
+# tui_system_user_create_count prints how many changes user.create of the administrator the action log holds.
+tui_system_user_create_count() {
+	host_audit_rows | grep -o "\"client_uid\":$admin_uid,\"action\":\"host.change\",\"result\":\"success\"[^}]*\"change\":\"user\.create[0-9]" | wc -l
+}
+
+# scenario_tui_system proves the System area of the interface started without sudo. On Groups the administrator
+# creates a group; on Users a user with an initial password in that group. Each change hands the terminal to the
+# real sudo: the group through sudo qhost host apply, the user first through sudo -v and then sudo -n with the
+# initial password on standard input. qhost host users then shows the user with the group, the password is set and
+# must be changed at the first login, and the password shows on no captured screen, in no state of qhost and in no
+# system log.
+scenario_tui_system() {
+	tui_log=$work/tui-system-screens.log
+	: >"$tui_log"
+	ts_user=e2e-tuiuser
+	ts_group=e2e-tuigroup
+	ts_start=E2e-tui-Start-4417
+	# sudo -v asks for the password of the administrator although the rule of $admin needs none, because the
+	# account is also in the group sudo; the scenario answers it as a person would.
+	ts_login=E2e-admin-Login-2093
+	printf '%s:%s\n' "$admin" "$ts_login" | docker exec -i "$host" chpasswd || fail "cannot give $admin a password"
+	admin_uid=$(docker exec "$host" id -u "$admin")
+	docker exec "$host" sh -c "id $ts_user >/dev/null 2>&1 && userdel -r $ts_user; getent group $ts_group >/dev/null && groupdel $ts_group; rm -rf /home/$ts_user; true"
+	creates_before=$(tui_system_user_create_count)
+
+	step 'the interface without sudo creates a group on System > Groups through sudo qhost host apply'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 7
+	tui_wait 'DOCKER' 15
+	tui_system_tab Groups
+	tui_wait 'MEMBERS' 10
+	tui_send a
+	tui_wait 'The system gives the group a regular group number.' 10
+	tui_type "$ts_group"
+	tui_send F2
+	tui_wait "Create the group $ts_group." 10
+	tui_has 'groupadd' || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	tui_wait "Done: Create the group $ts_group." 60
+	tui_send Enter
+	docker exec "$host" getent group "$ts_group" >/dev/null || fail "the group $ts_group does not exist after the interface created it"
+
+	step 'the interface without sudo creates a user with an initial password in that group, through sudo -v and sudo -n'
+	tui_system_tab Users
+	tui_wait 'DOCKER' 10
+	tui_send a
+	tui_wait 'The user must change the initial password at the first login.' 10
+	tui_type "$ts_user"
+	tui_send Down
+	tui_type "$ts_start"
+	tui_send Down
+	tui_type "$ts_start"
+	tui_wait "$ts_group" 10
+	tui_click "$ts_group"
+	sleep 0.3
+	tui_send F2
+	tui_wait "Create the user $ts_user" 10
+	tui_has "$ts_group" || fail "the commands of the question do not put the user in $ts_group: $(tui_screen)"
+	tui_send y
+	tui_wait "[sudo] password for $admin" 30
+	tui_type "$ts_login"
+	tui_send Enter
+	tui_wait 'Done: Create the user' 60
+	tui_send Enter
+	i=0
+	until tui_screen | grep "$ts_user" | grep -q "$ts_group"; do
+		i=$((i + 1))
+		[ "$i" -lt 40 ] || fail "the users list does not show $ts_user with $ts_group: $(tui_screen)"
+		sleep 0.25
+	done
+	tui_send Escape
+	tui_send q
+	tui_wait 'qhost-exit=0' 10
+	tui_tmux kill-server >/dev/null 2>&1 || true
+
+	step 'qhost host users shows the user with the group; the initial password is set and must be changed'
+	out=$(as_admin 'qhost host users 2>&1') || fail "qhost host users failed: $out"
+	printf '%s\n' "$out" | grep -F -- "$ts_user" | grep -qF -- "$ts_group" || fail "qhost host users does not show $ts_user with $ts_group: $out"
+	out=$(as_admin 'qhost --output json host users 2>&1') || fail "qhost --output json host users failed: $out"
+	printf '%s' "$out" | jq -e --arg u "$ts_user" --arg g "$ts_group" '[.. | objects | select(.name? == $u)][0].groups | index($g) != null' >/dev/null ||
+		fail "the JSON of qhost host users does not show $ts_user with $ts_group: $out"
+	printf '%s' "$ts_start" | docker exec -i "$host" perl -e 'my $p = <STDIN>; open(my $f, "<", "/etc/shadow") or exit 2;
+		while (<$f>) { my @r = split /:/; exit(crypt($p, $r[1]) eq $r[1] && $r[2] eq "0" ? 0 : 1) if $r[0] eq $ARGV[0] } exit 3' "$ts_user" ||
+		fail "the initial password of $ts_user did not arrive over standard input, or it need not be changed at the first login"
+	[ "$(tui_system_user_create_count)" -eq $((creates_before + 1)) ] ||
+		fail "the action log does not hold one more user.create of uid $admin_uid behind sudo: $(host_audit_rows)"
+
+	step 'the initial password shows on no captured screen, in no state of qhost and in no system log'
+	[ "$(wc -l <"$tui_log")" -gt 40 ] || fail 'too few screens were captured to check'
+	if grep -qF -- "$ts_start" "$tui_log"; then fail 'the initial password shows on a captured screen'; fi
+	if grep -qF -- "$ts_login" "$tui_log"; then fail 'the password typed for sudo shows on a captured screen'; fi
+	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
+	if docker exec "$host" grep -rqF -- "$ts_start" /var/lib/qhost-host /var/lib/qhost; then fail 'the initial password reached the state of qhost'; fi
+	if docker exec "$host" sh -c 'journalctl --no-pager -q 2>/dev/null' | grep -qF -- "$ts_start"; then fail 'the initial password reached the system log'; fi
+
+	docker exec "$host" sh -c "userdel -r $ts_user; groupdel $ts_group; rm -rf /home/$ts_user; true"
+	log "scenario: the interface without sudo created $ts_group and $ts_user in it through sudo; qhost host users shows both"
 }
 
 # service_log_warn_count prints how many entries of the service log at the level warn or above say that the window
@@ -1535,6 +1651,7 @@ scenario_stacks_repo() {
 	setup_service
 	scenario_host_service
 	scenario_host_changes
+	scenario_tui_system
 	url=git.$domain:stacks.git
 
 	scenario_service_log

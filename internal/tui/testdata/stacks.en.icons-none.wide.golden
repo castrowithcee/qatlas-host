@@ -1,5 +1,5 @@
 qhost  maintenance window closed                                                                                [?] help
-  [1 Stacks]  2 Stack detail   3 Runs   4 Settings   5 Containers   6 Proposals                                         
+  [1 Stacks]  2 Stack detail   3 Runs   4 Settings   5 Containers   6 Proposals   7 System                              
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
       STACK        CURRENT      AVAILABLE      MODE       STATE                  LAST RUN                     FINDINGS  
 > [ ] demo-stack   1.4.2        1.5.0          automatic  deployed               succeeded 10-30 14:02        1 warning 
@@ -11,4 +11,4 @@ qhost  maintenance window closed                                                
                                                                                                                         
                                                                                                                         
                                                                                                                         
-enter details  / search  space tick  u update  d deploy  a add  r reload  1-6 area  q quit               ↑/↓ choose  1/6
+enter details  / search  space tick  u update  d deploy  a add  r reload  1-7 area  q quit               ↑/↓ choose  1/6

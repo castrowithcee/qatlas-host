@@ -23,9 +23,9 @@ func (m *Model) setMouse(targets []kittui.Target) {
 	m.mouseMap = kittui.NewMouseMap(targets, m.mouseOn && on)
 }
 
-// formShown reports whether a form of the Settings area, the Stacks area or the detail is open.
+// formShown reports whether a form of the Settings, Stacks, Proposals or System area or of the detail is open.
 func (m *Model) formShown() bool {
-	return (m.area == areaSettings || m.area == areaDetail || m.area == areaStacks || m.area == areaProposals) && m.set.form != nil
+	return (m.area == areaSettings || m.area == areaDetail || m.area == areaStacks || m.area == areaProposals || m.area == areaSystem) && m.set.form != nil
 }
 
 // formFocused reports whether the open form takes the keys. The General form shares the screen with the tab and

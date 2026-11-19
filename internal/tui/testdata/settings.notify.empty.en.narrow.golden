@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed  [esc] back  [?] help
-  1 2 3 [4 Settings] 5 6                                
+  1 2 3 [4 Settings] 5 6 7                              
   [Notifications]                                       
 ────────────────────────────────────────────────────────
   No notification channels. a adds one.                 
@@ -21,4 +21,4 @@
                                                         
                                                         
 a add  s send test  x remove  esc back  r reload        
-1-6 area  q quit                              ↑/↓ choose
+1-7 area  q quit                              ↑/↓ choose

@@ -1,0 +1,13 @@
+root:x:0:
+daemon:x:1:
+adm:x:4:
+sudo:x:27:ada,ben
+users:x:100:
+qhost:x:998:ada
+docker:x:999:ada
+ada:x:1000:
+ben:x:1001:
+cleo:x:1002:
+media:x:1003:cleo
+backup-ops:x:1004:
+nogroup:x:65534:

@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed                          [esc] back  [?] help
-   1 Stacks   2 Stack detail   3 Runs   4 Settings   5 Containers  [6 Proposals]
+  1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers [6 Proposals] 7 System 
 ────────────────────────────────────────────────────────────────────────────────
   stack folder                                                            p-0004
                                                                                 
@@ -21,4 +21,4 @@
     owner: root, group: root, mode: 0755                                        
     the service can write it: no                                                
     permissions are set: no                                                     
-esc back  A approve  N reject  r reload  1-6 area  q quit      ↑/↓ scroll  20/27
+esc back  A approve  N reject  r reload  1-7 area  q quit      ↑/↓ scroll  20/27

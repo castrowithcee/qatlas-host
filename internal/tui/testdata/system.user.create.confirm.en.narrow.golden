@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
+  [Users]  Groups                                                               
+────────────────────────────────────────────────────────────────────────────────
+    NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS             
+  ▾ ■ Us╔═ Change the host ════════════════════════════════════════════╗        
+>   ada ║ ⚠ Create the user dora with an initial password that must be ║        
+    ben ║   changed at the first login.                                ║        
+    cleo║                                                              ║        
+  ▾ ■ Sy║ Admin and Docker rights allow practically everything on this ║        
+    root║ host. Runs with sudo, goes into the journal and can be       ║        
+    daem║ undone.                                                      ║        
+    nobo║ $ useradd -m -d /home/dora -U -s /bin/bash -G sudo,qhost     ║        
+        ║   dora                                                       ║        
+        ║ $ chpasswd < <password>                                      ║        
+╭─ ada ─║ $ chage -d 0 dora                                            ║───────╮
+│ Home: ║ $ [builtin] authorized-keys-add dora < <ssh key              ║       │
+│ Primar║   SHA256:z/fSv0Z0RZS+Lccbc6ZoOWwt/fbj1VFJGSBKQbo4icE>        ║       │
+│ Furthe║                                                              ║       │
+│ Access║ [ yes, with sudo ]  > cancel <                               ║       │
+│ Login:║ y yes, with sudo  n/esc/enter cancel                         ║       │
+│ Login ╚══════════════════════════════════════════════════════════════╝       │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                             1/6

@@ -1,5 +1,5 @@
 ◆ qhost                                                                                                        [?] Hilfe
-  [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge                      
+  [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Der Deploy-Dienst ist noch nicht eingerichtet. Er rollt deine Stacks aus und hält sie aktuell, läuft als eigener      
   Systembenutzer getrennt vom Host-Dienst und hat Zugriff auf Docker. G richtet ihn ein; auf der Kommandozeile: sudo    

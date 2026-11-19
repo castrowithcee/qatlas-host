@@ -179,6 +179,9 @@ func (m *Model) showPage(force bool) tea.Cmd {
 // selectTab shows the page of a sub-tab and gives the focus to the sub-tab line. Unsaved changes of the General
 // form are asked about first; the focus moves only once they are answered.
 func (m *Model) selectTab(id kittui.TabID) tea.Cmd {
+	if m.area == areaSystem {
+		return m.selectSystemTab(id)
+	}
 	page := settingsPage(id)
 	if !slices.ContainsFunc(settingsPages, func(e settingsEntry) bool { return e.page == page }) {
 		return nil
@@ -195,6 +198,9 @@ func (m *Model) selectTab(id kittui.TabID) tea.Cmd {
 
 // stepTab shows the sub-tab step places after the one shown, with wrap-around.
 func (m *Model) stepTab(step int) tea.Cmd {
+	if m.area == areaSystem {
+		return m.stepSystemTab(step)
+	}
 	for _, a := range areas() {
 		if a.ID == areaSettings {
 			return m.selectTab(kittui.StepTab(a, kittui.TabID(m.set.page), step))

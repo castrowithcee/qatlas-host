@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge  [7 ◎ System]        
+   Benutzer  [Gruppen]                                                                                                  
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    NAME           GID    MITGLIEDER                                                                                    
+  ▾ ■ Gruppen (5)                                                                                                       
+    ada            1000   ada                                                                                           
+    ben            1001   ben                                                                                           
+    cleo           1002   cleo                                                                                          
+    media          1003   cleo                                                                                          
+    backup-ops     1004                                                                                                 
+  ▾ ■ Systemgruppen (8)                                                                                                 
+    root           0      root                                                                                          
+    daemon         1      daemon                                                                                        
+    adm            4                                                                                                    
+    sudo           27     ad╔═ Host ändern ════════════════════════════════════════════════╗                            
+    users          100      ║ ⚠ ben zur Gruppe docker hinzufügen.                          ║                            
+    qhost          998    ad║                                                              ║                            
+>   docker         999    ad║ Mitglieder der Gruppe docker nutzen Docker, und das ist      ║                            
+    nogroup        65534  no║ praktisch root. Pakete oder Dienste können von einer         ║                            
+                            ║ Systemgruppe dieser Änderung abhängen. Läuft mit sudo, steht ║                            
+                            ║ im Journal und lässt sich rückgängig machen.                 ║                            
+                            ║ $ gpasswd -a ben docker                                      ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                   12/13

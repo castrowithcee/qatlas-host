@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
+   Users  [Groups]                                                              
+────────────────────────────────────────────────────────────────────────────────
+    NAME          GID    MEMBERS                                                
+  ▾ ■ Groups (5)                                                                
+    ada           1000   ada                                                    
+    ben ╔═ Change the host ════════════════════════════════════════════╗        
+    cleo║ ⚠ Add ada, ben to the group media. Remove cleo from the      ║        
+>   medi║   group media.                                               ║        
+    back║                                                              ║        
+  ▾ ■ Sy║ Runs with sudo, goes into the journal and can be undone.     ║        
+    root║ $ gpasswd -a ada media                                       ║        
+    daem║ $ gpasswd -a ben media                                       ║        
+    adm ║ $ gpasswd -d cleo media                                      ║        
+    sudo║                                                              ║        
+    user║ [ yes, with sudo ]  > cancel <                               ║        
+    qhos║ y yes, with sudo  n/esc/enter cancel                         ║        
+    dock╚══════════════════════════════════════════════════════════════╝        
+    nogroup       65534  nobody                                                 
+                                                                                
+                                                                                
+                                                                                
+                                                                            4/13

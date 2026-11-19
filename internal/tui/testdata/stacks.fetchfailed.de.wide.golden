@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu                                                                                    [?] Hilfe
-  [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge                      
+  [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
         STACK                      VERSION      VERFÜGBAR      MODUS        ZUSTAND   BEFUNDE                           
   ▾ [ ] ■ /srv/local-example (0)   lokal                                              Abruf fehlgeschlagen: the working…
@@ -20,5 +20,5 @@
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 Fehler: der Abruf von /srv/stacks-example ist fehlgeschlagen: der Dienst hat die Anfrage abgelehnt: cannot reach        
 git.example.test: connection refused                                                                                    
-enter Details  / Suchen  F jetzt abrufen  e Deploy-Schlüssel  x lösen  a hinzufügen  r Neu laden  1-6 Bereich  q Beenden
+enter Details  / Suchen  F jetzt abrufen  e Deploy-Schlüssel  x lösen  a hinzufügen  r Neu laden  1-7 Bereich  q Beenden
                                                                                                       ↑/↓ Auswählen  1/6

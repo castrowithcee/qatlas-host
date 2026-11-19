@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
-   1 ▤ Stacks  [2 ▣ Stack-Details]  3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge                      
+   1 ▤ Stacks  [2 ▣ Stack-Details]  3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   demo-stack                                                                                              alle Container
   demo-stack-app-1 app started on port 8080                                                                             
@@ -36,5 +36,5 @@
                                                                                                                         
                                                                                                                         
 [ L mitlaufend ]  [ / Suchen ]  [ T Zeitraum: alle ]  [ w Zeilen umbrechen aus ]  [ t aus ]             Zeilen 1-5 von 5
-/ Suchen  L mitlaufen  T Zeitraum  w Zeilen umbrechen  t Zeitstempel  W Log speichern  r Neu laden  1-6 Bereich         
+/ Suchen  L mitlaufen  T Zeitraum  w Zeilen umbrechen  t Zeitstempel  W Log speichern  r Neu laden  1-7 Bereich         
 q Beenden                                                                                                   ↑/↓ Scrollen

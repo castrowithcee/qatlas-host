@@ -47,6 +47,8 @@ const (
 	actAdd    kittui.ActionID = "add"
 	actRemove kittui.ActionID = "remove"
 	actEdit   kittui.ActionID = "edit"
+	// actRename renames the group marked on System > Groups.
+	actRename kittui.ActionID = "rename"
 	// actRemote gives a local stack folder a remote; actWithRemote is the answer that adds a folder of files
 	// together with the repository at an address.
 	actRemote     kittui.ActionID = "remote"
@@ -84,7 +86,7 @@ const (
 )
 
 // areaKeys are the keys of actArea, one per area in the order of the tab line.
-var areaKeys = []string{"1", "2", "3", "4", "5", "6"}
+var areaKeys = []string{"1", "2", "3", "4", "5", "6", "7"}
 
 func keyTable() []kittui.Action {
 	act := func(id kittui.ActionID, level kittui.KeyLevel, help kittui.TextID, keys ...string) kittui.Action {
@@ -127,6 +129,7 @@ func keyTable() []kittui.Action {
 		act(actAdd, kittui.LevelLetter, textKeyAdd, "a"),
 		act(actRemove, kittui.LevelLetter, textKeyRemove, "x"),
 		act(actEdit, kittui.LevelLetter, textKeyEdit, "e"),
+		act(actRename, kittui.LevelLetter, textKeyRename, "n"),
 		act(actTest, kittui.LevelLetter, textKeyTest, "s"),
 		act(actRemote, kittui.LevelLetter, textKeyRemote, "O"),
 		act(actWithRemote, kittui.LevelConfirm, textAnswerWithRemote, "w"),

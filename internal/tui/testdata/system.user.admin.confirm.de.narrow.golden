@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 5 6 [7 System]                                                        
+  [Benutzer]  Gruppen                                                           
+────────────────────────────────────────────────────────────────────────────────
+    NAME            UID    ADMIN           DOCKER  LOGIN      GRUPPEN           
+  ▾ ■ Benutzer (3)                                                              
+    ada             1000   ja              ja      unbekannt                    
+    ben             1001   ja, ohne qhost  nein    unbekannt                    
+>   cleo╔═ Host ändern ════════════════════════════════════════════════╗        
+  ▾ ■ Sy║ ⚠ cleo zum Administrator mit Zugang zu qhost machen.         ║        
+    root║                                                              ║        
+    daem║ Admin- und Docker-Rechte erlauben praktisch alles auf diesem ║        
+    nobo║ Host. Läuft mit sudo, steht im Journal und lässt sich        ║        
+        ║ rückgängig machen.                                           ║        
+        ║ $ usermod -aG sudo,qhost cleo                                ║        
+╭─ cleo ║                                                              ║───────╮
+│ Home: ║ [ ja, mit sudo ]  > abbrechen <                              ║       │
+│ Primär║ y ja, mit sudo  n/esc/enter abbrechen                        ║       │
+│ Weiter╚══════════════════════════════════════════════════════════════╝       │
+│ Zugang: kein Administrator                                                   │
+│ Login: unbekannt                                                             │
+│ Login-Zustand und SSH-Schlüssel sieht nur root.                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                             3/6

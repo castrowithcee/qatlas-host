@@ -26,6 +26,8 @@ type Options struct {
 	PrefsWarnings []string
 	// SavePrefs writes the preferences to the device; nil when this device has no place for them.
 	SavePrefs func(uiprefs.Prefs) error
+	// HostRun builds the commands that change the host as root for the System area; nil offers no change.
+	HostRun HostRunner
 }
 
 // PrefsSchema is what the preferences file of the interface may hold.
@@ -50,9 +52,13 @@ func Run(opts Options) error {
 	m, err := newModel(config{ctx: ctx, backend: opts.Backend, folders: opts.Folders, deploy: opts.Deploy, lang: uiprefs.Language(opts.Prefs.Language),
 		theme: opts.Prefs.Theme, profile: profile, charset: kittui.DetectCharsetMode(env),
 		start: kittui.AreaID(opts.Prefs.Start), loc: time.Local, warnings: opts.PrefsWarnings, mouse: opts.Prefs.MouseEnabled,
-		prefs: opts.Prefs, savePrefs: opts.SavePrefs})
+		prefs: opts.Prefs, savePrefs: opts.SavePrefs, root: hostRoot{run: opts.HostRun}})
 	if err != nil {
 		return err
+	}
+	if opts.In != nil {
+		// A command that takes the screen over, such as sudo asking for the password, reads the real terminal.
+		m.root.in = opts.In
 	}
 	input := kittui.NewInputFilter(nil)
 	program := tea.NewProgram(m, tea.WithContext(ctx), tea.WithInput(opts.In), tea.WithOutput(opts.Out),

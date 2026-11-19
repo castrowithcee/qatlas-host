@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu                    [?] Hilfe
-  [1 Stacks] 2 3 4 5 6                                  
+  [1 Stacks] 2 3 4 5 6 7                                
 ────────────────────────────────────────────────────────
   Noch keine Stack-Ordner. a fügt einen hinzu; auf der  
   Kommandozeile: sudo qhost source add <path>           
@@ -21,4 +21,4 @@
                                                         
                                                         
                                                         
-a hinzufügen  r Neu laden  1-6 Bereich  q Beenden       
+a hinzufügen  r Neu laden  1-7 Bereich  q Beenden       

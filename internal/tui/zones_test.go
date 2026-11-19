@@ -52,7 +52,7 @@ func TestTabCyclesTheZonesOfEachKindOfView(t *testing.T) {
 func TestLeftAndRightStepThroughAllAreasWithWrapAround(t *testing.T) {
 	m := newTestModel(t, i18n.English, demoBackend(), wideWidth, goldenRows)
 	send(m, "tab")
-	for _, want := range []kittui.AreaID{areaDetail, areaRuns, areaSettings, areaContainers, areaProposals, areaStacks} {
+	for _, want := range []kittui.AreaID{areaDetail, areaRuns, areaSettings, areaContainers, areaProposals, areaSystem, areaStacks} {
 		send(m, "right")
 		if m.area != want {
 			t.Fatalf("right: area %s, want %s", m.area, want)
@@ -60,7 +60,7 @@ func TestLeftAndRightStepThroughAllAreasWithWrapAround(t *testing.T) {
 		wantZone(t, m, kittui.ZoneTabs)
 	}
 	send(m, "left")
-	if m.area != areaProposals {
+	if m.area != areaSystem {
 		t.Fatalf("left from the first area: %s", m.area)
 	}
 }

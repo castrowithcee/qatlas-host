@@ -32,8 +32,11 @@ func (m *Model) markNotSetUp(err error) bool {
 	return m.notSetUp
 }
 
-// setupShown reports whether the area shows the setup instead of the deploy service's content.
-func (m *Model) setupShown() bool { return m.notSetUp && m.area != areaSettings }
+// setupShown reports whether the area shows the setup instead of the deploy service's content. Settings and System
+// need no deploy service.
+func (m *Model) setupShown() bool {
+	return m.notSetUp && m.area != areaSettings && m.area != areaSystem
+}
 
 // setupView says that the deploy service is not set up and how to set it up; a click on it is the key.
 func (m *Model) setupView(width, height int) string {

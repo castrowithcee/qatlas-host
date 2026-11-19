@@ -1,19 +1,27 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"os/user"
 	"path/filepath"
+	"slices"
+	"strconv"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/sys/unix"
 
 	"github.com/castrowithcee/qatlas-kit/cli"
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/uiprefs"
 
+	"github.com/castrowithcee/qatlas-host/internal/admins"
 	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/tui"
 )
 
@@ -48,7 +56,7 @@ func newTUICommand(state *notRunning) *cobra.Command {
 	return &cobra.Command{
 		Use:   "tui",
 		Short: "Open the terminal interface",
-		Long: "tui opens the terminal interface. It has five areas, switched with 1 to 5, or with the left and right keys\n" +
+		Long: "tui opens the terminal interface. It has seven areas, switched with 1 to 7, or with the left and right keys\n" +
 			"on the tab line, where the interface starts. Down or enter lead into the content; up in the first row or\n" +
 			"at the top of a text, and esc in a list, lead back to the tab line. Tab moves the focus between the two\n" +
 			"as well:\n" +
@@ -58,7 +66,8 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"the log of a run, which follows a run in progress; Settings holds what applies to the whole host or\n" +
 			"this device, on four sub-tabs below the tab line: General (the preferences of this device),\n" +
 			"Credentials, Maintenance window and Notifications; Containers lists every container of the\n" +
-			"host. ? opens the help, r reads the service again, q quits.\n\n" +
+			"host; Proposals lists the proposals of agents; System lists the users and groups of the host.\n" +
+			"? opens the help, r reads the service again, q quits.\n\n" +
 			"The sub-tabs of Settings are a second line under the tab line. From the tab line, down leads to it, and\n" +
 			"there left and right choose the sub-tab with wrap-around and show its content at once; down, enter or\n" +
 			"tab lead into the content, and up in its first row or field, at the top of a text, or esc lead back to\n" +
@@ -80,6 +89,15 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"the paths are listed and the state of the host is put on it as one commit after your answer. Secret-like\n" +
 			"files in what would be pushed stop it, with no way around. Adding a folder of files offers the same\n" +
 			"comparison with an address.\n\n" +
+			"System lists the local users and groups of the host, read from its account files, so it works without the\n" +
+			"deploy service; Users and Groups are its sub-tabs. On Users, a creates a user with an initial password that\n" +
+			"must be changed at the first login, e or enter offers the changes of the marked user (administrator, Docker,\n" +
+			"groups, password, SSH keys, lock and unlock) and x deletes it, keeping its home unless deleting it is chosen.\n" +
+			"On Groups, a creates a group, e or enter adds and removes members of the marked group, several at once, n\n" +
+			"renames it and x deletes it. Every change shows a sentence and the exact commands; y hands the terminal to\n" +
+			"sudo qhost host apply, which asks for the password itself, and started with sudo the interface runs it\n" +
+			"directly. A password or key is never shown and never goes into a command line. Changes of root, of system\n" +
+			"accounts and of system groups and every rename of a group ask in red (see qhost help host-tui).\n\n" +
 			"The mouse works too: click a tab, a key in the header or footer, or a row, and turn the wheel to scroll.\n" +
 			"A click does what the key does, so every action still asks first. The mouse is on by default; with it\n" +
 			"on, hold Shift to select text. Settings, General switches it off.\n\n" +
@@ -104,12 +122,15 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			// The interface refuses before it takes the terminal, so a missing service or root fails as every
 			// channel command does. A deploy service that is not set up is no failure: the interface offers the setup.
 			if _, err := backend.Status(c.Context()); err != nil && !(errors.Is(err, client.ErrNotRunning) && !deployInstalled()) {
+				if handled, failed := regroup(err, c.ErrOrStderr()); handled {
+					return failed
+				}
 				if errors.Is(err, client.ErrNotRunning) {
 					state.seen = true
 				}
 				return failureOf(err)
 			}
-			opts := tui.Options{Backend: backend, Folders: tuiFolders{}, Deploy: tuiDeploySetup{}, In: in, Out: out}
+			opts := tui.Options{Backend: backend, Folders: tuiFolders{}, Deploy: tuiDeploySetup{}, In: in, Out: out, HostRun: hostRunner}
 			schema, err := tui.PrefsSchema()
 			if err != nil {
 				return &cli.Failure{Code: output.CodeRuntime, Message: "the terminal interface cannot start: " + err.Error(),
@@ -129,4 +150,94 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// The calls hostRunner and regroup make to the host; variables so a test can stand in for them.
+var (
+	lookPath          = exec.LookPath
+	thisProgram       = os.Executable
+	execv             = unix.Exec
+	tuiEuid           = os.Geteuid
+	sessionLacksGroup = lacksServiceGroup
+	regroupArgs       = func() []string { return os.Args[1:] }
+)
+
+// hostRunner builds `sudo <this program> host ...` for the System area of the interface. sudo prompts on the
+// terminal, so the password never reaches this program. Standard input belongs to that prompt, so a request with
+// a secret runs in two steps: the interface first runs the Validate request (sudo -v) on the terminal, then this
+// one with sudo -n, which never prompts, and the secret on the standard input of the command. The secret goes into
+// no argument and no environment variable; the C locale is for the interface to recognise the answer of sudo when
+// it holds no password. An interface that runs as root runs the command itself and needs no password check.
+func hostRunner(req tui.HostRequest) (*exec.Cmd, error) {
+	exe, err := thisProgram()
+	if err != nil {
+		return nil, fmt.Errorf("cannot find this program: %w", err)
+	}
+	if tuiEuid() == 0 {
+		if req.Validate {
+			return nil, nil
+		}
+		cmd := exec.Command(exe, append([]string{"host"}, req.Args...)...)
+		if len(req.Secret) > 0 {
+			cmd.Stdin = bytes.NewReader(req.Secret)
+		}
+		return cmd, nil
+	}
+	sudo, err := lookPath("sudo")
+	if err != nil {
+		return nil, tui.ErrNoSudo
+	}
+	if req.Validate {
+		return exec.Command(sudo, "-v"), nil
+	}
+	if len(req.Secret) == 0 {
+		return exec.Command(sudo, append([]string{exe, "host"}, req.Args...)...), nil
+	}
+	cmd := exec.Command(sudo, append([]string{"-n", exe, "host"}, req.Args...)...)
+	cmd.Stdin = bytes.NewReader(req.Secret)
+	cmd.Env = append(os.Environ(), "LC_ALL=C")
+	return cmd, nil
+}
+
+// regroup starts the interface again under sudo -g qhost when the channel refused this user only because the
+// login session predates the membership in the group qhost, as after an administrator gave the access. It returns
+// only when that does not apply (not handled) or the new start failed.
+func regroup(err error, stderr io.Writer) (handled bool, failed error) {
+	if !errors.Is(err, client.ErrNoAccess) || !sessionLacksGroup() {
+		return false, nil
+	}
+	sudo, lookErr := lookPath("sudo")
+	if lookErr != nil {
+		return false, nil
+	}
+	exe, exeErr := thisProgram()
+	if exeErr != nil {
+		return false, nil
+	}
+	fmt.Fprintf(stderr, "This login session lacks the group %s; starting the interface again under sudo -g %s.\n",
+		control.ServiceGroup, control.ServiceGroup)
+	argv := append([]string{"sudo", "-g", control.ServiceGroup, exe}, regroupArgs()...)
+	if execErr := execv(sudo, argv, os.Environ()); execErr != nil {
+		return true, &cli.Failure{Code: output.CodePermission, Message: "cannot start the interface under sudo -g " + control.ServiceGroup + ": " + execErr.Error(),
+			NextStep: "Log in again so the session has the group " + control.ServiceGroup + ", then run 'qhost tui'.", Cause: execErr}
+	}
+	return true, nil
+}
+
+// lacksServiceGroup reports whether this user administers the host per the group database, the group qhost
+// included, while the process holds no group qhost: the login session started before the membership.
+func lacksServiceGroup() bool {
+	if ok, err := (admins.Database{}).Admin(uint32(os.Getuid())); err != nil || !ok {
+		return false
+	}
+	g, err := user.LookupGroup(control.ServiceGroup)
+	if err != nil {
+		return false
+	}
+	gid, err := strconv.Atoi(g.Gid)
+	if err != nil || os.Getegid() == gid {
+		return false
+	}
+	groups, err := os.Getgroups()
+	return err == nil && !slices.Contains(groups, gid)
 }

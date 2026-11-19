@@ -42,7 +42,9 @@ func newTestModelIn(t *testing.T, lang i18n.Lang, b Backend, width, height int, 
 	m, err := newModel(config{ctx: context.Background(), backend: b, folders: host, lang: lang, theme: kittui.ThemeTerminal,
 		profile: kittui.ProfileNone, charset: charset, loc: time.UTC,
 		prefs: uiprefs.Prefs{Theme: kittui.ThemeTerminal, Start: string(areaStacks), Icons: uiprefs.IconsUnicode,
-			Language: uiprefs.LanguageEnglish, MouseEnabled: true}})
+			Language: uiprefs.LanguageEnglish, MouseEnabled: true},
+		// The System area reads the invented account files and has no way to run anything as root.
+		accounts: testAccounts(false)})
 	if err != nil {
 		t.Fatal(err)
 	}

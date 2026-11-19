@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
-  1 Stacks 2 Stack-Details 3 Läufe 4 Einstellungen [5 Container] 6 Vorschläge   
+  1 2 3 4 [5 Container] 6 7                                                     
 ────────────────────────────────────────────────────────────────────────────────
   legacy-blog-db-1                                                              
                                                                                 
@@ -21,4 +21,4 @@
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Mounts ─────────────────────────────────────────────────────────────────────╮
 esc Zurück  o Log  S start  X stop  Z restart  a übernehmen  r Neu laden        
-1-6 Bereich  q Beenden                                       ↑/↓ Scrollen  19/30
+1-7 Bereich  q Beenden                                       ↑/↓ Scrollen  19/30

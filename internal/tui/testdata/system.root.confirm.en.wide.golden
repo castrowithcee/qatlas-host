@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
+  [Users]  Groups                                                                                                       
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS                                                     
+  ▾ ■ Users (3)                                                                                                         
+    ada          1000   yes                 yes     unknown                                                             
+    ben          1001   yes, without qhost  no      unknown                                                             
+    cleo         1002   no                  no      unknown  media                                                      
+  ▾ ■ System accounts (3)                                                                                               
+>   root         0      no                  no      unknown                                                             
+    daemon       1      no                  no      unknown                                                             
+    nobody       65534  no                  no      unknown                                                             
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Change the host ════════════════════════════════════════════╗                            
+                            ║ ⚠ Lock root: no login is possible any more, with a password  ║                            
+                            ║   or an SSH key.                                             ║                            
+                            ║                                                              ║                            
+                            ║ root is the account with all rights on this host. Running    ║                            
+                            ║ sessions stay open until they end. Runs with sudo, goes into ║                            
+                            ║ the journal and can be undone.                               ║                            
+                            ║ $ usermod -L -e 1 root                                       ║                            
+                            ║                                                              ║                            
+                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ y yes, with sudo  n/esc/enter cancel                         ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+╭─ root ───────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Home: /root                                                                                                          │
+│ Primary group: root                                                                                                  │
+│ Further groups: -                                                                                                    │
+│ Access: no administrator                                                                                             │
+│ Login: unknown                                                                                                       │
+│ Login state and SSH keys are shown to root only.                                                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                     4/6

@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                         [esc] Zurück
+  1 2 3 4 5 6 [7 System]                                                        
+   Benutzer  [Gruppen]                                                          
+────────────────────────────────────────────────────────────────────────────────
+  Neue Gruppe                                                                   
+                                                                                
+Das System gibt der Gruppe eine reguläre Gruppennummer.                         
+                                                                                
+       ╔═══════════════════════════════════════════════════════════════════════╗
+> Name ║ crew_                                                                 ║
+       ╚═══════════════════════════════════════════════════════════════════════╝
+       Kleinbuchstaben, Ziffern, _ und -, höchstens 32.                         
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+[ F2 speichern ]  [ esc Verwerfen ]                                             
+F2 Speichern  esc verwerfen            tab Nächstes Feld  shift+tab Voriges Feld

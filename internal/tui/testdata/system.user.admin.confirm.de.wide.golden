@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge  [7 ◎ System]        
+  [Benutzer]  Gruppen                                                                                                   
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    NAME            UID    ADMIN           DOCKER  LOGIN      GRUPPEN                                                   
+  ▾ ■ Benutzer (3)                                                                                                      
+    ada             1000   ja              ja      unbekannt                                                            
+    ben             1001   ja, ohne qhost  nein    unbekannt                                                            
+>   cleo            1002   nein            nein    unbekannt  media                                                     
+  ▾ ■ Systemkonten (3)                                                                                                  
+    root            0      nein            nein    unbekannt                                                            
+    daemon          1      nein            nein    unbekannt                                                            
+    nobody          65534  nein            nein    unbekannt                                                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Host ändern ════════════════════════════════════════════════╗                            
+                            ║ ⚠ cleo zum Administrator mit Zugang zu qhost machen.         ║                            
+                            ║                                                              ║                            
+                            ║ Admin- und Docker-Rechte erlauben praktisch alles auf diesem ║                            
+                            ║ Host. Läuft mit sudo, steht im Journal und lässt sich        ║                            
+                            ║ rückgängig machen.                                           ║                            
+                            ║ $ usermod -aG sudo,qhost cleo                                ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+╭─ cleo ───────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Home: /home/cleo                                                                                                     │
+│ Primäre Gruppe: cleo                                                                                                 │
+│ Weitere Gruppen: media                                                                                               │
+│ Zugang: kein Administrator                                                                                           │
+│ Login: unbekannt                                                                                                     │
+│ Login-Zustand und SSH-Schlüssel sieht nur root.                                                                      │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                     3/6

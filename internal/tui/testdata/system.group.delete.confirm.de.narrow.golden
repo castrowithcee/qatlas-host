@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 5 6 [7 System]                                                        
+   Benutzer  [Gruppen]                                                          
+────────────────────────────────────────────────────────────────────────────────
+    NAME           GID    MITGLIEDER                                            
+  ▾ ■ Gruppen (5)                                                               
+    ada            1000   ada                                                   
+    ben            1001   ben                                                   
+    cleo╔═ Host ändern ════════════════════════════════════════════════╗        
+    medi║ ⚠ Die Gruppe backup-ops löschen.                             ║        
+>   back║                                                              ║        
+  ▾ ■ Sy║ Läuft mit sudo, steht im Journal und lässt sich rückgängig   ║        
+    root║ machen.                                                      ║        
+    daem║ $ groupdel backup-ops                                        ║        
+    adm ║                                                              ║        
+    sudo║ [ ja, mit sudo ]  > abbrechen <                              ║        
+    user║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+    qhos╚══════════════════════════════════════════════════════════════╝        
+    docker         999    ada                                                   
+    nogroup        65534  nobody                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                            5/13

@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed  [esc] back  [?] help
-  1 2 3 4 [5 Containers] 6                              
+  1 2 3 4 [5 Containers] 6 7                            
 ────────────────────────────────────────────────────────
   demo-stack-app-1                                      
   app started on port 8080                              
@@ -11,4 +11,4 @@
 Log saved to /home/demo/qhost/qhost-container-demo-     
 stack-app-1-20261030-180000.log                         
 / search  L follow  T period  w wrap lines  t timestamps
-W save log  r reload  1-6 area  q quit        ↑/↓ scroll
+W save log  r reload  1-7 area  q quit        ↑/↓ scroll

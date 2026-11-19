@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed              [?] help
-  [1 Stacks] 2 3 4 5 6                                  
+  [1 Stacks] 2 3 4 5 6 7                                
 ────────────────────────────────────────────────────────
   No stack folders yet. a adds one; on the command line:
   sudo qhost source add <path>                          
@@ -21,4 +21,4 @@
                                                         
                                                         
                                                         
-a add  r reload  1-6 area  q quit                       
+a add  r reload  1-7 area  q quit                       

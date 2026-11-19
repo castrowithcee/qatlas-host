@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
+   Users  [Groups]                                                                                                      
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    NAME          GID    MEMBERS                                                                                        
+  ▾ ■ Groups (5)                                                                                                        
+    ada           1000   ada                                                                                            
+    ben           1001   ben                                                                                            
+    cleo          1002   cleo                                                                                           
+    media         1003   cleo                                                                                           
+>   backup-ops    1004                                                                                                  
+  ▾ ■ System groups (8)                                                                                                 
+    root          0      root                                                                                           
+    daemon        1      daemon                                                                                         
+    adm           4                                                                                                     
+    sudo          27     ada,ben                                                                                        
+    users         100                                                                                                   
+    qhost         998    ada╔═ Change the host ════════════════════════════════════════════╗                            
+    docker        999    ada║ ⚠ Delete the group backup-ops.                               ║                            
+    nogroup       65534  nob║                                                              ║                            
+                            ║ Runs with sudo, goes into the journal and can be undone.     ║                            
+                            ║ $ groupdel backup-ops                                        ║                            
+                            ║                                                              ║                            
+                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ y yes, with sudo  n/esc/enter cancel                         ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                    5/13

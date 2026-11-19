@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                    [esc] back
+  1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
+  [Users]  Groups                                                               
+────────────────────────────────────────────────────────────────────────────────
+  New user                                                                      
+                                                                                
+The user must change the initial password at the first login.                   
+                                                                                
+                   ╔═══════════════════════════════════════════════════════════╗
+> Name             ║ cleo_                                                     ║
+                   ╚═══════════════════════════════════════════════════════════╝
+                   Lower-case letters, digits, _ and -, at most 32.             
+                   [!] This user exists already. - Correct the field.           
+                   ╭───────────────────────────────────────────────────────────╮
+  Initial password │ (entered, hidden)                                         │
+                   ╰───────────────────────────────────────────────────────────╯
+                   ╭───────────────────────────────────────────────────────────╮
+  Repeat           │ (entered, hidden)                                         │
+                   ╰───────────────────────────────────────────────────────────╯
+                   [!] The two passwords differ. - Correct the field.           
+  …                                                                             
+                                                                                
+[ F2 save ]  [ esc discard ]                                                    
+F2 save  esc discard                    tab next field  shift+tab previous field

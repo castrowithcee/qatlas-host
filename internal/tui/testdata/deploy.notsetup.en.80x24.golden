@@ -1,5 +1,5 @@
 ◆ qhost                                                                 [?] help
-  [1 Stacks]  2 Stack detail   3 Runs   4 Settings   5 Containers   6 Proposals 
+  [1 Stacks] 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
 ────────────────────────────────────────────────────────────────────────────────
   The deploy service is not set up yet. It rolls out and updates your stacks and
   runs as its own system user, apart from the host service, with access to      
@@ -21,4 +21,4 @@
                                                                                 
                                                                                 
                                                                                 
-G set up deploy service  r reload  1-6 area  q quit                             
+G set up deploy service  r reload  1-7 area  q quit                             

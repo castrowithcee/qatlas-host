@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 5 6 [7 System]                                                        
+  [Benutzer]  Gruppen                                                           
+────────────────────────────────────────────────────────────────────────────────
+    NAME            UID    ADMIN           DOCKER  LOGIN      GRUPPEN           
+  ▾ ■ Benutzer (3)                                                              
+    ada             1000   ja              ja      unbekannt                    
+    ben             1001   ja, ohne qhost  nein    unbekannt                    
+>   cleo╔═ Host ändern ════════════════════════════════════════════════╗        
+  ▾ ■ Sy║ ⚠ Den Benutzer cleo mit Home und Mail-Spool löschen.         ║        
+    root║                                                              ║        
+    daem║ Das lässt sich nicht rückgängig machen: Das Home /home/cleo  ║        
+    nobo║ und der Mail-Spool werden mit allen Dateien gelöscht.        ║        
+        ║ $ userdel -r cleo                                            ║        
+        ║                                                              ║        
+╭─ cleo ║ [ ja, mit sudo ]  > abbrechen <                              ║───────╮
+│ Home: ║ y ja, mit sudo  n/esc/enter abbrechen                        ║       │
+│ Primär╚══════════════════════════════════════════════════════════════╝       │
+│ Weitere Gruppen: media                                                       │
+│ Zugang: kein Administrator                                                   │
+│ Login: unbekannt                                                             │
+│ Login-Zustand und SSH-Schlüssel sieht nur root.                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                             3/6

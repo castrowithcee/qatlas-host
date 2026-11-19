@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
-   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container  [6 ◈ Vorschläge]                     
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container  [6 ◈ Vorschläge]  7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Wartungsfenster                                                                                                 p-0012
                                                                                                                         
@@ -37,4 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-esc Zurück  A freigeben  N ablehnen  r Neu laden  1-6 Bereich  q Beenden                                    ↑/↓ Scrollen
+esc Zurück  A freigeben  N ablehnen  r Neu laden  1-7 Bereich  q Beenden                                    ↑/↓ Scrollen

@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
+  [Users]  Groups                                                                                                       
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS                                                     
+  ▾ ■ Users (3)                                                                                                         
+    ada          1000   yes                 yes     unknown                                                             
+    ben          1001   yes, without qhost  no      unknown                                                             
+>   cleo         1002   no                  no      unknown  media                                                      
+  ▾ ■ System accounts (3)                                                                                               
+    root         0      no                  no      unknown                                                             
+    daemon       1      no                  no      unknown                                                             
+    nobody       65534  no                  no      unknown                                                             
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Change the host ════════════════════════════════════════════╗                            
+                            ║ ⚠ Delete the user cleo together with the home and the mail   ║                            
+                            ║   spool.                                                     ║                            
+                            ║                                                              ║                            
+                            ║ This cannot be undone: the home /home/cleo and the mail      ║                            
+                            ║ spool are deleted with all their files.                      ║                            
+                            ║ $ userdel -r cleo                                            ║                            
+                            ║                                                              ║                            
+                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ y yes, with sudo  n/esc/enter cancel                         ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+╭─ cleo ───────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Home: /home/cleo                                                                                                     │
+│ Primary group: cleo                                                                                                  │
+│ Further groups: media                                                                                                │
+│ Access: no administrator                                                                                             │
+│ Login: unknown                                                                                                       │
+│ Login state and SSH keys are shown to root only.                                                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                     3/6
