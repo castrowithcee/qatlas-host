@@ -123,6 +123,8 @@ func (m *Model) proposalKindWord(kind string) string {
 		return m.text.Lookup(textPropKindStackSettings)
 	case control.ProposalKindWindow:
 		return m.text.Lookup(textPropKindWindow)
+	case control.ProposalKindNotifyChannel:
+		return m.text.Lookup(textPropKindChannel)
 	}
 	return proposalShort(kind)
 }

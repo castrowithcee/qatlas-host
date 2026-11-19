@@ -15,13 +15,14 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
-// kindEffect is the content of a proposal of the kind stack-settings or window and, for an open one, how it
+// kindEffect is the content of a proposal of the kind stack-settings, window or notify-channel and, for an open one, how it
 // differs from what applies now. The content is data: it is shown and sent to the service, never run.
 type kindEffect struct {
 	kind     string
 	stack    string
 	settings control.StackSettings
 	window   control.WindowSetArgs
+	channel  control.ProposalNotifyChannel
 	// proposed lists every value of the content in full.
 	proposed []approval.Change
 	// worked is set once the difference to what applies now was worked out.
@@ -30,6 +31,8 @@ type kindEffect struct {
 	changes []approval.Change
 	// noStack is set when the stack of the proposal does not exist.
 	noStack bool
+	// taken is set when a channel of the name of the proposal exists, which refuses the approval.
+	taken bool
 	// sig is what the person is shown of the difference; two reads with the same sig show the same.
 	sig string
 }
@@ -37,9 +40,11 @@ type kindEffect struct {
 // stackNameRe is the shape of a stack name the service accepts; a name of another shape is not looked up.
 var stackNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,62}$`)
 
-// isKindProposal says the kind is one that is shown with its difference and applied through the settings write.
+// isKindProposal says the kind is one that is shown with its effect and applied through the write the forms and
+// the CLI use.
 func isKindProposal(kind string) bool {
-	return kind == control.ProposalKindStackSettings || kind == control.ProposalKindWindow
+	return kind == control.ProposalKindStackSettings || kind == control.ProposalKindWindow ||
+		kind == control.ProposalKindNotifyChannel
 }
 
 // loadKind reads the content of a proposal of a settings kind into msg and, while the proposal is open, the
@@ -56,6 +61,12 @@ func loadKind(ctx context.Context, b Backend, msg *proposalMsg) {
 		}
 		eff.stack, eff.settings = c.Stack, c.Settings
 		raw, _ = json.Marshal(c.Settings)
+	case control.ProposalKindNotifyChannel:
+		if json.Unmarshal(msg.res.Content, &eff.channel) != nil || !channelNameRe.MatchString(eff.channel.Name) {
+			msg.bad = true
+			return
+		}
+		raw, _ = json.Marshal(eff.channel)
 	default:
 		if json.Unmarshal(msg.res.Content, &eff.window) != nil {
 			msg.bad = true
@@ -72,12 +83,15 @@ func loadKind(ctx context.Context, b Backend, msg *proposalMsg) {
 	if msg.res.State != control.ProposalOpen {
 		return
 	}
-	if msg.res.Kind == control.ProposalKindStackSettings {
+	switch msg.res.Kind {
+	case control.ProposalKindStackSettings:
 		msg.effectErr = settingsKindEffect(ctx, b, eff)
-	} else {
+	case control.ProposalKindNotifyChannel:
+		msg.effectErr = notifyKindEffect(ctx, b, eff)
+	default:
 		msg.effectErr = windowKindEffect(ctx, b, eff)
 	}
-	if msg.effectErr == nil {
+	if msg.effectErr == nil && !eff.taken {
 		sig, _ := json.Marshal(struct {
 			Kind    string
 			Stack   string
@@ -86,6 +100,15 @@ func loadKind(ctx context.Context, b Backend, msg *proposalMsg) {
 		}{eff.kind, eff.stack, eff.had, eff.changes})
 		eff.worked, eff.sig = true, string(sig)
 	}
+}
+
+// notifyKindEffect looks for a channel of the name of the proposal. It only reads.
+func notifyKindEffect(ctx context.Context, b Backend, eff *kindEffect) error {
+	list, err := b.Notifications(ctx)
+	for _, ch := range list.Channels {
+		eff.taken = eff.taken || ch.Name == eff.channel.Name
+	}
+	return err
 }
 
 func settingsKindEffect(ctx context.Context, b Backend, eff *kindEffect) error {
@@ -175,6 +198,8 @@ func (m *Model) kindEffectLines(eff *kindEffect, width int) []string {
 	}
 	var lines []string
 	switch {
+	case eff.kind == control.ProposalKindNotifyChannel:
+		return m.wrapped(detailIndent, kittui.StyleText, t.Lookup(textPropChannelNew), width)
 	case len(eff.changes) == 0 && eff.kind == control.ProposalKindWindow:
 		return m.wrapped(detailIndent, kittui.StyleHint, t.Lookup(textPropWindowSame), width)
 	case len(eff.changes) == 0:
@@ -208,6 +233,7 @@ type kindApplied struct {
 	eff      *kindEffect
 	settings control.StackSettingsSetResult
 	window   control.WindowResult
+	channel  control.NotifyChannelInfo
 }
 
 // approveKind asks for the approval of the open proposal with the difference shown. Nothing is changed until the
@@ -217,6 +243,9 @@ func (m *Model) approveKind() tea.Cmd {
 	eff := v.kind
 	shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, effect: eff.sig, gen: v.gen}
 	t := m.text
+	if eff.kind == control.ProposalKindNotifyChannel {
+		return m.openForm(m.proposalSecretsForm(eff, shown))
+	}
 	question, consequence := t.Lookup(textAskProposalSettings, kittui.Escape(proposalShort(v.id)), eff.stack), textWhatProposalSettings
 	if eff.kind == control.ProposalKindWindow {
 		question, consequence = t.Lookup(textAskProposalWindow, kittui.Escape(proposalShort(v.id))), textWhatProposalWindow
@@ -267,6 +296,10 @@ func approveKindAndApply(ctx context.Context, b Backend, p *proposalCtx, eff *ki
 // kindDone says what an applied proposal of a settings kind came to.
 func (m *Model) kindDone(res kindApplied, done func(text string, details ...string)) []tea.Cmd {
 	t := m.text
+	if res.eff.kind == control.ProposalKindNotifyChannel {
+		done(t.Lookup(textDonePropChannel, res.channel.Name))
+		return []tea.Cmd{m.reloadNow()}
+	}
 	if res.eff.kind == control.ProposalKindWindow {
 		m.set.window.loaded, m.set.windowRes = true, res.window
 		done(t.Lookup(textDoneWindow))
@@ -294,6 +327,8 @@ func (m *Model) kindProposalLines(lines []string, width int) []string {
 	switch {
 	case v.kind.noStack:
 		return append(lines, m.wrapped(detailIndent, kittui.StyleFail, t.Lookup(textPropNoStack, v.kind.stack), width)...)
+	case v.kind.taken:
+		return append(lines, m.wrapped(detailIndent, kittui.StyleFail, t.Lookup(textPropChannelTaken, v.kind.channel.Name), width)...)
 	case v.effectErr != nil:
 		return append(lines, m.wrapped(detailIndent, kittui.StyleFail, t.Lookup(textPropEffectFailed, m.serviceText(v.effectErr)), width)...)
 	case !v.kind.worked:

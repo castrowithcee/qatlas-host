@@ -400,6 +400,9 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		decided, msg.res, msg.err = &d, d.res, d.err
 	}
 	if msg.err != nil {
+		if decided != nil && s.form != nil && s.form.kind == formProposalSecrets {
+			s.form = nil
+		}
 		cmd := m.settingFailed(msg)
 		return tea.Batch(cmd, m.proposalDecided(decided))
 	}
@@ -414,6 +417,9 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 	switch res := msg.res.(type) {
 	case proposalRefused:
 		s.add = nil
+		if s.form != nil && s.form.kind == formProposalSecrets {
+			s.form = nil
+		}
 		m.failure = t.Lookup(kittui.TextError, t.Lookup(textPropChanged))
 		m.applyProposal(res.msg)
 		return nil

@@ -19,6 +19,9 @@ import (
 // formProposalReject asks for the optional reason of rejecting a proposal.
 const formProposalReject formKind = formCheck + 1
 
+// formProposalSecrets asks for the secret parts of the channel a proposal names.
+const formProposalSecrets = formProposalReject + 1
+
 // maxRejectReason is how long the service keeps the reason of a rejection.
 const maxRejectReason = 300
 
