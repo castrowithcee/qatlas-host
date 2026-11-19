@@ -12,7 +12,9 @@
 # permissions of a folder, the journal shows it, the undo restores them and the action log names the person behind
 # sudo; a user is created, put in a group, locked and deleted, and the protection rules refuse the rest. The terminal
 # interface, started without sudo, creates a group and a user with an initial password in it through the real sudo,
-# and qhost host users shows the user with the group. Then bind the stacks repository with its own deploy key, list the
+# and qhost host users shows the user with the group. An administrator without sudo proposes a user with a group and an
+# SSH key with qhost proposal; the interface approves it, asks for the initial password and creates the user, the
+# journal shows the change, the undo removes the user, and a process of qhost-deploy is not shown the proposal. Then bind the stacks repository with its own deploy key, list the
 # stacks, deploy a new commit, show the available image versions per update ceiling without changing anything,
 # roll back a commit with a failing healthcheck (data restored from the run's backup, revert commit on the
 # remote), leave a stack whose rollback fails stopped and paused until resume, and refuse a changed host key of the git server.
@@ -695,6 +697,175 @@ scenario_tui_changes() {
 	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the changes from the interface: $out"
 	as_admin "rm -rf '$tc_dir'"
 	log "scenario: the interface without sudo changed $tc_dir to 750, listed the change on Changes and undid it back to $tc_before"
+}
+
+# scenario_tui_host_proposal proves a proposal of the host from submission to undo. An administrator without sudo
+# proposes a user in a group with a public SSH key through qhost proposal; the proposal is listed and shown with its
+# sentence and the key fingerprint, and a process of qhost-deploy is turned away from the proposals of the host.
+# The interface without sudo approves it on System > Proposals: the form asks for the initial password, sudo -v asks
+# for the password of the administrator, and sudo qhost host apply --proposal creates the user. The user, the group and
+# authorized_keys are checked, the journal lists the change, the proposal stands as applied, and the undo on
+# System > Changes removes the user again. The initial password shows in no output, no captured screen, no state of
+# qhost and no system log.
+scenario_tui_host_proposal() {
+	tui_log=$work/tui-host-proposal-screens.log
+	: >"$tui_log"
+	leaks=$work/host-proposal-outputs.log
+	: >"$leaks"
+	hp_user=e2e-propuser
+	hp_group=e2e-propgroup
+	hp_start=E2e-prop-Start-5529
+	hp_login=E2e-admin-Login-4471
+	hp_keydir=/home/$admin/e2e-propkey
+	printf '%s:%s\n' "$admin" "$hp_login" | docker exec -i "$host" chpasswd || fail "cannot give $admin a password"
+	admin_uid=$(docker exec "$host" id -u "$admin")
+	docker exec "$host" sh -c "id $hp_user >/dev/null 2>&1 && userdel -r $hp_user; getent group $hp_group >/dev/null && groupdel $hp_group; rm -rf /home/$hp_user; true"
+	as_admin "rm -rf '$hp_keydir' && mkdir '$hp_keydir' && ssh-keygen -q -t ed25519 -N '' -C e2e-propkey@example.test -f '$hp_keydir/key'" ||
+		fail 'cannot generate the test key'
+	hp_key=$(as_admin "cat '$hp_keydir/key.pub'")
+	hp_blob=$(printf '%s' "$hp_key" | cut -d ' ' -f 2)
+	hp_fp=$(as_admin "ssh-keygen -lf '$hp_keydir/key.pub'" | cut -d ' ' -f 2)
+	[ -n "$hp_blob" ] && [ -n "$hp_fp" ] || fail "the test key is not usable: $hp_key"
+	out=$(as_admin "sudo qhost --output json host apply group.create $hp_group --confirm 2>&1") || fail "host apply group.create failed: $out"
+	creates_before=$(tui_system_user_create_count)
+
+	step 'an administrator without sudo proposes a user with a group and an SSH key, and it is listed and shown'
+	content=$(jq -nc --arg u "$hp_user" --arg g "group=$hp_group" --arg k "$hp_key" '{action: "user.create", args: [$u, $g], keys: [$k]}')
+	out=$(printf '%s' "$content" | as_admin 'qhost --output json proposal submit --kind host-change 2>&1') ||
+		fail "qhost proposal submit --kind host-change without sudo failed: $out"
+	printf '%s\n' "$out" >>"$leaks"
+	hp_id=$(printf '%s' "$out" | sed -n 's/.*"id": *"\(h-[0-9a-f]*\)".*/\1/p' | head -n 1)
+	[ -n "$hp_id" ] || fail "qhost proposal submit printed no id of the host service: $out"
+	printf '%s' "$out" | grep -q '"state": *"open"' || fail "the new proposal is not open: $out"
+	out=$(as_admin 'qhost proposal list 2>&1') || fail "qhost proposal list without sudo failed: $out"
+	printf '%s\n' "$out" >>"$leaks"
+	printf '%s\n' "$out" | grep -F -- "$hp_id" | grep -q 'host-change' || fail "qhost proposal list does not show $hp_id as host-change: $out"
+	out=$(as_admin "qhost proposal show $hp_id 2>&1") || fail "qhost proposal show without sudo failed: $out"
+	printf '%s\n' "$out" >>"$leaks"
+	printf '%s' "$out" | grep -qF -- "Create the user $hp_user" || fail "qhost proposal show does not give the sentence of the change: $out"
+	printf '%s' "$out" | grep -qF -- "$hp_fp" || fail "qhost proposal show does not show the key fingerprint $hp_fp: $out"
+	[ "$(prop_state "$hp_id")" = open ] || fail "the proposal $hp_id is not open"
+	if docker exec "$host" id "$hp_user" >/dev/null 2>&1; then fail 'submitting the proposal created the user'; fi
+
+	step 'a process of qhost-deploy is turned away from the proposals of the host'
+	if out=$(docker exec -u qhost-deploy "$host" qhost proposal list 2>&1 </dev/null); then
+		fail "qhost-deploy listed proposals while the host service holds one: $out"
+	fi
+	if printf '%s' "$out" | grep -qF -e "$hp_id" -e "$hp_user" -e "$hp_blob" -e e2e-propkey; then fail "the refusal for qhost-deploy shows data of the proposal: $out"; fi
+	if out=$(docker exec -u qhost-deploy "$host" qhost proposal show "$hp_id" 2>&1 </dev/null); then
+		fail "qhost-deploy shows the proposal of the host: $out"
+	fi
+	if printf '%s' "$out" | grep -qF -e "$hp_user" -e "$hp_blob" -e e2e-propkey; then fail "the refusal for qhost-deploy shows data of the proposal: $out"; fi
+
+	step 'the interface without sudo approves the proposal on System > Proposals, asks for the initial password and creates the user'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 7
+	tui_wait 'DOCKER' 15
+	tui_system_tab Proposals
+	tui_wait "$hp_id" 15
+	tui_send Enter
+	tui_wait "Proposal $hp_id from $admin" 10
+	tui_has 'The change' || fail "the view does not show the change: $(tui_screen)"
+	tui_has "Create the user $hp_user" || fail "the view does not show the sentence: $(tui_screen)"
+	tui_has 'Commands, as typed by hand' || fail "the view does not show the commands: $(tui_screen)"
+	tui_has 'Proposed SSH keys' || fail "the view does not show the proposed keys: $(tui_screen)"
+	tui_has 'e2e-propkey@example.test' || fail "the view does not show the comment of the key: $(tui_screen)"
+	tui_send y
+	tui_wait 'The user must change the initial password at the first login.' 10
+	tui_type "$hp_start"
+	tui_send Down
+	tui_type "$hp_start"
+	tui_send F2
+	tui_wait "Apply proposal $hp_id to the host" 10
+	tui_has 'useradd' || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	# sudo -v asks for the password of the administrator; a still valid ticket would skip the prompt.
+	i=0
+	while :; do
+		screen=$(tui_screen)
+		case $screen in
+		*"[sudo] password for $admin"*)
+			tui_type "$hp_login"
+			tui_send Enter
+			break
+			;;
+		*"Done: Apply proposal $hp_id"*) break ;;
+		esac
+		i=$((i + 1))
+		[ "$i" -lt 120 ] || fail "neither the password prompt of sudo nor the result appears: $screen"
+		sleep 0.25
+	done
+	tui_wait "Done: Apply proposal $hp_id" 60
+	tui_has 'Journal entry' || fail "the result does not name the journal entry: $(tui_screen)"
+	tui_send Enter
+
+	step 'the user, the group and authorized_keys are in place, the journal shows the change and the proposal stands as applied'
+	docker exec "$host" id "$hp_user" >/dev/null || fail "the user $hp_user does not exist after the approval"
+	docker exec "$host" id -nG "$hp_user" | tr ' ' '\n' | grep -qx "$hp_group" || fail "$hp_user is not in $hp_group: $(docker exec "$host" id -nG "$hp_user")"
+	[ "$(docker exec "$host" cat "/home/$hp_user/.ssh/authorized_keys" | cut -d ' ' -f 2 | grep -cxF -- "$hp_blob")" = 1 ] ||
+		fail "authorized_keys of $hp_user does not hold the proposed key once: $(docker exec "$host" cat "/home/$hp_user/.ssh/authorized_keys" 2>&1)"
+	[ "$(docker exec "$host" stat -c %U "/home/$hp_user/.ssh/authorized_keys")" = "$hp_user" ] || fail "authorized_keys of $hp_user is not owned by the user"
+	printf '%s' "$hp_start" | docker exec -i "$host" perl -e 'my $p = <STDIN>; open(my $f, "<", "/etc/shadow") or exit 2;
+		while (<$f>) { my @r = split /:/; exit(crypt($p, $r[1]) eq $r[1] && $r[2] eq "0" ? 0 : 1) if $r[0] eq $ARGV[0] } exit 3' "$hp_user" ||
+		fail "the initial password of $hp_user did not arrive, or it need not be changed at the first login"
+	journal=$(as_admin 'sudo qhost --output json host journal 2>&1') || fail "sudo qhost host journal failed: $journal"
+	printf '%s\n' "$journal" >>"$leaks"
+	hp_change=$(printf '%s' "$journal" | jq -r --arg u "$hp_user" '[.. | objects | select(.action? == "user.create" and .result? == "applied" and (.sentence? // "" | contains($u)))][0].id // empty')
+	[ -n "$hp_change" ] || fail "the journal has no entry of user.create for $hp_user: $journal"
+	printf '%s' "$journal" | jq -e --arg id "$hp_change" --argjson uid "$admin_uid" \
+		'[.. | objects | select(.id? == $id)][0] | .result == "applied" and .reversible == true and .sudo_uid == $uid' >/dev/null ||
+		fail "the journal entry $hp_change is not applied, reversible and attributed to uid $admin_uid: $journal"
+	[ "$(tui_system_user_create_count)" -eq $((creates_before + 1)) ] ||
+		fail "the action log does not hold one more user.create of uid $admin_uid behind sudo: $(host_audit_rows)"
+	[ "$(prop_state "$hp_id")" = applied ] || fail "the proposal $hp_id is $(prop_state "$hp_id"), want applied"
+	out=$(as_admin 'qhost proposal list 2>&1') || fail "qhost proposal list failed after the approval: $out"
+	printf '%s\n' "$out" >>"$leaks"
+	printf '%s\n' "$out" | grep -F -- "$hp_id" | grep -q 'applied' || fail "qhost proposal list does not show $hp_id as applied: $out"
+
+	step 'the undo on System > Changes removes the user again'
+	tui_system_tab Changes
+	tui_wait 'only root can read' 10
+	tui_send r
+	tui_wait "Create the user $hp_user" 60
+	i=0
+	until tui_screen | grep "^> " | grep -q "Create the user $hp_user"; do
+		i=$((i + 1))
+		[ "$i" -lt 20 ] || fail "the newest change is not the creation of $hp_user under the cursor: $(tui_screen)"
+		sleep 0.25
+	done
+	tui_screen | grep "^> " | grep -q possible || fail "the creation of $hp_user offers no undo: $(tui_screen)"
+	tui_send Enter
+	tui_wait 'Undo the change: ' 10
+	tui_send y
+	tui_wait 'Done: Undo the change' 60
+	tui_send Enter
+	if docker exec "$host" id "$hp_user" >/dev/null 2>&1; then fail "the user $hp_user exists after the undo"; fi
+	if docker exec "$host" test -e "/home/$hp_user"; then fail "the home of $hp_user exists after the undo"; fi
+	journal=$(as_admin 'sudo qhost --output json host journal 2>&1') || fail "sudo qhost host journal failed: $journal"
+	printf '%s\n' "$journal" >>"$leaks"
+	printf '%s' "$journal" | jq -e --arg id "$hp_change" '[.. | objects | select(.id? == $id)][0] | .result == "undone" and .reversible == false' >/dev/null ||
+		fail "the journal does not close the undone entry $hp_change: $journal"
+	[ "$(prop_state "$hp_id")" = applied ] || fail "the undo changed the state of the proposal $hp_id to $(prop_state "$hp_id")"
+	tui_send Escape
+	tui_send q
+	tui_wait 'qhost-exit=0' 10
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the proposal: $out"
+
+	step 'the initial password shows in no output, no captured screen, no state of qhost and no system log'
+	[ "$(wc -l <"$tui_log")" -gt 40 ] || fail 'too few screens were captured to check'
+	if grep -qF -- "$hp_start" "$tui_log" "$leaks"; then fail 'the initial password shows on a captured screen or in an output'; fi
+	if grep -qF -- "$hp_login" "$tui_log" "$leaks"; then fail 'the password typed for sudo shows on a captured screen or in an output'; fi
+	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
+	if docker exec "$host" grep -rqF -- "$hp_start" /var/lib/qhost-host /var/lib/qhost; then fail 'the initial password reached the state of qhost'; fi
+	if docker exec "$host" sh -c 'journalctl --no-pager -q 2>/dev/null' | grep -qF -- "$hp_start"; then fail 'the initial password reached the system log'; fi
+
+	docker exec "$host" sh -c "id $hp_user >/dev/null 2>&1 && userdel -r $hp_user; getent group $hp_group >/dev/null && groupdel $hp_group; rm -rf /home/$hp_user; true"
+	as_admin "rm -rf '$hp_keydir'"
+	log "scenario: $hp_id proposed $hp_user in $hp_group with a key, the interface approved it as $hp_change and the undo removed the user"
 }
 
 # service_log_warn_count prints how many entries of the service log at the level warn or above say that the window
@@ -1748,6 +1919,7 @@ scenario_stacks_repo() {
 	scenario_host_changes
 	scenario_tui_system
 	scenario_tui_changes
+	scenario_tui_host_proposal
 	url=git.$domain:stacks.git
 
 	scenario_service_log
