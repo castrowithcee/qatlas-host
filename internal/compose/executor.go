@@ -45,11 +45,18 @@ const (
 // projectName is what Compose accepts as a project name.
 var projectName = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 
-// ProductionEnv is the environment of every docker call in the service: a fixed PATH and C locale, plus HOME
-// and DOCKER_CONFIG when the service has them, because docker reads its registry credentials from there.
-// DOCKER_HOST, COMPOSE_* and proxy variables of the service are not passed on.
-func ProductionEnv(getenv func(string) string) []string {
-	env := []string{"PATH=" + fixedPath, "LC_ALL=C"}
+// DefaultDockerSocket is the socket of the container engine unless the configuration names another.
+const DefaultDockerSocket = "/var/run/docker.sock"
+
+// ProductionEnv is the environment of every docker call in the service: a fixed PATH and C locale, DOCKER_HOST
+// pointing at socket (DefaultDockerSocket when empty), plus HOME and DOCKER_CONFIG when the service has them,
+// because docker reads its registry credentials from there. A DOCKER_HOST of the service itself, COMPOSE_*
+// and proxy variables are not passed on.
+func ProductionEnv(getenv func(string) string, socket string) []string {
+	if socket == "" {
+		socket = DefaultDockerSocket
+	}
+	env := []string{"PATH=" + fixedPath, "LC_ALL=C", "DOCKER_HOST=unix://" + socket}
 	for _, k := range []string{"HOME", "DOCKER_CONFIG"} {
 		if v := getenv(k); v != "" && !strings.ContainsAny(v, "\x00\n") {
 			env = append(env, k+"="+v)

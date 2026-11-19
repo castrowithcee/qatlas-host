@@ -32,9 +32,10 @@ var (
 	_ engine.BackupChecker = (*Deployer)(nil)
 )
 
-// New returns the production deployer: docker through os/exec with ProductionEnv, real clock.
-func New(backups Backups) *Deployer {
-	x := &Executor{Runner: &ExecRunner{}, Env: ProductionEnv(os.Getenv)}
+// New returns the production deployer: docker through os/exec with ProductionEnv for the engine at socket
+// (DefaultDockerSocket when empty), real clock.
+func New(backups Backups, socket string) *Deployer {
+	x := &Executor{Runner: &ExecRunner{}, Env: ProductionEnv(os.Getenv, socket)}
 	return &Deployer{Exec: x, Checker: &Checker{Exec: x}, Backups: backups}
 }
 

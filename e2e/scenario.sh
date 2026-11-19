@@ -1,6 +1,8 @@
 #!/bin/sh
 # Scenario: from the simulated host, clone the demo stacks repository over SSH and push a commit; then check
-# the demo image tags and that a demo container turns unhealthy on purpose. Then install qhost on the host
+# the demo image tags and that a demo container turns unhealthy on purpose. The rootless Docker engine of a test user runs
+# without a login session, starts a container from the registry mirror under a sub-UID of the user, and the system
+# engine does not see that container. Then install qhost on the host
 # from a signed test release with the release installer, which sets up only the host service, and check its user
 # and directories, that it has no access to the container engine, that the installing admin joins the group qhost
 # and that status names the deploy service as not set up and a deploy command says so. Then set the deploy service
@@ -113,6 +115,8 @@ run_scenario() {
 	log "scenario: $prefix-demo-ok healthy, $prefix-demo-bad unhealthy"
 	docker exec "$host" docker rm -f "$prefix-demo-ok" "$prefix-demo-bad" >/dev/null
 
+	scenario_rootless_engine
+
 	scenario_compose_integration
 
 	scenario_stacks_repo
@@ -122,6 +126,49 @@ run_scenario() {
 	scenario_uninstall
 
 	log 'scenario: passed'
+}
+
+# as_rootless runs a command on the host as $rootless_user, with the environment of its rootless Docker engine.
+as_rootless() {
+	as_user "$rootless_user" "export XDG_RUNTIME_DIR=/run/user/$rootless_uid DOCKER_HOST=unix:///run/user/$rootless_uid/docker.sock; $*"
+}
+
+rootless_health_is() {
+	[ "$(as_rootless "docker inspect -f '{{.State.Health.Status}}' $1")" = "$2" ]
+}
+
+# scenario_rootless_engine checks the rootless Docker engine of $rootless_user that run.sh up started.
+scenario_rootless_engine() {
+	step "the rootless Docker engine of $rootless_user runs with lingering and without a login session"
+	groups=$(docker exec "$host" id -nG "$rootless_user")
+	case " $groups " in *" sudo "* | *" docker "* | *" qhost "*) fail "$rootless_user is in a privileged group: $groups" ;; esac
+	[ "$(docker exec "$host" loginctl show-user "$rootless_user" -p Linger --value)" = yes ] ||
+		fail "$rootless_user has no lingering"
+	[ -z "$(docker exec "$host" loginctl show-user "$rootless_user" -p Sessions --value)" ] ||
+		fail "$rootless_user has a login session"
+	[ "$(as_rootless 'systemctl --user is-active docker.service')" = active ] ||
+		fail "the user unit docker.service of $rootless_user is not active"
+	as_rootless "docker info -f '{{.SecurityOptions}}'" | grep -q 'name=rootless' ||
+		fail "the engine on /run/user/$rootless_uid/docker.sock is not rootless"
+
+	step 'a container of the rootless engine comes from the registry mirror and runs under a sub-UID'
+	rootless_ct=$prefix-rootless-demo
+	# A Docker Hub name: only the registry mirror resolves it.
+	as_rootless "docker run -d --quiet --name $rootless_ct --user 1234 demo/app:1.0.0" >/dev/null ||
+		fail 'the rootless engine cannot start demo/app:1.0.0 from the registry mirror'
+	wait_for 'the healthy demo container of the rootless engine' 30 rootless_health_is "$rootless_ct" healthy
+	pid=$(as_rootless "docker inspect -f '{{.State.Pid}}' $rootless_ct")
+	docker exec "$host" grep -q demoapp "/proc/$pid/cmdline" || fail "process $pid is not the demo app of $rootless_ct"
+	sub_start=$(docker exec "$host" awk -F: -v u="$rootless_user" '$1 == u { print $2 }' /etc/subuid)
+	got=$(docker exec "$host" stat -c %u "/proc/$pid")
+	# The container's user 1 is the first sub-UID.
+	[ "$got" -eq $((sub_start + 1233)) ] || fail "the process of $rootless_ct runs as $got, not as the sub-UID $((sub_start + 1233))"
+	log "scenario: $rootless_ct runs as uid $got on the host"
+
+	step 'the system engine does not see the container of the rootless engine'
+	[ -z "$(docker exec "$host" docker ps -aq --filter "name=$rootless_ct")" ] ||
+		fail "the system engine shows $rootless_ct"
+	as_rootless "docker rm -f $rootless_ct" >/dev/null
 }
 
 # qd runs the qhost CLI on the host as root; stderr is merged so a failure message can be checked.

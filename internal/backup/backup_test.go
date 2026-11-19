@@ -556,6 +556,35 @@ const unpack = `sh -c set -e
 find /data -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 exec tar --numeric-owner -xpf "/backup/$1" -C /data sh `
 
+func TestNewManagerPassesTheSocket(t *testing.T) {
+	for socket, want := range map[string]string{"/run/demo/docker.sock": "DOCKER_HOST=unix:///run/demo/docker.sock", "": "DOCKER_HOST=unix:///var/run/docker.sock"} {
+		m := NewManager(t.TempDir(), socket)
+		if !strings.Contains(strings.Join(m.Exec.Env, " "), want) {
+			t.Errorf("socket %q: env = %q", socket, m.Exec.Env)
+		}
+	}
+}
+
+func TestBackupAndRestoreCallsCarryTheSocket(t *testing.T) {
+	e := newEnv(t, rulesYAML)
+	e.m.Exec.Env = compose.ProductionEnv(func(string) string { return "" }, "/run/demo/docker.sock")
+	res, err := e.create()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.m.Restore(context.Background(), e.stack(), res.Meta.ID, e.log); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.docker.calls) < 10 {
+		t.Fatalf("only %d calls", len(e.docker.calls))
+	}
+	for _, c := range e.docker.calls {
+		if !strings.Contains(strings.Join(c.Env, " "), "DOCKER_HOST=unix:///run/demo/docker.sock") {
+			t.Errorf("call %v has env %q", c.Args, c.Env)
+		}
+	}
+}
+
 func TestRestoreRunsTheExactSequence(t *testing.T) {
 	e := newEnv(t, rulesYAML)
 	res, err := e.create()

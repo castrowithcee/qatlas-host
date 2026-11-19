@@ -68,10 +68,11 @@ type Manager struct {
 	Clock func() time.Time
 }
 
-// NewManager returns the production manager: docker through os/exec.
-func NewManager(root string) *Manager {
+// NewManager returns the production manager: docker through os/exec, against the engine at socket
+// (compose.DefaultDockerSocket when empty).
+func NewManager(root, socket string) *Manager {
 	return &Manager{
-		Exec: &compose.Executor{Runner: &compose.ExecRunner{}, Env: compose.ProductionEnv(os.Getenv)},
+		Exec: &compose.Executor{Runner: &compose.ExecRunner{}, Env: compose.ProductionEnv(os.Getenv, socket)},
 		Root: root,
 	}
 }
