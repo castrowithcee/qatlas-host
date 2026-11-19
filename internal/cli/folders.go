@@ -323,7 +323,7 @@ func (h folderHost) tryRestart(ctx context.Context, notice io.Writer) error {
 // operator asked for still runs.
 func repairBoundFolder(c *cobra.Command) {
 	switch c.Name() {
-	case "run", "version", "manpage", "help", "completion":
+	case "run", "version", "manpage", "help", "completion", "uninstall":
 		return
 	}
 	if err := folders.repairBound(c.Context(), c.ErrOrStderr()); err != nil {

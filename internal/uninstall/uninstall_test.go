@@ -1,0 +1,356 @@
+package uninstall
+
+import (
+	"context"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"slices"
+	"sort"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/castrowithcee/qatlas-kit/sysservice"
+
+	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
+	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
+	"github.com/castrowithcee/qatlas-host/internal/hostservice"
+	"github.com/castrowithcee/qatlas-host/internal/service"
+)
+
+var testPages = []string{"qhost.1", "qhost-stack.1", "qhost-stack-list.1"}
+
+func TestTargetsAreTheFixedPaths(t *testing.T) {
+	want := []string{
+		"/usr/local/lib/systemd/system/qhost.service",
+		"/usr/local/lib/systemd/system/qhost-deploy.service",
+		"/etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf",
+		"/etc/systemd/system/qhost-deploy.service.d",
+		"/etc/tmpfiles.d/qhost-deploy.conf",
+		"/run/qhost-deploy",
+		"/usr/local/share/man/man1/qhost.1",
+		"/usr/local/share/man/man1/qhost-stack.1",
+		"/usr/local/share/man/man1/qhost-stack-list.1",
+		"/usr/local/bin/qhost",
+	}
+	if got := Targets(false, testPages); !slices.Equal(got, want) {
+		t.Errorf("targets = %q, want %q", got, want)
+	}
+	purge := append(slices.Clone(want), "/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host")
+	if got := Targets(true, testPages); !slices.Equal(got, purge) {
+		t.Errorf("purge targets = %q, want %q", got, purge)
+	}
+}
+
+func TestPagesThatAreNotManpagesOfTheProgramAreIgnored(t *testing.T) {
+	got := Targets(false, []string{"../../etc/passwd", "qhost.1", "qhost-/x.1", "other.1", "qhost-a.1/..", "qhost.1"})
+	if !slices.Contains(got, "/usr/local/share/man/man1/qhost.1") || len(got) != 8 {
+		t.Fatalf("targets = %q", got)
+	}
+}
+
+// The constants of the removal must name what the installer, the setup and the services use.
+func TestConstantsMatchTheInstalledLayout(t *testing.T) {
+	host := sysservice.ServicePaths("qhost", "")
+	deploy := sysservice.ServicePaths("qhost", "qhost-deploy")
+	for name, pair := range map[string][2]string{
+		"binary":       {binaryPath, host.Program},
+		"host unit":    {hostUnitPath, host.Unit},
+		"deploy unit":  {deployUnitPath, deploy.Unit},
+		"deploy unit2": {deployUnitPath, deploysetup.UnitPath()},
+		"host state":   {hostStateDir, host.State},
+		"deploy state": {deployStateDir, deploy.State},
+		"host state 2": {hostStateDir, hostservice.DefaultStateDir},
+		"deploy st. 2": {deployStateDir, service.DefaultStateDir},
+		"channel":      {channelDir, control.DeployEndpoint().Dir},
+		"journal":      {journalDir, filepath.Dir(hostchange.DefaultJournalDir)},
+		"host name":    {hostService, "qhost"},
+		"deploy name":  {deployService, deploysetup.Service},
+	} {
+		if pair[0] != pair[1] {
+			t.Errorf("%s: %q, installed layout %q", name, pair[0], pair[1])
+		}
+	}
+}
+
+type fakeHost struct {
+	root string
+	ran  []string
+	mu   sync.Mutex
+}
+
+func (f *fakeHost) host() Host {
+	return Host{Root: f.root, Run: func(_ context.Context, name string, args ...string) error {
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		f.ran = append(f.ran, name+" "+strings.Join(args, " "))
+		return nil
+	}}
+}
+
+// newHost builds an installed host below a temporary root, with a stack folder and bystander files that must
+// survive every removal. It returns the host, the stack folder as a host path and the bystander host paths.
+func newHost(t *testing.T) (*fakeHost, string, []string) {
+	t.Helper()
+	f := &fakeHost{root: t.TempDir()}
+	write := func(p, content string) {
+		full := filepath.Join(f.root, p)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, p := range Targets(true, testPages) {
+		if filepath.Ext(p) == ".d" || strings.HasPrefix(p, "/var/lib") || p == channelDir {
+			continue
+		}
+		write(p, "invented")
+	}
+	write("/run/qhost-deploy/control.sock", "invented")
+	write("/var/lib/qhost/state.json", "invented")
+	write("/var/lib/qhost-deploy/secrets", "invented")
+	write("/var/lib/qhost-host/journal/1.json", "invented")
+	write("/etc/passwd", "root:x:0:0::/root:/bin/sh\nqhost:x:997:997::/var/lib/qhost:/usr/sbin/nologin\nqhost-deploy:x:996:996::/x:/usr/sbin/nologin\n")
+	write("/etc/group", "root:x:0:\nqhost:x:997:alice\nqhost-deploy:x:996:\ndocker:x:998:qhost-deploy\n")
+	stack := "/srv/stacks"
+	bystanders := []string{stack + "/app/compose.yaml", stack + "/app/data/db", "/etc/qhost/keep", "/usr/local/bin/other",
+		"/usr/local/share/man/man1/other.1", "/etc/systemd/system/other.service"}
+	for _, p := range bystanders {
+		write(p, "invented")
+	}
+	return f, stack, bystanders
+}
+
+func tree(t *testing.T, root string) []string {
+	t.Helper()
+	var out []string
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		out = append(out, "/"+filepath.ToSlash(strings.TrimPrefix(p, root+string(filepath.Separator))))
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func exists(root, p string) bool {
+	_, err := os.Lstat(filepath.Join(root, p))
+	return err == nil
+}
+
+func apply(t *testing.T, f *fakeHost, purge bool, keep ...string) Plan {
+	t.Helper()
+	plan, err := f.host().Plan(purge, testPages, keep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.Apply(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	return plan
+}
+
+// Everything that vanishes must be one of the fixed targets or lie below a fixed directory target.
+func assertOnlyTargetsVanished(t *testing.T, before, after []string, purge bool) {
+	t.Helper()
+	targets := Targets(purge, testPages)
+	dirs := []string{channelDir}
+	if purge {
+		dirs = append(dirs, hostStateDir, deployStateDir, journalDir)
+	}
+	kept := map[string]bool{}
+	for _, p := range after {
+		kept[p] = true
+	}
+	for _, p := range before {
+		if kept[p] {
+			continue
+		}
+		ok := slices.Contains(targets, p)
+		for _, d := range dirs {
+			ok = ok || strings.HasPrefix(p, d+"/")
+		}
+		// Directories that held only targets are not deleted by name; they must be a parent of a target.
+		if !ok {
+			t.Errorf("%s vanished but is not a fixed target", p)
+		}
+	}
+}
+
+func TestUninstallRemovesServicesAndKeepsStateAndStacks(t *testing.T) {
+	f, _, bystanders := newHost(t)
+	before := tree(t, f.root)
+	plan := apply(t, f, false)
+	after := tree(t, f.root)
+	assertOnlyTargetsVanished(t, before, after, false)
+
+	for _, p := range Targets(false, testPages) {
+		if p != dropInDir && exists(f.root, p) {
+			t.Errorf("%s was not removed", p)
+		}
+	}
+	if exists(f.root, dropInDir) {
+		t.Error("the empty drop-in directory stays")
+	}
+	for _, p := range append(bystanders, "/var/lib/qhost/state.json", "/var/lib/qhost-deploy/secrets",
+		"/var/lib/qhost-host/journal/1.json", "/etc/passwd", "/etc/group") {
+		if !exists(f.root, p) {
+			t.Errorf("%s was removed", p)
+		}
+	}
+	want := []string{"systemctl disable --now qhost-deploy", "systemctl disable --now qhost", "systemctl daemon-reload"}
+	if !slices.Equal(f.ran, want) {
+		t.Errorf("commands = %q, want %q", f.ran, want)
+	}
+	if strings.Contains(strings.Join(plan.Commands(), "\n"), "userdel") || strings.Contains(plan.Sentence(), "are deleted too") {
+		t.Errorf("plan without purge: %q", plan.Commands())
+	}
+	again, err := f.host().Plan(false, testPages, nil)
+	if err != nil || !again.Empty() {
+		t.Fatalf("repeated plan: %v, %q", err, again.Commands())
+	}
+}
+
+func TestPurgeRemovesStateJournalUsersAndGroup(t *testing.T) {
+	f, _, bystanders := newHost(t)
+	before := tree(t, f.root)
+	apply(t, f, true)
+	assertOnlyTargetsVanished(t, before, tree(t, f.root), true)
+	for _, p := range []string{"/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host"} {
+		if exists(f.root, p) {
+			t.Errorf("%s was not removed", p)
+		}
+	}
+	for _, p := range bystanders {
+		if !exists(f.root, p) {
+			t.Errorf("%s was removed", p)
+		}
+	}
+	want := []string{"systemctl disable --now qhost-deploy", "systemctl disable --now qhost", "systemctl daemon-reload",
+		"userdel qhost-deploy", "userdel qhost", "groupdel qhost-deploy", "groupdel qhost"}
+	if !slices.Equal(f.ran, want) {
+		t.Errorf("commands = %q, want %q", f.ran, want)
+	}
+}
+
+func TestPurgeSkipsGroupThatUserdelRemoved(t *testing.T) {
+	f, _, _ := newHost(t)
+	plan, err := Host{Root: f.root, Run: func(_ context.Context, name string, args ...string) error {
+		f.ran = append(f.ran, name+" "+strings.Join(args, " "))
+		if name == "userdel" {
+			return os.WriteFile(filepath.Join(f.root, "etc/group"), []byte("root:x:0:\n"), 0o644)
+		}
+		return nil
+	}}.Plan(true, testPages, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.Apply(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range f.ran {
+		if strings.HasPrefix(c, "groupdel") {
+			t.Errorf("ran %q although the group was gone", c)
+		}
+	}
+}
+
+func TestUninstallWithoutDeployServiceTouchesOnlyTheHostService(t *testing.T) {
+	f, _, _ := newHost(t)
+	for _, p := range []string{deployUnitPath, tmpfilesPath, dropInFile} {
+		if err := os.Remove(filepath.Join(f.root, p)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	apply(t, f, false)
+	want := []string{"systemctl disable --now qhost", "systemctl daemon-reload"}
+	if !slices.Equal(f.ran, want) {
+		t.Errorf("commands = %q, want %q", f.ran, want)
+	}
+}
+
+func TestPlanRefusesDeletionThatReachesAStackFolder(t *testing.T) {
+	for _, keep := range []string{"/var/lib/qhost-deploy", "/var/lib/qhost-deploy/stacks", "/var/lib", "/run/qhost-deploy/x", "/var/lib/qhost-host/journal"} {
+		f, _, _ := newHost(t)
+		before := tree(t, f.root)
+		if _, err := f.host().Plan(true, testPages, []string{keep}); err == nil || !strings.Contains(err.Error(), "stack folder") {
+			t.Errorf("keep %s: error %v", keep, err)
+		}
+		if got := tree(t, f.root); !slices.Equal(got, before) || len(f.ran) != 0 {
+			t.Errorf("keep %s changed the host", keep)
+		}
+	}
+	f, _, _ := newHost(t)
+	if _, err := f.host().Plan(false, testPages, []string{"/var/lib/qhost-deploy"}); err != nil {
+		t.Errorf("without purge the state is not touched: %v", err)
+	}
+}
+
+func TestPlanRefusesSymbolicLinksAndChangesNothing(t *testing.T) {
+	for _, link := range []string{binaryPath, hostUnitPath, "/var/lib/qhost", "/usr/local/share/man/man1/qhost.1", channelDir} {
+		f, _, _ := newHost(t)
+		outside := filepath.Join(t.TempDir(), "outside")
+		if err := os.MkdirAll(outside, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(outside, "file"), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		full := filepath.Join(f.root, link)
+		if err := os.RemoveAll(full); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(outside, full); err != nil {
+			t.Fatal(err)
+		}
+		_, err := f.host().Plan(true, testPages, nil)
+		if err == nil || !strings.Contains(err.Error(), "symbolic link") {
+			t.Errorf("%s: error %v", link, err)
+		}
+		if !exists(outside, "file") {
+			t.Errorf("%s: the target of the link was touched", link)
+		}
+	}
+}
+
+func TestPlanRefusesSymbolicLinkParent(t *testing.T) {
+	f, _, _ := newHost(t)
+	outside := t.TempDir()
+	dir := filepath.Join(f.root, "usr/local/lib/systemd/system")
+	if err := os.RemoveAll(dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, dir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.host().Plan(false, testPages, nil); err == nil {
+		t.Fatal("a unit directory that is a symbolic link was accepted")
+	}
+}
+
+func TestFailedDisableRemovesNothing(t *testing.T) {
+	f, _, _ := newHost(t)
+	before := tree(t, f.root)
+	plan, err := Host{Root: f.root, Run: func(context.Context, string, ...string) error { return os.ErrPermission }}.Plan(true, testPages, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := plan.Apply(context.Background()); err == nil {
+		t.Fatal("a failing systemctl was ignored")
+	}
+	if got := tree(t, f.root); !slices.Equal(got, before) {
+		t.Error("files were removed after the services could not be stopped")
+	}
+}
