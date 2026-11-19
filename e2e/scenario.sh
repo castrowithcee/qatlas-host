@@ -2,7 +2,8 @@
 # Scenario: from the simulated host, clone the demo stacks repository over SSH and push a commit; then check
 # the demo image tags and that a demo container turns unhealthy on purpose. The rootless Docker engine of a test user runs
 # without a login session, starts a container from the registry mirror under a sub-UID of the user, and the system
-# engine does not see that container. Then install qhost on the host
+# engine does not see that container. Later source inspect reports the containers of a folder in that engine as
+# conflicts and lists the engine as not checked while it is stopped. Then install qhost on the host
 # from a signed test release with the release installer, which sets up only the host service, and check its user
 # and directories, that it has no access to the container engine, that the installing admin joins the group qhost
 # and that status names the deploy service as not set up and a deploy command says so. Then set the deploy service
@@ -2120,6 +2121,8 @@ scenario_stacks_repo() {
 
 	scenario_source_inspect
 
+	scenario_source_inspect_engines
+
 	scenario_key_set
 
 	scenario_observe_end
@@ -2345,6 +2348,56 @@ scenario_source_inspect() {
 		fail 'source inspect changed the folders it inspected'
 	docker exec "$host" rm -rf "$base" || fail 'cannot remove the inspected folders'
 	log 'scenario: source inspect told clone, adopt-clone, local and files and changed nothing'
+}
+
+# scenario_source_inspect_engines proves that source inspect finds the containers of a stack folder in the rootless
+# engine of $rootless_user, under the project name of the stack and under another one, names the engine in JSON and
+# text, and lists the engine as not checked once it is stopped while the rest of the answer stays valid. The engine is
+# started again and waited for, and the containers and the folder are removed.
+scenario_source_inspect_engines() {
+	dir=/srv/qd-inspect-rootless
+	step 'source inspect reports containers of the folder in a rootless engine, and the engine as not checked once it stops'
+	docker exec "$host" sh -ec "rm -rf '$dir' && mkdir -p '$dir' && chown '$rootless_user:$rootless_user' '$dir' && chmod 0755 '$dir'" ||
+		fail 'cannot prepare the folder for the rootless engine'
+	printf 'services:\n  app:\n    image: demo/app:1.0.0\n' |
+		docker exec -i -u "$rootless_user" "$host" sh -ec "cat >'$dir/compose.yaml'" || fail 'cannot write the compose file'
+	out=$(qd --output json source inspect "$dir") || fail "source inspect of the rootless folder failed: $out"
+	project=$(printf '%s' "$out" | jq -r '.stacks[0].project') || fail "unexpected inspection of the rootless folder: $out"
+	[ -n "$project" ] && [ "$project" != null ] || fail "source inspect names no project for the folder: $out"
+	printf '%s' "$out" | jq -e '[.stacks[].conflicts // [] | length] | add == 0' >/dev/null ||
+		fail "source inspect reports conflicts before any container runs: $out"
+	other=$prefix-rootless-other
+	as_rootless "cd '$dir' && docker compose -p '$project' up -d --quiet-pull && docker compose -p '$other' up -d --quiet-pull" >/dev/null 2>&1 ||
+		fail 'cannot start the compose projects in the rootless engine'
+
+	out=$(qd --output json source inspect "$dir") || fail "source inspect with the rootless containers failed: $out"
+	want=rootless:$rootless_user
+	printf '%s' "$out" | jq -e --arg e "$want" --arg p "$project" --arg o "$other" '
+		[.stacks[].conflicts // [] | .[] | select(.engine == $e)] as $c
+		| ($c | map(.project) | index($p)) != null and ($c | map(.project) | index($o)) != null' >/dev/null ||
+		fail "source inspect does not report both projects as conflicts of $want: $out"
+	printf '%s' "$out" | jq -e '.engines_not_checked // [] | length == 0' >/dev/null ||
+		fail "an engine is not checked while the rootless engine runs: $out"
+	out=$(qd source inspect "$dir") || fail "source inspect as text failed: $out"
+	printf '%s' "$out" | grep -q "$want" || fail "the text answer does not name the engine $want: $out"
+
+	# The setup tool of the rootless engine may install no socket unit; stop it only when it exists.
+	as_rootless 'systemctl --user stop docker.service; if systemctl --user cat docker.socket >/dev/null 2>&1; then systemctl --user stop docker.socket; fi' >/dev/null 2>&1 ||
+		fail 'cannot stop the rootless engine'
+	out=$(qd --output json source inspect "$dir") || fail "source inspect with the stopped engine failed: $out"
+	printf '%s' "$out" | jq -e --arg e "$want" '
+		.case == "files" and (.stacks | length) >= 1
+		and ([.engines_not_checked // [] | .[] | select(.engine == $e and (.reason | length) > 0)] | length) == 1' >/dev/null ||
+		fail "the stopped engine is not listed as not checked, or the answer is invalid: $out"
+	qd source inspect "$dir" | grep -q "$want was not checked" || fail 'the text answer does not list the stopped engine as not checked'
+
+	as_rootless 'systemctl --user start docker.service' >/dev/null 2>&1 || fail 'cannot start the rootless engine again'
+	wait_for 'the rootless engine to answer again' 60 as_rootless 'docker info'
+	as_rootless "cd '$dir' && docker compose -p '$project' down && docker compose -p '$other' down" >/dev/null 2>&1 ||
+		fail 'cannot remove the compose projects of the rootless engine'
+	[ -z "$(as_rootless 'docker ps -aq')" ] || fail 'the rootless engine still has containers'
+	docker exec "$host" rm -rf "$dir" || fail 'cannot remove the folder of the rootless engine'
+	log 'scenario: source inspect found the folder containers in the rootless engine and listed it as not checked while stopped'
 }
 
 # local_tree prints mode, owner, group and size of every path below /srv/qd-local except .git, which the service
