@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -86,6 +87,8 @@ type Plan struct {
 	Purge bool
 	// Instances are the units of the deploy service instances the removal covers.
 	Instances []string
+	// Leftover are the units of instances removed earlier whose state or configuration the purge deletes.
+	Leftover []string
 }
 
 // Empty reports whether nothing is left to do.
@@ -118,6 +121,9 @@ func (p Plan) Sentence() string {
 		} else {
 			s += " Their state and configuration stay."
 		}
+	}
+	if p.Purge && len(p.Leftover) > 0 {
+		s += " The state and configuration of the instances " + strings.Join(p.Leftover, ", ") + " removed earlier are deleted too."
 	}
 	return s + keep + " The stack folders, their data and the containers, and the users, their homes and rootless engines are not touched."
 }
@@ -177,6 +183,16 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
+	// A removal without --purge deletes the rules the instances are found by, so a later purge finds their state
+	// and configuration by name.
+	purged := instances
+	var leftover []deploysetup.Instance
+	if purge {
+		if leftover, err = h.leftover(instances); err != nil {
+			return Plan{}, err
+		}
+		purged = append(slices.Clone(instances), leftover...)
+	}
 	// Only the directories go with everything in them, so only they can reach a stack folder.
 	recursive := []string{channelDir}
 	for _, i := range instances {
@@ -184,7 +200,7 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 	}
 	if purge {
 		recursive = append(recursive, hostStateDir, deployStateDir, journalDir)
-		for _, i := range instances {
+		for _, i := range purged {
 			recursive = append(recursive, i.StateDir(), i.ConfigDir())
 		}
 	}
@@ -198,6 +214,9 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 	plan := Plan{Purge: purge}
 	for _, i := range instances {
 		plan.Instances = append(plan.Instances, i.Unit())
+	}
+	for _, i := range leftover {
+		plan.Leftover = append(plan.Leftover, i.Unit())
 	}
 	add := func(command string, do func(ctx context.Context) error) {
 		plan.Steps = append(plan.Steps, Step{Command: command, do: do})
@@ -322,7 +341,7 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 				return Plan{}, err
 			}
 		}
-		for _, i := range instances {
+		for _, i := range purged {
 			for _, d := range []string{i.StateDir(), i.ConfigDir()} {
 				if err := h.dir(&plan, d, "rm -r "+d, exists); err != nil {
 					return Plan{}, err
@@ -355,6 +374,37 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 		}
 	}
 	return plan, nil
+}
+
+// leftover finds the instances other than known whose state or configuration directory is still there, as after a
+// removal without --purge. Only plain directories named like those of an instance count.
+func (h Host) leftover(known []deploysetup.Instance) ([]deploysetup.Instance, error) {
+	seen := map[string]bool{}
+	for _, i := range known {
+		seen[i.User()] = true
+	}
+	var out []deploysetup.Instance
+	for _, parent := range []string{"/var/lib", "/etc"} {
+		entries, err := os.ReadDir(h.path(parent))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range entries {
+			user, ok := strings.CutPrefix(e.Name(), deploysetup.Service+"-")
+			if !ok || !e.IsDir() || seen[user] {
+				continue
+			}
+			if i, err := deploysetup.NewInstance(user); err == nil {
+				seen[user] = true
+				out = append(out, i)
+			}
+		}
+	}
+	slices.SortFunc(out, func(a, b deploysetup.Instance) int { return strings.Compare(a.User(), b.User()) })
+	return out, nil
 }
 
 // dir adds the removal of the directory p if it exists as a plain directory.

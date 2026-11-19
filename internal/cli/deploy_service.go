@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -141,13 +142,10 @@ func newRefreshInstancesCommand(program *cobracli.Program) *cobra.Command {
 				return &cli.Failure{Code: output.CodeRuntime, Message: "refresh-instances: " + err.Error(), Cause: err,
 					NextStep: "Fix the cause named in the message, then run the command again."}
 			}
-			restarted := res.Restarted
-			if restarted == nil {
-				restarted = []string{}
-			}
+			// A list cannot be rendered as a table, the default format the update runs this command with.
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
 				{Name: "template_written", Value: res.TemplateWritten},
-				{Name: "restarted", Value: restarted},
+				{Name: "restarted", Value: strings.Join(res.Restarted, ", ")},
 			}})
 		},
 	}

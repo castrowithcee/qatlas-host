@@ -170,6 +170,10 @@ func TestRefreshInstancesCommand(t *testing.T) {
 	if !slices.Contains(*ran, "systemctl restart "+instanceOf(t, "alice").Unit()) {
 		t.Errorf("ran %q", *ran)
 	}
+	// The update runs the command without --output.
+	if code, stdout, stderr := run(t, "deploy-service", "refresh-instances"); code != 0 || !strings.Contains(stdout, instanceOf(t, "alice").Unit()) {
+		t.Fatalf("default format: code %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
 	if code, _, _ := run(t, "help"); code != 0 {
 		t.Fatal("help failed")
 	}

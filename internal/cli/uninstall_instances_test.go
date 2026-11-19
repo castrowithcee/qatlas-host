@@ -114,6 +114,34 @@ func TestUninstallPurgeRemovesInstanceStateAndConfigurationOnly(t *testing.T) {
 	}
 }
 
+func TestUninstallPurgeAfterAnUninstallRemovesInstanceStateAndConfiguration(t *testing.T) {
+	root, _ := useUninstallRoot(t, 0)
+	addInstances(t, root, "alice", "bob")
+	if code, _, stderr := run(t, "uninstall", "--confirm", "--yes"); code != 0 {
+		t.Fatalf("uninstall: code %d, stderr %q", code, stderr)
+	}
+	code, _, stderr := run(t, "uninstall", "--purge", "--confirm", "--yes")
+	if code != 0 {
+		t.Fatalf("purge: code %d, stderr %q", code, stderr)
+	}
+	for _, u := range []string{"alice", "bob"} {
+		inst := instanceOf(t, u)
+		for _, p := range []string{inst.StateDir(), inst.ConfigDir()} {
+			if present(root, p) || !strings.Contains(stderr, "rm -r "+p) {
+				t.Errorf("%s: present %v, stderr %q", p, present(root, p), stderr)
+			}
+		}
+		if strings.Contains(stderr, "disable --now "+inst.Unit()) || !strings.Contains(stderr, inst.Unit()) || !strings.Contains(stderr, "removed earlier") {
+			t.Errorf("the purge of %s: %q", u, stderr)
+		}
+		for _, p := range []string{"/home/" + u + "/.config/systemd/user/docker.service", "/home/" + u + "/data/keep.txt"} {
+			if !present(root, p) {
+				t.Errorf("%s was removed", p)
+			}
+		}
+	}
+}
+
 func TestUninstallKeepsAnAdministratorsFileInAnInstanceDropIn(t *testing.T) {
 	root, _ := useUninstallRoot(t, 0)
 	addInstances(t, root, "alice")
