@@ -17,7 +17,7 @@ func All() []helptopics.Topic {
 		{Name: "backups", Short: "Backing up and restoring the data of a stack", Text: backupsTopic},
 		{Name: "data-directories", Short: "Missing data directories of a stack: the data-dir-missing finding and how to resolve it", Text: dataDirectoriesTopic},
 		{Name: "notifications", Short: "Notification channels: events, types and secrets", Text: notificationsTopic},
-		{Name: "proposals", Short: "Proposals: asking for a change of the setup without sudo, the kinds source-add, stack-settings and window, limits and states", Text: proposalsTopic},
+		{Name: "proposals", Short: "Proposals: asking for a change of the setup without sudo, the kinds source-add, stack-settings, window and notify-channel, limits and states", Text: proposalsTopic},
 		{Name: "containers", Short: "The containers of the host: kinds, states, metrics, start, stop, restart", Text: containersTopic},
 	}
 }
@@ -54,7 +54,7 @@ Commands:
 - qhost stack secret set <stack> <KEY>, qhost stack secret list <stack>, qhost stack secret delete <stack> <KEY>: write, list by key and remove the secrets in a stack's secrets.env; the value is read without echo at a terminal or from standard input, never from an argument, and nothing is redeployed (list runs without sudo for an administrator in the group qhost, set and delete need sudo)
 - qhost credential set|list|delete: manage registry tokens and notification credentials (list runs without sudo for an administrator in the group qhost, set and delete need sudo)
 - qhost notify list|add|remove|test: manage the notification channels (webhook, Slack, Telegram, e-mail) and send a test message through one (list runs without sudo for an administrator in the group qhost, the rest needs sudo; see qhost help notifications)
-- qhost proposal submit|list|show|withdraw: ask for a change of the setup, a stack folder or the settings of a stack, without sudo for an administrator in the group qhost; nothing on the host changes. qhost proposal approve|reject: decide on a proposal, only root at a terminal (see qhost help proposals)
+- qhost proposal submit|list|show|withdraw: ask for a change of the setup (a stack folder, the settings of a stack, the maintenance window or a notification channel), without sudo for an administrator in the group qhost; nothing on the host changes. qhost proposal approve|reject: decide on a proposal, only root at a terminal (see qhost help proposals)
 - qhost update [version], qhost update status: update qhost itself to the latest stable release or to a given newer one from its signed GitHub releases and restart the service; status shows the installed version and the latest release and changes nothing (update runs with sudo and needs --confirm; stack updates are qhost stack update)
 - qhost container list [--metrics], qhost container show <name>: show every container of the host, own stacks, foreign Compose projects and single containers, with state; changes nothing (runs without sudo for an administrator in the group qhost; see qhost help containers)
 - qhost container logs <name>|--stack <stack> [--since T] [--until T] [--tail N] [--follow]: show the output of a container or of a whole stack (runs without sudo for an administrator in the group qhost; see qhost help containers)
@@ -334,13 +334,13 @@ Environment: only the names of the variables are shown, never their values.`
 const proposalsTopic = `A proposal asks for a change of the setup. An administrator in the group qhost, who needs no sudo to read, submits it; the service checks and stores it. Submitting changes nothing on the host: the service does not touch the proposed folder, uses no network and runs no git. Only a person decides: root at a terminal approves or rejects it.
 
 Commands submit, list, show and withdraw run without sudo for an administrator in the group qhost:
-- qhost proposal submit --kind source-add|stack-settings|window [--file <path>|-]: read the content as JSON from the file or from standard input and print the id of the new proposal. The file is read as the calling user, at most a little over 64 KiB.
+- qhost proposal submit --kind source-add|stack-settings|window|notify-channel [--file <path>|-]: read the content as JSON from the file or from standard input and print the id of the new proposal. The file is read as the calling user, at most a little over 64 KiB.
 - qhost proposal list: list the proposals, newest first, with id, kind, state, submitter and times
 - qhost proposal show <id>: show one proposal with its fingerprint, submitter and content
 - qhost proposal withdraw <id>: close an open proposal as withdrawn; only its submitter or root may do that
 
 Commands approve and reject need sudo and a terminal; they refuse --agent and input that is no terminal, and there is no --yes:
-- sudo qhost proposal approve <id> [--url <ssh-url>]: show the proposal and, below it, its effect, worked out with the same check as qhost source add (case, permissions, conflicts, file list). You confirm the host key of the server yourself, because a proposal never does, add the deploy key if the folder has none, and answer a last question. Right before anything changes the proposal is read again and the effect is worked out again; if either differs from what you saw, nothing is applied and the new effect is shown. The change is then made the way qhost source add makes it. --url replaces the proposed address.
+- sudo qhost proposal approve <id> [--url <ssh-url>]: show the proposal and, below it, its effect. For source-add it is worked out with the same check as qhost source add (case, permissions, conflicts, file list). You confirm the host key of the server yourself, because a proposal never does, add the deploy key if the folder has none, and answer a last question. Right before anything changes the proposal is read again and the effect is worked out again; if either differs from what you saw, nothing is applied and the new effect is shown. The change is then made the way qhost source add makes it. --url replaces the proposed address. The other kinds are described below.
 - sudo qhost proposal reject <id> [--reason <text>]: close an open proposal as rejected; the reason is kept at most 300 characters long
 
 Kind source-add proposes a folder as a stack folder (see qhost help sources). Its content is a JSON object with these fields and no others:
@@ -360,6 +360,15 @@ Kind window proposes the maintenance window of the host (see qhost window set --
 - zone: local or an IANA time zone name
 Example: {"days": ["mon", "thu"], "start": "02:30", "duration": "90m", "zone": "UTC"}
 The values are checked with the same rules as qhost window set, so a wrong weekday, time, duration or zone is refused when submitting, and a field the schema does not name, a secret included, is refused, never trimmed. Approving shows the difference to the window that applies now, every value in full; the window is then set the way qhost window set sets it.
+Kind notify-channel proposes a notification channel (see qhost help notifications). Its content is a JSON object with these fields and no others: the fields of qhost notify add without its secret parts.
+- name: 1 to 32 characters, lowercase letters, digits or '-', starting with a letter (required); a name that is taken is refused when submitting and when approving
+- type: webhook, slack, telegram or smtp (required)
+- events: the events the channel receives; none means all
+- smtp only: host, port, security (starttls or tls), user, from and to (a list of recipients)
+- telegram only: chat_id and optionally base_url
+The secret parts are the webhook or Slack address with its token, the signing key of a webhook, the bot token and the SMTP password. The schema has no member for them: a proposal that names secret or key, or any other field the schema does not name, is refused, never trimmed. The fields are checked with the same rules as qhost notify add, without secrets and without any network access, so a wrong type, event or setting of another type is refused when submitting.
+Example: {"name": "ops-alerts", "type": "telegram", "events": ["failed", "rolled-back"], "chat_id": "-1001234567890"}
+Approving shows the type, the name, the events and every field in full, broken into lines. You then enter the secret parts as qhost notify add asks for them, hidden at the terminal; they are never kept on the proposal or in its result. Right before the channel is added, the proposal is read again and the channels are checked again; if the proposal changed or a channel of that name exists now, nothing is added. The channel is then added the way qhost notify add adds it.
 A proposal holds configuration only, never a command, a secret or a host key fingerprint; a field the kind does not name, and an unknown kind, are refused.
 
 Limits: at most 20 open proposals per submitter, at most 64 KiB per proposal, and an open proposal expires after 14 days.

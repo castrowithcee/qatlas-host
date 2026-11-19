@@ -12,13 +12,14 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cli"
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
+	"github.com/castrowithcee/qatlas-kit/redact"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // approveWindow reviews and applies a proposal of the kind window: it shows the difference to the window that
 // applies now, asks, checks proposal and difference again and sets the window the way 'qhost window set' does.
-func approveWindow(c *cobra.Command, program *cobracli.Program, state *notRunning, first control.ProposalShowResult, url string) error {
+func approveWindow(c *cobra.Command, program *cobracli.Program, state *notRunning, _ *redact.Redactor, first control.ProposalShowResult, url string) error {
 	id := first.ID
 	if url != "" {
 		return usageFailure("--url applies to proposals of the kind source-add only", "Run 'sudo qhost proposal approve "+id+"' without --url.")

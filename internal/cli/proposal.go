@@ -16,11 +16,12 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cli"
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
+	"github.com/castrowithcee/qatlas-kit/redact"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
-func newProposalCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
+func newProposalCommand(program *cobracli.Program, state *notRunning, secrets *redact.Redactor) *cobra.Command {
 	group := &cobra.Command{
 		Use:   "proposal",
 		Short: "Submit, list, show, withdraw, approve and reject proposals of changes to the setup",
@@ -31,14 +32,14 @@ func newProposalCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 	}
 	group.AddCommand(newProposalSubmit(program, state), newProposalList(program, state),
 		newProposalShow(program, state), newProposalWithdraw(program, state),
-		newProposalApprove(program, state), newProposalReject(program, state))
+		newProposalApprove(program, state, secrets), newProposalReject(program, state))
 	return group
 }
 
 func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var kind, file string
 	c := &cobra.Command{
-		Use:   "submit --kind source-add|stack-settings|window [--file <path>|-]",
+		Use:   "submit --kind source-add|stack-settings|window|notify-channel [--file <path>|-]",
 		Short: "Submit a proposal read as JSON from a file or standard input",
 		Long: "submit sends the content of a proposal to the service, which checks and stores it, and prints its id. The\n" +
 			"content is a JSON object in the schema of the kind, read from --file or, without it or with '-', from\n" +
@@ -46,7 +47,8 @@ func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Comm
 			"takes {\"path\": \"/absolute/folder\", \"url\": \"ssh://...\"}, url optional. The kind stack-settings takes\n" +
 			"{\"stack\": \"name\", \"settings\": {\"version\": 1, ...}}, with the settings of 'qhost stack settings'. The kind window takes\n" +
 			"{\"days\": [\"mon\"], \"start\": \"03:00\", \"duration\": \"2h\", \"zone\": \"UTC\"}, at least one part. Nothing\n" +
-			"on the host changes. See\n" +
+			"on the host changes. The kind notify-channel takes the fields of 'qhost notify add' except its secret parts, which a\n" +
+			"proposal may not name: {\"name\": \"ops\", \"type\": \"webhook\", \"events\": [\"failed\"]}. See\n" +
 			"'qhost help proposals'.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
@@ -65,7 +67,7 @@ func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Comm
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: proposalFields(program.Format(), res)})
 		},
 	}
-	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add, stack-settings or window")
+	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add, stack-settings, window or notify-channel")
 	c.Flags().StringVar(&file, "file", "", "file with the content as JSON, or - for standard input (default)")
 	return c
 }

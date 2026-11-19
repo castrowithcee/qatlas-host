@@ -1698,6 +1698,10 @@ const ProposalKindStackSettings = "stack-settings"
 // are kept in their canonical form and of which at least one is named. The schema has no secret member.
 const ProposalKindWindow = "window"
 
+// ProposalKindNotifyChannel proposes a notification channel; its content is a ProposalNotifyChannel, the
+// arguments of NotifyAddCommand without their secret parts.
+const ProposalKindNotifyChannel = "notify-channel"
+
 // The states of a proposal. A proposal that is open and older than ProposalLifetime is answered as expired, and
 // one that has been approving for longer than ProposalApprovalWindow is answered as failed.
 const (
@@ -1742,6 +1746,27 @@ type ProposalStackSettings struct {
 	Stack    string        `json:"stack"`
 	Settings StackSettings `json:"settings"`
 }
+
+// ProposalNotifyChannel is the content of a proposal of kind ProposalKindNotifyChannel: the fields of
+// NotifyAddArgs without Secret and Key, the two secret parts. A proposal that names one of them is refused,
+// never trimmed; the person who approves enters them. The other fields have the meaning they have there.
+type ProposalNotifyChannel struct {
+	Name     string   `json:"name"`
+	Type     string   `json:"type"`
+	Events   []string `json:"events,omitempty"`
+	Host     string   `json:"host,omitempty"`
+	Port     int      `json:"port,omitempty"`
+	Security string   `json:"security,omitempty"`
+	User     string   `json:"user,omitempty"`
+	From     string   `json:"from,omitempty"`
+	To       []string `json:"to,omitempty"`
+	ChatID   string   `json:"chat_id,omitempty"`
+	BaseURL  string   `json:"base_url,omitempty"`
+}
+
+// ProposalNotifySecretFields are the members of NotifyAddArgs that carry a secret part. A proposal of kind
+// ProposalKindNotifyChannel may name none of them.
+var ProposalNotifySecretFields = []string{"secret", "key"}
 
 // ProposalInfo describes one proposal. Fingerprint binds a later approval to exactly this content.
 type ProposalInfo struct {

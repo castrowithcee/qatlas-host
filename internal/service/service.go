@@ -174,6 +174,7 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 	}
 	proposals := newProposalService(cfg.StateDir, db.passwd, proposalNow, log)
 	proposals.stackKnown = eng.hasStack
+	proposals.channelKnown = notifier.hasChannel
 	if err := registerProposalCommands(registry, proposals); err != nil {
 		return err
 	}

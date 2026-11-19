@@ -26,6 +26,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/backup"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/notifier"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 	"github.com/castrowithcee/qatlas-host/internal/window"
 )
@@ -71,7 +72,9 @@ type proposalService struct {
 	// stackKnown tells whether a stack of that name is among those the service deploys; kinds that name a
 	// stack are refused without it.
 	stackKnown func(name string) bool
-	mu         sync.Mutex
+	// channelKnown tells whether a notification channel of that name exists, like the check of notify.add.
+	channelKnown func(name string) (bool, error)
+	mu           sync.Mutex
 }
 
 func newProposalService(stateDir, passwd string, now func() time.Time, log *slog.Logger) *proposalService {
@@ -111,6 +114,7 @@ var proposalNormalizers = map[string]func(p *proposalService, content json.RawMe
 	control.ProposalKindSourceAdd:     (*proposalService).normalizeSourceAdd,
 	control.ProposalKindStackSettings: (*proposalService).normalizeStackSettings,
 	control.ProposalKindWindow:        (*proposalService).normalizeWindow,
+	control.ProposalKindNotifyChannel: (*proposalService).normalizeNotifyChannel,
 }
 
 func (p *proposalService) normalizeProposal(kind string, content json.RawMessage) (any, *control.Error) {
@@ -198,6 +202,48 @@ func (p *proposalService) normalizeWindow(content json.RawMessage) (any, *contro
 		out.Zone = *change.Zone
 	}
 	return out, nil
+}
+
+// normalizeNotifyChannel checks the channel with notifier.Validate without secrets, the check of notify.add
+// for everything but them, and stores it with the defaults of its type written out. A member that carries a
+// secret part is refused by name, before any other check, and every other member the schema does not name is
+// refused too. A name that is taken is refused as notify.add refuses it. It reaches no network.
+func (p *proposalService) normalizeNotifyChannel(content json.RawMessage) (any, *control.Error) {
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(content, &members); err != nil {
+		return nil, invalid("the content of a %s proposal must be a JSON object", control.ProposalKindNotifyChannel)
+	}
+	for _, f := range control.ProposalNotifySecretFields {
+		if _, named := members[f]; named {
+			return nil, invalid("a proposal cannot carry a secret part of a channel; the person who approves enters it")
+		}
+	}
+	var c control.ProposalNotifyChannel
+	if err := decodeStrict(content, &c); err != nil {
+		return nil, invalid("the content of a %s proposal must be a JSON object with the fields name, type, events, "+
+			"host, port, security, user, from, to, chat_id and base_url only", control.ProposalKindNotifyChannel)
+	}
+	ch, err := notifier.Validate(notifier.Channel{Name: c.Name, Type: c.Type, Events: c.Events, Host: c.Host, Port: c.Port,
+		Security: c.Security, User: c.User, From: c.From, To: c.To, ChatID: c.ChatID, BaseURL: c.BaseURL}, nil)
+	if err != nil {
+		var ie *notifier.InvalidError
+		if errors.As(err, &ie) {
+			return nil, invalid("%s", printable(ie.Text))
+		}
+		return nil, invalid("the channel is not valid")
+	}
+	if p.channelKnown != nil {
+		known, err := p.channelKnown(ch.Name)
+		if err != nil {
+			p.log.Error("proposals: read the channels", "error", err)
+			return nil, control.NewError(control.CodeInternal, "internal error")
+		}
+		if known {
+			return nil, invalid("a channel of this name exists; remove it first")
+		}
+	}
+	return control.ProposalNotifyChannel{Name: ch.Name, Type: ch.Type, Events: ch.Events, Host: ch.Host, Port: ch.Port,
+		Security: ch.Security, User: ch.User, From: ch.From, To: ch.To, ChatID: ch.ChatID, BaseURL: ch.BaseURL}, nil
 }
 
 func decodeStrict(raw json.RawMessage, into any) error {
