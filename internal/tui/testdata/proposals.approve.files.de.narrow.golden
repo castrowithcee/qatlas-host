@@ -8,7 +8,8 @@
   Änderungen vor, so wie das Hinzufügen des Ordners von Hand. Direkt davor      
   werden der Vorschlag und seine Wirkung neu gelesen, und nichts wird           
   angewendet, wenn eines von beiden vom Gezeigten abweicht. Das Ergebnis bleibt 
-  am Vorschlag.                                                                 
+  am Vorschlag. Container dieser Stacks laufen bereits, ein Deploy würde daher  
+  doppelte Container erzeugen und deren Ports doppelt belegen. qhost warnt nur. 
                                                                                 
     Ordner: /srv/files-example                                                  
     Fall: files (Dateien ohne Repository; ein erster Commit nimmt die           
@@ -20,5 +21,4 @@
   Dateien des ersten Commits (2)                                                
     demo/.env                                                                   
     demo/compose.yaml                                                           
-                                                                                
-y ja, ausführen  w mit Remote  n/esc/enter abbrechen         ↑/↓ Scrollen  20/38
+y ja, ausführen  w mit Remote  n/esc/enter abbrechen         ↑/↓ Scrollen  20/40

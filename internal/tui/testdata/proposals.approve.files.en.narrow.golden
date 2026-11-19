@@ -6,7 +6,9 @@
   Yes marks the proposal as approved and then makes the changes shown, the way  
   adding the folder by hand makes them. Right before that the proposal and its  
   effect are read again, and nothing is applied if either differs from what you 
-  saw. The result is kept on the proposal.                                      
+  saw. The result is kept on the proposal. Containers of these stacks already   
+  run, so deploying would create duplicate containers and take their ports      
+  twice. qhost only warns.                                                      
                                                                                 
     folder: /srv/files-example                                                  
     case: files (files without a repository; a first commit takes the listed    
@@ -19,6 +21,4 @@
     demo/.env                                                                   
     demo/compose.yaml                                                           
                                                                                 
-  Left out (1), recorded only in .git/info/exclude                              
-    demo/data: bind-mount (stack demo)                                          
-y yes, do it  w with a remote  n/esc/enter cancel              ↑/↓ scroll  20/37
+y yes, do it  w with a remote  n/esc/enter cancel              ↑/↓ scroll  20/39

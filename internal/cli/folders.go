@@ -23,6 +23,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/rootless"
 	"github.com/castrowithcee/qatlas-host/internal/service"
 	"github.com/castrowithcee/qatlas-host/internal/tui"
 )
@@ -57,6 +58,8 @@ type folderHost struct {
 	// lchown and chmod change the group and the mode of the paths source add hands to the service.
 	lchown func(path string, uid, gid int) error
 	chmod  func(path string, mode fs.FileMode) error
+	// detector finds and asks the rootless engines; its zero value is the real host.
+	detector rootless.Detector
 }
 
 var folders = folderHost{
@@ -412,6 +415,10 @@ func (tuiFolders) ApplyPermissions(ctx context.Context, p tui.PermPlan) error {
 		return err
 	}
 	return folders.applyPermissions(ctx, plan)
+}
+
+func (tuiFolders) Engines(ctx context.Context, res control.SourceInspectResult) control.SourceInspectResult {
+	return addEngines(ctx, res)
 }
 
 func (tuiFolders) ReadOnly(path string) (bool, error) { return folders.readOnly(path) }

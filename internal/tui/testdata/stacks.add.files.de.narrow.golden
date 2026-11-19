@@ -6,7 +6,10 @@
                                                         
   Ja prüft den Ordner noch einmal und nimmt die unten   
   aufgeführten Änderungen nur vor, wenn seine Liste     
-  unverändert ist.                                      
+  unverändert ist. Container dieser Stacks laufen       
+  bereits, ein Deploy würde daher doppelte Container    
+  erzeugen und deren Ports doppelt belegen. qhost warnt 
+  nur.                                                  
                                                         
     Ordner: /srv/files-example                          
     Fall: files (Dateien ohne Repository; ein erster    
@@ -17,8 +20,5 @@
                                                         
   Dateien des ersten Commits (2)                        
     demo/.env                                           
-    demo/compose.yaml                                   
-                                                        
-  Ausgelassen (1), nur in .git/info/exclude vermerkt    
 y ja, ausführen  w mit Remote  n/esc/enter abbrechen    
-                                     ↑/↓ Scrollen  19/39
+                                     ↑/↓ Scrollen  19/42

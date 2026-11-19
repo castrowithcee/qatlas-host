@@ -495,6 +495,8 @@ type fakeFolders struct {
 	grantErr error
 	plans    map[string]PermPlan
 	calls    []string
+	// engines, when set, adds what the rootless engines tell to an answer.
+	engines func(control.SourceInspectResult) control.SourceInspectResult
 }
 
 func (f *fakeFolders) Missing(dir string) (bool, error) {
@@ -520,6 +522,13 @@ func (f *fakeFolders) ApplyPermissions(_ context.Context, p PermPlan) error {
 func (f *fakeFolders) ReadOnly(path string) (bool, error) {
 	f.calls = append(f.calls, "readonly:"+path)
 	return f.readOnly, nil
+}
+
+func (f *fakeFolders) Engines(_ context.Context, res control.SourceInspectResult) control.SourceInspectResult {
+	if f.engines != nil {
+		return f.engines(res)
+	}
+	return res
 }
 
 // changes are the calls that changed the host.

@@ -374,3 +374,38 @@ func TestFolderDeployKeyOpensTheKeyViewOfThatFolder(t *testing.T) {
 	}
 	contains(t, m, "has no deploy key")
 }
+
+func TestFolderAddShowsTheEnginesOfConflictsAndTheOnesNotChecked(t *testing.T) {
+	b := foldersBackend()
+	b.host.engines = func(res control.SourceInspectResult) control.SourceInspectResult {
+		res.Stacks = slices.Clone(res.Stacks)
+		res.Stacks[0].Conflicts = append(slices.Clone(res.Stacks[0].Conflicts), control.SourceConflict{Container: "demo-web-1", Project: "demo", Engine: "rootless:alice"})
+		res.EnginesNotChecked = []control.EngineNotChecked{{Engine: "rootless:bob", Reason: "its engine is not running"}}
+		return res
+	}
+	m := newSettingsModel(t, b)
+	send(m, addKeys(filesDir)...)
+	contains(t, m, "demo-app-1", "in the engine system", "demo-web-1", "in the engine rootless:alice",
+		"engine rootless:bob was not checked: its engine is not running", "duplicate containers", "ports twice")
+	noChange(t, b)
+}
+
+func TestEffectSignatureChangesWithTheEnginesOfConflictsAndNotCheckedEngines(t *testing.T) {
+	flow := func(engine string, notChecked ...control.EngineNotChecked) *addFlow {
+		return &addFlow{res: control.SourceInspectResult{Case: control.SourceCaseLocal, EnginesNotChecked: notChecked,
+			Stacks: []control.SourceStack{{Name: "demo", Conflicts: []control.SourceConflict{{Container: "demo-1", Project: "demo", Engine: engine}}}}}}
+	}
+	base := effectSignature(flow("rootless:alice"))
+	if base != effectSignature(flow("rootless:alice")) {
+		t.Fatal("the same effect has two signatures")
+	}
+	if base == effectSignature(flow("rootless:carol")) {
+		t.Fatal("another engine of the conflict did not change the signature")
+	}
+	if base == effectSignature(flow("rootless:alice", control.EngineNotChecked{Engine: "rootless:bob", Reason: "not running"})) {
+		t.Fatal("a new engine that was not checked did not change the signature")
+	}
+	if effectSignature(flow("")) != effectSignature(flow("system")) {
+		t.Fatal("an answer without an engine is the engine of the service")
+	}
+}

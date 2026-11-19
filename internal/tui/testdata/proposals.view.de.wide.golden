@@ -32,7 +32,7 @@
       funktioniert: deploy                                                                                              
       funktioniert nicht: backup                                                                                        
       warning secrets-env-not-ignored: secrets.env is not listed in .gitignore                                          
-      Konflikt: Der Container demo-app-1 des Projekts old-demo läuft im Ordner                                          
+      Konflikt: Der Container demo-app-1 des Projekts old-demo läuft im Ordner, in der Engine system                    
                                                                                                                         
   Änderungen nach Ja                                                                                                    
     Ein Git-Repository wird mit Branch main und einem ersten Commit der aufgeführten Dateien als qhost angelegt; keine  
