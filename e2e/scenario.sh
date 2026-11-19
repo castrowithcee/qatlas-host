@@ -39,7 +39,10 @@
 # commit with the check, and "clear settings" deletes the file by a commit. At the very
 # end the installed program updates itself to a newer signed test release, which replaces and restarts both
 # services, refuses tampered ones, and updates once more with the deploy service put aside, which leaves its unit
-# uninstalled. Sourced by run.sh scenario.
+# uninstalled. The very last section puts the deploy service back and removes both services with sudo qhost uninstall:
+# the containers of the stacks keep running, the stack folders stay unchanged, both units and the program are gone and
+# the state, the users and the group stay; sudo qhost uninstall --purge then removes the three state folders, the users
+# and the group. Sourced by run.sh scenario.
 
 # signature_asset is the name of the release file with the signature; it must match release.SignatureAsset.
 signature_asset=checksums.txt.sig
@@ -113,6 +116,8 @@ run_scenario() {
 	scenario_stacks_repo
 
 	scenario_selfupdate
+
+	scenario_uninstall
 
 	log 'scenario: passed'
 }
@@ -3280,7 +3285,8 @@ unit_is_release() {
 
 # scenario_selfupdate updates the installed services to a newer signed test release and refuses tampered ones.
 # The simulated host has the deploy service set up; at the end the update runs once more on the same host with
-# the deploy service put aside, which is the host of an administrator who never set it up. Nothing runs after it.
+# the deploy service put aside, which is the host of an administrator who never set it up. Only scenario_uninstall
+# follows; it puts the deploy service back.
 scenario_selfupdate() {
 	docker exec "$host" systemctl start qhost qhost-deploy || fail 'cannot start the services'
 	wait_for 'the services to answer' 30 service_serving
@@ -3372,6 +3378,90 @@ scenario_selfupdate() {
 	log "scenario: updated to v0.3.0 without a deploy service: host service pid $hpid -> $(service_pid qhost), no deploy unit: $out"
 
 	docker exec "$host" systemctl stop qhost
+}
+
+# stack_folder_listing prints names, types, modes and numeric owners of everything in the stack folders named in
+# $stack_folders, one line each, sorted. The .git folders stay out, because the service writes them on every poll;
+# owners stay numeric so that deleting a user changes nothing in the listing.
+stack_folder_listing() {
+	docker exec "$host" sh -ec '
+		for d in "$@"; do
+			find "$d" -xdev -name .git -prune -o -printf "%p %y %m %U %G\n"
+		done | sort' sh $stack_folders
+}
+
+# all_running_containers prints the names of all running containers of the host, sorted.
+all_running_containers() {
+	docker exec "$host" docker ps --format '{{.Names}}' | sort
+}
+
+# scenario_uninstall puts the deploy service back and proves sudo qhost uninstall: it needs root and --confirm, stops
+# both services and deletes the program, the units, the drop-in of the deploy unit, its tmpfiles rule and channel and the
+# manpages, and leaves the state, the journal, the users, the group, the containers and the stack folders as they were.
+# The program is copied away first, because uninstall deletes it; the copy then runs --purge, which deletes the three
+# state folders, the users and the group. Nothing runs after it, and no later step may call qhost.
+scenario_uninstall() {
+	step 'the deploy service is put back and both services run, with a container beside them'
+	docker exec "$host" sh -ec '
+		mv /root/qhost-deploy.service.aside /usr/local/lib/systemd/system/qhost-deploy.service
+		systemctl daemon-reload
+		systemctl enable --now qhost qhost-deploy
+		cp /usr/local/bin/qhost /root/qhost.copy' || fail 'cannot put the deploy service back'
+	wait_for 'the services to answer' 30 service_serving
+	image=registry.$domain/demo/app:1.0.0
+	docker exec "$host" docker rm -f "$prefix-uninstall-probe" >/dev/null 2>&1 || true
+	docker exec "$host" docker run -d --name "$prefix-uninstall-probe" "$image" >/dev/null || fail 'cannot start the probe container'
+	containers=$(all_running_containers)
+	[ -n "$containers" ] || fail 'no container runs before the uninstall'
+	# The folders are read from the drop-in now, because the uninstall deletes it.
+	stack_folders=$(docker exec "$host" sed -n 's/^ReadWritePaths=-//p' /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf)
+	folders=$(stack_folder_listing)
+	[ -n "$folders" ] || fail 'the drop-in of the deploy unit lists no stack folder'
+	printf '%s\n' "$folders" | grep -q '^/opt/stacks ' || fail "the stack folders do not include /opt/stacks: $folders"
+
+	step 'uninstall without root, without --confirm and without an answer changes nothing'
+	before=$(installed_sum)
+	if out=$(as_admin 'qhost uninstall --yes --confirm 2>&1'); then fail "uninstall without root succeeded: $out"; fi
+	if out=$(as_admin 'sudo qhost uninstall --yes 2>&1'); then fail "uninstall without --confirm succeeded: $out"; fi
+	if out=$(as_admin 'sudo qhost uninstall --confirm 2>&1 </dev/null'); then fail "uninstall without an answer succeeded: $out"; fi
+	[ "$(installed_sum)" = "$before" ] || fail 'a refused uninstall changed the installation'
+	service_serving || fail 'the services do not answer after a refused uninstall'
+
+	step 'sudo qhost uninstall removes both services and keeps state, users, containers and stack folders'
+	out=$(as_admin 'sudo qhost uninstall --yes --confirm 2>&1') || fail "uninstall failed: $out"
+	for p in /usr/local/bin/qhost /usr/local/lib/systemd/system/qhost.service /usr/local/lib/systemd/system/qhost-deploy.service \
+		/etc/tmpfiles.d/qhost-deploy.conf /run/qhost-deploy /usr/local/share/man/man1/qhost.1 \
+		/etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf; do
+		if docker exec "$host" test -e "$p" || docker exec "$host" test -L "$p"; then fail "uninstall left $p: $out"; fi
+	done
+	docker exec "$host" test -f /etc/systemd/system/qhost-deploy.service.d/e2e.conf || fail 'uninstall removed a drop-in it does not own'
+	for u in qhost qhost-deploy; do
+		[ "$(docker exec "$host" systemctl is-active "$u" || true)" != active ] || fail "$u still runs after the uninstall"
+		if docker exec "$host" systemctl is-enabled --quiet "$u"; then fail "$u is still enabled after the uninstall"; fi
+		if docker exec "$host" systemctl cat "$u" >/dev/null 2>&1; then fail "systemd still knows the unit $u after the uninstall"; fi
+	done
+	[ "$(all_running_containers)" = "$containers" ] || fail "the containers changed: $(all_running_containers)"
+	[ "$(stack_folder_listing)" = "$folders" ] || fail 'a stack folder changed'
+	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host; do
+		docker exec "$host" test -d "$p" || fail "uninstall without --purge removed $p"
+	done
+	docker exec "$host" sh -ec 'id qhost && id qhost-deploy && getent group qhost && getent group qhost-deploy' >/dev/null ||
+		fail 'uninstall without --purge removed a user or a group'
+	log "scenario: uninstalled both services, the containers and stack folders are unchanged: $out"
+
+	step 'sudo qhost uninstall --purge removes the three state folders, the users and the group'
+	out=$(as_admin 'sudo /root/qhost.copy uninstall --purge --yes --confirm 2>&1') || fail "uninstall --purge failed: $out"
+	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host; do
+		if docker exec "$host" test -e "$p"; then fail "uninstall --purge left $p: $out"; fi
+	done
+	for u in qhost qhost-deploy; do
+		if docker exec "$host" id "$u" >/dev/null 2>&1; then fail "uninstall --purge left the user $u: $out"; fi
+		if docker exec "$host" getent group "$u" >/dev/null 2>&1; then fail "uninstall --purge left the group $u: $out"; fi
+	done
+	[ "$(all_running_containers)" = "$containers" ] || fail "the purge changed the containers: $(all_running_containers)"
+	[ "$(stack_folder_listing)" = "$folders" ] || fail 'the purge changed a stack folder'
+	docker exec "$host" docker rm -f "$prefix-uninstall-probe" >/dev/null 2>&1 || true
+	log "scenario: purged the state, the users and the group, the containers and stack folders are unchanged: $out"
 }
 
 # refuse_update requires that sudo qhost update fails for the release $1 and that program, units, version and
