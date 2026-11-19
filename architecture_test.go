@@ -120,10 +120,24 @@ func TestArchitecture(t *testing.T) {
 			Hint:  "containers belong to the deploy part; the host administration never talks to the container engine",
 		},
 		{
-			Name:  "host-service-imports-only-the-protocol-the-admin-check-and-the-action-log",
+			Name:  "host-service-imports-only-the-protocol-the-admin-check-the-action-log-and-the-proposals",
 			Files: archtest.Files{Under: []string{"internal/hostservice"}, Tests: archtest.WithTests},
-			Check: archtest.AllowImports("internal/control", "internal/client", "internal/channeltest", "internal/admins", "internal/host/auditlog"),
-			Hint:  "the host service knows the wire protocol, the administrator check and the action log, and nothing of the deploy part, the command surface or the changes of the host",
+			Check: archtest.AllowImports("internal/control", "internal/client", "internal/channeltest", "internal/admins", "internal/host/auditlog",
+				"internal/proposals", "internal/host/hostproposal"),
+			Hint: "the host service knows the wire protocol, the administrator check, the action log, the shared proposal store and the check of host proposals, " +
+				"and nothing of the deploy part or the command surface; it reaches the actions of the host only through that check, never the runner",
+		},
+		{
+			Name:  "host-proposal-check-sees-the-actions-only",
+			Files: archtest.Files{Under: []string{"internal/host/hostproposal"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports("internal/host/hostchange", "internal/host/hostadmin"),
+			Hint:  "the check of host proposals builds plans of the actions and imports no other package of the module, so the host service can use it without the runner",
+		},
+		{
+			Name:  "proposals-know-the-protocol-only",
+			Files: archtest.Files{Under: []string{"internal/proposals"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports("internal/control"),
+			Hint:  "the proposal store is shared by both services and knows neither, nor any kind of proposal",
 		},
 		{
 			Name:  "admins-know-the-protocol-only",

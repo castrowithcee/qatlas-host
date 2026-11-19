@@ -36,6 +36,9 @@ type hostAsk struct {
 	danger bool
 	// self is set where the change gives the person behind the interface the group qhost.
 	self bool
+	// apply, when set, replaces the arguments of host apply, as for a proposal: the root command takes the change
+	// from the proposal, so id and args only describe it here.
+	apply []string
 	// undo marks the undo of a journal entry, whose report names the new entry, which is not undone in turn.
 	undo bool
 }
@@ -131,6 +134,9 @@ func (m *Model) askChange(question, consequence string, irreversible, danger boo
 // have changed even when the run failed and was restored.
 func (m *Model) runHostChange(a hostAsk) tea.Cmd {
 	argv := append([]string{"apply", "--confirm", "--output", "json", "--", a.id}, a.args...)
+	if a.apply != nil {
+		argv = a.apply
+	}
 	req := HostRequest{Args: argv, Secret: a.secret}
 	after := func(out []byte, err error) tea.Cmd {
 		report, ok := parseReport(out)

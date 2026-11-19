@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/castrowithcee/qatlas-kit/localipc"
+
 	"github.com/castrowithcee/qatlas-host/internal/channeltest"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 )
@@ -42,6 +44,20 @@ func startFakeService(t *testing.T, handlers fakeHandlers) *fakeService {
 	t.Helper()
 	ep := channeltest.Endpoint(t)
 	useEndpoint(t, ep)
+	return serveFake(t, ep, handlers)
+}
+
+// startFakeHostService answers on the channel of the host service. Call it after startFakeService, which points
+// the host channel at a missing endpoint.
+func startFakeHostService(t *testing.T, handlers fakeHandlers) *fakeService {
+	t.Helper()
+	ep := channeltest.Endpoint(t)
+	useHostEndpoint(t, ep)
+	return serveFake(t, ep, handlers)
+}
+
+func serveFake(t *testing.T, ep localipc.ServiceEndpoint, handlers fakeHandlers) *fakeService {
+	t.Helper()
 	l, err := ep.Listen()
 	if err != nil {
 		t.Fatal(err)

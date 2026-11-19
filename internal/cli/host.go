@@ -54,21 +54,22 @@ func (e hostEnvironment) requireAdmin() error {
 		NextStep: "Ask an administrator for access, or run the command as root."}
 }
 
-func newHostCommand(program *cobracli.Program, secrets *redact.Redactor) *cobra.Command {
+func newHostCommand(program *cobracli.Program, state *notRunning, secrets *redact.Redactor) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "host",
 		Short: "Read and change the users, groups and folder permissions of this host",
 		Long: "The commands users, user, groups, group and folder read the local users, groups and folder permissions\n" +
 			"and change nothing. Only root and the administrators of the group qhost may use them. Whether an account\n" +
 			"is locked or expired and which SSH keys it has are shown only to root; otherwise they are unknown.\n" +
-			"The commands apply, undo and journal change the host or read its journal and need root. Every change is\n" +
-			"recorded in the action log ('qhost audit'). See 'qhost help host-admin'.",
+			"The commands apply, undo and journal change the host or read its journal and need root; apply --proposal\n" +
+			"applies a proposal of the host after a person reviewed it. Every change is recorded in the action log\n" +
+			"('qhost audit'). See 'qhost help host-admin'.",
 		// The caller is checked after the command line is, so a mistyped command line shows its usage first.
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return hostEnv.requireAdmin() },
 		RunE:              func(c *cobra.Command, _ []string) error { return c.Help() },
 	}
 	cmd.AddCommand(newHostUsersCommand(program), newHostUserCommand(program), newHostGroupsCommand(program),
-		newHostGroupCommand(program), newHostFolderCommand(program), newHostApplyCommand(program, secrets),
+		newHostGroupCommand(program), newHostFolderCommand(program), newHostApplyCommand(program, state, secrets),
 		newHostUndoCommand(program), newHostJournalCommand(program))
 	return cmd
 }

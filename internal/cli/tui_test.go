@@ -200,6 +200,20 @@ func TestHostRunnerKeepsTheSecretOutOfTheCommandLine(t *testing.T) {
 	}
 }
 
+// A request about a proposal runs `qhost proposal`, under sudo or, as root, itself.
+func TestHostRunnerRunsProposalCommandsOfTheProposalGroup(t *testing.T) {
+	fakeSudo(t, 1000)
+	cmd, err := hostRunner(tui.HostRequest{Proposal: true, Args: []string{"reject", "h-0001"}})
+	if err != nil || !slices.Equal(cmd.Args, []string{"/invented/bin/sudo", "/invented/bin/qhost", "proposal", "reject", "h-0001"}) {
+		t.Fatalf("under sudo %v, %v", cmd, err)
+	}
+	fakeSudo(t, 0)
+	cmd, err = hostRunner(tui.HostRequest{Proposal: true, Args: []string{"reject", "h-0001"}})
+	if err != nil || !slices.Equal(cmd.Args, []string{"/invented/bin/qhost", "proposal", "reject", "h-0001"}) || cmd.Stdin != os.Stdin {
+		t.Fatalf("as root %v, %v", cmd, err)
+	}
+}
+
 func TestHostRunnerAsRootRunsWithoutSudo(t *testing.T) {
 	fakeSudo(t, 0)
 	if cmd, err := hostRunner(tui.HostRequest{Validate: true}); cmd != nil || err != nil {

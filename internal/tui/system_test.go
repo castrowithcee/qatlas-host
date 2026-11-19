@@ -76,14 +76,18 @@ func (f *fakeRoot) run(req HostRequest) (*exec.Cmd, error) {
 		return exec.Command("sudo-fake", "-v"), nil
 	}
 	var cmd *exec.Cmd
+	group := "host"
+	if req.Proposal {
+		group = "proposal"
+	}
 	switch {
 	case f.root:
-		cmd = exec.Command("qhost-fake", append([]string{"host"}, req.Args...)...)
+		cmd = exec.Command("qhost-fake", append([]string{group}, req.Args...)...)
 	case len(req.Secret) > 0:
-		cmd = exec.Command("sudo-fake", append([]string{"-n", "qhost-fake", "host"}, req.Args...)...)
+		cmd = exec.Command("sudo-fake", append([]string{"-n", "qhost-fake", group}, req.Args...)...)
 		cmd.Env = []string{"LC_ALL=C"}
 	default:
-		cmd = exec.Command("sudo-fake", append([]string{"qhost-fake", "host"}, req.Args...)...)
+		cmd = exec.Command("sudo-fake", append([]string{"qhost-fake", group}, req.Args...)...)
 	}
 	if len(req.Secret) > 0 {
 		cmd.Stdin = bytes.NewReader(req.Secret)

@@ -33,7 +33,7 @@ const (
 func toChangesPage(t *testing.T, m *Model) {
 	t.Helper()
 	m.setZone(kittui.ZoneSubtabs)
-	send(m, "right", "right", "right")
+	send(m, "right", "right", "right", "right")
 	if m.sys.page != pageChanges {
 		t.Fatalf("page %s, want the changes page", m.sys.page)
 	}
@@ -157,7 +157,7 @@ func TestAChangeFromTheInterfaceMarksTheJournalOlderThanTheHost(t *testing.T) {
 		return f, nil
 	}
 	m.setZone(kittui.ZoneSubtabs)
-	send(m, "left", "down")
+	send(m, "left", "left", "down")
 	showFolder(t, m, "/srv/media")
 	// The keys of the scenario: everyone else may nothing.
 	send(m, "e", "down", "down", "down", "down", "left", "f2", "y")
@@ -172,7 +172,7 @@ func TestAChangeFromTheInterfaceMarksTheJournalOlderThanTheHost(t *testing.T) {
 	}
 	reads := len(f.reqs)
 	m.setZone(kittui.ZoneSubtabs)
-	send(m, "right")
+	send(m, "right", "right")
 	if len(f.reqs) != reads {
 		t.Errorf("an interface without root read the journal unasked: %v", f.reqs[reads:])
 	}

@@ -46,7 +46,8 @@ func newProposalApprove(program *cobracli.Program, state *notRunning, secrets *r
 			"read again and the effect is worked out again; if either differs from what you saw, nothing is applied and\n" +
 			"the new effect is shown. The change is then made the way 'qhost source add' makes it, and the result is\n" +
 			"kept on the proposal. --url replaces the proposed address. Only a person at a terminal may approve:\n" +
-			"there is no --yes, and --agent and input that is no terminal are refused. Run it with sudo.",
+			"there is no --yes, and --agent and input that is no terminal are refused. Run it with sudo. A proposal of\n" +
+			"the host (kind host-change) is applied with 'sudo qhost host apply --proposal <id>' instead.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			return runProposalApprove(c, program, state, secrets, args[0], url)
@@ -61,16 +62,17 @@ func newProposalReject(program *cobracli.Program, state *notRunning) *cobra.Comm
 	c := &cobra.Command{
 		Use:   "reject <id> [--reason <text>]",
 		Short: "Reject an open proposal, with an optional reason the submitter can read",
-		Long: "reject closes an open proposal as rejected. The reason is kept at most 300 characters long and shows in\n" +
-			"'qhost proposal show' for the submitter. Nothing on the host changes. Only a person at a terminal may\n" +
-			"reject: --agent and input that is no terminal are refused. Run it with sudo.",
+		Long: "reject closes an open proposal as rejected, at the host service for a proposal of the host and at the deploy\n" +
+			"service otherwise. The reason is kept at most 300 characters long and shows in 'qhost proposal show' for the\n" +
+			"submitter. Nothing on the host changes. Only a person at a terminal may reject: --agent and input that is\n" +
+			"no terminal are refused. Run it with sudo.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := requirePerson(program, "rejecting a proposal"); err != nil {
 				return err
 			}
 			var res control.ProposalInfo
-			if err := proposalCall(c, state, control.ProposalRejectCommand,
+			if err := proposalCallTo(c, state, hostProposalID(args[0]), control.ProposalRejectCommand,
 				control.ProposalRejectArgs{ID: args[0], Reason: reason}, &res); err != nil {
 				return err
 			}
@@ -111,6 +113,10 @@ var proposalApprovers = map[string]func(c *cobra.Command, program *cobracli.Prog
 func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notRunning, secrets *redact.Redactor, id, url string) error {
 	if err := requirePerson(program, "approving a proposal"); err != nil {
 		return err
+	}
+	if hostProposalID(id) {
+		return usageFailure("a proposal of the host is applied with 'sudo qhost host apply --proposal "+plainText(id)+"'",
+			"Review it with 'qhost proposal show "+plainText(id)+"', then run 'sudo qhost host apply --proposal "+plainText(id)+" --confirm'.")
 	}
 	shown, err := loadOpenProposal(c, state, id)
 	if err != nil {

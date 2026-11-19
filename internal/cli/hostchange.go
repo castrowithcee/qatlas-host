@@ -101,18 +101,34 @@ func changeFailed(err error) error {
 		AgentNextStep: "The change did not stand. Do not repeat it; tell the user what failed."}
 }
 
-func newHostApplyCommand(program *cobracli.Program, secrets *redact.Redactor) *cobra.Command {
+func newHostApplyCommand(program *cobracli.Program, state *notRunning, secrets *redact.Redactor) *cobra.Command {
 	var gate *cobracli.Gate
+	var proposal, fingerprint string
 	cmd := &cobra.Command{
-		Use:   "apply <action-id> [args...]",
-		Short: "Change the host with a registered action (needs root)",
+		Use:   "apply <action-id> [args...] | apply --proposal <id> [--fingerprint <fingerprint>]",
+		Short: "Change the host with a registered action or an approved proposal (needs root)",
 		Long: "Runs one registered action as root: records the previous state in the journal, runs the commands,\n" +
 			"checks the result and restores the previous state when the change or its check fails, then reports it\n" +
 			"to the action log of the host service. A secret input (a password, an SSH key) is read from standard\n" +
 			"input only, never from an argument. A protection rule refuses a change before anything runs. It needs\n" +
-			"--confirm; there is no question here. See 'qhost help host-admin' for the actions.",
+			"--confirm; there is no question here. See 'qhost help host-admin' for the actions.\n\n" +
+			"With --proposal it applies an open proposal of the host service instead (kind host-change): it reads the\n" +
+			"proposal, checks it again with the rules of proposals, shows the sentence and the commands on standard\n" +
+			"error, reads the proposal once more right before the change and applies nothing if it differs from what\n" +
+			"was shown, then takes the approval at the host service, runs the change the same way and keeps its result\n" +
+			"on the proposal. The proposed SSH keys come from the proposal; the initial password of user.create comes\n" +
+			"on standard input as {\"password\": \"...\"}. --fingerprint binds the run to the proposal as you reviewed it\n" +
+			"with 'qhost proposal show'; without it you are asked at the terminal, which a user.create proposal does\n" +
+			"not allow because standard input holds the password. Only a person at a terminal may apply a proposal:\n" +
+			"--agent and a process without a terminal are refused.",
 		Args: func(_ *cobra.Command, args []string) error {
-			if len(args) == 0 {
+			switch {
+			case proposal != "" && len(args) > 0:
+				return usageFailure("--proposal takes no action and no arguments; they come from the proposal",
+					"Run 'sudo qhost host apply --proposal <id> --confirm'.")
+			case proposal == "" && fingerprint != "":
+				return usageFailure("--fingerprint belongs to --proposal", "Run 'sudo qhost host apply --proposal <id> --fingerprint <fingerprint> --confirm'.")
+			case proposal == "" && len(args) == 0:
 				return errNoAction
 			}
 			return nil
@@ -121,9 +137,16 @@ func newHostApplyCommand(program *cobracli.Program, secrets *redact.Redactor) *c
 			if err := requireRoot("host apply"); err != nil {
 				return err
 			}
+			if proposal != "" {
+				return gate.Run(cobracli.Request{Changes: true}, func() error {
+					return applyProposal(c, program, state, secrets, proposal, fingerprint)
+				})
+			}
 			return gate.Run(cobracli.Request{Changes: true}, func() error { return applyChange(c, program, secrets, args) })
 		},
 	}
+	cmd.Flags().StringVar(&proposal, "proposal", "", "id of an open proposal of the host to apply")
+	cmd.Flags().StringVar(&fingerprint, "fingerprint", "", "fingerprint of the proposal as you reviewed it")
 	gate = program.AddGate(cmd, cobracli.Gates{Change: true})
 	return cmd
 }
@@ -252,12 +275,12 @@ func undoPlan(registry *hostchange.Registry, e hostchange.Entry, reversible bool
 
 // refusedChange reports a change that a rule refused before anything ran: the report object with the result
 // "refused" and the reason, then an error for the exit code. No journal entry exists for it.
-func refusedChange(c *cobra.Command, program *cobracli.Program, action string, err error) (error, bool) {
+func refusedChange(c *cobra.Command, program *cobracli.Program, action string, err error, extra ...output.Field) (error, bool) {
 	var refusal *hostchange.RefusedError
 	if !errors.As(err, &refusal) {
 		return nil, false
 	}
-	if emitErr := output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
+	if emitErr := output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: append([]output.Field{
 		{Name: "journal_id", Value: ""},
 		{Name: "action", Value: action},
 		{Name: "sentence", Value: ""},
@@ -269,7 +292,7 @@ func refusedChange(c *cobra.Command, program *cobracli.Program, action string, e
 		{Name: "reversible", Value: false},
 		{Name: "error", Value: refusal.Msg},
 		{Name: "warning", Value: ""},
-	}}); emitErr != nil {
+	}, extra...)}); emitErr != nil {
 		return emitErr, true
 	}
 	return &cli.Failure{Code: codeChangeRefused, Message: "refused: " + refusal.Msg, Cause: err,
@@ -280,9 +303,9 @@ func refusedChange(c *cobra.Command, program *cobracli.Program, action string, e
 // finishChange prints the report. A change that did not stand is an error after the report, so that the exit
 // code tells the caller and the report still arrives on standard output. A change that stands but has no entry
 // in the action log says so on standard error and in the report.
-func finishChange(c *cobra.Command, program *cobracli.Program, res hostchange.Result) error {
+func finishChange(c *cobra.Command, program *cobracli.Program, res hostchange.Result, extra ...output.Field) error {
 	e := res.Entry
-	if err := output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
+	if err := output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: append([]output.Field{
 		{Name: "journal_id", Value: e.ID},
 		{Name: "action", Value: e.Action},
 		{Name: "sentence", Value: e.Sentence},
@@ -294,7 +317,7 @@ func finishChange(c *cobra.Command, program *cobracli.Program, res hostchange.Re
 		{Name: "reversible", Value: e.Reversible},
 		{Name: "error", Value: e.Error},
 		{Name: "warning", Value: res.Warning},
-	}}); err != nil {
+	}, extra...)}); err != nil {
 		return err
 	}
 	if res.Warning != "" {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/host/auditlog"
+	"github.com/castrowithcee/qatlas-host/internal/proposals"
 )
 
 // command is one command of the host service. action is the log action its requests are recorded under;
@@ -25,6 +26,8 @@ type command struct {
 // and changeCode; the entry then names that change and that user instead of the peer, and carries changeCode as
 // its error code when it is set.
 type call struct {
+	// uid is the peer of the request.
+	uid  uint32
 	args json.RawMessage
 
 	change     *auditlog.Host
@@ -32,14 +35,16 @@ type call struct {
 	changeCode string
 }
 
-func (s *server) registry() map[string]command {
-	return map[string]command{
+func (s *server) registry(store *proposals.Store) map[string]command {
+	commands := map[string]command{
 		control.StatusCommand:        {action: auditlog.OperationControlStatus, handle: s.status},
 		control.HostLogListCommand:   {action: auditlog.OperationLogRead, handle: s.logList},
 		control.HostLogVerifyCommand: {action: auditlog.OperationLogRead, handle: s.logVerify},
 		// The sudo call that made the change is the proof, so only root may report one.
 		control.HostRecordCommand: {action: auditlog.OperationHostChange, rootOnly: true, handle: hostRecord},
 	}
+	proposalCommands(commands, store)
+	return commands
 }
 
 func badRequest() *control.Error {

@@ -18,12 +18,14 @@ type changeWorld struct {
 	values  map[string]string
 	calls   []string
 	stdin   string
+	stdins  []string
 	failSet string
 }
 
 func (w *changeWorld) Run(_ context.Context, c hostchange.Command) ([]byte, error) {
 	w.calls = append(w.calls, c.Display())
 	w.stdin = string(c.Secret)
+	w.stdins = append(w.stdins, string(c.Secret))
 	if c.Argv[0] == "demo-set" {
 		if c.Argv[2] == w.failSet {
 			return []byte("simulated"), errors.New("exit status 1")

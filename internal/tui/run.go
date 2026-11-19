@@ -30,6 +30,8 @@ type Options struct {
 	HostRun HostRunner
 	// HostLog reads the action log of the host service for the System area; nil shows that it cannot be read.
 	HostLog HostLog
+	// HostProposals reads the proposals of the host service for the System area; nil shows that they cannot be read.
+	HostProposals HostProposals
 }
 
 // PrefsSchema is what the preferences file of the interface may hold.
@@ -54,7 +56,7 @@ func Run(opts Options) error {
 	m, err := newModel(config{ctx: ctx, backend: opts.Backend, folders: opts.Folders, deploy: opts.Deploy, lang: uiprefs.Language(opts.Prefs.Language),
 		theme: opts.Prefs.Theme, profile: profile, charset: kittui.DetectCharsetMode(env),
 		start: kittui.AreaID(opts.Prefs.Start), loc: time.Local, warnings: opts.PrefsWarnings, mouse: opts.Prefs.MouseEnabled,
-		prefs: opts.Prefs, savePrefs: opts.SavePrefs, root: hostRoot{run: opts.HostRun}, hostLog: opts.HostLog})
+		prefs: opts.Prefs, savePrefs: opts.SavePrefs, root: hostRoot{run: opts.HostRun}, hostLog: opts.HostLog, hostProps: opts.HostProposals})
 	if err != nil {
 		return err
 	}
