@@ -1,12 +1,14 @@
 // Package hostservice is the host service: a small service that runs as the system user qhost without root and
 // without access to the container engine. It serves root and the administrators of the service group, checks
 // the administrator right in the group database on every request, and keeps the action log as a hash chain in
-// its state directory; it is the only writer of that log. It knows no package of the deploy part and never
-// talks to the container engine.
+// its state directory; it is the only writer of that log. It also keeps the proposals of changes of the host,
+// which it checks without touching the host. It knows no package of the deploy part and never talks to the
+// container engine.
 package hostservice
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -24,6 +26,8 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/admins"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/host/auditlog"
+	"github.com/castrowithcee/qatlas-host/internal/host/hostproposal"
+	"github.com/castrowithcee/qatlas-host/internal/proposals"
 )
 
 // DefaultStateDir is the state directory of the host service under systemd's StateDirectory convention.
@@ -88,7 +92,9 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 		db:     admins.Database{Group: cfg.GroupFile, Passwd: cfg.PasswdFile},
 		conns:  map[net.Conn]struct{}{},
 	}
-	s.commands = s.registry()
+	store := proposals.New(cfg.StateDir, cmp.Or(cfg.PasswdFile, admins.DefaultPasswdFile), now, log, normalizeProposal(hostproposal.Default()),
+		proposals.IDPrefix(control.HostProposalIDPrefix))
+	s.commands = s.registry(store)
 	l, err := cfg.Endpoint.ListenWith(localipc.ListenOptions{Refused: s.refused})
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
@@ -283,7 +289,7 @@ func (s *server) dispatch(uid uint32, raw []byte) (fields auditlog.Fields, code 
 		return fail(control.ErrNotRoot(), true)
 	}
 	fields.Action = cmd.action
-	c := &call{args: req.Args}
+	c := &call{uid: uid, args: req.Args}
 	if resp = s.run(cmd, c); resp.Error != nil {
 		return fields, resp.Error.Code, resp, true
 	}

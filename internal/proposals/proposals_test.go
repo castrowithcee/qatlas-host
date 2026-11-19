@@ -430,3 +430,35 @@ func TestApprovingDoesNotExpire(t *testing.T) {
 		t.Fatalf("state = %s", got.State)
 	}
 }
+
+func TestIDPrefixNamesTheStore(t *testing.T) {
+	h := newHarness(t)
+	info, err := h.submit(admin, kindExample, okContent)
+	if err != nil || !strings.HasPrefix(info.ID, control.DeployProposalIDPrefix) {
+		t.Fatalf("default id %q, %v", info.ID, err)
+	}
+	host := New(filepath.Join(t.TempDir(), "state"), "", func() time.Time { return h.now }, slog.New(slog.DiscardHandler),
+		normalizeExample, IDPrefix(control.HostProposalIDPrefix))
+	raw, _ := json.Marshal(control.ProposalSubmitArgs{Kind: kindExample, Content: json.RawMessage(okContent)})
+	v, err := host.Submit(control.WithPeer(context.Background(), admin), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := v.(control.ProposalInfo).ID
+	if !strings.HasPrefix(id, control.HostProposalIDPrefix) || len(id) != len(control.HostProposalIDPrefix)+16 {
+		t.Fatalf("host id %q", id)
+	}
+	// Each store finds only the ids of its own form.
+	for store, want := range map[*Store]string{host: info.ID, h.p: id} {
+		raw, _ := json.Marshal(control.ProposalIDArgs{ID: want})
+		if _, err := store.Show(context.Background(), raw); codeOf(t, err) != control.CodeNotFound {
+			t.Errorf("a store found the id %s of the other: %v", want, err)
+		}
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("an invalid prefix was accepted")
+		}
+	}()
+	IDPrefix("H_")
+}

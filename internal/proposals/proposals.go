@@ -42,7 +42,8 @@ const (
 	maxTextChars = 300
 )
 
-var idRe = regexp.MustCompile(`^p-[0-9a-f]{16}$`)
+// prefixRe is the form of an id prefix: lower-case letters and a dash.
+var prefixRe = regexp.MustCompile(`^[a-z]+-$`)
 
 // Normalizer checks the content of one kind of proposal and returns it in its canonical form, the one the
 // fingerprint covers. It refuses an unknown kind and never runs, evaluates or expands the content.
@@ -71,16 +72,38 @@ type Store struct {
 	now       func() time.Time
 	log       *slog.Logger
 	normalize Normalizer
-	mu        sync.Mutex
+	// prefix starts every id of the store; idRe is the form of its ids.
+	prefix string
+	idRe   *regexp.Regexp
+	mu     sync.Mutex
+}
+
+// Option changes a store from its defaults.
+type Option func(*Store)
+
+// IDPrefix makes the ids of the store start with prefix instead of control.DeployProposalIDPrefix, so the ids of
+// two stores never collide and an id names its store. A prefix that is not lower-case letters and a dash is a
+// programming error and panics.
+func IDPrefix(prefix string) Option {
+	if !prefixRe.MatchString(prefix) {
+		panic(fmt.Sprintf("proposals: invalid id prefix %q", prefix))
+	}
+	return func(s *Store) { s.prefix = prefix }
 }
 
 // New returns the store below stateDir. passwd is the file that names the submitters; a nil now means the
 // system clock.
-func New(stateDir, passwd string, now func() time.Time, log *slog.Logger, normalize Normalizer) *Store {
+func New(stateDir, passwd string, now func() time.Time, log *slog.Logger, normalize Normalizer, opts ...Option) *Store {
 	if now == nil {
 		now = time.Now
 	}
-	return &Store{dir: filepath.Join(stateDir, dirName), passwd: passwd, now: now, log: log, normalize: normalize}
+	s := &Store{dir: filepath.Join(stateDir, dirName), passwd: passwd, now: now, log: log, normalize: normalize,
+		prefix: control.DeployProposalIDPrefix}
+	for _, o := range opts {
+		o(s)
+	}
+	s.idRe = regexp.MustCompile(`^` + regexp.QuoteMeta(s.prefix) + `[0-9a-f]{16}$`)
+	return s
 }
 
 // Commands returns the commands of the store with the access each needs, by command name.
@@ -211,7 +234,7 @@ func (s *Store) Submit(ctx context.Context, raw json.RawMessage) (any, error) {
 	if len(all) >= maxStored {
 		return nil, control.NewError(control.CodeProposalLimit, "the store of proposals is full; try again later")
 	}
-	if rec.ID, err = newID(); err != nil {
+	if rec.ID, err = s.newID(); err != nil {
 		return nil, s.internal("create an id", err)
 	}
 	if err := s.save(rec); err != nil {
@@ -406,7 +429,7 @@ func (s *Store) path(id string) string { return filepath.Join(s.dir, id+".json")
 
 func (s *Store) find(id string) (record, error) {
 	notFound := control.NewError(control.CodeNotFound, "no such proposal")
-	if !idRe.MatchString(id) {
+	if !s.idRe.MatchString(id) {
 		return record{}, notFound
 	}
 	rec, err := readRecord(s.path(id))
@@ -448,7 +471,7 @@ func (s *Store) load() ([]record, error) {
 	var all []record
 	for _, e := range entries {
 		id, ok := strings.CutSuffix(e.Name(), ".json")
-		if !ok || !idRe.MatchString(id) {
+		if !ok || !s.idRe.MatchString(id) {
 			continue
 		}
 		r, err := readRecord(filepath.Join(s.dir, e.Name()))
@@ -502,12 +525,12 @@ func (s *Store) save(r record) error {
 	return nil
 }
 
-func newID() (string, error) {
+func (s *Store) newID() (string, error) {
 	var b [8]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		return "", err
 	}
-	return "p-" + hex.EncodeToString(b[:]), nil
+	return s.prefix + hex.EncodeToString(b[:]), nil
 }
 
 // userName resolves uid in the passwd file of the access check, never through NSS; an unknown user is named by

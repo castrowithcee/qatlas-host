@@ -1685,7 +1685,8 @@ type ContainerNetwork struct {
 // The commands of the proposals. A proposal is a change of the setup that a user with read access submits and a
 // person with root applies later; submitting stores it and has no other effect. ProposalSubmitCommand and
 // ProposalWithdrawCommand are open to root and the administrators of the service group, and touch the user's own
-// proposals only; withdrawing another user's proposal is root's.
+// proposals only; withdrawing another user's proposal is root's. Both services serve these commands, each for
+// its own kinds: the host service for ProposalKindHostChange, the deploy service for every other kind.
 //
 // ProposalApproveCommand, ProposalRejectCommand and ProposalResultCommand are root's. An approval is accepted
 // before anything is applied and closes the proposal against withdrawing and a second approval; the person
@@ -1713,6 +1714,28 @@ const ProposalKindWindow = "window"
 // ProposalKindNotifyChannel proposes a notification channel; its content is a ProposalNotifyChannel, the
 // arguments of NotifyAddCommand without their secret parts.
 const ProposalKindNotifyChannel = "notify-channel"
+
+// ProposalKindHostChange proposes a change of the host with one action of the host administration; its content
+// is a ProposalHostChange. The host service keeps these proposals, the deploy service never sees them.
+const ProposalKindHostChange = "host-change"
+
+// The prefixes of the proposal ids: a proposal of the host service has an id that starts with
+// HostProposalIDPrefix, one of the deploy service with DeployProposalIDPrefix, so an id names its service.
+const (
+	HostProposalIDPrefix   = "h-"
+	DeployProposalIDPrefix = "p-"
+)
+
+// ProposalHostChange is the content of a proposal of kind ProposalKindHostChange: the id of a registered action
+// of the host administration, its arguments as a list that is never evaluated by a shell, and the public SSH
+// keys of user.create and user.add-key in authorized_keys format. It holds no command and no password: the
+// initial password of user.create is entered by the person who approves. user.set-password, user.set-admin,
+// user.create with the admin switch and every member change of the groups sudo and qhost are refused.
+type ProposalHostChange struct {
+	Action string   `json:"action"`
+	Args   []string `json:"args"`
+	Keys   []string `json:"keys,omitempty"`
+}
 
 // The states of a proposal. A proposal that is open and older than ProposalLifetime is answered as expired, and
 // one that has been approving for longer than ProposalApprovalWindow is answered as failed.

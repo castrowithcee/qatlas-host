@@ -23,14 +23,16 @@ import (
 )
 
 // An invented group database: example-admin (4100) is an administrator in the service group, example-reader
-// (4102) is in the service group only, example-sudoer (4103) in the admin group only.
+// (4102) is in the service group only, example-sudoer (4103) in the admin group only, and qhost-deploy (4200),
+// the user of the deploy service, is in neither.
 const (
 	inventedGroups = "sudo:x:27:example-admin,example-sudoer\n" +
 		"qhost:x:990:example-admin,example-reader\n"
 	inventedUsers = "root:x:0:0:root:/root:/bin/sh\n" +
 		"example-admin:x:4100:4100::/nonexistent:/usr/sbin/nologin\n" +
 		"example-reader:x:4102:4102::/nonexistent:/usr/sbin/nologin\n" +
-		"example-sudoer:x:4103:4103::/nonexistent:/usr/sbin/nologin\n"
+		"example-sudoer:x:4103:4103::/nonexistent:/usr/sbin/nologin\n" +
+		"qhost-deploy:x:4200:4200::/nonexistent:/usr/sbin/nologin\n"
 )
 
 const (
@@ -47,6 +49,12 @@ type env struct {
 
 func start(t *testing.T, uid uint32) env {
 	t.Helper()
+	return startWith(t, func(net.Conn) (uint32, error) { return uid, nil })
+}
+
+// startWith starts a host service whose peers are the users peer reports.
+func startWith(t *testing.T, peer func(net.Conn) (uint32, error)) env {
+	t.Helper()
 	dir := t.TempDir()
 	e := env{endpoint: channeltest.Endpoint(t), stateDir: filepath.Join(dir, "state"), group: filepath.Join(dir, "group")}
 	passwd := filepath.Join(dir, "passwd")
@@ -62,7 +70,7 @@ func start(t *testing.T, uid uint32) env {
 		done <- Run(ctx, slog.New(slog.NewTextHandler(io.Discard, nil)), Config{
 			Version: "v9.9.9", Endpoint: e.endpoint, StateDir: e.stateDir, GroupFile: e.group, PasswdFile: passwd,
 			Now:     func() time.Time { return time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC) },
-			peerUID: func(net.Conn) (uint32, error) { return uid, nil },
+			peerUID: peer,
 		})
 	}()
 	t.Cleanup(func() {

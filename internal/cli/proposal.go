@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"sort"
@@ -18,17 +19,20 @@ import (
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/redact"
 
+	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 func newProposalCommand(program *cobracli.Program, state *notRunning, secrets *redact.Redactor) *cobra.Command {
 	group := &cobra.Command{
 		Use:   "proposal",
-		Short: "Submit, list, show, withdraw, approve and reject proposals of changes to the setup",
-		Long: "A proposal asks for a change of the setup, for example a stack folder. The service checks and stores it and\n" +
-			"changes nothing on the host. Every command runs without sudo for an administrator in the group qhost;\n" +
-			"a proposal can be withdrawn by its submitter or by root. approve and reject are for root at a terminal.\n" +
-			"See 'qhost help proposals'.",
+		Short: "Submit, list, show, withdraw, approve and reject proposals of changes to the setup and the host",
+		Long: "A proposal asks for a change of the setup, for example a stack folder, or of the host, for example a user.\n" +
+			"The service that owns its kind checks and stores it and changes nothing: the host service keeps the kind\n" +
+			"host-change, the deploy service every other kind. list shows the proposals of both. Every command runs\n" +
+			"without sudo for an administrator in the group qhost; a proposal can be withdrawn by its submitter or by\n" +
+			"root. approve and reject are for root at a terminal; a proposal of the host is approved with\n" +
+			"'sudo qhost host apply --proposal <id>'. See 'qhost help proposals'.",
 	}
 	group.AddCommand(newProposalSubmit(program, state), newProposalList(program, state),
 		newProposalShow(program, state), newProposalWithdraw(program, state),
@@ -39,17 +43,20 @@ func newProposalCommand(program *cobracli.Program, state *notRunning, secrets *r
 func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var kind, file string
 	c := &cobra.Command{
-		Use:   "submit --kind source-add|stack-settings|window|notify-channel [--file <path>|-]",
+		Use:   "submit --kind source-add|stack-settings|window|notify-channel|host-change [--file <path>|-]",
 		Short: "Submit a proposal read as JSON from a file or standard input",
-		Long: "submit sends the content of a proposal to the service, which checks and stores it, and prints its id. The\n" +
+		Long: "submit sends the content of a proposal to the service of its kind, which checks and stores it, and prints its id. The\n" +
 			"content is a JSON object in the schema of the kind, read from --file or, without it or with '-', from\n" +
 			"standard input; the file is read as the calling user, at most a little over 64 KiB. The kind source-add\n" +
 			"takes {\"path\": \"/absolute/folder\", \"url\": \"ssh://...\"}, url optional. The kind stack-settings takes\n" +
 			"{\"stack\": \"name\", \"settings\": {\"version\": 1, ...}}, with the settings of 'qhost stack settings'. The kind window takes\n" +
 			"{\"days\": [\"mon\"], \"start\": \"03:00\", \"duration\": \"2h\", \"zone\": \"UTC\"}, at least one part. Nothing\n" +
 			"on the host changes. The kind notify-channel takes the fields of 'qhost notify add' except its secret parts, which a\n" +
-			"proposal may not name: {\"name\": \"ops\", \"type\": \"webhook\", \"events\": [\"failed\"]}. See\n" +
-			"'qhost help proposals'.",
+			"proposal may not name: {\"name\": \"ops\", \"type\": \"webhook\", \"events\": [\"failed\"]}. The kind host-change goes to the\n" +
+			"host service and takes one action of 'qhost help host-admin' with its arguments and, for user.create and\n" +
+			"user.add-key, public SSH keys: {\"action\": \"user.create\", \"args\": [\"anna\", \"group=dev\"], \"keys\": [\"ssh-ed25519 ...\"]}.\n" +
+			"It never holds a password; user.set-password, user.set-admin, user.create with admin and member changes of\n" +
+			"the groups sudo and qhost are refused. See 'qhost help proposals'.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if kind == "" {
@@ -60,14 +67,14 @@ func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Comm
 				return err
 			}
 			var res control.ProposalInfo
-			if err := proposalCall(c, state, control.ProposalSubmitCommand,
+			if err := proposalCallTo(c, state, kind == control.ProposalKindHostChange, control.ProposalSubmitCommand,
 				control.ProposalSubmitArgs{Kind: kind, Content: content}, &res); err != nil {
 				return err
 			}
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: proposalFields(program.Format(), res)})
 		},
 	}
-	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add, stack-settings, window or notify-channel")
+	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add, stack-settings, window, notify-channel or host-change")
 	c.Flags().StringVar(&file, "file", "", "file with the content as JSON, or - for standard input (default)")
 	return c
 }
@@ -75,39 +82,109 @@ func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Comm
 func newProposalList(program *cobracli.Program, state *notRunning) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List the proposals, newest first",
-		Long:  "list shows every proposal with its id, kind, state, submitter and times. An open proposal past its time shows as expired.",
-		Args:  cobra.NoArgs,
+		Short: "List the proposals of both services, newest first",
+		Long: "list shows every proposal of the host service and the deploy service with its id, kind, service, state,\n" +
+			"submitter and times. An open proposal past its time shows as expired. A service that is not running or not\n" +
+			"set up is named on standard error and the proposals of the other are listed; it fails only when neither answers.",
+		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			var res control.ProposalListResult
-			if err := proposalCall(c, state, control.ProposalListCommand, nil, &res); err != nil {
+			listed, err := listProposals(c, state)
+			if err != nil {
 				return err
 			}
 			format := program.Format()
-			rows := make([]output.Row, 0, len(res.Proposals))
-			for _, p := range res.Proposals {
-				rows = append(rows, output.Row{"id": text(format, p.ID), "kind": text(format, p.Kind), "state": text(format, p.State),
-					"submitter": text(format, p.SubmitterName), "submitted": proposalTime(p.Submitted), "expires": proposalTime(p.Expires)})
+			rows := make([]output.Row, 0, len(listed))
+			for _, p := range listed {
+				rows = append(rows, output.Row{"id": text(format, p.ID), "kind": text(format, p.Kind), "service": p.service,
+					"state": text(format, p.State), "submitter": text(format, p.SubmitterName),
+					"submitted": proposalTime(p.Submitted), "expires": proposalTime(p.Expires)})
 			}
 			return output.Encode(c.OutOrStdout(), format, output.Collection{
-				Columns: []string{"id", "kind", "state", "submitter", "submitted", "expires"}, Rows: rows})
+				Columns: []string{"id", "kind", "service", "state", "submitter", "submitted", "expires"}, Rows: rows})
 		},
 	}
 }
+
+// The names of the services as list shows them.
+const (
+	serviceHost   = "host"
+	serviceDeploy = "deploy"
+)
+
+// listedProposal is one proposal of list with the service that keeps it.
+type listedProposal struct {
+	control.ProposalInfo
+	service string
+}
+
+// listProposals asks both services for their proposals and merges them, the newest first. A service that is not
+// running or not set up is named on standard error; only when neither answers is it an error.
+func listProposals(c *cobra.Command, state *notRunning) ([]listedProposal, error) {
+	var all []listedProposal
+	var missing []error
+	for _, svc := range []string{serviceDeploy, serviceHost} {
+		var res control.ProposalListResult
+		var err error
+		switch {
+		case svc == serviceDeploy && !deployInstalled():
+			err = notSetUp(client.ErrNotRunning)
+		case svc == serviceDeploy:
+			if err = call(c.Context(), serviceEndpoint(), control.ProposalListCommand, nil, &res); err != nil {
+				err = failureOf(err)
+			}
+		default:
+			if err = call(c.Context(), hostEndpoint(), control.ProposalListCommand, nil, &res); err != nil {
+				err = hostFailure(err)
+			}
+		}
+		if err != nil {
+			if !errors.Is(err, client.ErrNotRunning) {
+				return nil, proposalFailure(err)
+			}
+			missing = append(missing, err)
+			continue
+		}
+		for _, p := range res.Proposals {
+			all = append(all, listedProposal{ProposalInfo: p, service: svc})
+		}
+	}
+	if len(missing) == 2 {
+		state.seen = true
+		return nil, &cli.Failure{Code: output.CodeUnreachable, Message: "neither the host service nor the deploy service answers",
+			NextStep: "Start the host service with 'sudo systemctl start qhost', then run the command again.", Cause: missing[0]}
+	}
+	for _, err := range missing {
+		var f *cli.Failure
+		if errors.As(err, &f) {
+			_, _ = fmt.Fprintf(c.ErrOrStderr(), "warning: %s; its proposals are not listed\n", f.Message)
+		}
+	}
+	// Each service answers newest first; the stable merge keeps its order among proposals of the same time.
+	sort.SliceStable(all, func(i, j int) bool { return all[i].Submitted.After(all[j].Submitted) })
+	return all, nil
+}
+
+// hostProposalID reports whether id names a proposal of the host service.
+func hostProposalID(id string) bool { return strings.HasPrefix(id, control.HostProposalIDPrefix) }
 
 func newProposalShow(program *cobracli.Program, state *notRunning) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show one proposal with its content",
-		Long:  "show prints a proposal with its fingerprint, the submitter and the content as it was submitted.",
-		Args:  cobra.ExactArgs(1),
+		Long: "show prints a proposal with its fingerprint, the submitter and the content as it was submitted. For a proposal\n" +
+			"of the host it also prints the sentence and the commands of the change, as 'sudo qhost host apply --proposal'\n" +
+			"would run them, and the type, fingerprint and comment of each proposed SSH key.",
+		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			var res control.ProposalShowResult
-			if err := proposalCall(c, state, control.ProposalShowCommand, control.ProposalIDArgs{ID: args[0]}, &res); err != nil {
+			if err := proposalCallTo(c, state, hostProposalID(args[0]), control.ProposalShowCommand, control.ProposalIDArgs{ID: args[0]}, &res); err != nil {
 				return err
 			}
 			format := program.Format()
 			fields := proposalFields(format, res.ProposalInfo)
+			if res.Kind == control.ProposalKindHostChange {
+				fields = append(fields, hostChangeFields(program, res)...)
+			}
 			var content map[string]any
 			if err := json.Unmarshal(res.Content, &content); err != nil {
 				content = map[string]any{}
@@ -142,7 +219,7 @@ func newProposalWithdraw(program *cobracli.Program, state *notRunning) *cobra.Co
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			var res control.ProposalInfo
-			if err := proposalCall(c, state, control.ProposalWithdrawCommand, control.ProposalIDArgs{ID: args[0]}, &res); err != nil {
+			if err := proposalCallTo(c, state, hostProposalID(args[0]), control.ProposalWithdrawCommand, control.ProposalIDArgs{ID: args[0]}, &res); err != nil {
 				return err
 			}
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: proposalFields(program.Format(), res)})
@@ -187,12 +264,28 @@ func proposalTooLarge(cause error) error {
 		NextStep: "Shorten the content.", Cause: cause}
 }
 
-// proposalCall maps the codes of the proposal commands; any other failure stays as the shared mapping made it.
+// proposalCall asks the deploy service; see proposalCallTo.
 func proposalCall(c *cobra.Command, state *notRunning, command string, args, result any) error {
-	err := credentialCall(c, state, command, args, result)
+	return proposalCallTo(c, state, false, command, args, result)
+}
+
+// proposalCallTo asks the host service when host is set and the deploy service otherwise, and maps the codes of
+// the proposal commands; any other failure stays as the shared mapping made it.
+func proposalCallTo(c *cobra.Command, state *notRunning, host bool, command string, args, result any) error {
+	var err error
+	if host {
+		err = hostCall(c, state, command, args, result)
+	} else {
+		err = credentialCall(c, state, command, args, result)
+	}
 	if err == nil {
 		return nil
 	}
+	return proposalFailure(err)
+}
+
+// proposalFailure maps the codes of the proposal commands in a failure of the shared mapping.
+func proposalFailure(err error) error {
 	var f *cli.Failure
 	if !errors.As(err, &f) {
 		return err

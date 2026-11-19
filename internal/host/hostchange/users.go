@@ -48,12 +48,15 @@ const (
 	maxFurtherGroups   = 32
 	optionMustChange   = "must-change"
 	optionWithoutQhost = "without-qhost"
-	optionAdmin        = "admin"
+	optionAdmin        = OptionAdmin
 	optionDocker       = "docker"
 	optionHome         = "home"
 	optionGroupPrefix  = "group="
 	optionWithHome     = "with-home"
 )
+
+// OptionAdmin is the switch of user.create that makes the new user an administrator with access to qhost.
+const OptionAdmin = "admin"
 
 // fixedGroups have switches of their own; the further groups never include them.
 var fixedGroups = map[string]bool{hostadmin.GroupAdmin: true, hostadmin.GroupDocker: true, hostadmin.GroupQhost: true}
@@ -138,6 +141,26 @@ func parseNewKey(text string) (newKey, error) {
 		line += " " + comment
 	}
 	return newKey{line: line, fingerprint: ssh.FingerprintSHA256(pub)}, nil
+}
+
+// Key is one public SSH key as an action takes it: the authorized_keys line in canonical form, its type, its
+// comment and its SHA256 fingerprint.
+type Key struct {
+	Line, Type, Comment, Fingerprint string
+}
+
+// ParseKey checks text with the rules of user.create and user.add-key: one authorized_keys line of a public key
+// without options and without control characters in the comment.
+func ParseKey(text string) (Key, error) {
+	k, err := parseNewKey(text)
+	if err != nil {
+		return Key{}, err
+	}
+	pub, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(k.line))
+	if err != nil {
+		return Key{}, Argf("an SSH key must be a public key in authorized_keys format")
+	}
+	return Key{Line: k.line, Type: pub.Type(), Comment: comment, Fingerprint: k.fingerprint}, nil
 }
 
 func addKeyCommand(name string, lines []string, fingerprint string) Command {
