@@ -37,6 +37,7 @@ const (
 	areaSettings kittui.AreaID = "settings"
 	// areaContainers lists every container of the host; it is the last area so the keys of the others stay.
 	areaContainers kittui.AreaID = "containers"
+	// areaProposals is declared with its state in proposals.go; it follows Containers.
 )
 
 func areas() []kittui.Area {
@@ -46,6 +47,7 @@ func areas() []kittui.Area {
 		{ID: areaRuns, Title: textAreaRuns},
 		{ID: areaSettings, Title: textAreaSettings, Tabs: settingsTabs()},
 		{ID: areaContainers, Title: textAreaContainers},
+		{ID: areaProposals, Title: textAreaProposals},
 	}
 }
 
@@ -97,6 +99,8 @@ type Model struct {
 	text     kittui.Translator
 	lang     i18n.Lang
 	frame    *kittui.Frame
+	// diagnosing is set while a diagnostic package is being collected.
+	diagnosing bool
 	// prefs are the preferences as saved last; a save changes the chosen values and keeps the rest.
 	prefs     uiprefs.Prefs
 	savePrefs func(uiprefs.Prefs) error
@@ -121,6 +125,8 @@ type Model struct {
 	loaded, loading bool
 	// failure is the error of the last refresh; notice a warning that stays until the next key.
 	failure, notice string
+	// keep is a failure that the refresh a decided proposal starts must not wipe; each refresh puts it back until the next key.
+	keep string
 	// result is the success of a change without details; it stays until the next key.
 	result string
 	// chosen is the stack the detail area shows.
@@ -145,6 +151,12 @@ type Model struct {
 	ctList  *kittui.List
 	ctTones map[string]kittui.TextStyle
 	ctNames map[kittui.ItemID]string
+	// The Proposals area: the list read, its rows and the proposal that is open.
+	prop      proposalState
+	pv        proposalView
+	propList  *kittui.List
+	propTones map[string]kittui.TextStyle
+	propByID  map[kittui.ItemID]control.ProposalInfo
 	// modal is the question or result that takes every key; run the sequence of calls under way. stale is set
 	// when a refresh must follow the one under way.
 	set              *settingsState
@@ -187,6 +199,7 @@ func newModel(c config) (*Model, error) {
 		tones: map[string]kittui.TextStyle{}, rows: map[kittui.ItemID]stackRow{},
 		runTones: map[string]kittui.TextStyle{}, runByID: map[kittui.ItemID]runRow{}, after: tea.Tick,
 		ctTones: map[string]kittui.TextStyle{}, ctNames: map[kittui.ItemID]string{},
+		propTones: map[string]kittui.TextStyle{}, propByID: map[kittui.ItemID]control.ProposalInfo{},
 		euid: defaultEuid, makeDirs: defaultMakeDirs, mouseOn: c.mouse}
 	if m.ctx == nil {
 		m.ctx = context.Background()
@@ -207,6 +220,9 @@ func newModel(c config) (*Model, error) {
 		return nil, err
 	}
 	if m.ctList, err = m.newContainerList(text); err != nil {
+		return nil, err
+	}
+	if m.propList, err = m.newProposalList(text); err != nil {
 		return nil, err
 	}
 	if m.set, err = newSettings(keys, text); err != nil {
@@ -298,12 +314,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.reload(), m.tick())
 	case containerTickMsg:
 		return m, m.containerTick(msg)
+	case diagnoseMsg:
+		m.applyDiagnose(msg)
 	case containersMsg:
 		m.applyContainers(msg)
 	case containerDetailMsg:
 		m.applyContainer(msg)
 	case ctReadMsg:
 		m.applyContainerRead(msg)
+	case proposalMsg:
+		m.applyProposal(msg)
 	case ctDoneMsg:
 		return m, m.applyContainerDone(msg)
 	case refreshMsg:
@@ -379,7 +399,11 @@ func (m *Model) apply(msg refreshMsg) {
 	if msg.problem != nil {
 		m.failure = m.errorText(msg.problem)
 	}
+	if m.keep != "" && m.failure == "" {
+		m.failure = m.keep
+	}
 	m.fillStacks()
+	m.fillProposals()
 }
 
 // fillStacks sets the rows of the stacks list and of the runs list from the snapshot read last.
@@ -479,6 +503,14 @@ func (m *Model) input() kittui.InputFocus {
 			return m.log.view.Input()
 		}
 		return m.runsList.Input()
+	case areaProposals:
+		if m.set.form != nil {
+			return m.set.form.input()
+		}
+		if m.pv.open {
+			return kittui.InputNavigation
+		}
+		return m.propList.Input()
 	}
 	return kittui.InputNavigation
 }
@@ -504,12 +536,15 @@ func (m *Model) typed(msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool) {
 	case m.area == areaRuns:
 		open, handled := m.runsList.Update(msg)
 		return m.openLog(open), handled
+	case m.area == areaProposals && !m.pv.open:
+		open, handled := m.propList.Update(msg)
+		return m.openProposal(open), handled
 	}
 	return nil, false
 }
 
 func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
-	m.notice, m.result = "", ""
+	m.notice, m.result, m.keep = "", "", ""
 	if m.modal != nil {
 		return m.modalKey(msg)
 	}
@@ -584,8 +619,14 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			if m.saveOpenLog() {
 				return nil
 			}
-		case actFetch, actAdd, actRemove, actEdit, actTest, actEnter, actRestore, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actRemote:
+		case actFetch, actAdd, actRemove, actEdit, actTest, actEnter, actRestore, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actRemote, actApprove, actReject:
 			switch m.area {
+			case areaProposals:
+				if m.pv.open {
+					if cmd, handled := m.proposalAction(id); handled {
+						return cmd
+					}
+				}
 			case areaSettings:
 				if cmd, handled := m.settingsAction(id); handled {
 					return cmd
@@ -660,6 +701,13 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 					m.back(m.runsList, msg)
 				}
 				return nil
+			case areaProposals:
+				if m.pv.open {
+					m.pv = proposalView{gen: m.pv.gen}
+					return nil
+				}
+				m.back(m.propList, msg)
+				return nil
 			}
 		}
 		if m.area == areaDetail && m.pick == nil {
@@ -676,6 +724,14 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 				return nil
 			}
 			m.ctv.top = scrolled(m.ctv.top, m.ctv.total, m.ctv.rows, id)
+			return nil
+		}
+		if m.area == areaProposals && m.pv.open {
+			if id == actUp && m.pv.top <= 0 {
+				m.setZone(kittui.ZoneTabs)
+				return nil
+			}
+			m.pv.top = scrolled(m.pv.top, m.pv.total, m.pv.rows, id)
 			return nil
 		}
 	}
@@ -696,6 +752,10 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 		open, handled := m.runsList.Update(msg)
 		m.topEdge(handled, msg)
 		return m.openLog(open)
+	case m.area == areaProposals && !m.pv.open:
+		open, handled := m.propList.Update(msg)
+		m.topEdge(handled, msg)
+		return m.openProposal(open)
 	case m.area == areaSettings && m.focus() != kittui.ZoneTabs && m.focus() != kittui.ZoneSubtabs:
 		cmd, handled := m.settingsTyped(msg)
 		m.topEdge(handled, msg)
@@ -749,6 +809,8 @@ func (m *Model) reloadAll() tea.Cmd {
 	case m.area == areaRuns && m.log.open && !m.log.busy:
 		m.log.busy = true
 		cmds = append(cmds, m.readLog())
+	case m.area == areaProposals && m.pv.open:
+		cmds = append(cmds, m.readProposal())
 	}
 	return tea.Batch(cmds...)
 }
@@ -800,7 +862,8 @@ func (m *Model) zones() []kittui.FocusZone {
 		return []kittui.FocusZone{kittui.ZoneTabs, kittui.ZoneSubtabs, kittui.ZoneRows}
 	case m.area == areaDetail && m.pick == nil,
 		m.area == areaStacks && m.set.keyOpen,
-		m.area == areaContainers && m.ctv.open:
+		m.area == areaContainers && m.ctv.open,
+		m.area == areaProposals && m.pv.open:
 		return []kittui.FocusZone{kittui.ZoneTabs, kittui.ZoneDetail}
 	}
 	return []kittui.FocusZone{kittui.ZoneTabs, kittui.ZoneRows}
@@ -818,7 +881,7 @@ func (m *Model) focus() kittui.FocusZone {
 // setZone moves the focus; a list shows its marked row as focused only outside the tab and sub-tab lines.
 func (m *Model) setZone(z kittui.FocusZone) {
 	m.zone = z
-	lists := []*kittui.List{m.list, m.runsList, m.ctList}
+	lists := []*kittui.List{m.list, m.runsList, m.ctList, m.propList}
 	if m.set != nil {
 		lists = append(lists, m.set.credList, m.set.notifyList)
 	}
@@ -925,12 +988,13 @@ func (m *Model) footer() []kittui.Hint {
 			return m.clog.view.Hints()
 		}
 		if m.clog.service {
-			common = append([]kittui.Hint{{Action: actLogLevel, Label: textKeyLogLevel, Priority: 2}}, common...)
+			common = append([]kittui.Hint{{Action: actLogLevel, Label: textKeyLogLevel, Priority: 2},
+				{Action: actDiagnose, Label: textKeyDiagnose, Priority: 2}}, common...)
 		}
 		return append(m.clog.view.Hints(), append([]kittui.Hint{saveLogHint()}, common...)...)
 	case m.area == areaSettings:
 		return m.settingsFooter(common, nav)
-	case (m.area == areaDetail || m.area == areaStacks) && m.set.form != nil:
+	case (m.area == areaDetail || m.area == areaStacks || m.area == areaProposals) && m.set.form != nil:
 		if e := m.set.form.editor; e != nil {
 			return m.editorHints(e)
 		}
@@ -955,6 +1019,10 @@ func (m *Model) footer() []kittui.Hint {
 			common = append(append([]kittui.Hint{containerLogsHint()}, append(containerActionHints(), m.adoptHints()...)...), common...)
 		}
 		return m.listFooter(m.ctList, len(m.ctNames), textKeyDetails, common, nav)
+	case m.area == areaProposals && m.pv.open:
+		return append(append(append([]kittui.Hint{{Action: actBack, Label: kittui.TextKeyBack, Priority: 1}}, m.proposalHints()...), common...), scrollHints()...)
+	case m.area == areaProposals:
+		return m.listFooter(m.propList, len(m.propByID), textKeyDetails, common, nav)
 	case m.area == areaRuns && m.log.open:
 		if m.log.view.Searching() || m.log.view.FilterOpen() {
 			return m.log.view.Hints()
@@ -1081,7 +1149,7 @@ func (m *Model) frameSpec() kittui.FrameSpec {
 	switch {
 	case m.clogShown():
 		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
-	case m.area == areaStacks && (m.set.keyOpen || m.set.form != nil):
+	case (m.area == areaStacks || m.area == areaProposals) && m.set.form != nil, m.area == areaStacks && m.set.keyOpen:
 		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
 	case m.area == areaStacks:
 		spec.Position = m.list.Position()
@@ -1094,6 +1162,11 @@ func (m *Model) frameSpec() kittui.FrameSpec {
 	case m.area == areaContainers:
 		if !m.ctv.open {
 			spec.Position = m.ctList.Position()
+		}
+		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
+	case m.area == areaProposals:
+		if !m.pv.open {
+			spec.Position = m.propList.Position()
 		}
 		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
 	default:
@@ -1122,7 +1195,7 @@ func (m *Model) render() string {
 	}
 	spec := m.frameSpec()
 	room := m.frame.Workspace(spec)
-	scrolls := m.area == areaDetail || m.area == areaContainers && m.ctv.open || m.modal != nil && m.modal.sheet()
+	scrolls := m.area == areaDetail || m.area == areaContainers && m.ctv.open || m.area == areaProposals && m.pv.open || m.modal != nil && m.modal.sheet()
 	if scrolls && room.Height > 1 {
 		// Probe one row short, so the counter and the scroll position are known before the footer is sized.
 		m.workspace(room.Width, room.Height-1)
@@ -1253,6 +1326,8 @@ func (m *Model) workspace(width, height int) string {
 		return m.detailView(width, height)
 	case areaRuns:
 		return m.runsView(width, height)
+	case areaProposals:
+		return m.proposalsView(width, height)
 	}
 	return m.stacksView(width, height)
 }

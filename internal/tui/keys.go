@@ -63,6 +63,8 @@ const (
 	// actServiceLog opens the log of the service from the Runs list, actLogLevel chooses its minimum level.
 	actServiceLog kittui.ActionID = "servicelog"
 	actLogLevel   kittui.ActionID = "loglevel"
+	// actDiagnose writes the diagnostic package from the service log.
+	actDiagnose kittui.ActionID = "diagnose"
 	// actSaveLog saves the lines a log view holds as a file.
 	actSaveLog kittui.ActionID = "savelog"
 	// actBackup and actCompose open the backup and the compose file forms in the stack detail.
@@ -76,10 +78,13 @@ const (
 	actMoveDown kittui.ActionID = "movedown"
 	// actSetupDeploy asks to set up the deploy service where it does not exist yet.
 	actSetupDeploy kittui.ActionID = "setupdeploy"
+	// actApprove and actReject decide the proposal shown in the Proposals area.
+	actApprove kittui.ActionID = "approve"
+	actReject  kittui.ActionID = "reject"
 )
 
 // areaKeys are the keys of actArea, one per area in the order of the tab line.
-var areaKeys = []string{"1", "2", "3", "4", "5"}
+var areaKeys = []string{"1", "2", "3", "4", "5", "6"}
 
 func keyTable() []kittui.Action {
 	act := func(id kittui.ActionID, level kittui.KeyLevel, help kittui.TextID, keys ...string) kittui.Action {
@@ -131,13 +136,16 @@ func keyTable() []kittui.Action {
 		act(actServiceLog, kittui.LevelLetter, textKeySvcLog, "v"),
 		act(actLogLevel, kittui.LevelLetter, textKeyLogLevel, "V"),
 		act(actSaveLog, kittui.LevelLetter, textKeySaveLog, "W"),
+		act(actDiagnose, kittui.LevelLetter, textKeyDiagnose, "D"),
 		act(actBackup, kittui.LevelLetter, textKeyBackupForm, "b"),
 		act(actCompose, kittui.LevelLetter, textKeyComposeForm, "C"),
 		act(actCheckForm, kittui.LevelLetter, textKeyCheckForm, "k"),
 		act(actRemoveSettings, kittui.LevelLetter, textKeyRemoveSettings, "E"),
 		act(actMoveUp, kittui.LevelLetter, textKeyMoveUp, "K"),
 		act(actMoveDown, kittui.LevelLetter, textKeyMoveDown, "J"),
-		act(actSetupDeploy, kittui.LevelLetter, textKeySetupDeploy, "D"),
+		act(actSetupDeploy, kittui.LevelLetter, textKeySetupDeploy, "G"),
+		act(actApprove, kittui.LevelLetter, textKeyApprove, "A"),
+		act(actReject, kittui.LevelLetter, textKeyReject, "N"),
 		act(actYes, kittui.LevelConfirm, textAnswerYes, "y"),
 		act(actNo, kittui.LevelConfirm, textAnswerCancel, "n", "esc"),
 		act(actShowLog, kittui.LevelConfirm, textAnswerLog, "l"),

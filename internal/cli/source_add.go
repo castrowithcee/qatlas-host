@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
@@ -61,18 +62,41 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 }
 
 func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, path, url, fingerprint string) error {
-	if err := folders.requireRoot(); err != nil {
+	plan, err := prepareSourceAdd(c, program, state, c.ErrOrStderr(), path, url, fingerprint,
+		"Run 'qhost source add "+path+" --url <ssh-url>'.")
+	if err != nil {
 		return err
 	}
+	return gate.Run(cobracli.Request{Question: plan.question}, func() error {
+		return executeSourceAdd(c, program, state, plan.res, plan.repoURL, fingerprint, plan.perms, plan.remote)
+	})
+}
+
+// sourceAdd is everything that is known about adding a folder before anything is changed: the inspection, what
+// the service needs, the comparison with the remote and the question to confirm.
+type sourceAdd struct {
+	res      control.SourceInspectResult
+	repoURL  string
+	perms    *permPlan
+	remote   *filesRemote
+	question string
+}
+
+// prepareSourceAdd inspects the folder, shows the case and the changes on notice and returns what applying
+// would do. It changes nothing. needURL is the advice when the case needs an address that was not given.
+func prepareSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRunning, notice io.Writer,
+	path, url, fingerprint, needURL string) (*sourceAdd, error) {
+	if err := folders.requireRoot(); err != nil {
+		return nil, err
+	}
 	if fingerprint != "" && !strings.HasPrefix(fingerprint, "SHA256:") {
-		return usageFailure("--fingerprint must look like SHA256:..., as ssh-keygen -l prints it",
+		return nil, usageFailure("--fingerprint must look like SHA256:..., as ssh-keygen -l prints it",
 			"Copy the fingerprint of the server's host key.")
 	}
 	res, err := inspectSource(c, state, path, url)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	notice := c.ErrOrStderr()
 	if !structuredFormat(program.Format()) {
 		shown := res
 		if res.Case == control.SourceCaseFiles {
@@ -80,19 +104,19 @@ func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Ga
 			shown.PlannedFiles, shown.Excluded = nil, nil
 		}
 		if err := output.Encode(notice, program.Format(), sourceResult(program.Format(), shown)); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	switch res.Case {
 	case control.SourceCaseReject:
-		return usageFailure("the folder cannot be taken over: "+res.Reason, cmpFix(res.Fix))
+		return nil, usageFailure("the folder cannot be taken over: "+res.Reason, cmpFix(res.Fix))
 	case control.SourceCaseClone, control.SourceCaseAdopt, control.SourceCaseLocal, control.SourceCaseFiles:
 	default:
-		return folderFailure("the service answered with the unknown case "+res.Case, nil)
+		return nil, folderFailure("the service answered with the unknown case "+res.Case, nil)
 	}
 
 	if res.Case == control.SourceCaseFiles && len(res.PlannedFiles) == 0 {
-		return usageFailure("the folder has no file a first commit could take; nothing was changed",
+		return nil, usageFailure("the folder has no file a first commit could take; nothing was changed",
 			"Put the stack files into the folder, or look at what is left out with 'qhost source inspect "+path+"'.")
 	}
 	repoURL := res.URL
@@ -100,26 +124,23 @@ func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Ga
 		repoURL = url
 	}
 	if res.Case != control.SourceCaseLocal && res.Case != control.SourceCaseFiles && repoURL == "" {
-		return usageFailure("this folder needs the SSH address of its repository; nothing was changed",
-			"Run 'qhost source add "+path+" --url <ssh-url>'.")
+		return nil, usageFailure("this folder needs the SSH address of its repository; nothing was changed", needURL)
 	}
 
 	var remote *filesRemote
 	if res.Case == control.SourceCaseFiles && url != "" {
 		var err error
-		if remote, err = compareFiles(c, state, path, url, fingerprint); err != nil {
-			return err
+		if remote, err = compareFiles(c, state, notice, path, url, fingerprint); err != nil {
+			return nil, err
 		}
 	}
 
-	plan, err := planAccess(c.Context(), res)
+	perms, err := planAccess(c.Context(), res)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	question := previewSourceAdd(c, res, repoURL, plan, remote)
-	return gate.Run(cobracli.Request{Question: question}, func() error {
-		return executeSourceAdd(c, program, state, res, repoURL, fingerprint, plan, remote)
-	})
+	question := previewSourceAdd(notice, res, repoURL, perms, remote)
+	return &sourceAdd{res: res, repoURL: repoURL, perms: perms, remote: remote, question: question}, nil
 }
 
 // planAccess works out what must change so that the service can write the folder of res: nil when nothing
@@ -279,7 +300,7 @@ func (r *filesRemote) url() string {
 // compareFiles confirms the host key, compares the folder of files with the remote and shows the result. It
 // stops at secret-like files in what a push would publish, and at a remote without commit. Nothing in the
 // folder has changed by then.
-func compareFiles(c *cobra.Command, state *notRunning, path, url, fingerprint string) (*filesRemote, error) {
+func compareFiles(c *cobra.Command, state *notRunning, w io.Writer, path, url, fingerprint string) (*filesRemote, error) {
 	probe, err := trustHostKey(c, state, url, fingerprint)
 	if err != nil {
 		return nil, err
@@ -291,7 +312,6 @@ func compareFiles(c *cobra.Command, state *notRunning, path, url, fingerprint st
 	if cmp.Case != control.SourceCaseFiles {
 		return nil, folderFailure("the service answered with the case "+cmp.Case+" for a folder of files", nil)
 	}
-	w := c.ErrOrStderr()
 	_, _ = fmt.Fprintf(w, "Compare %s with %s:\n", path, url)
 	printLines(w, compareLines(cmp))
 	if err := refuseSecrets(cmp); err != nil {
@@ -404,8 +424,7 @@ func bindMounts(res control.SourceInspectResult) []string {
 
 // previewSourceAdd shows what will change and returns the question for the confirmation. Without a terminal
 // the confirmation needs --yes; --yes never confirms a host key. Nothing has been changed by then.
-func previewSourceAdd(c *cobra.Command, res control.SourceInspectResult, url string, plan *permPlan, remote *filesRemote) string {
-	w := c.ErrOrStderr()
+func previewSourceAdd(w io.Writer, res control.SourceInspectResult, url string, plan *permPlan, remote *filesRemote) string {
 	var lines []string
 	switch res.Case {
 	case control.SourceCaseClone:

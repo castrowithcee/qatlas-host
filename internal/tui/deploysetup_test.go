@@ -73,7 +73,7 @@ func TestNotSetUpShowsHowToSetUpInEveryDockerArea(t *testing.T) {
 		m, _ := notSetUpModel(t, i18n.English, newFakeDeploy(), 1000, wideWidth, goldenRows)
 		send(m, area)
 		screen := m.render()
-		for _, want := range []string{"The deploy service is not set up yet", "D sets it up", "Setting up needs root: quit and run sudo qhost."} {
+		for _, want := range []string{"The deploy service is not set up yet", "G sets it up", "Setting up needs root: quit and run sudo qhost."} {
 			if !strings.Contains(screen, want) {
 				t.Errorf("area %s lacks %q:\n%s", area, want, screen)
 			}
@@ -87,7 +87,7 @@ func TestNotSetUpShowsHowToSetUpInEveryDockerArea(t *testing.T) {
 func TestNotSetUpWithoutRootNeedsSudo(t *testing.T) {
 	d := newFakeDeploy()
 	m, _ := notSetUpModel(t, i18n.English, d, 1000, wideWidth, goldenRows)
-	send(m, "D")
+	send(m, "G")
 	if m.modal != nil || d.ran != 0 {
 		t.Fatal("the setup was offered without root")
 	}
@@ -99,7 +99,7 @@ func TestNotSetUpWithoutRootNeedsSudo(t *testing.T) {
 func TestSetupAsksWithCommandsAndRunsOnlyAfterYes(t *testing.T) {
 	d := newFakeDeploy()
 	m, b := notSetUpModel(t, i18n.English, d, 0, wideWidth, 24)
-	send(m, "D")
+	send(m, "G")
 	screen := m.render()
 	for _, want := range []string{"Set up the deploy service now?", "$ groupadd --system qhost-deploy", "$ systemctl enable --now qhost-deploy"} {
 		if !strings.Contains(screen, want) {
@@ -110,7 +110,7 @@ func TestSetupAsksWithCommandsAndRunsOnlyAfterYes(t *testing.T) {
 	if d.ran != 0 || m.modal != nil {
 		t.Fatal("cancel ran the setup or left the question open")
 	}
-	send(m, "D")
+	send(m, "G")
 	b.statusErr = nil
 	drain(m, press(m, "y"))
 	if d.ran != 1 {
@@ -129,7 +129,7 @@ func TestSetupFailureIsShown(t *testing.T) {
 	d := newFakeDeploy()
 	d.runErr = errors.New("useradd: exit status 9")
 	m, _ := notSetUpModel(t, i18n.English, d, 0, wideWidth, 24)
-	send(m, "D")
+	send(m, "G")
 	drain(m, press(m, "y"))
 	if screen := m.render(); !strings.Contains(screen, "useradd: exit status 9") || !m.notSetUp {
 		t.Fatalf("failure not shown:\n%s", screen)
@@ -166,7 +166,7 @@ func TestGoldenSetupConfirmation(t *testing.T) {
 		for size, wh := range setupSizes {
 			t.Run(name+"."+size, func(t *testing.T) {
 				m, _ := notSetUpModel(t, lang, newFakeDeploy(), 0, wh[0], wh[1])
-				send(m, "D")
+				send(m, "G")
 				screen := m.render()
 				checkScreen(t, screen, wh[0], wh[1])
 				checkGolden(t, "deploy.setup.confirm."+name+"."+size+".golden", screen+"\n")

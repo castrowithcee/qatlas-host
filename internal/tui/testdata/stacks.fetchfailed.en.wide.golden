@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed                                                                              [?] help
-  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers                                             
+  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals                             
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
         STACK                      CURRENT      AVAILABLE      MODE       STATE     FINDINGS                            
   ▾ [ ] ■ /srv/local-example (0)   local                                            poll failed: the working copy has u…
@@ -21,4 +21,4 @@
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 error: the fetch of /srv/stacks-example failed: the service refused the request: cannot reach git.example.test:         
 connection refused                                                                                                      
-enter details  / search  F fetch now  e deploy key  x release  a add  r reload  1-5 area  q quit         ↑/↓ choose  1/6
+enter details  / search  F fetch now  e deploy key  x release  a add  r reload  1-6 area  q quit         ↑/↓ choose  1/6

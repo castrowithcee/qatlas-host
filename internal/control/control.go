@@ -112,6 +112,8 @@ const (
 
 	CodeProposalLimit = "proposal-limit"
 	CodeNotSubmitter  = "not-submitter"
+	// CodeProposalChanged answers an approval whose fingerprint is not that of the stored proposal.
+	CodeProposalChanged = "proposal-changed"
 )
 
 // Request is what a client sends. Args is command specific and may be absent.
@@ -1684,22 +1686,43 @@ type ContainerNetwork struct {
 // person with root applies later; submitting stores it and has no other effect. ProposalSubmitCommand and
 // ProposalWithdrawCommand are open to root and the administrators of the service group, and touch the user's own
 // proposals only; withdrawing another user's proposal is root's.
+//
+// ProposalApproveCommand, ProposalRejectCommand and ProposalResultCommand are root's. An approval is accepted
+// before anything is applied and closes the proposal against withdrawing and a second approval; the person
+// then applies the change and reports it with ProposalResultCommand.
 const (
 	ProposalSubmitCommand   = "proposal.submit"
 	ProposalListCommand     = "proposal.list"
 	ProposalShowCommand     = "proposal.show"
 	ProposalWithdrawCommand = "proposal.withdraw"
+	ProposalApproveCommand  = "proposal.approve"
+	ProposalRejectCommand   = "proposal.reject"
+	ProposalResultCommand   = "proposal.result"
 )
 
 // ProposalKindSourceAdd proposes a folder as a stack folder; its content is a ProposalSourceAdd.
 const ProposalKindSourceAdd = "source-add"
 
-// The states of a proposal. A proposal that is open and older than ProposalLifetime is answered as expired.
+// ProposalKindStackSettings proposes the settings of a stack; its content is a ProposalStackSettings.
+const ProposalKindStackSettings = "stack-settings"
+
+// ProposalKindWindow proposes the maintenance window of the host; its content is a WindowSetArgs, whose parts
+// are kept in their canonical form and of which at least one is named. The schema has no secret member.
+const ProposalKindWindow = "window"
+
+// ProposalKindNotifyChannel proposes a notification channel; its content is a ProposalNotifyChannel, the
+// arguments of NotifyAddCommand without their secret parts.
+const ProposalKindNotifyChannel = "notify-channel"
+
+// The states of a proposal. A proposal that is open and older than ProposalLifetime is answered as expired, and
+// one that has been approving for longer than ProposalApprovalWindow is answered as failed.
 const (
 	ProposalOpen      = "open"
 	ProposalWithdrawn = "withdrawn"
 	ProposalRejected  = "rejected"
+	ProposalApproving = "approving"
 	ProposalApplied   = "applied"
+	ProposalFailed    = "failed"
 	ProposalExpired   = "expired"
 )
 
@@ -1709,6 +1732,9 @@ const (
 	ProposalMaxOpen  = 20
 	ProposalMaxBytes = 64 << 10
 	ProposalLifetime = 14 * 24 * time.Hour
+	// ProposalApprovalWindow is how long an accepted approval may wait for its result before the proposal counts
+	// as failed, so an interrupted approval never blocks root for good.
+	ProposalApprovalWindow = 15 * time.Minute
 )
 
 // ProposalSubmitArgs are the arguments of ProposalSubmitCommand. Content is JSON in the schema of Kind; unknown
@@ -1725,6 +1751,35 @@ type ProposalSourceAdd struct {
 	URL  string `json:"url,omitempty"`
 }
 
+// ProposalStackSettings is the content of a proposal of kind ProposalKindStackSettings: the name of a stack and
+// its settings in the schema of StackSettingsSetCommand. The schema has no secret member, so a proposal cannot
+// carry one; a member it does not name refuses the proposal.
+type ProposalStackSettings struct {
+	Stack    string        `json:"stack"`
+	Settings StackSettings `json:"settings"`
+}
+
+// ProposalNotifyChannel is the content of a proposal of kind ProposalKindNotifyChannel: the fields of
+// NotifyAddArgs without Secret and Key, the two secret parts. A proposal that names one of them is refused,
+// never trimmed; the person who approves enters them. The other fields have the meaning they have there.
+type ProposalNotifyChannel struct {
+	Name     string   `json:"name"`
+	Type     string   `json:"type"`
+	Events   []string `json:"events,omitempty"`
+	Host     string   `json:"host,omitempty"`
+	Port     int      `json:"port,omitempty"`
+	Security string   `json:"security,omitempty"`
+	User     string   `json:"user,omitempty"`
+	From     string   `json:"from,omitempty"`
+	To       []string `json:"to,omitempty"`
+	ChatID   string   `json:"chat_id,omitempty"`
+	BaseURL  string   `json:"base_url,omitempty"`
+}
+
+// ProposalNotifySecretFields are the members of NotifyAddArgs that carry a secret part. A proposal of kind
+// ProposalKindNotifyChannel may name none of them.
+var ProposalNotifySecretFields = []string{"secret", "key"}
+
 // ProposalInfo describes one proposal. Fingerprint binds a later approval to exactly this content.
 type ProposalInfo struct {
 	ID            string    `json:"id"`
@@ -1735,6 +1790,8 @@ type ProposalInfo struct {
 	SubmitterName string    `json:"submitter_name"`
 	Submitted     time.Time `json:"submitted"`
 	Expires       time.Time `json:"expires"`
+	// Message is the reason of a rejection or the failure of an approval; the service keeps it printable and at most 300 characters.
+	Message string `json:"message,omitempty"`
 }
 
 // ProposalListResult answers ProposalListCommand, the newest proposal first.
@@ -1751,4 +1808,26 @@ type ProposalIDArgs struct {
 type ProposalShowResult struct {
 	ProposalInfo
 	Content json.RawMessage `json:"content"`
+}
+
+// ProposalApproveArgs are the arguments of ProposalApproveCommand. Fingerprint is the one of the proposal as the
+// person was shown it.
+type ProposalApproveArgs struct {
+	ID          string `json:"id"`
+	Fingerprint string `json:"fingerprint"`
+}
+
+// ProposalRejectArgs are the arguments of ProposalRejectCommand; Reason is optional and read by the submitter.
+type ProposalRejectArgs struct {
+	ID     string `json:"id"`
+	Reason string `json:"reason,omitempty"`
+}
+
+// ProposalResultArgs are the arguments of ProposalResultCommand: whether the change of an approved proposal was
+// applied and, if not, why.
+type ProposalResultArgs struct {
+	ID          string `json:"id"`
+	Fingerprint string `json:"fingerprint"`
+	Applied     bool   `json:"applied"`
+	Message     string `json:"message,omitempty"`
 }

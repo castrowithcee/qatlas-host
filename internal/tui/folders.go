@@ -56,6 +56,9 @@ type addFlow struct {
 	// was shown, which the last call hands back as what to expect.
 	key control.KeyResult
 	cmp *control.SourceCompareResult
+	// proposal is set when the person approves a proposal; the last question then approves it, and applying
+	// the change is checked against what the proposal and its effect were when they were shown.
+	proposal *proposalCtx
 }
 
 // inspected is the answer of the inspection of a folder to add.
@@ -378,7 +381,7 @@ func (m *Model) showInspection(flow *addFlow) {
 		m.askSheet(title, t.Lookup(textAskFolderAdopt, res.Path, res.URL), t.Lookup(textWhatFolderAdopt), body, cont,
 			m.probeFolder)
 	case control.SourceCaseLocal:
-		m.askSheet(title, t.Lookup(textAskFolderLocal, res.Path), t.Lookup(textWhatFolderApply), body, yes,
+		m.askSheet(title, m.finalQuestion(flow, t.Lookup(textAskFolderLocal, res.Path)), m.finalConsequence(flow, textWhatFolderApply), body, yes,
 			func() tea.Cmd { return m.addFolder(flow) })
 	case control.SourceCaseFiles:
 		if len(res.PlannedFiles) == 0 {
@@ -387,7 +390,7 @@ func (m *Model) showInspection(flow *addFlow) {
 		}
 		files := []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actWithRemote, Label: textAnswerWithRemote},
 			{Action: actNo, Label: textAnswerCancel}}
-		m.askSheet(title, t.Lookup(textAskFolderFiles, res.Path), t.Lookup(textWhatFolderFiles), body, files,
+		m.askSheet(title, m.finalQuestion(flow, t.Lookup(textAskFolderFiles, res.Path)), m.finalConsequence(flow, textWhatFolderFiles), body, files,
 			func() tea.Cmd { return m.addFolder(flow) })
 		if m.modal != nil {
 			// The same comparison as for a local folder, with the repository that already holds content.
@@ -403,7 +406,11 @@ func (m *Model) folderURLForm() *settingsForm {
 	if flow := m.set.add; flow != nil && flow.remote {
 		title, hint = textTitleRemote, textHintRemoteURL
 	}
-	return m.newSettingsForm(formFolderURL, title, []kittui.FormField{textField("url", textFieldURL, hint, "")})
+	proposed := ""
+	if flow := m.set.add; flow != nil && flow.proposal != nil {
+		proposed = flow.proposal.url
+	}
+	return m.newSettingsForm(formFolderURL, title, []kittui.FormField{textField("url", textFieldURL, hint, proposed)})
 }
 
 func (m *Model) submitFolderURL(f *settingsForm, url string) tea.Cmd {
@@ -508,7 +515,7 @@ func (m *Model) keyDone(checked keyChecked) tea.Cmd {
 		lines = append(lines, m.warnLines(flow, width)...)
 		return append(lines, m.changeLines(flow, width)...)
 	}
-	m.askSheet(flow.title(), question, t.Lookup(textWhatFolderFinal), body,
+	m.askSheet(flow.title(), m.finalQuestion(flow, question), m.finalConsequence(flow, textWhatFolderFinal), body,
 		[]kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}},
 		func() tea.Cmd { return m.addFolder(flow) })
 	return nil
@@ -516,48 +523,58 @@ func (m *Model) keyDone(checked keyChecked) tea.Cmd {
 
 // addFolder makes the changes the person confirmed: the permissions, the drop-in, then the call of the service.
 // A folder of files is looked at once more first, and nothing changes when its list differs from the one shown.
+// For a proposal the approval comes in between, in the same step.
 func (m *Model) addFolder(flow *addFlow) tea.Cmd {
 	ctx, host, path := m.ctx, m.folders, flow.res.Path
 	return m.writeCall(opFolderAdd, path, func(b Backend) (any, error) {
-		res := flow.res
-		if res.Case == control.SourceCaseFiles {
-			now, err := b.SourceInspect(ctx, path, "")
-			if err != nil {
-				return nil, err
-			}
-			if listDiffers(res, now) {
-				return listChanged{path: path}, nil
-			}
+		if flow.proposal != nil {
+			return approveAndApply(ctx, b, host, flow)
 		}
-		if !flow.plan.Empty() {
-			if err := host.ApplyPermissions(ctx, flow.plan); err != nil {
-				return nil, hostError{err}
-			}
-		}
-		kept := func(err error) error {
-			if err != nil && !flow.plan.Empty() {
-				return keptChanges{err: err, changed: flow.plan.Changed}
-			}
-			return err
-		}
-		if err := host.Grant(ctx, path, flow.missing); err != nil {
-			return nil, kept(hostError{err})
-		}
-		switch res.Case {
-		case control.SourceCaseClone, control.SourceCaseAdopt:
-			set, err := b.RepoSet(ctx, control.RepoSetArgs{URL: flow.url, Dir: path, Fingerprint: flow.probe.Fingerprint})
-			return set, kept(err)
-		case control.SourceCaseFiles:
-			args := control.SourceAddArgs{Path: path, Files: res.PlannedFiles}
-			if c := flow.cmp; c != nil {
-				args.URL, args.Fingerprint, args.ExpectState, args.ExpectCommit = flow.url, flow.probe.Fingerprint, c.State, c.Commit
-			}
-			added, err := b.SourceAdd(ctx, args)
-			return added, kept(err)
-		}
-		added, err := b.SourceAdd(ctx, control.SourceAddArgs{Path: path})
-		return added, kept(err)
+		return applyFolder(ctx, b, host, flow)
 	})
+}
+
+// applyFolder is what adding a folder by hand changes, with or without a proposal behind it.
+func applyFolder(ctx context.Context, b Backend, host Folders, flow *addFlow) (any, error) {
+	path := flow.res.Path
+	res := flow.res
+	if res.Case == control.SourceCaseFiles {
+		now, err := b.SourceInspect(ctx, path, "")
+		if err != nil {
+			return nil, err
+		}
+		if listDiffers(res, now) {
+			return listChanged{path: path}, nil
+		}
+	}
+	if !flow.plan.Empty() {
+		if err := host.ApplyPermissions(ctx, flow.plan); err != nil {
+			return nil, hostError{err}
+		}
+	}
+	kept := func(err error) error {
+		if err != nil && !flow.plan.Empty() {
+			return keptChanges{err: err, changed: flow.plan.Changed}
+		}
+		return err
+	}
+	if err := host.Grant(ctx, path, flow.missing); err != nil {
+		return nil, kept(hostError{err})
+	}
+	switch res.Case {
+	case control.SourceCaseClone, control.SourceCaseAdopt:
+		set, err := b.RepoSet(ctx, control.RepoSetArgs{URL: flow.url, Dir: path, Fingerprint: flow.probe.Fingerprint})
+		return set, kept(err)
+	case control.SourceCaseFiles:
+		args := control.SourceAddArgs{Path: path, Files: res.PlannedFiles}
+		if c := flow.cmp; c != nil {
+			args.URL, args.Fingerprint, args.ExpectState, args.ExpectCommit = flow.url, flow.probe.Fingerprint, c.State, c.Commit
+		}
+		added, err := b.SourceAdd(ctx, args)
+		return added, kept(err)
+	}
+	added, err := b.SourceAdd(ctx, control.SourceAddArgs{Path: path})
+	return added, kept(err)
 }
 
 // listDiffers says the answer now differs from the one shown in the case, the planned files or what is left out.

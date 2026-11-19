@@ -16,32 +16,39 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cli"
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
+	"github.com/castrowithcee/qatlas-kit/redact"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
-func newProposalCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
+func newProposalCommand(program *cobracli.Program, state *notRunning, secrets *redact.Redactor) *cobra.Command {
 	group := &cobra.Command{
 		Use:   "proposal",
-		Short: "Submit, list, show and withdraw proposals of changes to the setup",
+		Short: "Submit, list, show, withdraw, approve and reject proposals of changes to the setup",
 		Long: "A proposal asks for a change of the setup, for example a stack folder. The service checks and stores it and\n" +
 			"changes nothing on the host. Every command runs without sudo for an administrator in the group qhost;\n" +
-			"a proposal can be withdrawn by its submitter or by root. See 'qhost help proposals'.",
+			"a proposal can be withdrawn by its submitter or by root. approve and reject are for root at a terminal.\n" +
+			"See 'qhost help proposals'.",
 	}
 	group.AddCommand(newProposalSubmit(program, state), newProposalList(program, state),
-		newProposalShow(program, state), newProposalWithdraw(program, state))
+		newProposalShow(program, state), newProposalWithdraw(program, state),
+		newProposalApprove(program, state, secrets), newProposalReject(program, state))
 	return group
 }
 
 func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var kind, file string
 	c := &cobra.Command{
-		Use:   "submit --kind source-add [--file <path>|-]",
+		Use:   "submit --kind source-add|stack-settings|window|notify-channel [--file <path>|-]",
 		Short: "Submit a proposal read as JSON from a file or standard input",
 		Long: "submit sends the content of a proposal to the service, which checks and stores it, and prints its id. The\n" +
 			"content is a JSON object in the schema of the kind, read from --file or, without it or with '-', from\n" +
 			"standard input; the file is read as the calling user, at most a little over 64 KiB. The kind source-add\n" +
-			"takes {\"path\": \"/absolute/folder\", \"url\": \"ssh://...\"}, url optional. Nothing on the host changes. See\n" +
+			"takes {\"path\": \"/absolute/folder\", \"url\": \"ssh://...\"}, url optional. The kind stack-settings takes\n" +
+			"{\"stack\": \"name\", \"settings\": {\"version\": 1, ...}}, with the settings of 'qhost stack settings'. The kind window takes\n" +
+			"{\"days\": [\"mon\"], \"start\": \"03:00\", \"duration\": \"2h\", \"zone\": \"UTC\"}, at least one part. Nothing\n" +
+			"on the host changes. The kind notify-channel takes the fields of 'qhost notify add' except its secret parts, which a\n" +
+			"proposal may not name: {\"name\": \"ops\", \"type\": \"webhook\", \"events\": [\"failed\"]}. See\n" +
 			"'qhost help proposals'.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
@@ -60,7 +67,7 @@ func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Comm
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: proposalFields(program.Format(), res)})
 		},
 	}
-	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add")
+	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add, stack-settings, window or notify-channel")
 	c.Flags().StringVar(&file, "file", "", "file with the content as JSON, or - for standard input (default)")
 	return c
 }
@@ -204,6 +211,9 @@ func proposalCall(c *cobra.Command, state *notRunning, command string, args, res
 		case control.CodeNotSubmitter:
 			return &cli.Failure{Code: output.CodePermission, Message: remote.Message,
 				NextStep: "Only the submitter or root may withdraw it.", Cause: remote}
+		case control.CodeProposalChanged:
+			return &cli.Failure{Code: output.CodeInvalidRequest, Message: remote.Message + "; nothing was applied", Usage: true,
+				NextStep: "Show the proposal with 'qhost proposal show <id>' and review it again.", Cause: remote}
 		case control.CodeNotFound:
 			return &cli.Failure{Code: output.CodeNotFound, Message: remote.Message,
 				NextStep: "List the proposals with 'qhost proposal list'.", Cause: remote}
@@ -213,12 +223,16 @@ func proposalCall(c *cobra.Command, state *notRunning, command string, args, res
 }
 
 func proposalFields(format output.Format, p control.ProposalInfo) []output.Field {
-	return []output.Field{
+	fields := []output.Field{
 		{Name: "id", Value: text(format, p.ID)}, {Name: "kind", Value: text(format, p.Kind)},
 		{Name: "state", Value: text(format, p.State)}, {Name: "fingerprint", Value: text(format, p.Fingerprint)},
 		{Name: "submitter", Value: text(format, p.SubmitterName)}, {Name: "submitter_uid", Value: p.SubmitterUID},
 		{Name: "submitted", Value: proposalTime(p.Submitted)}, {Name: "expires", Value: proposalTime(p.Expires)},
 	}
+	if p.Message != "" {
+		fields = append(fields, output.Field{Name: "message", Value: text(format, p.Message)})
+	}
+	return fields
 }
 
 func proposalTime(t time.Time) string {

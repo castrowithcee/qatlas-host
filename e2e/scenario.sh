@@ -387,6 +387,59 @@ scenario_read_access() {
 	log 'scenario: the deploy channel served root and the administrator; e2e-viewer (group qhost, no sudo) was refused as reserved for administrators and e2e-outsider (no group) was turned away at the channel'
 }
 
+# scenario_diagnose proves qhost diagnose as an administrator without sudo: the package is a new file of mode 0600
+# owned by the administrator, holds all twenty files with the log of a failed run, the service log and the
+# containers, and holds neither the stack secret nor a registry token. It needs a failed run and a secret of demo-stack.
+scenario_diagnose() {
+	step 'qhost diagnose writes a package for an administrator without sudo that holds no secret value'
+	diag_secret=not-a-real-secret-e2e
+	token=diag-registry-token-e2e
+	cred=registry.$tui_registry_host
+	home=$(as_admin 'echo "$HOME"')
+	file=$home/diag-e2e.tar.gz
+	as_admin 'rm -rf ~/diag-e2e.tar.gz ~/diag-e2e'
+	out=$(qd_in "$token" credential set "$cred") || fail "credential set failed: $out"
+	failed_run=$(qd stack runs | grep 'rolled-back' | grep -m 1 -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
+	[ -n "$failed_run" ] || fail "there is no failed run to find in the package: $(qd stack runs)"
+
+	out=$(as_admin "qhost diagnose --out $file 2>&1") || fail "qhost diagnose without sudo failed: $out"
+	printf '%s' "$out" | grep -qF -- "$file" || fail "qhost diagnose does not name the full path $file: $out"
+	printf '%s' "$out" | grep -qF 'holds the host name and paths' || fail "qhost diagnose gives no notice about the host name and paths: $out"
+	[ "$(as_admin "stat -c %a:%U $file")" = "600:$admin" ] || fail "the package has the wrong mode or owner: $(as_admin "stat -c %a:%U $file")"
+	names=$(as_admin "tar -tzf $file") || fail 'the package is not a readable archive'
+	[ "$(printf '%s\n' "$names" | grep -c .)" = 20 ] || fail "the package does not hold 20 files: $names"
+	for part in manifest version services sources stacks check runs run-logs service-log containers; do
+		for ext in txt json; do
+			printf '%s\n' "$names" | grep -qx "$part.$ext" || fail "the package lacks $part.$ext: $names"
+		done
+	done
+	as_admin "mkdir ~/diag-e2e && tar -xzf $file -C ~/diag-e2e" || fail 'the package cannot be unpacked'
+	as_admin "grep -qF 'result rolled-back' ~/diag-e2e/run-logs.txt && grep -qF '$failed_run' ~/diag-e2e/run-logs.txt" ||
+		fail "run-logs.txt holds no log of the failed run $failed_run"
+	as_admin "grep -q '^20[0-9-]*T' ~/diag-e2e/service-log.txt" || fail 'service-log.txt has no entry'
+	ct=$(docker exec "$host" docker ps --format '{{.Names}}' | head -n 1)
+	[ -n "$ct" ] || fail 'no container runs'
+	as_admin "grep -qF '$ct' ~/diag-e2e/containers.txt" || fail "containers.txt does not name $ct"
+	for value in "$diag_secret" "$token"; do
+		if as_admin "grep -rqF -- '$value' ~/diag-e2e"; then fail 'a secret value or a registry token shows in the package'; fi
+	done
+	log "scenario: qhost diagnose wrote $file without sudo, with 20 files, the log of $failed_run and no secret value"
+
+	step 'a second qhost diagnose with the same --out fails and leaves the file unchanged'
+	sum=$(as_admin "sha256sum $file")
+	if out=$(as_admin "qhost diagnose --out $file 2>&1"); then fail "qhost diagnose replaced an existing file: $out"; fi
+	[ "$(as_admin "sha256sum $file")" = "$sum" ] || fail 'a refused qhost diagnose changed the file'
+
+	step 'qhost diagnose without --out writes into the folder qhost of the administrator'
+	out=$(as_admin 'qhost diagnose 2>&1') || fail "qhost diagnose without --out failed: $out"
+	default=$(printf '%s' "$out" | grep -m 1 -o "$home/qhost/qhost-diagnose-[^ ]*\.tar\.gz")
+	[ -n "$default" ] || fail "qhost diagnose without --out names no file in $home/qhost: $out"
+	[ "$(as_admin "stat -c %a:%U $default")" = "600:$admin" ] || fail "the default package has the wrong mode or owner: $(as_admin "stat -c %a:%U $default")"
+	as_admin "rm -rf ~/diag-e2e $file $default"
+	out=$(qd credential delete "$cred") || fail "credential delete failed: $out"
+	log "scenario: qhost diagnose refused to replace a file and wrote its default file $default"
+}
+
 # scenario_proposals proves that an administrator of the group qhost submits a proposal for a stack folder without
 # sudo, sees it with list and show and withdraws it, and that the proposed folder stays untouched and unbound.
 scenario_proposals() {
@@ -1380,6 +1433,8 @@ scenario_stacks_repo() {
 
 	scenario_rollback
 
+	scenario_diagnose
+
 	scenario_update
 
 	scenario_window
@@ -1447,6 +1502,10 @@ scenario_stacks_repo() {
 	scenario_repair_end
 
 	scenario_adopt
+
+	scenario_tui_proposals
+
+	scenario_tui_proposal_kinds
 
 	scenario_tui_setup
 
@@ -3769,6 +3828,265 @@ EOF2
 	docker exec "$host" sh -ec "cd '$base' && docker compose down" >/dev/null 2>&1 || fail 'cannot shut down the foreign project'
 	docker exec "$host" rm -rf /srv/qd-foreign
 	wait_for 'the deploy service to answer' 30 qd status
+}
+
+# prop_submit submits a source-add proposal for the folder $1 with the address $2 as the administrator without sudo
+# and prints its id.
+prop_submit() {
+	out=$(printf '{"path":"%s","url":"%s"}' "$1" "$2" | as_admin 'qhost --output json proposal submit --kind source-add' 2>&1) ||
+		fail "qhost proposal submit without sudo failed: $out"
+	printf '%s' "$out" | sed -n 's/.*"id": *"\(p-[0-9a-f]*\)".*/\1/p' | head -n 1
+}
+
+# prop_state prints the state of the proposal $1 as the administrator without sudo reads it.
+prop_state() {
+	as_admin "qhost --output json proposal show $1" | sed -n 's/.*"state": *"\([a-z]*\)".*/\1/p' | head -n 1
+}
+
+# prop_is succeeds when the proposal $1 is in the state $2.
+prop_is() {
+	[ "$(prop_state "$1")" = "$2" ]
+}
+
+# prop_tui starts the interface under sudo in a fresh tmux session and waits for the notice of the open proposals.
+prop_tui() {
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_wait '1 open proposal waits for you' 30
+}
+
+# scenario_tui_proposals proves approving a proposal in the interface. An administrator without sudo proposes to
+# add a missing folder as a clone; under sudo the interface lists it with its effect, and approving it runs the
+# way of adding a folder by hand: the host key is confirmed, the folder is cloned and bound, and the proposal
+# is applied. A second proposal is approved after its folder was changed: the approval is refused and nothing
+# is bound. The repository holds one file and no stack, so nothing is deployed.
+scenario_tui_proposals() {
+	pa=/srv/qd-prop-a
+	pb=/srv/qd-prop-b
+	url7=git.$domain:stacks7.git
+
+	step 'a repository without a stack and a deploy key for the folder of the first proposal'
+	docker exec "$host" rm -rf "$pa" "$pb"
+	docker exec "$prefix-git" su git -s /bin/sh -c "rm -rf /srv/git/stacks7.git && git init -q --bare --initial-branch=main /srv/git/stacks7.git" ||
+		fail 'cannot create the repository stacks7'
+	as_admin "rm -rf ~/stacks7 && mkdir -p ~/stacks7/notes && cd ~/stacks7 && printf 'notes\\n' >notes/readme.txt && git init -q -b main &&
+		git add -A && git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -m 'Add the notes' &&
+		git push -q $url7 main" || fail 'cannot fill the repository stacks7'
+	register_folder_key "$pa"
+	if list_has_path "$pa" || list_has_path "$pb"; then fail 'a folder of the proposals is bound before them'; fi
+
+	step 'a proposal of an administrator without sudo shows in the interface with its effect'
+	id1=$(prop_submit "$pa" "$url7")
+	[ -n "$id1" ] || fail 'the first proposal has no id'
+	prop_tui
+	tui_send 6
+	tui_wait 'stack folder' 15
+	tui_send Enter
+	tui_wait 'Effect if applied now' 30
+	tui_wait "path: $pa" 10
+	tui_wait "address: $url7" 10
+	tui_has "$id1" || fail "the view does not show $id1: $(tui_screen)"
+	[ "$(prop_state "$id1")" = open ] || fail 'the proposal is not open before the approval'
+
+	step 'A leads through the clone, the address and the host key to the question; nothing is bound before yes'
+	tui_send A
+	tui_wait "Clone a repository into $pa?" 30
+	tui_send y
+	tui_wait 'Address of the repository to clone' 10
+	tui_has "$url7" || fail "the address of the proposal is not prefilled: $(tui_screen)"
+	tui_send F2
+	tui_wait 'Trust this host key for' 60
+	tui_has "$(git_ed25519_fingerprint)" || fail "the host key question does not show the fingerprint: $(tui_screen)"
+	tui_send y
+	tui_wait "Approve proposal $id1 and apply these changes to $pa?" 30
+	[ "$(prop_state "$id1")" = open ] || fail 'the proposal left the state open before the last answer'
+	if list_has_path "$pa"; then fail 'the folder is bound before the last answer'; fi
+	if docker exec "$host" test -e "$pa"; then fail 'the folder exists before the last answer'; fi
+
+	step 'yes binds the folder and the proposal is applied'
+	tui_send y
+	tui_wait "The stack folder $pa is bound" 120
+	tui_send Enter
+	wait_for 'the qhost service to answer' 30 qd status
+	list_has_path "$pa" || fail "source list does not show $pa: $(qd --output json source list)"
+	docker exec "$host" test -f "$pa/notes/readme.txt" || fail 'the clone is missing in the folder of the proposal'
+	tui_wait 'applied' 30
+	wait_for 'the proposal to be applied' 30 prop_is "$id1" applied
+	tui_tmux kill-server >/dev/null 2>&1 || true
+
+	step 'a folder that changed between the view and the approval is refused and nothing is bound'
+	id2=$(prop_submit "$pb" "$url7")
+	[ -n "$id2" ] || fail 'the second proposal has no id'
+	prop_tui
+	tui_send 6
+	tui_wait 'stack folder' 15
+	tui_send Enter
+	tui_wait 'Effect if applied now' 30
+	tui_wait "path: $pb" 10
+	# A folder with a file is a folder of files and no longer a missing one to clone into: the effect differs.
+	docker exec "$host" sh -ec "mkdir -p '$pb' && chmod 0755 '$pb' && printf 'late\\n' >'$pb/late.txt' && chmod 0644 '$pb/late.txt'" ||
+		fail "cannot change the folder $pb"
+	tui_send A
+	tui_wait 'changed since it was shown; nothing was applied' 30
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	[ "$(prop_state "$id2")" = open ] || fail "the refused proposal is not open: $(prop_state "$id2")"
+	if list_has_path "$pb"; then fail 'the refused approval bound the folder'; fi
+	[ "$(docker exec "$host" ls -A "$pb")" = late.txt ] || fail 'the refused approval changed the folder'
+
+	step 'the folders are released and removed'
+	out=$(qd --output json source remove "$pa" --yes) || fail "source remove of $pa failed: $out"
+	out=$(as_admin "qhost --output json proposal withdraw $id2 2>&1") || fail "withdrawing the refused proposal failed: $out"
+	docker exec "$host" rm -rf "$pa" "$pb"
+	as_admin 'rm -rf ~/stacks7'
+	docker exec "$prefix-git" rm -rf /srv/git/stacks7.git
+	wait_for 'the qhost service to answer' 30 qd status
+	log "scenario: proposal $id1 was approved in the interface and applied; proposal $id2 was refused after its folder changed"
+}
+
+# prop_submit_kind submits the JSON $2 as a proposal of the kind $1 as the administrator without sudo and prints its
+# id.
+prop_submit_kind() {
+	out=$(printf '%s' "$2" | as_admin "qhost --output json proposal submit --kind $1" 2>&1) ||
+		fail "qhost proposal submit --kind $1 without sudo failed: $out"
+	printf '%s' "$out" | sed -n 's/.*"id": *"\(p-[0-9a-f]*\)".*/\1/p' | head -n 1
+}
+
+# scenario_tui_proposal_kinds proves approving the proposals of the kinds stack-settings, window and notify-channel
+# in the interface. An administrator without sudo proposes a changed update ceiling for demo-stack, a new window and
+# a webhook channel; a person approves each under sudo, one proposal at a time. The channel carries no secret: the
+# person types the address and the signing key into the hidden form of the approval, and the test message reaches
+# the webhook receiver. The settings and the window are put back and the channel is removed, so later sections see
+# the state they had before.
+scenario_tui_proposal_kinds() {
+	pk_stack=demo-stack
+	pk_file=/opt/stacks/.qatlas/qhost/$pk_stack.yaml
+	pk_hook_path=/prop-hook-e2e-path
+	pk_hook_url=https://hooks.$domain$pk_hook_path
+	pk_hook_key=prop-signing-value-e2e
+
+	step 'the settings of demo-stack, the window and the channels in force are noted'
+	pk_yaml=$(docker exec "$host" cat "$pk_file") || fail "cannot read $pk_file"
+	[ -n "$pk_yaml" ] || fail "$pk_file is empty"
+	out=$(qd --output json stack settings "$pk_stack") || fail "stack settings failed: $out"
+	pk_settings=$(printf '%s' "$out" | jq -c '.settings') || fail "stack settings shows no settings: $out"
+	[ "$pk_settings" != null ] || fail "$pk_stack has no settings: $out"
+	out=$(qd --output json window show) || fail "window show failed: $out"
+	pk_days=$(printf '%s' "$out" | jq -r '.days | if type == "array" then join(",") else . end')
+	pk_start=$(printf '%s' "$out" | jq -r '.start')
+	pk_duration=$(printf '%s' "$out" | jq -r '.duration')
+	pk_zone=$(printf '%s' "$out" | jq -r '.zone')
+	if qd --output json notify list | grep -q '"prop-hook"'; then fail 'the channel prop-hook exists before the proposal'; fi
+	[ "$(as_admin 'qhost --output json proposal list' | jq '(if type == "array" then . else .proposals end) | [.[]? | select(.state == "open")] | length')" = 0 ] ||
+		fail 'a proposal is open before the section'
+
+	step 'stack settings: the difference to the settings in force shows, yes saves them'
+	pk_ceiling=patch
+	[ "$(printf '%s' "$pk_settings" | jq -r '.update.ceiling // ""')" != patch ] || pk_ceiling=minor
+	pk_proposed=$(printf '%s' "$pk_settings" | jq -c --arg c "$pk_ceiling" '.update.ceiling = $c')
+	id=$(prop_submit_kind stack-settings "{\"stack\":\"$pk_stack\",\"settings\":$pk_proposed}")
+	[ -n "$id" ] || fail 'the settings proposal has no id'
+	prop_tui
+	tui_send 6
+	tui_wait 'stack settings' 15
+	tui_send Enter
+	tui_wait 'Effect if applied now' 30
+	tui_wait "stack: $pk_stack" 10
+	tui_wait 'These settings would change:' 10
+	tui_wait 'update.ceiling' 10
+	tui_wait "after:  \"$pk_ceiling\"" 10
+	if printf '%s' "$pk_settings" | jq -e '.backup.command' >/dev/null; then
+		tui_wait 'The backup command runs on the host later' 10
+	fi
+	[ "$(prop_state "$id")" = open ] || fail 'the settings proposal is not open before the approval'
+	tui_send A
+	tui_wait "and apply these settings to the stack $pk_stack?" 30
+	[ "$(prop_state "$id")" = open ] || fail 'the settings proposal left the state open before yes'
+	[ "$(docker exec "$host" cat "$pk_file")" = "$pk_yaml" ] || fail 'the settings changed before yes'
+	tui_send y
+	tui_wait "The settings of the stack $pk_stack are saved." 60
+	tui_send Enter
+	wait_for 'the settings proposal to be applied' 30 prop_is "$id" applied
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	out=$(qd --output json stack settings "$pk_stack") || fail "stack settings failed: $out"
+	[ "$(printf '%s' "$out" | jq -r '.settings.update.ceiling')" = "$pk_ceiling" ] || fail "the settings do not hold the ceiling $pk_ceiling: $out"
+	[ "$(docker exec -u qhost-deploy "$host" git -C /opt/stacks log -1 --format=%s)" = "qhost: settings of $pk_stack" ] ||
+		fail 'the settings were not committed by the service'
+
+	step 'stack settings are put back'
+	settings_set "$pk_stack" "$pk_yaml"
+	out=$(qd --output json stack settings "$pk_stack") || fail "stack settings failed: $out"
+	[ "$(printf '%s' "$out" | jq -cS '.settings')" = "$(printf '%s' "$pk_settings" | jq -cS .)" ] ||
+		fail "the settings of $pk_stack were not restored: $out"
+
+	step 'window: the difference to the window in force shows, yes sets it'
+	pk_new_start=$(date -u -d '+10 hours' +%H:%M)
+	[ "$pk_new_start" != "$pk_start" ] || pk_new_start=$(date -u -d '+9 hours' +%H:%M)
+	id=$(prop_submit_kind window "{\"days\":[\"daily\"],\"start\":\"$pk_new_start\",\"duration\":\"2m\",\"zone\":\"UTC\"}")
+	[ -n "$id" ] || fail 'the window proposal has no id'
+	prop_tui
+	tui_send 6
+	tui_wait 'maintenance window' 15
+	tui_send Enter
+	tui_wait 'Effect if applied now' 30
+	tui_wait 'The maintenance window would change:' 10
+	tui_wait "after:  \"$pk_new_start\"" 10
+	tui_send A
+	tui_wait 'and set this maintenance window?' 30
+	[ "$(window_field start)" = "$pk_start" ] || fail 'the window changed before yes'
+	tui_send y
+	tui_wait 'The maintenance window is changed.' 60
+	tui_send Enter
+	wait_for 'the window proposal to be applied' 30 prop_is "$id" applied
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	[ "$(window_field start)" = "$pk_new_start" ] && [ "$(window_field duration)" = 2m ] && [ "$(window_field zone)" = UTC ] ||
+		fail "the window does not hold the proposal: $(qd --output json window show)"
+
+	step 'window is put back'
+	out=$(qd --output json window set --days "$pk_days" --start "$pk_start" --duration "$pk_duration" --zone "$pk_zone") ||
+		fail "window set failed: $out"
+	[ "$(window_field start)" = "$pk_start" ] && [ "$(window_field duration)" = "$pk_duration" ] && [ "$(window_field zone)" = "$pk_zone" ] ||
+		fail "the window was not restored: $(qd --output json window show)"
+	[ "$(window_field open)" = false ] || fail "the window is open after it was restored: $(qd --output json window show)"
+
+	step 'notify channel: the person types the secret parts; yes adds an active channel'
+	id=$(prop_submit_kind notify-channel '{"name":"prop-hook","type":"webhook","events":["succeeded","rolled-back"]}')
+	[ -n "$id" ] || fail 'the channel proposal has no id'
+	prop_tui
+	tui_send 6
+	tui_wait 'notification channel' 15
+	tui_send Enter
+	tui_wait 'Effect if applied now' 30
+	tui_wait 'The channel would be added' 10
+	tui_send A
+	tui_wait 'Secret parts of the channel' 30
+	tui_wait 'Webhook URL' 10
+	tui_type "$pk_hook_url"
+	tui_send Tab
+	tui_type "$pk_hook_key"
+	tui_has "$pk_hook_url" && fail "the address shows on the screen: $(tui_screen)"
+	tui_has "$pk_hook_key" && fail "the signing key shows on the screen: $(tui_screen)"
+	tui_send F2
+	tui_wait 'and add the channel prop-hook (webhook)?' 30
+	[ "$(prop_state "$id")" = open ] || fail 'the channel proposal left the state open before yes'
+	if qd --output json notify list | grep -q '"prop-hook"'; then fail 'the channel exists before yes'; fi
+	tui_send y
+	tui_wait 'The channel prop-hook is added.' 60
+	tui_send Enter
+	wait_for 'the channel proposal to be applied' 30 prop_is "$id" applied
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	out=$(qd notify list) || fail "notify list failed: $out"
+	printf '%s\n' "$out" | grep '^prop-hook ' | grep -q webhook || fail "the channel prop-hook is not listed as a webhook: $out"
+	out=$(qd notify test prop-hook) || fail "notify test prop-hook failed: $out"
+	hook_seen "$pk_hook_path" test || fail 'the webhook receiver did not record the test message of the approved channel'
+	out=$(as_admin "qhost --output json proposal show $id") || fail "proposal show failed: $out"
+	for value in "$pk_hook_url" "$pk_hook_path" "$pk_hook_key"; do
+		if printf '%s' "$out" | grep -qF -- "$value"; then fail 'a secret part of the channel is kept on the proposal'; fi
+	done
+	out=$(qd notify remove prop-hook) || fail "notify remove prop-hook failed: $out"
+	if qd --output json notify list | grep -q '"prop-hook"'; then fail 'the channel prop-hook remains'; fi
+	log "scenario: the proposals of a stack's settings, the window and a webhook channel were approved in the interface and applied; settings and window are back, the channel is removed"
 }
 
 # --- First setup of a fresh service through the terminal interface only ---

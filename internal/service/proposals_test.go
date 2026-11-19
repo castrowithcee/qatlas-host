@@ -232,10 +232,11 @@ func TestExpiredProposalShowsAsExpiredAndCannotBeApplied(t *testing.T) {
 	if err != nil || got.State != control.ProposalExpired {
 		t.Fatalf("expired = %+v, %v", got, err)
 	}
-	for _, to := range []string{control.ProposalApplied, control.ProposalRejected} {
-		if err := h.p.resolve(info.ID, to); codeOf(t, err) != control.CodeInvalid {
-			t.Fatalf("resolve an expired proposal as %s = %v", to, err)
-		}
+	if err := h.approve(info.ID, info.Fingerprint); codeOf(t, err) != control.CodeInvalid {
+		t.Fatalf("approve an expired proposal = %v", err)
+	}
+	if err := h.reject(info.ID, ""); codeOf(t, err) != control.CodeInvalid {
+		t.Fatalf("reject an expired proposal = %v", err)
 	}
 	if err := h.withdraw(admin, info.ID); codeOf(t, err) != control.CodeInvalid {
 		t.Fatalf("withdraw an expired proposal = %v", err)
@@ -245,45 +246,182 @@ func TestExpiredProposalShowsAsExpiredAndCannotBeApplied(t *testing.T) {
 	}
 }
 
-func TestProposalResolveOnlyFromOpen(t *testing.T) {
+func (h *proposalHarness) approve(id, fingerprint string) error {
+	raw, _ := json.Marshal(control.ProposalApproveArgs{ID: id, Fingerprint: fingerprint})
+	_, err := h.p.handleApprove(context.Background(), raw)
+	return err
+}
+
+func (h *proposalHarness) reject(id, reason string) error {
+	raw, _ := json.Marshal(control.ProposalRejectArgs{ID: id, Reason: reason})
+	_, err := h.p.handleReject(context.Background(), raw)
+	return err
+}
+
+func (h *proposalHarness) result(id, fingerprint string, applied bool, message string) error {
+	raw, _ := json.Marshal(control.ProposalResultArgs{ID: id, Fingerprint: fingerprint, Applied: applied, Message: message})
+	_, err := h.p.handleResult(context.Background(), raw)
+	return err
+}
+
+func (h *proposalHarness) state(id string) control.ProposalShowResult {
+	h.t.Helper()
+	got, err := h.show(id)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	return got
+}
+
+func TestProposalApproveChecksTheFingerprintFirst(t *testing.T) {
 	h := newProposalHarness(t)
 	a, _ := h.submit(admin, control.ProposalKindSourceAdd, okSrc)
-	if err := h.p.resolve(a.ID, control.ProposalApplied); err != nil {
+	for _, fp := range []string{"", "0000", strings.ToUpper(a.Fingerprint)} {
+		if err := h.approve(a.ID, fp); codeOf(t, err) != control.CodeProposalChanged {
+			t.Fatalf("approve with %q = %v", fp, err)
+		}
+	}
+	if got := h.state(a.ID); got.State != control.ProposalOpen {
+		t.Fatalf("a wrong fingerprint changed the state to %s", got.State)
+	}
+	if err := h.approve("p-0000000000000000", a.Fingerprint); codeOf(t, err) != control.CodeNotFound {
+		t.Fatalf("unknown id = %v", err)
+	}
+	if err := h.approve(a.ID, a.Fingerprint); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := h.show(a.ID); got.State != control.ProposalApplied {
+	if got := h.state(a.ID); got.State != control.ProposalApproving {
 		t.Fatalf("state = %s", got.State)
 	}
-	if err := h.p.resolve(a.ID, control.ProposalRejected); codeOf(t, err) != control.CodeInvalid {
-		t.Fatalf("resolve twice = %v", err)
+}
+
+func TestProposalApprovalLocksTheProposal(t *testing.T) {
+	h := newProposalHarness(t)
+	a, _ := h.submit(admin, control.ProposalKindSourceAdd, okSrc)
+	if err := h.approve(a.ID, a.Fingerprint); err != nil {
+		t.Fatal(err)
 	}
-	if h.p.resolve(a.ID, control.ProposalWithdrawn) == nil || h.p.resolve(a.ID, control.ProposalOpen) == nil {
-		t.Fatal("resolve accepted a state other than applied or rejected")
+	if err := h.approve(a.ID, a.Fingerprint); codeOf(t, err) != control.CodeInvalid {
+		t.Fatalf("second approval = %v", err)
+	}
+	if err := h.withdraw(admin, a.ID); codeOf(t, err) != control.CodeInvalid {
+		t.Fatalf("withdraw while approving = %v", err)
+	}
+	if err := h.reject(a.ID, "no"); codeOf(t, err) != control.CodeInvalid {
+		t.Fatalf("reject while approving = %v", err)
+	}
+	if err := h.result(a.ID, "0000", true, ""); codeOf(t, err) != control.CodeProposalChanged {
+		t.Fatalf("result with a wrong fingerprint = %v", err)
+	}
+	if err := h.result(a.ID, a.Fingerprint, true, "ignored"); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.state(a.ID); got.State != control.ProposalApplied || got.Message != "" {
+		t.Fatalf("state = %+v", got)
+	}
+	if err := h.result(a.ID, a.Fingerprint, false, "late"); codeOf(t, err) != control.CodeInvalid {
+		t.Fatalf("second result = %v", err)
+	}
+}
+
+func TestProposalResultNeedsAnApproval(t *testing.T) {
+	h := newProposalHarness(t)
+	a, _ := h.submit(admin, control.ProposalKindSourceAdd, okSrc)
+	if err := h.result(a.ID, a.Fingerprint, true, ""); codeOf(t, err) != control.CodeInvalid {
+		t.Fatalf("result of an open proposal = %v", err)
+	}
+	if got := h.state(a.ID); got.State != control.ProposalOpen {
+		t.Fatalf("state = %s", got.State)
+	}
+}
+
+func TestProposalFailedResultKeepsAReadableMessage(t *testing.T) {
+	h := newProposalHarness(t)
+	a, _ := h.submit(admin, control.ProposalKindSourceAdd, okSrc)
+	if err := h.approve(a.ID, a.Fingerprint); err != nil {
+		t.Fatal(err)
+	}
+	msg := "clone failed\x1b[2J\n" + strings.Repeat("x", 2000)
+	if err := h.result(a.ID, a.Fingerprint, false, msg); err != nil {
+		t.Fatal(err)
+	}
+	got := h.state(a.ID)
+	if got.State != control.ProposalFailed || !strings.HasPrefix(got.Message, "clone failed [2J xxx") ||
+		strings.ContainsRune(got.Message, 0x1b) || len([]rune(got.Message)) > 303 {
+		t.Fatalf("state %s, message %q", got.State, got.Message)
 	}
 	b, _ := h.submit(admin, control.ProposalKindSourceAdd, okSrc)
-	if err := h.p.resolve(b.ID, control.ProposalRejected); err != nil {
+	_ = h.approve(b.ID, b.Fingerprint)
+	_ = h.result(b.ID, b.Fingerprint, false, "")
+	if got := h.state(b.ID); got.State != control.ProposalFailed || got.Message == "" {
+		t.Fatalf("an empty failure message = %+v", got)
+	}
+}
+
+func TestProposalRejectKeepsTheReasonForTheSubmitter(t *testing.T) {
+	h := newProposalHarness(t)
+	a, _ := h.submit(admin, control.ProposalKindSourceAdd, okSrc)
+	if err := h.reject(a.ID, "wrong folder\x1b]0;x\x07\n"+strings.Repeat("y", 1000)); err != nil {
 		t.Fatal(err)
+	}
+	got := h.state(a.ID)
+	if got.State != control.ProposalRejected || !strings.HasPrefix(got.Message, "wrong folder ]0;x yyy") ||
+		strings.ContainsAny(got.Message, "\x1b\x07\n") || len([]rune(got.Message)) > 303 {
+		t.Fatalf("state %s, message %q", got.State, got.Message)
+	}
+	b, _ := h.submit(admin, control.ProposalKindSourceAdd, okSrc)
+	if err := h.reject(b.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.state(b.ID); got.State != control.ProposalRejected || got.Message != "" {
+		t.Fatalf("no reason = %+v", got)
+	}
+	if err := h.reject(b.ID, "again"); codeOf(t, err) != control.CodeInvalid {
+		t.Fatalf("reject twice = %v", err)
+	}
+	if err := h.approve(b.ID, b.Fingerprint); codeOf(t, err) != control.CodeInvalid {
+		t.Fatalf("approve a rejected proposal = %v", err)
 	}
 	if err := h.withdraw(admin, b.ID); codeOf(t, err) != control.CodeInvalid {
 		t.Fatalf("withdraw of a rejected proposal = %v", err)
 	}
 }
 
-func TestProposalSubmitNeedsAPeer(t *testing.T) {
+func TestProposalApprovalThatNeverFinishesDoesNotBlock(t *testing.T) {
 	h := newProposalHarness(t)
-	if _, err := h.p.handleSubmit(context.Background(), json.RawMessage(`{}`)); codeOf(t, err) != control.CodeInternal {
-		t.Fatalf("without a peer = %v", err)
+	a, _ := h.submit(admin, control.ProposalKindSourceAdd, okSrc)
+	_ = h.approve(a.ID, a.Fingerprint)
+	h.now = h.now.Add(control.ProposalApprovalWindow - time.Second)
+	if got := h.state(a.ID); got.State != control.ProposalApproving {
+		t.Fatalf("inside the window = %s", got.State)
 	}
-}
-
-func TestProposalPrunesOldClosedProposals(t *testing.T) {
-	h := newProposalHarness(t)
-	old, _ := h.submit(admin, control.ProposalKindSourceAdd, okSrc)
-	h.now = h.now.Add(proposalKeep + time.Hour)
+	h.now = h.now.Add(time.Second)
+	got := h.state(a.ID)
+	if got.State != control.ProposalFailed || got.Message == "" {
+		t.Fatalf("after the window = %+v", got)
+	}
+	if err := h.approve(a.ID, a.Fingerprint); codeOf(t, err) != control.CodeInvalid {
+		t.Fatalf("approve after the window = %v", err)
+	}
+	// The outcome that happened is still recorded, and the submitter may send a new proposal.
+	if err := h.result(a.ID, a.Fingerprint, true, ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.state(a.ID); got.State != control.ProposalApplied {
+		t.Fatalf("late result = %s", got.State)
+	}
 	if _, err := h.submit(admin, control.ProposalKindSourceAdd, okSrc); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := h.show(old.ID); codeOf(t, err) != control.CodeNotFound {
-		t.Fatalf("old expired proposal = %v", err)
+}
+
+func TestProposalApprovingDoesNotExpire(t *testing.T) {
+	h := newProposalHarness(t)
+	a, _ := h.submit(admin, control.ProposalKindSourceAdd, okSrc)
+	h.now = a.Expires.Add(-time.Minute)
+	_ = h.approve(a.ID, a.Fingerprint)
+	h.now = a.Expires.Add(time.Minute)
+	if got := h.state(a.ID); got.State == control.ProposalExpired {
+		t.Fatalf("state = %s", got.State)
 	}
 }

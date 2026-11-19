@@ -43,6 +43,17 @@ func TestChannelBackendSpeaksTheServiceCommands(t *testing.T) {
 		"window":     func() error { _, err := b.Window(ctx); return err },
 		"containers": func() error { _, err := b.Containers(ctx); return err },
 		"container":  func() error { _, err := b.Container(ctx, "demo-app"); return err },
+		"proposals":  func() error { _, err := b.ProposalList(ctx); return err },
+		"proposal":   func() error { _, err := b.ProposalShow(ctx, "p-none"); return err },
+		"proposalok": func() error {
+			_, err := b.ProposalApprove(ctx, control.ProposalApproveArgs{ID: "p-none", Fingerprint: "none"})
+			return err
+		},
+		"proposalno": func() error { _, err := b.ProposalReject(ctx, control.ProposalRejectArgs{ID: "p-none"}); return err },
+		"proposalres": func() error {
+			_, err := b.ProposalResult(ctx, control.ProposalResultArgs{ID: "p-none", Fingerprint: "none", Applied: true})
+			return err
+		},
 		// The service in this test has no stacks repository, so it refuses each of these before it changes anything.
 		"deploy":  func() error { _, err := b.Deploy(ctx, "demo-stack"); return err },
 		"update":  func() error { _, err := b.Update(ctx, []string{"demo-stack"}); return err },

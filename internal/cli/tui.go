@@ -100,7 +100,7 @@ func newTUICommand(state *notRunning) *cobra.Command {
 				return usageFailure("the terminal interface needs a terminal on standard input and standard output",
 					"Run 'qhost tui' in a terminal, or use the commands such as 'qhost status' in scripts.")
 			}
-			backend := tui.NewBackend(serviceEndpoint())
+			backend := tui.NewBackend(serviceEndpoint()).WithVersion(version)
 			// The interface refuses before it takes the terminal, so a missing service or root fails as every
 			// channel command does. A deploy service that is not set up is no failure: the interface offers the setup.
 			if _, err := backend.Status(c.Context()); err != nil && !(errors.Is(err, client.ErrNotRunning) && !deployInstalled()) {

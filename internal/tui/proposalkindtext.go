@@ -1,0 +1,104 @@
+package tui
+
+import kittui "github.com/castrowithcee/qatlas-kit/tui"
+
+// The texts of the proposal kinds stack-settings and window.
+const (
+	textPropKindStackSettings kittui.TextID = "prop.kind.stacksettings"
+	textPropKindWindow        kittui.TextID = "prop.kind.window"
+	textPropStack             kittui.TextID = "prop.stack"
+	textPropBackupCommand     kittui.TextID = "prop.backupcommand"
+	textPropSettingsNew       kittui.TextID = "prop.settings.new"
+	textPropSettingsChanges   kittui.TextID = "prop.settings.changes"
+	textPropSettingsSame      kittui.TextID = "prop.settings.same"
+	textPropWindowChanges     kittui.TextID = "prop.window.changes"
+	textPropWindowSame        kittui.TextID = "prop.window.same"
+	textPropBefore            kittui.TextID = "prop.before"
+	textPropAfter             kittui.TextID = "prop.after"
+	textPropNoStack           kittui.TextID = "prop.nostack"
+	textAskProposalSettings   kittui.TextID = "ask.propsettings"
+	textAskProposalWindow     kittui.TextID = "ask.propwindow"
+	textWhatProposalSettings  kittui.TextID = "what.propsettings"
+	textWhatProposalWindow    kittui.TextID = "what.propwindow"
+	textDonePropSettings      kittui.TextID = "done.propsettings"
+	textDonePropSettingsSame  kittui.TextID = "done.propsettingssame"
+	textPropKindChannel       kittui.TextID = "prop.kind.channel"
+	textPropChannelNew        kittui.TextID = "prop.channel.new"
+	textPropChannelTaken      kittui.TextID = "prop.channel.taken"
+	textAskProposalChannel    kittui.TextID = "ask.propchannel"
+	textWhatProposalChannel   kittui.TextID = "what.propchannel"
+	textDonePropChannel       kittui.TextID = "done.propchannel"
+	textTitleProposalSecrets  kittui.TextID = "title.propsecrets"
+)
+
+func proposalKindEnglish() map[kittui.TextID]string {
+	return map[kittui.TextID]string{
+		textPropKindStackSettings: "stack settings",
+		textPropKindWindow:        "maintenance window",
+		textPropStack:             "stack: %s",
+		textPropBackupCommand:     "!! The backup command runs on the host later, before each update. Read every word of it.",
+		textPropSettingsNew:       "The stack has no settings yet. These would be set:",
+		textPropSettingsChanges:   "These settings would change:",
+		textPropSettingsSame:      "The settings equal those in force. Nothing would change.",
+		textPropWindowChanges:     "The maintenance window would change:",
+		textPropWindowSame:        "The window equals the one in force. Nothing would change.",
+		textPropBefore:            "before: %s",
+		textPropAfter:             "after:  %s",
+		textPropNoStack:           "The stack %s does not exist. The proposal cannot be approved; reject it.",
+		textAskProposalSettings:   "Approve proposal %s and apply these settings to the stack %s?",
+		textAskProposalWindow:     "Approve proposal %s and set this maintenance window?",
+		textWhatProposalSettings: "Yes marks the proposal as approved and then saves the settings shown, the way the settings forms and qhost stack settings save them. " +
+			"Right before that the proposal and the settings in force are read again, and nothing is applied if either differs from what you saw. " +
+			"The result is kept on the proposal.",
+		textWhatProposalWindow: "Yes marks the proposal as approved and then sets the window shown, the way the window form and qhost window set it. " +
+			"Right before that the proposal and the window in force are read again, and nothing is applied if either differs from what you saw. " +
+			"The result is kept on the proposal.",
+		textPropKindChannel:    "notification channel",
+		textPropChannelNew:     "The channel would be added; no channel of this name exists now. The proposal holds no secret parts: you enter them on approving.",
+		textPropChannelTaken:   "A channel named %s exists now. The proposal cannot be approved; reject it, or remove the channel first.",
+		textAskProposalChannel: "Approve proposal %s and add the channel %s (%s)?",
+		textWhatProposalChannel: "Yes marks the proposal as approved and then adds the channel with the secret parts you entered, the way the channel form and qhost notify add add it. " +
+			"Right before that the proposal and the channels are read again, and nothing is applied if either differs from what you saw. " +
+			"The secret parts are never kept on the proposal.",
+		textDonePropChannel:      "The channel %s is added.",
+		textTitleProposalSecrets: "Secret parts of the channel",
+		textDonePropSettings:     "The settings of the stack %s are saved.",
+		textDonePropSettingsSame: "The stack %s already had these settings.",
+	}
+}
+
+func proposalKindGerman() map[kittui.TextID]string {
+	return map[kittui.TextID]string{
+		textPropKindStackSettings: "Stack-Einstellungen",
+		textPropKindWindow:        "Wartungsfenster",
+		textPropStack:             "Stack: %s",
+		textPropBackupCommand:     "!! Der Backup-Befehl läuft später auf dem Host, vor jedem Update. Lies jedes Wort davon.",
+		textPropSettingsNew:       "Der Stack hat noch keine Einstellungen. Diese würden gesetzt:",
+		textPropSettingsChanges:   "Diese Einstellungen würden sich ändern:",
+		textPropSettingsSame:      "Die Einstellungen entsprechen den geltenden. Nichts würde sich ändern.",
+		textPropWindowChanges:     "Das Wartungsfenster würde sich ändern:",
+		textPropWindowSame:        "Das Fenster entspricht dem geltenden. Nichts würde sich ändern.",
+		textPropBefore:            "vorher:  %s",
+		textPropAfter:             "nachher: %s",
+		textPropNoStack:           "Den Stack %s gibt es nicht. Der Vorschlag kann nicht freigegeben werden, lehne ihn ab.",
+		textAskProposalSettings:   "Vorschlag %s freigeben und diese Einstellungen auf den Stack %s anwenden?",
+		textAskProposalWindow:     "Vorschlag %s freigeben und dieses Wartungsfenster setzen?",
+		textWhatProposalSettings: "Ja markiert den Vorschlag als freigegeben und speichert dann die gezeigten Einstellungen, so wie die Formulare und qhost stack settings sie speichern. " +
+			"Direkt davor werden der Vorschlag und die geltenden Einstellungen neu gelesen, und nichts wird angewendet, wenn eines von beiden vom Gezeigten abweicht. " +
+			"Das Ergebnis bleibt am Vorschlag.",
+		textWhatProposalWindow: "Ja markiert den Vorschlag als freigegeben und setzt dann das gezeigte Fenster, so wie das Fensterformular und qhost window es setzen. " +
+			"Direkt davor werden der Vorschlag und das geltende Fenster neu gelesen, und nichts wird angewendet, wenn eines von beiden vom Gezeigten abweicht. " +
+			"Das Ergebnis bleibt am Vorschlag.",
+		textPropKindChannel:    "Benachrichtigungskanal",
+		textPropChannelNew:     "Der Kanal würde angelegt, einen Kanal dieses Namens gibt es jetzt nicht. Der Vorschlag enthält keine geheimen Teile: Du gibst sie bei der Freigabe ein.",
+		textPropChannelTaken:   "Einen Kanal namens %s gibt es jetzt. Der Vorschlag kann nicht freigegeben werden, lehne ihn ab oder entferne zuerst den Kanal.",
+		textAskProposalChannel: "Vorschlag %s freigeben und den Kanal %s (%s) anlegen?",
+		textWhatProposalChannel: "Ja markiert den Vorschlag als freigegeben und legt dann den Kanal mit den eingegebenen geheimen Teilen an, so wie das Kanalformular und qhost notify add ihn anlegen. " +
+			"Direkt davor werden der Vorschlag und die Kanäle neu gelesen, und nichts wird angewendet, wenn eines von beiden vom Gezeigten abweicht. " +
+			"Die geheimen Teile bleiben nie am Vorschlag.",
+		textDonePropChannel:      "Der Kanal %s ist angelegt.",
+		textTitleProposalSecrets: "Geheime Teile des Kanals",
+		textDonePropSettings:     "Die Einstellungen des Stacks %s sind gespeichert.",
+		textDonePropSettingsSame: "Der Stack %s hatte diese Einstellungen schon.",
+	}
+}

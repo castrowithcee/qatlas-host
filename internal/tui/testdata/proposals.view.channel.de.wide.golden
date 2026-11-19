@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container  [6 ◈ Vorschläge]                     
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Benachrichtigungskanal                                                                                          p-0014
+                                                                                                                        
+  von          ana (1001)                                                                                               
+  eingereicht  10-30 14:00                                                                                              
+  läuft ab     11-13 14:00                                                                                              
+  Zustand      offen                                                                                                    
+                                                                                                                        
+  Vorgeschlagen                                                                                                         
+    from: "qhost@example.test"                                                                                          
+    host: "mail.long-label.long-label.long-label.long-label.long-label.long-label.long-label.long-label.long-label.long-
+    label.long-label.long-label.example.test"                                                                           
+    name: "alerts"                                                                                                      
+    port: 2525                                                                                                          
+    security: "tls"                                                                                                     
+    to[0]: "ops@example.test"                                                                                           
+    to[1]: "dev@example.test"                                                                                           
+    type: "smtp"                                                                                                        
+    user: "qd"                                                                                                          
+                                                                                                                        
+  Wirkung bei Anwendung jetzt                                                                                           
+    Der Kanal würde angelegt, einen Kanal dieses Namens gibt es jetzt nicht. Der Vorschlag enthält keine geheimen Teile:
+    Du gibst sie bei der Freigabe ein.                                                                                  
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+esc Zurück  A freigeben  N ablehnen  r Neu laden  1-6 Bereich  q Beenden                                    ↑/↓ Scrollen

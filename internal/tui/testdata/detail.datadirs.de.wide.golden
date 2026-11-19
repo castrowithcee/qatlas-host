@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
-   1 ▤ Stacks  [2 ▣ Stack-Details]  3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container                                       
+   1 ▤ Stacks  [2 ▣ Stack-Details]  3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge                      
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   demo-stack                                                                                                            
                                                                                                                         
@@ -21,4 +21,4 @@
 │ Keine Container dieses Stacks.                                                                                       │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 m Datenordner anlegen  e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log                
-a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  r Neu laden  1-5 Bereich  q Beenden    ↑/↓ Scrollen  19/65
+a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  r Neu laden  1-6 Bereich  q Beenden    ↑/↓ Scrollen  19/65

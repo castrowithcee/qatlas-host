@@ -1,8 +1,8 @@
 ◆ qhost                                                                                                         [?] help
-  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers                                             
+  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals                             
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   The deploy service is not set up yet. It rolls out and updates your stacks and runs as its own system user, apart from
-  the host service, with access to Docker. D sets it up; on the command line: sudo qhost deploy-service setup           
+  the host service, with access to Docker. G sets it up; on the command line: sudo qhost deploy-service setup           
                                                                                                                         
   Setting up needs root: quit and run sudo qhost.                                                                       
                                                                                                                         
@@ -37,4 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-D set up deploy service  r reload  1-5 area  q quit                                                                     
+G set up deploy service  r reload  1-6 area  q quit                                                                     

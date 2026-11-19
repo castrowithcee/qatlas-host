@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 Stacks 2 Stack-Details 3 Läufe 4 Einstellungen 5 Container [6 Vorschläge]   
+────────────────────────────────────────────────────────────────────────────────
+  Wartungsfenster                                                         p-0012
+                                                                                
+  von          ana (1001)                                                       
+  eingereicht  10-30 18:00                                                      
+  läuft ab     11-13 18:00                                                      
+  Zustand      offen                                                            
+                                                                                
+  Vorgeschlagen                                                                 
+    days[0]: "mon"                                                              
+    days[1]: "thu"                                                              
+    start: "02:30"                                                              
+                                                                                
+  Wirkung bei Anwendung jetzt                                                   
+    Das Wartungsfenster würde sich ändern:                                      
+       days                                                                     
+       vorher:  "sun"                                                           
+       nachher: "mon,thu"                                                       
+       start                                                                    
+       vorher:  "03:00"                                                         
+esc Zurück  A freigeben  N ablehnen  r Neu laden  1-6 Bereich  q Beenden        
+                                                             ↑/↓ Scrollen  19/20

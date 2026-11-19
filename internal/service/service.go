@@ -172,7 +172,10 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 	if cfg.Clock != nil {
 		proposalNow = cfg.Clock.Now
 	}
-	if err := registerProposalCommands(registry, newProposalService(cfg.StateDir, db.passwd, proposalNow, log)); err != nil {
+	proposals := newProposalService(cfg.StateDir, db.passwd, proposalNow, log)
+	proposals.stackKnown = eng.hasStack
+	proposals.channelKnown = notifier.hasChannel
+	if err := registerProposalCommands(registry, proposals); err != nil {
 		return err
 	}
 	if err := registerSettingsCommands(registry, eng, secrets.Apply, log); err != nil {

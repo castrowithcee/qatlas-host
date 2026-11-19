@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed              [?] help
-  [1 Stacks] 2 3 4 5                                    
+  [1 Stacks] 2 3 4 5 6                                  
 ────────────────────────────────────────────────────────
         STACK                      CURRENT  AVAILABLE  S
   ▾ [ ] ■ /srv/stacks-example (6)  clone               …
@@ -21,4 +21,4 @@
                                                         
                                                         
 enter details  / search  space tick  u update  d deploy 
-a add  r reload  1-5 area  q quit        ↑/↓ choose  1/6
+a add  r reload  1-6 area  q quit        ↑/↓ choose  1/6

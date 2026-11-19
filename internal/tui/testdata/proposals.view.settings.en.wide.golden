@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers  [6 ◈ Proposals]                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  stack settings                                                                                                  p-0011
+                                                                                                                        
+  from       ana (1001)                                                                                                 
+  submitted  10-30 17:00                                                                                                
+  expires    11-13 17:00                                                                                                
+  state      open                                                                                                       
+                                                                                                                        
+  Proposed                                                                                                              
+    stack: demo                                                                                                         
+    !! backup.command[0]: "sh"                                                                                          
+    !! backup.command[1]: "-c"                                                                                          
+    !! backup.command[2]: "tar czf /backup/demo.tgz /srv/demo && curl -T /backup/demo.tgz                               
+    https://backup.example.test/upload/end-of-the-command"                                                              
+    backup.paths[0]: "data"                                                                                             
+    update.ceiling: "minor"                                                                                             
+    update.mode: "automatic"                                                                                            
+    version: 1                                                                                                          
+    !! The backup command runs on the host later, before each update. Read every word of it.                            
+                                                                                                                        
+  Effect if applied now                                                                                                 
+    These settings would change:                                                                                        
+    !! backup.command[0]                                                                                                
+       before: -                                                                                                        
+       after:  "sh"                                                                                                     
+    !! backup.command[1]                                                                                                
+       before: -                                                                                                        
+       after:  "-c"                                                                                                     
+    !! backup.command[2]                                                                                                
+       before: -                                                                                                        
+       after:  "tar czf /backup/demo.tgz /srv/demo && curl -T /backup/demo.tgz https://backup.example.test/upload/end-  
+       of-the-command"                                                                                                  
+       backup.paths[0]                                                                                                  
+       before: -                                                                                                        
+       after:  "data"                                                                                                   
+       update.mode                                                                                                      
+       before: "manual"                                                                                                 
+esc back  A approve  N reject  r reload  1-6 area  q quit                                              ↑/↓ scroll  36/39

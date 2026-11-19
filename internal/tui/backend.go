@@ -11,6 +11,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/diagnose"
 )
 
 // Backend is what the interface asks of the service, one method per channel command. Calls run off the event
@@ -39,6 +40,9 @@ type Backend interface {
 	ContainerLogs(ctx context.Context, args control.ContainerLogsArgs) (control.ContainerLogsResult, error)
 	// ServiceLog reads a page of the log of the service itself.
 	ServiceLog(ctx context.Context, args control.ServiceLogArgs) (control.ServiceLogResult, error)
+	// Diagnose collects the diagnostic package from read-only calls; it never fails, a part that could not be
+	// collected carries its reason.
+	Diagnose(ctx context.Context) *diagnose.Package
 
 	// The calls below change something in the service; the interface makes them only after a confirmation.
 
@@ -112,6 +116,14 @@ type Backend interface {
 	StackSettings(ctx context.Context, stack string) (control.StackSettingsResult, error)
 	StackSettingsSet(ctx context.Context, stack string, settings control.StackSettings) (control.StackSettingsSetResult, error)
 	StackSettingsRemove(ctx context.Context, stack string) (control.StackSettingsRemoveResult, error)
+
+	// ProposalList lists the proposals, newest first; ProposalShow reads one with its content.
+	ProposalList(ctx context.Context) (control.ProposalListResult, error)
+	ProposalShow(ctx context.Context, id string) (control.ProposalShowResult, error)
+	// ProposalApprove, ProposalReject and ProposalResult are root's; the interface calls them only after the person decided.
+	ProposalApprove(ctx context.Context, args control.ProposalApproveArgs) (control.ProposalInfo, error)
+	ProposalReject(ctx context.Context, args control.ProposalRejectArgs) (control.ProposalInfo, error)
+	ProposalResult(ctx context.Context, args control.ProposalResultArgs) (control.ProposalInfo, error)
 }
 
 // updateCallLimit bounds one update call, which waits for every step of the stack; it is the limit of the
@@ -134,10 +146,21 @@ const containerCallLimit = 10 * time.Second
 // may run concurrently.
 type ChannelBackend struct {
 	endpoint localipc.ServiceEndpoint
+	version  string
 }
 
 // NewBackend returns the Backend over the channel at ep.
 func NewBackend(ep localipc.ServiceEndpoint) *ChannelBackend { return &ChannelBackend{endpoint: ep} }
+
+// WithVersion sets the version of qhost that a diagnostic package states.
+func (b *ChannelBackend) WithVersion(v string) *ChannelBackend {
+	b.version = v
+	return b
+}
+
+func (b *ChannelBackend) Diagnose(ctx context.Context) *diagnose.Package {
+	return diagnose.Build(ctx, diagnose.Options{Call: b.call, Version: b.version})
+}
 
 func (b *ChannelBackend) call(ctx context.Context, command string, args, result any) error {
 	return client.Do(ctx, b.endpoint, client.CallTimeout, command, args, result)
@@ -419,6 +442,31 @@ func (b *ChannelBackend) StackSettingsSet(ctx context.Context, stack string, set
 func (b *ChannelBackend) StackSettingsRemove(ctx context.Context, stack string) (res control.StackSettingsRemoveResult, err error) {
 	err = client.Do(ctx, b.endpoint, control.StackSettingsTimeout, control.StackSettingsRemoveCommand,
 		control.StackSettingsArgs{Stack: stack}, &res)
+	return res, err
+}
+
+func (b *ChannelBackend) ProposalList(ctx context.Context) (res control.ProposalListResult, err error) {
+	err = b.call(ctx, control.ProposalListCommand, nil, &res)
+	return res, err
+}
+
+func (b *ChannelBackend) ProposalShow(ctx context.Context, id string) (res control.ProposalShowResult, err error) {
+	err = b.call(ctx, control.ProposalShowCommand, control.ProposalIDArgs{ID: id}, &res)
+	return res, err
+}
+
+func (b *ChannelBackend) ProposalApprove(ctx context.Context, args control.ProposalApproveArgs) (res control.ProposalInfo, err error) {
+	err = b.call(ctx, control.ProposalApproveCommand, args, &res)
+	return res, err
+}
+
+func (b *ChannelBackend) ProposalReject(ctx context.Context, args control.ProposalRejectArgs) (res control.ProposalInfo, err error) {
+	err = b.call(ctx, control.ProposalRejectCommand, args, &res)
+	return res, err
+}
+
+func (b *ChannelBackend) ProposalResult(ctx context.Context, args control.ProposalResultArgs) (res control.ProposalInfo, err error) {
+	err = b.call(ctx, control.ProposalResultCommand, args, &res)
 	return res, err
 }
 

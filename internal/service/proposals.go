@@ -23,8 +23,12 @@ import (
 	"github.com/castrowithcee/qatlas-kit/approval"
 	"github.com/castrowithcee/qatlas-kit/configfile"
 
+	"github.com/castrowithcee/qatlas-host/internal/backup"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/notifier"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/window"
 )
 
 const (
@@ -53,6 +57,9 @@ type proposalRecord struct {
 	SubmitterName string          `json:"submitter_name"`
 	Submitted     time.Time       `json:"submitted"`
 	State         string          `json:"state"`
+	// Decided is when the approval was accepted or the proposal was rejected; Message is the reason or failure.
+	Decided time.Time `json:"decided,omitzero"`
+	Message string    `json:"message,omitempty"`
 }
 
 // proposalService keeps the proposals below the state directory of the service, one private file each,
@@ -62,7 +69,12 @@ type proposalService struct {
 	passwd string
 	now    func() time.Time
 	log    *slog.Logger
-	mu     sync.Mutex
+	// stackKnown tells whether a stack of that name is among those the service deploys; kinds that name a
+	// stack are refused without it.
+	stackKnown func(name string) bool
+	// channelKnown tells whether a notification channel of that name exists, like the check of notify.add.
+	channelKnown func(name string) (bool, error)
+	mu           sync.Mutex
 }
 
 func newProposalService(stateDir, passwd string, now func() time.Time, log *slog.Logger) *proposalService {
@@ -76,6 +88,9 @@ func registerProposalCommands(r *control.Registry, p *proposalService) error {
 	commands := map[string]control.Command{
 		control.ProposalSubmitCommand:   proposing(p.handleSubmit),
 		control.ProposalWithdrawCommand: proposing(p.handleWithdraw),
+		control.ProposalApproveCommand:  writing(p.handleApprove),
+		control.ProposalRejectCommand:   writing(p.handleReject),
+		control.ProposalResultCommand:   writing(p.handleResult),
 		control.ProposalListCommand:     reading(p.handleList),
 		control.ProposalShowCommand:     reading(p.handleShow),
 	}
@@ -91,27 +106,144 @@ func invalid(format string, a ...any) *control.Error {
 	return control.NewError(control.CodeInvalid, fmt.Sprintf(format, a...))
 }
 
-// normalizeProposal checks the content of a proposal of the given kind with the rules of the hand-typed input
-// and returns it in its canonical form. It decodes strictly: a field the schema does not name is refused. It
-// looks at nothing outside the content: no file, no network, no repository.
-func normalizeProposal(kind string, content json.RawMessage) (any, *control.Error) {
-	switch kind {
-	case control.ProposalKindSourceAdd:
-		var c control.ProposalSourceAdd
-		if err := decodeStrict(content, &c); err != nil {
-			return nil, invalid("the content of a %s proposal must be a JSON object with the fields path and url only", kind)
-		}
-		if err := checkDirShape(c.Path); err != nil {
-			return nil, invalid("the path is not valid: %s", err)
-		}
-		if c.URL != "" {
-			if err := gitrepo.ValidateURL(c.URL); err != nil {
-				return nil, invalid("the url is not valid: %s", err)
-			}
-		}
-		return c, nil
+// proposalNormalizers has one function per kind of proposal. Each checks the content of its kind with the
+// rules of the hand-typed input and returns it in its canonical form, the one the fingerprint covers. It
+// decodes strictly: a field the schema does not name is refused. It never runs, evaluates or expands the
+// content, and looks at nothing but the content and, where the kind names a stack, whether the stack exists.
+var proposalNormalizers = map[string]func(p *proposalService, content json.RawMessage) (any, *control.Error){
+	control.ProposalKindSourceAdd:     (*proposalService).normalizeSourceAdd,
+	control.ProposalKindStackSettings: (*proposalService).normalizeStackSettings,
+	control.ProposalKindWindow:        (*proposalService).normalizeWindow,
+	control.ProposalKindNotifyChannel: (*proposalService).normalizeNotifyChannel,
+}
+
+func (p *proposalService) normalizeProposal(kind string, content json.RawMessage) (any, *control.Error) {
+	if n, ok := proposalNormalizers[kind]; ok {
+		return n(p, content)
 	}
 	return nil, invalid("unknown proposal kind %q", printable(kind))
+}
+
+func (p *proposalService) normalizeSourceAdd(content json.RawMessage) (any, *control.Error) {
+	var c control.ProposalSourceAdd
+	if err := decodeStrict(content, &c); err != nil {
+		return nil, invalid("the content of a %s proposal must be a JSON object with the fields path and url only", control.ProposalKindSourceAdd)
+	}
+	if err := checkDirShape(c.Path); err != nil {
+		return nil, invalid("the path is not valid: %s", err)
+	}
+	if c.URL != "" {
+		if err := gitrepo.ValidateURL(c.URL); err != nil {
+			return nil, invalid("the url is not valid: %s", err)
+		}
+	}
+	return c, nil
+}
+
+// normalizeStackSettings checks the settings with stacks.ParseSettings, the check of stack.settings.set, and
+// stores them with every default written out, as stack.settings.get answers them. The schema has no secret
+// member, so a secret field is an unknown field and refuses the proposal; nothing is dropped.
+func (p *proposalService) normalizeStackSettings(content json.RawMessage) (any, *control.Error) {
+	var c control.ProposalStackSettings
+	if err := decodeStrict(content, &c); err != nil {
+		return nil, invalid("the content of a %s proposal must be a JSON object with the fields stack and settings only, "+
+			"and settings in the schema of 'qhost stack settings'", control.ProposalKindStackSettings)
+	}
+	if !backup.ValidStack(c.Stack) {
+		return nil, invalid("the stack name is not valid")
+	}
+	data, err := json.Marshal(c.Settings)
+	if err != nil {
+		return nil, invalid("the settings cannot be encoded")
+	}
+	rules, err := stacks.ParseSettings(data)
+	if err != nil {
+		return nil, invalid("%s", printable(err.Error()))
+	}
+	if p.stackKnown == nil || !p.stackKnown(c.Stack) {
+		return nil, control.NewError(control.CodeInvalid, "the stack is not known to the service")
+	}
+	canonical, err := settingsOf(rules)
+	if err != nil {
+		return nil, invalid("the settings cannot be encoded")
+	}
+	return control.ProposalStackSettings{Stack: c.Stack, Settings: canonical}, nil
+}
+
+// normalizeWindow checks the parts with the parsers of window.set and stores each in its canonical form. It
+// writes nothing. The schema has no secret member, so any other field refuses the proposal.
+func (p *proposalService) normalizeWindow(content json.RawMessage) (any, *control.Error) {
+	var c control.WindowSetArgs
+	if err := decodeStrict(content, &c); err != nil {
+		return nil, invalid("the content of a %s proposal must be a JSON object with the fields days, start, duration and zone only", control.ProposalKindWindow)
+	}
+	if c.Days == nil && c.Start == "" && c.Duration == "" && c.Zone == "" {
+		return nil, invalid("name at least one part of the window")
+	}
+	change, err := windowChange(c)
+	if err != nil {
+		var ie *window.InvalidError
+		if errors.As(err, &ie) {
+			return nil, invalid("%s", printable(ie.Text))
+		}
+		return nil, invalid("the window is not valid")
+	}
+	var out control.WindowSetArgs
+	if change.Days != nil {
+		out.Days = change.Days.Names()
+	}
+	if change.Start != nil {
+		out.Start = window.FormatStart(*change.Start)
+	}
+	if change.Duration != nil {
+		out.Duration = window.FormatDuration(*change.Duration)
+	}
+	if change.Zone != nil {
+		out.Zone = *change.Zone
+	}
+	return out, nil
+}
+
+// normalizeNotifyChannel checks the channel with notifier.Validate without secrets, the check of notify.add
+// for everything but them, and stores it with the defaults of its type written out. A member that carries a
+// secret part is refused by name, before any other check, and every other member the schema does not name is
+// refused too. A name that is taken is refused as notify.add refuses it. It reaches no network.
+func (p *proposalService) normalizeNotifyChannel(content json.RawMessage) (any, *control.Error) {
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(content, &members); err != nil {
+		return nil, invalid("the content of a %s proposal must be a JSON object", control.ProposalKindNotifyChannel)
+	}
+	for _, f := range control.ProposalNotifySecretFields {
+		if _, named := members[f]; named {
+			return nil, invalid("a proposal cannot carry a secret part of a channel; the person who approves enters it")
+		}
+	}
+	var c control.ProposalNotifyChannel
+	if err := decodeStrict(content, &c); err != nil {
+		return nil, invalid("the content of a %s proposal must be a JSON object with the fields name, type, events, "+
+			"host, port, security, user, from, to, chat_id and base_url only", control.ProposalKindNotifyChannel)
+	}
+	ch, err := notifier.Validate(notifier.Channel{Name: c.Name, Type: c.Type, Events: c.Events, Host: c.Host, Port: c.Port,
+		Security: c.Security, User: c.User, From: c.From, To: c.To, ChatID: c.ChatID, BaseURL: c.BaseURL}, nil)
+	if err != nil {
+		var ie *notifier.InvalidError
+		if errors.As(err, &ie) {
+			return nil, invalid("%s", printable(ie.Text))
+		}
+		return nil, invalid("the channel is not valid")
+	}
+	if p.channelKnown != nil {
+		known, err := p.channelKnown(ch.Name)
+		if err != nil {
+			p.log.Error("proposals: read the channels", "error", err)
+			return nil, control.NewError(control.CodeInternal, "internal error")
+		}
+		if known {
+			return nil, invalid("a channel of this name exists; remove it first")
+		}
+	}
+	return control.ProposalNotifyChannel{Name: ch.Name, Type: ch.Type, Events: ch.Events, Host: ch.Host, Port: ch.Port,
+		Security: ch.Security, User: ch.User, From: ch.From, To: ch.To, ChatID: ch.ChatID, BaseURL: ch.BaseURL}, nil
 }
 
 func decodeStrict(raw json.RawMessage, into any) error {
@@ -139,7 +271,7 @@ func (p *proposalService) handleSubmit(ctx context.Context, raw json.RawMessage)
 	if err := decodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
-	content, cerr := normalizeProposal(a.Kind, a.Content)
+	content, cerr := p.normalizeProposal(a.Kind, a.Content)
 	if cerr != nil {
 		return nil, cerr
 	}
@@ -248,19 +380,83 @@ func (p *proposalService) handleWithdraw(ctx context.Context, raw json.RawMessag
 	return p.info(rec), nil
 }
 
-// resolve moves an open proposal to applied or rejected, the one change a later approval makes. It refuses a
-// proposal that is not open or has expired, so nothing expired is ever applied.
-func (p *proposalService) resolve(id, to string) error {
-	if to != control.ProposalApplied && to != control.ProposalRejected {
-		return errors.New("a proposal is resolved as applied or rejected")
+// handleApprove accepts the approval of an open proposal whose fingerprint is the one the person was shown. It
+// runs before anything is applied: from here on the proposal can be neither withdrawn, rejected nor approved
+// again, and it waits for its result. After ProposalApprovalWindow without a result it counts as failed.
+func (p *proposalService) handleApprove(_ context.Context, raw json.RawMessage) (any, error) {
+	var a control.ProposalApproveArgs
+	if err := decodeArgs(raw, &a); err != nil {
+		return nil, err
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	rec, err := p.find(id)
+	rec, err := p.find(a.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return p.transition(rec, to)
+	if st := p.stateOf(rec); st != control.ProposalOpen {
+		return nil, control.NewError(control.CodeInvalid, fmt.Sprintf("the proposal is %s, not open", st))
+	}
+	if a.Fingerprint != rec.Fingerprint {
+		return nil, control.NewError(control.CodeProposalChanged, "the proposal is not the one that was shown")
+	}
+	rec.State, rec.Decided = control.ProposalApproving, p.now().UTC().Truncate(time.Second)
+	if err := p.save(rec); err != nil {
+		return nil, p.internal("store the proposal", err)
+	}
+	return p.info(rec), nil
+}
+
+// handleReject closes an open proposal as rejected with an optional reason the submitter can read.
+func (p *proposalService) handleReject(_ context.Context, raw json.RawMessage) (any, error) {
+	var a control.ProposalRejectArgs
+	if err := decodeArgs(raw, &a); err != nil {
+		return nil, err
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	rec, err := p.find(a.ID)
+	if err != nil {
+		return nil, err
+	}
+	if st := p.stateOf(rec); st != control.ProposalOpen {
+		return nil, control.NewError(control.CodeInvalid, fmt.Sprintf("the proposal is %s, not open", st))
+	}
+	rec.State, rec.Decided, rec.Message = control.ProposalRejected, p.now().UTC().Truncate(time.Second), printable(a.Reason)
+	if err := p.save(rec); err != nil {
+		return nil, p.internal("store the proposal", err)
+	}
+	return p.info(rec), nil
+}
+
+// handleResult records the outcome of an approved proposal. It also takes a result that arrives after the window
+// ran out, because the outcome that happened is the truth.
+func (p *proposalService) handleResult(_ context.Context, raw json.RawMessage) (any, error) {
+	var a control.ProposalResultArgs
+	if err := decodeArgs(raw, &a); err != nil {
+		return nil, err
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	rec, err := p.find(a.ID)
+	if err != nil {
+		return nil, err
+	}
+	if rec.State != control.ProposalApproving {
+		return nil, control.NewError(control.CodeInvalid, fmt.Sprintf("the proposal is %s, not being approved", rec.State))
+	}
+	if a.Fingerprint != rec.Fingerprint {
+		return nil, control.NewError(control.CodeProposalChanged, "the proposal is not the one that was approved")
+	}
+	if a.Applied {
+		rec.State, rec.Message = control.ProposalApplied, ""
+	} else if rec.State, rec.Message = control.ProposalFailed, printable(a.Message); rec.Message == "" {
+		rec.Message = "the change failed"
+	}
+	if err := p.save(rec); err != nil {
+		return nil, p.internal("store the proposal", err)
+	}
+	return p.info(rec), nil
 }
 
 func (p *proposalService) transition(rec proposalRecord, to string) error {
@@ -277,16 +473,23 @@ func (p *proposalService) transition(rec proposalRecord, to string) error {
 // stateOf is the state shown for a record: an open proposal past its lifetime is expired, whatever the clock
 // said when it was stored.
 func (p *proposalService) stateOf(r proposalRecord) string {
-	if r.State == control.ProposalOpen && !p.now().Before(r.Submitted.Add(control.ProposalLifetime)) {
+	switch {
+	case r.State == control.ProposalOpen && !p.now().Before(r.Submitted.Add(control.ProposalLifetime)):
 		return control.ProposalExpired
+	case r.State == control.ProposalApproving && !p.now().Before(r.Decided.Add(control.ProposalApprovalWindow)):
+		return control.ProposalFailed
 	}
 	return r.State
 }
 
 func (p *proposalService) info(r proposalRecord) control.ProposalInfo {
-	return control.ProposalInfo{ID: r.ID, Kind: r.Kind, State: p.stateOf(r), Fingerprint: r.Fingerprint,
+	st, msg := p.stateOf(r), printable(r.Message)
+	if st == control.ProposalFailed && r.State == control.ProposalApproving {
+		msg = "the approval did not finish"
+	}
+	return control.ProposalInfo{ID: r.ID, Kind: r.Kind, State: st, Fingerprint: r.Fingerprint,
 		SubmitterUID: r.SubmitterUID, SubmitterName: printable(r.SubmitterName), Submitted: r.Submitted,
-		Expires: r.Submitted.Add(control.ProposalLifetime)}
+		Expires: r.Submitted.Add(control.ProposalLifetime), Message: msg}
 }
 
 func (p *proposalService) internal(what string, err error) error {
@@ -321,7 +524,8 @@ func readProposal(path string) (proposalRecord, error) {
 		return proposalRecord{}, err
 	}
 	switch r.State {
-	case control.ProposalOpen, control.ProposalWithdrawn, control.ProposalRejected, control.ProposalApplied:
+	case control.ProposalOpen, control.ProposalWithdrawn, control.ProposalRejected, control.ProposalApproving,
+		control.ProposalApplied, control.ProposalFailed:
 		return r, nil
 	}
 	return proposalRecord{}, errors.New("unknown state")

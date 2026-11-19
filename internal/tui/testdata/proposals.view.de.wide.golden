@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container  [6 ◈ Vorschläge]                     
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Stack-Ordner                                                                                                    p-0005
+                                                                                                                        
+  von          ana (1001)                                                                                               
+  eingereicht  10-30 16:00                                                                                              
+  läuft ab     11-13 16:00                                                                                              
+  Zustand      offen                                                                                                    
+                                                                                                                        
+  Vorgeschlagen                                                                                                         
+    Pfad: /srv/files-example                                                                                            
+    Adresse: keine vorgeschlagen                                                                                        
+                                                                                                                        
+  Wirkung bei Anwendung jetzt                                                                                           
+                                                                                                                        
+    Ordner: /srv/files-example                                                                                          
+    Fall: files (Dateien ohne Repository; ein erster Commit nimmt die aufgeführten Dateien)                             
+    Eigentümer: root, Gruppe: root, Modus: 0755                                                                         
+    der Dienst kann ihn schreiben: nein                                                                                 
+    Rechte werden gesetzt: ja                                                                                           
+                                                                                                                        
+  Dateien des ersten Commits (2)                                                                                        
+    demo/.env                                                                                                           
+    demo/compose.yaml                                                                                                   
+                                                                                                                        
+  Ausgelassen (1), nur in .git/info/exclude vermerkt                                                                    
+    demo/data: bind-mount (Stack demo)                                                                                  
+                                                                                                                        
+  Stacks (1)                                                                                                            
+    demo (Ordner demo)                                                                                                  
+      funktioniert: deploy                                                                                              
+      funktioniert nicht: backup                                                                                        
+      warning secrets-env-not-ignored: secrets.env is not listed in .gitignore                                          
+      Konflikt: Der Container demo-app-1 des Projekts old-demo läuft im Ordner                                          
+                                                                                                                        
+  Änderungen nach Ja                                                                                                    
+    Ein Git-Repository wird mit Branch main und einem ersten Commit der aufgeführten Dateien als qhost angelegt; keine  
+    Datei im Ordner wird geschrieben. Es wird als lokaler Stack-Ordner übernommen.                                      
+esc Zurück  A freigeben  N ablehnen  r Neu laden  1-6 Bereich  q Beenden                             ↑/↓ Scrollen  36/38
