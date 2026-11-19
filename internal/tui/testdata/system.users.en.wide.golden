@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
+  [Users]  Groups                                                                                                       
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS                                                     
+  ▾ ■ Users (3)                                                                                                         
+>   ada          1000   yes                 yes     unknown                                                             
+    ben          1001   yes, without qhost  no      unknown                                                             
+    cleo         1002   no                  no      unknown  media                                                      
+  ▾ ■ System accounts (3)                                                                                               
+    root         0      no                  no      unknown                                                             
+    daemon       1      no                  no      unknown                                                             
+    nobody       65534  no                  no      unknown                                                             
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+╭─ ada ────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Home: /home/ada                                                                                                      │
+│ Primary group: ada                                                                                                   │
+│ Further groups: -                                                                                                    │
+│ Access: administrator with access to qhost                                                                           │
+│ Login: unknown                                                                                                       │
+│ Login state and SSH keys are shown to root only.                                                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+enter/e change  / search  a new user  x delete  r reload  1-7 area  q quit                               ↑/↓ choose  1/6

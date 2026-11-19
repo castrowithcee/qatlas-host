@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 5 6 [7 System]                                                        
+  [Benutzer]  Gruppen                                                           
+────────────────────────────────────────────────────────────────────────────────
+    NAME            UID    ADMIN           DOCKER  LOGIN      GRUPPEN           
+  ▾ ■ Benutzer (3)                                                              
+    ada             1000   ja              ja      unbekannt                    
+    ben ╔═ Host ═══════════════════════════════════════════════════════╗        
+>   cleo║ Erledigt: cleo sperren: Danach ist kein Login mehr möglich,  ║        
+  ▾ ■ Sy║ weder mit Passwort noch mit SSH-Schlüssel.                   ║        
+    root║                                                              ║        
+    daem║ Journaleintrag 20261102T090000-0001. sudo qhost host undo    ║        
+    nobo║ nimmt ihn zurück.                                            ║        
+        ║                                                              ║        
+        ║ Prüfung: bestanden.                                          ║        
+╭─ cleo ║                                                              ║───────╮
+│ Home: ║ > schließen <                                                ║       │
+│ Primär║ n/esc/enter schließen                                        ║       │
+│ Weiter╚══════════════════════════════════════════════════════════════╝       │
+│ Zugang: kein Administrator                                                   │
+│ Login: unbekannt                                                             │
+│ Login-Zustand und SSH-Schlüssel sieht nur root.                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                             3/6

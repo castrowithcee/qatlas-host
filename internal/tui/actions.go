@@ -122,7 +122,9 @@ type modal struct {
 	// yes, when set, replaces the plan of the stacks: it is what a confirmed change of the settings does.
 	yes func() tea.Cmd
 	// alt is what the answer actWithRemote does, for a question that offers it.
-	alt        func() tea.Cmd
+	alt func() tea.Cmd
+	// drop runs on every answer but yes, so a question that holds a secret overwrites it.
+	drop       func()
 	changelogs map[string]*changelogEntry
 	// summary
 	title    string
@@ -412,6 +414,9 @@ func (md *modal) wheel(steps int) {
 func (m *Model) answer(answer kittui.ActionID) tea.Cmd {
 	md := m.modal
 	m.modal = nil
+	if answer != actYes && md.drop != nil {
+		md.drop()
+	}
 	switch answer {
 	case actYes:
 		if md.yes != nil {

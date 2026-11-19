@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 5 6 [7 System]                                                        
+  [Benutzer]  Gruppen                                                           
+────────────────────────────────────────────────────────────────────────────────
+    NAME            UID    ADMIN           DOCKER  LOGIN      GRUPPEN           
+  ▾ ■ Be╔═ Host ändern ════════════════════════════════════════════════╗        
+>   ada ║ ⚠ Den Benutzer dora mit einem Startpasswort anlegen, das     ║        
+    ben ║   beim ersten Login zu ändern ist.                           ║        
+    cleo║                                                              ║        
+  ▾ ■ Sy║ Admin- und Docker-Rechte erlauben praktisch alles auf diesem ║        
+    root║ Host. Läuft mit sudo, steht im Journal und lässt sich        ║        
+    daem║ rückgängig machen.                                           ║        
+    nobo║ $ useradd -m -d /home/dora -U -s /bin/bash -G sudo,qhost     ║        
+        ║   dora                                                       ║        
+        ║ $ chpasswd < <password>                                      ║        
+╭─ ada ─║ $ chage -d 0 dora                                            ║───────╮
+│ Home: ║ $ [builtin] authorized-keys-add dora < <ssh key              ║       │
+│ Primär║   SHA256:z/fSv0Z0RZS+Lccbc6ZoOWwt/fbj1VFJGSBKQbo4icE>        ║       │
+│ Weiter║                                                              ║       │
+│ Zugang║ [ ja, mit sudo ]  > abbrechen <                              ║       │
+│ Login:║ y ja, mit sudo  n/esc/enter abbrechen                        ║       │
+│ Login-╚══════════════════════════════════════════════════════════════╝       │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                             1/6

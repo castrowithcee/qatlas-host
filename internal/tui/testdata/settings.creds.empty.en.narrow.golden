@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed  [esc] back  [?] help
-  1 2 3 [4 Settings] 5 6                                
+  1 2 3 [4 Settings] 5 6 7                              
   [Credentials]                                         
 ────────────────────────────────────────────────────────
   No credentials stored; qhost works anonymously. a adds
@@ -20,5 +20,5 @@
                                                         
                                                         
                                                         
-a add  x remove  esc back  r reload  1-6 area  q quit   
+a add  x remove  esc back  r reload  1-7 area  q quit   
                                               ↑/↓ choose

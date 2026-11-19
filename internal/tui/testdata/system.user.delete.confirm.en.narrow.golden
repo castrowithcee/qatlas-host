@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
+  [Users]  Groups                                                               
+────────────────────────────────────────────────────────────────────────────────
+    NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS             
+  ▾ ■ Users (3)                                                                 
+    ada          1000   yes                 yes     unknown                     
+    ben          1001   yes, without qhost  no      unknown                     
+>   cleo╔═ Change the host ════════════════════════════════════════════╗        
+  ▾ ■ Sy║ ⚠ Delete the user cleo together with the home and the mail   ║        
+    root║   spool.                                                     ║        
+    daem║                                                              ║        
+    nobo║ This cannot be undone: the home /home/cleo and the mail      ║        
+        ║ spool are deleted with all their files.                      ║        
+        ║ $ userdel -r cleo                                            ║        
+╭─ cleo ║                                                              ║───────╮
+│ Home: ║ [ yes, with sudo ]  > cancel <                               ║       │
+│ Primar║ y yes, with sudo  n/esc/enter cancel                         ║       │
+│ Furthe╚══════════════════════════════════════════════════════════════╝       │
+│ Access: no administrator                                                     │
+│ Login: unknown                                                               │
+│ Login state and SSH keys are shown to root only.                             │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                             3/6

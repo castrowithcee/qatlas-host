@@ -19,6 +19,8 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/datadir"
 	"github.com/castrowithcee/qatlas-host/internal/helptopics"
+	"github.com/castrowithcee/qatlas-host/internal/host/hostadmin"
+	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
 )
 
 // defaultEuid and defaultMakeDirs are what a new model uses; tests replace them for the models they cannot reach.
@@ -37,7 +39,8 @@ const (
 	areaSettings kittui.AreaID = "settings"
 	// areaContainers lists every container of the host; it is the last area so the keys of the others stay.
 	areaContainers kittui.AreaID = "containers"
-	// areaProposals is declared with its state in proposals.go; it follows Containers.
+	// areaProposals is declared with its state in proposals.go; it follows Containers. areaSystem is declared
+	// with its state in system.go; it follows Proposals.
 )
 
 func areas() []kittui.Area {
@@ -48,6 +51,7 @@ func areas() []kittui.Area {
 		{ID: areaSettings, Title: textAreaSettings, Tabs: settingsTabs()},
 		{ID: areaContainers, Title: textAreaContainers},
 		{ID: areaProposals, Title: textAreaProposals},
+		{ID: areaSystem, Title: textAreaSystem, Tabs: systemTabs()},
 	}
 }
 
@@ -81,6 +85,9 @@ type config struct {
 	// prefs are the whole preferences as loaded; savePrefs writes them, nil when they cannot be saved.
 	prefs     uiprefs.Prefs
 	savePrefs func(uiprefs.Prefs) error
+	// root runs commands as root for System; accounts are the account files it reads, nil for the real ones.
+	root     hostRoot
+	accounts *hostadmin.Host
 }
 
 // tickMsg starts a periodic refresh.
@@ -175,6 +182,13 @@ type Model struct {
 	// of the frame drawn last.
 	mouseOn  bool
 	mouseMap *kittui.MouseMap
+	// The System area: the users and groups read, and the way to run changes as root. hostReg describes the
+	// changes, human is the person behind the interface; tests replace both.
+	sys      *systemState
+	root     hostRoot
+	accounts *hostadmin.Host
+	hostReg  *hostchange.Registry
+	human    func() int
 	// parts are the widgets the last workspace drawing registered, in workspace cells; mouseParts are those of
 	// the frame on the screen, in screen cells.
 	parts, mouseParts []mousePart
@@ -200,7 +214,7 @@ func newModel(c config) (*Model, error) {
 		runTones: map[string]kittui.TextStyle{}, runByID: map[kittui.ItemID]runRow{}, after: tea.Tick,
 		ctTones: map[string]kittui.TextStyle{}, ctNames: map[kittui.ItemID]string{},
 		propTones: map[string]kittui.TextStyle{}, propByID: map[kittui.ItemID]control.ProposalInfo{},
-		euid: defaultEuid, makeDirs: defaultMakeDirs, mouseOn: c.mouse}
+		euid: defaultEuid, makeDirs: defaultMakeDirs, mouseOn: c.mouse, root: c.root, accounts: c.accounts}
 	if m.ctx == nil {
 		m.ctx = context.Background()
 	}
@@ -226,6 +240,9 @@ func newModel(c config) (*Model, error) {
 		return nil, err
 	}
 	if m.set, err = newSettings(keys, text); err != nil {
+		return nil, err
+	}
+	if m.sys, err = newSystem(keys, text); err != nil {
 		return nil, err
 	}
 	if m.area == areaSettings {
@@ -285,6 +302,9 @@ func (m *Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{m.reload(), m.tick()}
 	if m.area == areaContainers {
 		cmds = append(cmds, m.startContainers())
+	}
+	if m.area == areaSystem {
+		cmds = append(cmds, m.loadSystem(false))
 	}
 	if m.themes.AsksTerminalColors(m.theme, m.profile) {
 		cmds = append(cmds, tea.RequestForegroundColor, tea.RequestBackgroundColor)
@@ -348,6 +368,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applyKeyLoad(msg)
 	case settingMsg:
 		return m, m.applySetting(msg)
+	case systemMsg:
+		m.applySystem(msg)
+	case hostRanMsg:
+		m.sys.busy = false
+		return m, msg.after(msg.out, msg.err)
 	case tea.PasteMsg:
 		if m.modal == nil && m.set.form != nil {
 			if target := m.set.form.pasteTo(); target != nil {
@@ -485,6 +510,8 @@ func (m *Model) input() kittui.InputFocus {
 		}
 	case areaSettings:
 		return m.settingsInput()
+	case areaSystem:
+		return m.systemInput()
 	case areaStacks:
 		switch {
 		case m.set.form != nil:
@@ -525,6 +552,8 @@ func (m *Model) typed(msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool) {
 		return m.open(open), handled
 	case m.area == areaSettings:
 		return m.settingsTyped(msg)
+	case m.area == areaSystem:
+		return m.systemTyped(msg)
 	case m.area == areaContainers && !m.ctv.open:
 		open, handled := m.ctList.Update(msg)
 		return m.openContainer(open), handled
@@ -621,6 +650,10 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			}
 		case actFetch, actAdd, actRemove, actEdit, actTest, actEnter, actRestore, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actRemote, actApprove, actReject:
 			switch m.area {
+			case areaSystem:
+				if cmd, handled := m.systemAction(id); handled {
+					return cmd
+				}
 			case areaProposals:
 				if m.pv.open {
 					if cmd, handled := m.proposalAction(id); handled {
@@ -668,6 +701,9 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 						m.setZone(m.above())
 					}
 				}
+				return nil
+			case areaSystem:
+				m.systemBack(msg)
 				return nil
 			case areaStacks:
 				if m.set.keyOpen {
@@ -760,6 +796,10 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 		cmd, handled := m.settingsTyped(msg)
 		m.topEdge(handled, msg)
 		return cmd
+	case m.area == areaSystem && m.focus() != kittui.ZoneTabs && m.focus() != kittui.ZoneSubtabs:
+		cmd, handled := m.systemTyped(msg)
+		m.topEdge(handled, msg)
+		return cmd
 	case m.area == areaDetail && m.pick != nil:
 		open, _ := m.pick.list.Update(msg)
 		return m.picked(open)
@@ -769,7 +809,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 
 // above is the zone over the content: the sub-tab line where the area has one, else the tab line.
 func (m *Model) above() kittui.FocusZone {
-	if m.area == areaSettings {
+	if m.area == areaSettings || m.area == areaSystem {
 		return kittui.ZoneSubtabs
 	}
 	return kittui.ZoneTabs
@@ -806,6 +846,8 @@ func (m *Model) reloadAll() tea.Cmd {
 		cmds = append(cmds, m.loadKey())
 	case m.area == areaSettings:
 		cmds = append(cmds, m.loadPage(true))
+	case m.area == areaSystem:
+		cmds = append(cmds, m.loadSystem(true))
 	case m.area == areaRuns && m.log.open && !m.log.busy:
 		m.log.busy = true
 		cmds = append(cmds, m.readLog())
@@ -843,6 +885,8 @@ func (m *Model) enter(area kittui.AreaID) tea.Cmd {
 		return m.followLog()
 	case areaSettings:
 		return m.showPage(false)
+	case areaSystem:
+		return m.loadSystem(true)
 	}
 	return nil
 }
@@ -858,7 +902,7 @@ func (m *Model) zones() []kittui.FocusZone {
 	case m.clogShown():
 	case m.area == areaSettings && m.set.activeList() == nil:
 		return []kittui.FocusZone{kittui.ZoneTabs, kittui.ZoneSubtabs, kittui.ZoneDetail}
-	case m.area == areaSettings:
+	case m.area == areaSettings, m.area == areaSystem:
 		return []kittui.FocusZone{kittui.ZoneTabs, kittui.ZoneSubtabs, kittui.ZoneRows}
 	case m.area == areaDetail && m.pick == nil,
 		m.area == areaStacks && m.set.keyOpen,
@@ -884,6 +928,9 @@ func (m *Model) setZone(z kittui.FocusZone) {
 	lists := []*kittui.List{m.list, m.runsList, m.ctList, m.propList}
 	if m.set != nil {
 		lists = append(lists, m.set.credList, m.set.notifyList)
+	}
+	if m.sys != nil {
+		lists = append(lists, m.sys.userList, m.sys.groupList, m.sys.changes)
 	}
 	if m.pick != nil {
 		lists = append(lists, m.pick.list)
@@ -994,7 +1041,7 @@ func (m *Model) footer() []kittui.Hint {
 		return append(m.clog.view.Hints(), append([]kittui.Hint{saveLogHint()}, common...)...)
 	case m.area == areaSettings:
 		return m.settingsFooter(common, nav)
-	case (m.area == areaDetail || m.area == areaStacks || m.area == areaProposals) && m.set.form != nil:
+	case (m.area == areaDetail || m.area == areaStacks || m.area == areaProposals || m.area == areaSystem) && m.set.form != nil:
 		if e := m.set.form.editor; e != nil {
 			return m.editorHints(e)
 		}
@@ -1033,6 +1080,8 @@ func (m *Model) footer() []kittui.Hint {
 			[]kittui.Hint{m.stackOnlyHint(), {Action: actServiceLog, Label: textKeySvcLog, Priority: 2}}, common...), nav)
 	case m.area == areaStacks:
 		return m.stacksFooter(common, nav)
+	case m.area == areaSystem:
+		return m.systemFooter(common, nav)
 	}
 	return common
 }
@@ -1100,7 +1149,7 @@ func (m *Model) marks() []kittui.StatusMark {
 	if m.run != nil {
 		marks = append(marks, m.busyMark())
 	}
-	if m.set.busy {
+	if m.set.busy || m.sys.busy {
 		marks = append(marks, m.settingsMark())
 	}
 	if m.loading {
@@ -1143,13 +1192,16 @@ func (m *Model) frameSpec() kittui.FrameSpec {
 	spec := kittui.FrameSpec{
 		Width: m.width, Height: m.height, Product: productName, Icon: icons.logo, Status: m.marks(),
 		HeaderKeys: []kittui.Hint{{Action: actHelp, Label: kittui.TextKeyHelp}},
-		Areas:      areasWith(icons), ActiveArea: m.area, ActiveTab: kittui.TabID(m.set.page), Focus: m.focus(), Input: m.input(),
+		Areas:      areasWith(icons), ActiveArea: m.area, ActiveTab: m.activeTab(), Focus: m.focus(), Input: m.input(),
 		Message: m.message(), Footer: m.footer(),
 	}
 	switch {
 	case m.clogShown():
 		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
-	case (m.area == areaStacks || m.area == areaProposals) && m.set.form != nil, m.area == areaStacks && m.set.keyOpen:
+	case (m.area == areaStacks || m.area == areaProposals || m.area == areaSystem) && m.set.form != nil, m.area == areaStacks && m.set.keyOpen:
+		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
+	case m.area == areaSystem:
+		spec.Position = m.systemPosition()
 		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
 	case m.area == areaStacks:
 		spec.Position = m.list.Position()
@@ -1307,6 +1359,9 @@ func (m *Model) workspace(width, height int) string {
 	if m.formShown() && m.area != areaSettings {
 		return m.formView(width, height)
 	}
+	if m.area == areaSystem {
+		return m.systemView(width, height)
+	}
 	if m.setupShown() {
 		m.scrollNote = ""
 		return m.setupView(width, height)
@@ -1404,4 +1459,12 @@ func (m *Model) note(text string, width int) string {
 		lines[i] = "  " + m.styles.Render(kittui.StyleHint, l)
 	}
 	return strings.Join(lines, "\n")
+}
+
+// activeTab is the sub-tab of the area shown.
+func (m *Model) activeTab() kittui.TabID {
+	if m.area == areaSystem {
+		return kittui.TabID(m.sys.page)
+	}
+	return kittui.TabID(m.set.page)
 }

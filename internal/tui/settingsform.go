@@ -44,6 +44,8 @@ type settingsForm struct {
 	// eff and shown are the proposal a secret form belongs to: its content and the state it was shown in.
 	eff   *kindEffect
 	shown *proposalCtx
+	// user is what a form of System > Users is about.
+	user *userForm
 }
 
 // input is the input focus of the form, or of the editor that is open in it.
@@ -230,6 +232,18 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitKeyChoice(f, v)
 	case formKeyStore:
 		return m.submitKeyStore(f, v)
+	case formUserCreate:
+		return m.submitUserCreate(f, v)
+	case formUserGroups:
+		return m.submitUserGroups(f, v)
+	case formUserSecret:
+		return m.submitUserSecret(f, v)
+	case formUserKeyAdd:
+		return m.submitUserKeyAdd(f, v)
+	case formUserKeyRemove:
+		return m.submitUserKeyRemove(f, v)
+	case formUserDelete:
+		return m.submitUserDelete(f, v)
 	}
 	return nil
 }

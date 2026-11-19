@@ -147,13 +147,17 @@ func (m *Model) relocalize(lang i18n.Lang) tea.Cmd {
 	if err == nil {
 		proposals, err = m.newProposalList(text)
 	}
+	var sys *systemState
+	if err == nil {
+		sys, err = newSystem(m.keys, text)
+	}
 	if err != nil {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return nil
 	}
 	s := m.set
-	old := []**kittui.List{&m.list, &m.runsList, &m.ctList, &m.propList, &s.credList, &s.notifyList}
-	fresh := []*kittui.List{stacks, runs, containers, proposals, set.credList, set.notifyList}
+	old := []**kittui.List{&m.list, &m.runsList, &m.ctList, &m.propList, &s.credList, &s.notifyList, &m.sys.userList, &m.sys.groupList}
+	fresh := []*kittui.List{stacks, runs, containers, proposals, set.credList, set.notifyList, sys.userList, sys.groupList}
 	mem := make([]listMemory, len(old))
 	for i, l := range old {
 		mem[i] = remember(*l)
@@ -171,6 +175,11 @@ func (m *Model) relocalize(lang i18n.Lang) tea.Cmd {
 	}
 	m.setCredentials(s.credRead)
 	m.setChannels(s.notifyRead)
+	if m.sys.loaded {
+		m.fillSystem()
+	}
+	// The choice of a change holds its rows only inside its list; e opens it again.
+	m.sys.changes = nil
 	for i, l := range fresh {
 		mem[i].restore(l)
 	}

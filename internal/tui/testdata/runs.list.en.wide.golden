@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
-   1 ▤ Stacks   2 ▣ Stack detail  [3 ▶ Runs]  4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals                             
+   1 ▤ Stacks   2 ▣ Stack detail  [3 ▶ Runs]  4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   STACK        STARTED      RESULT           TRIGGER  DURATION  RUN                                                     
 > web-shop     10-30 15:00  running          manual   -         20261030T150000Z-0000000b                               
@@ -11,4 +11,4 @@
   wiki         10-27 03:10  succeeded        manual   12s       20261027T031000Z-0000000f                               
                                                                                                                         
                                                                                                                         
-enter log  / search  f this stack  v service log  r reload  1-6 area  q quit                             ↑/↓ choose  1/7
+enter log  / search  f this stack  v service log  r reload  1-7 area  q quit                             ↑/↓ choose  1/7

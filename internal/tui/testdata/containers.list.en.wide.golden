@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
-   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings  [5 ▦ Containers]  6 ◈ Proposals                             
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings  [5 ▦ Containers]  6 ◈ Proposals   7 ◎ System                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     NAME               STATE       IMAGE                      UPTIME  RESTARTS                                          
   ▾ ■ foreign project legacy-blog (2)                                                                                   
@@ -37,4 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-enter details  / search  o log  S start  X stop  Z restart  a adopt  r reload  1-6 area  q quit          ↑/↓ choose  1/6
+enter details  / search  o log  S start  X stop  Z restart  a adopt  r reload  1-7 area  q quit          ↑/↓ choose  1/6

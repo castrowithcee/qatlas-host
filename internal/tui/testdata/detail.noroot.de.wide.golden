@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
-   1 ▤ Stacks  [2 ▣ Stack-Details]  3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge                      
+   1 ▤ Stacks  [2 ▣ Stack-Details]  3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   demo-stack                                                                                                            
                                                                                                                         
@@ -44,4 +44,4 @@
 │ Rollback mit Daten  geht                                                                                             │
 │   a failed run goes back to the previous commit and restores the backup it made before the change                    │
 e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log  a Geheimnis setzen                   
-x Geheimnis löschen  R Backup einspielen  r Neu laden  1-6 Bereich  q Beenden                        ↑/↓ Scrollen  42/50
+x Geheimnis löschen  R Backup einspielen  r Neu laden  1-7 Bereich  q Beenden                        ↑/↓ Scrollen  42/50

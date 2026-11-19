@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed                                                                              [?] help
-  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals                             
+  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
         STACK                      CURRENT      AVAILABLE      MODE       STATE     FINDINGS                            
   ▾ [ ] ■ /srv/local-example (0)   local                                            poll failed: the working copy has u…
@@ -21,4 +21,4 @@
 │ address: ssh://git.example.test/ops/stacks.git                                                                       │
 │ last poll: Fri 2026-10-30 14:30                                                                                      │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-enter details  / search  F fetch now  e deploy key  x release  a add  r reload  1-6 area  q quit         ↑/↓ choose  1/6
+enter details  / search  F fetch now  e deploy key  x release  a add  r reload  1-7 area  q quit         ↑/↓ choose  1/6

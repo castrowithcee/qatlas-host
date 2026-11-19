@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
+  [Users]  Groups                                                               
+────────────────────────────────────────────────────────────────────────────────
+    NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS             
+  ▾ ■ Users (3)                                                                 
+    ada          1000   yes                 yes     unknown                     
+    ben ╔═ Host ═══════════════════════════════════════════════════════╗        
+>   cleo║ Done: Lock cleo: no login is possible any more, with a       ║        
+  ▾ ■ Sy║ password or an SSH key.                                      ║        
+    root║                                                              ║        
+    daem║ Journal entry 20261102T090000-0001. sudo qhost host undo     ║        
+    nobo║ takes it back.                                               ║        
+        ║                                                              ║        
+        ║ Check: passed.                                               ║        
+╭─ cleo ║                                                              ║───────╮
+│ Home: ║ > close <                                                    ║       │
+│ Primar║ n/esc/enter close                                            ║       │
+│ Furthe╚══════════════════════════════════════════════════════════════╝       │
+│ Access: no administrator                                                     │
+│ Login: unknown                                                               │
+│ Login state and SSH keys are shown to root only.                             │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                             3/6

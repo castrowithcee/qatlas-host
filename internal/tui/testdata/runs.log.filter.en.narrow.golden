@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed  [esc] back  [?] help
-  1 2 [3 Runs] 4 5 6                                    
+  1 2 [3 Runs] 4 5 6 7                                  
 ────────────────────────────────────────────────────────
   demo-stack        succeeded  20261030T140200Z-0000000c
   info middle line                                      
@@ -11,4 +11,4 @@
                                                         
 [ L on ]  [ / ]  [ T last 2 h ]           lines 1-2 of 2
 / search  L follow  T period  w wrap lines  t timestamps
-W save log  r reload  1-6 area  q quit        ↑/↓ scroll
+W save log  r reload  1-7 area  q quit        ↑/↓ scroll

@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
-   1 ▤ Stacks   2 ▣ Stack-Details  [3 ▶ Läufe]  4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge                      
+   1 ▤ Stacks   2 ▣ Stack-Details  [3 ▶ Läufe]  4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   STACK        START        ERGEBNIS                 AUSLÖSER  DAUER  LAUF                                              
 > web-shop     10-30 15:00  läuft                    manual    -      20261030T150000Z-0000000b                         
@@ -11,4 +11,4 @@
   wiki         10-27 03:10  erfolgreich              manual    12s    20261027T031000Z-0000000f                         
                                                                                                                         
                                                                                                                         
-enter Log  / Suchen  f dieser Stack  v Dienstlog  r Neu laden  1-6 Bereich  q Beenden                 ↑/↓ Auswählen  1/7
+enter Log  / Suchen  f dieser Stack  v Dienstlog  r Neu laden  1-7 Bereich  q Beenden                 ↑/↓ Auswählen  1/7

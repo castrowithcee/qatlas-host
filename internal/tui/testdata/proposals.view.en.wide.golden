@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
-   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers  [6 ◈ Proposals]                            
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers  [6 ◈ Proposals]  7 ◎ System                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   stack folder                                                                                                    p-0005
                                                                                                                         
@@ -37,4 +37,4 @@
   Changes after yes                                                                                                     
     A git repository is started with branch main and a first commit of the listed files as qhost; no file in the folder 
     is written. It is taken over as a local stack folder.                                                               
-esc back  A approve  N reject  r reload  1-6 area  q quit                                              ↑/↓ scroll  36/38
+esc back  A approve  N reject  r reload  1-7 area  q quit                                              ↑/↓ scroll  36/38

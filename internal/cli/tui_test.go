@@ -2,16 +2,21 @@ package cli
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/castrowithcee/qatlas-kit/uiprefs"
 
 	"github.com/castrowithcee/qatlas-host/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/tui"
 )
@@ -149,5 +154,105 @@ func TestInterfaceAsNonRootNamesSudo(t *testing.T) {
 	code, stderr := runOn(out, "tui")
 	if code != 1 || !strings.Contains(stderr, "sudo") || len(*started) != 0 {
 		t.Fatalf("code %d, stderr %q, started %d", code, stderr, len(*started))
+	}
+}
+
+// fakeSudo stands in for the programs hostRunner and regroup look up and for the user they run as.
+func fakeSudo(t *testing.T, euid int) {
+	t.Helper()
+	oldLook, oldExe, oldEuid := lookPath, thisProgram, tuiEuid
+	lookPath = func(string) (string, error) { return "/invented/bin/sudo", nil }
+	thisProgram = func() (string, error) { return "/invented/bin/qhost", nil }
+	tuiEuid = func() int { return euid }
+	t.Cleanup(func() { lookPath, thisProgram, tuiEuid = oldLook, oldExe, oldEuid })
+}
+
+// A secret goes to the child on standard input only, never into its arguments or its environment.
+func TestHostRunnerKeepsTheSecretOutOfTheCommandLine(t *testing.T) {
+	fakeSudo(t, 1000)
+	marker := "demo-initial-4711"
+	cmd, err := hostRunner(tui.HostRequest{Args: []string{"apply", "--confirm", "--", "user.create", "dora"}, Secret: []byte(marker)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"/invented/bin/sudo", "-n", "/invented/bin/qhost", "host", "apply", "--confirm", "--", "user.create", "dora"}
+	if !slices.Equal(cmd.Args, want) {
+		t.Fatalf("args %q, want %q", cmd.Args, want)
+	}
+	for _, part := range append(slices.Clone(cmd.Args), cmd.Env...) {
+		if strings.Contains(part, marker) {
+			t.Fatalf("the secret is in the command line or environment: %q", part)
+		}
+	}
+	if !slices.Contains(cmd.Env, "LC_ALL=C") {
+		t.Fatal("sudo -n does not run with the C locale")
+	}
+	if in, _ := io.ReadAll(cmd.Stdin); string(in) != marker {
+		t.Fatalf("standard input %q", in)
+	}
+	check, err := hostRunner(tui.HostRequest{Validate: true})
+	if err != nil || !slices.Equal(check.Args, []string{"/invented/bin/sudo", "-v"}) {
+		t.Fatalf("password check %v, %v", check, err)
+	}
+	plain, err := hostRunner(tui.HostRequest{Args: []string{"apply", "--", "user.lock", "cleo"}})
+	if err != nil || !slices.Equal(plain.Args, []string{"/invented/bin/sudo", "/invented/bin/qhost", "host", "apply", "--", "user.lock", "cleo"}) || plain.Stdin != nil {
+		t.Fatalf("plain %v, %v", plain, err)
+	}
+}
+
+func TestHostRunnerAsRootRunsWithoutSudo(t *testing.T) {
+	fakeSudo(t, 0)
+	if cmd, err := hostRunner(tui.HostRequest{Validate: true}); cmd != nil || err != nil {
+		t.Fatalf("as root the password check is %v, %v", cmd, err)
+	}
+	cmd, err := hostRunner(tui.HostRequest{Args: []string{"apply", "--", "user.set-password", "cleo"}, Secret: []byte("demo-initial-4711")})
+	if err != nil || !slices.Equal(cmd.Args, []string{"/invented/bin/qhost", "host", "apply", "--", "user.set-password", "cleo"}) {
+		t.Fatalf("as root %v, %v", cmd, err)
+	}
+	if in, _ := io.ReadAll(cmd.Stdin); string(in) != "demo-initial-4711" {
+		t.Fatalf("standard input %q", in)
+	}
+}
+
+func TestHostRunnerWithoutSudo(t *testing.T) {
+	fakeSudo(t, 1000)
+	lookPath = func(string) (string, error) { return "", exec.ErrNotFound }
+	if _, err := hostRunner(tui.HostRequest{Validate: true}); !errors.Is(err, tui.ErrNoSudo) {
+		t.Fatalf("err %v", err)
+	}
+}
+
+func TestTUICommandHandsTheHostRunnerToTheInterface(t *testing.T) {
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
+	out, started := fakeTerminal(t)
+	if code, stderr := runOn(out, "tui"); code != 0 || len(*started) != 1 || (*started)[0].HostRun == nil {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+}
+
+// A login session that predates the membership in qhost starts the interface again under sudo -g qhost.
+func TestRegroupStartsTheInterfaceAgainWithTheGroup(t *testing.T) {
+	fakeSudo(t, 1000)
+	oldLacks, oldExec, oldArgs := sessionLacksGroup, execv, regroupArgs
+	t.Cleanup(func() { sessionLacksGroup, execv, regroupArgs = oldLacks, oldExec, oldArgs })
+	var ran []string
+	execv = func(_ string, argv []string, _ []string) error { ran = argv; return nil }
+	regroupArgs = func() []string { return []string{"tui"} }
+	denied := fmt.Errorf("dial: %w", client.ErrNoAccess)
+
+	sessionLacksGroup = func() bool { return false }
+	if handled, _ := regroup(denied, io.Discard); handled || ran != nil {
+		t.Fatal("a session with the group started again")
+	}
+	sessionLacksGroup = func() bool { return true }
+	if handled, _ := regroup(errors.New("other"), io.Discard); handled || ran != nil {
+		t.Fatal("another failure started again")
+	}
+	var stderr bytes.Buffer
+	if handled, failed := regroup(denied, &stderr); !handled || failed != nil {
+		t.Fatalf("handled %v, failed %v", handled, failed)
+	}
+	if !slices.Equal(ran, []string{"sudo", "-g", "qhost", "/invented/bin/qhost", "tui"}) || !strings.Contains(stderr.String(), "sudo -g qhost") {
+		t.Fatalf("ran %q, stderr %q", ran, stderr.String())
 	}
 }

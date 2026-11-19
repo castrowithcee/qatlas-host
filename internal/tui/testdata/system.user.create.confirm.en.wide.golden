@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
+  [Users]  Groups                                                                                                       
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS                                                     
+  ▾ ■ Users (3)                                                                                                         
+>   ada          1000   yes                 yes     unknown                                                             
+    ben          1001   yes, without qhost  no      unknown                                                             
+    cleo         1002   no                  no      unknown  media                                                      
+  ▾ ■ System accounts (3)                                                                                               
+    root         0      no                  no      unknown                                                             
+    daemon       1      no                  no      unknown                                                             
+    nobody       65534  no                  no      unknown                                                             
+                            ╔═ Change the host ════════════════════════════════════════════╗                            
+                            ║ ⚠ Create the user dora with an initial password that must be ║                            
+                            ║   changed at the first login.                                ║                            
+                            ║                                                              ║                            
+                            ║ Admin and Docker rights allow practically everything on this ║                            
+                            ║ host. Runs with sudo, goes into the journal and can be       ║                            
+                            ║ undone.                                                      ║                            
+                            ║ $ useradd -m -d /home/dora -U -s /bin/bash -G sudo,qhost     ║                            
+                            ║   dora                                                       ║                            
+                            ║ $ chpasswd < <password>                                      ║                            
+                            ║ $ chage -d 0 dora                                            ║                            
+                            ║ $ [builtin] authorized-keys-add dora < <ssh key              ║                            
+                            ║   SHA256:z/fSv0Z0RZS+Lccbc6ZoOWwt/fbj1VFJGSBKQbo4icE>        ║                            
+                            ║                                                              ║                            
+                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ y yes, with sudo  n/esc/enter cancel                         ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+╭─ ada ────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Home: /home/ada                                                                                                      │
+│ Primary group: ada                                                                                                   │
+│ Further groups: -                                                                                                    │
+│ Access: administrator with access to qhost                                                                           │
+│ Login: unknown                                                                                                       │
+│ Login state and SSH keys are shown to root only.                                                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                     1/6

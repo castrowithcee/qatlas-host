@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
-  1 2 [3 Läufe] 4 5 6                                   
+  1 2 [3 Läufe] 4 5 6 7                                 
 ────────────────────────────────────────────────────────
   Nur Läufe von demo-stack. f zeigt alle Stacks.        
   STACK       START        ERGEBNIS        AUSLÖSER     
@@ -11,4 +11,4 @@
                                                         
                                                         
 enter Log  / Suchen  f alle Stacks  v Dienstlog         
-r Neu laden  1-6 Bereich  q Beenden   ↑/↓ Auswählen  1/2
+r Neu laden  1-7 Bereich  q Beenden   ↑/↓ Auswählen  1/2

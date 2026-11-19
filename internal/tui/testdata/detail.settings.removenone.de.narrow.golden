@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
-  1 Stacks [2 Stack-Details] 3 Läufe 4 Einstellungen 5 Container 6 Vorschläge   
+  1 [2 Stack-Details] 3 4 5 6 7                                                 
 ────────────────────────────────────────────────────────────────────────────────
   demo-stack                                                                    
                                                                                 
@@ -21,4 +21,4 @@
 Warnung: Der Stack demo-stack hat keine Einstellungen. Er ist schon nur Deploy; 
 es wurde nichts entfernt.                                                       
 e Update-Regeln  b Backup  C Compose  k Prüfung  o Log  a Geheimnis setzen      
-x Geheimnis löschen  R Backup einspielen  r Neu laden  1-6 Bereich  q Beenden   
+x Geheimnis löschen  R Backup einspielen  r Neu laden  1-7 Bereich  q Beenden   
