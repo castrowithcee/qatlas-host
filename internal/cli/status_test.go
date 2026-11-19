@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/changelog"
 	"github.com/castrowithcee/qatlas-host/internal/channeltest"
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/engine"
 	"github.com/castrowithcee/qatlas-host/internal/registry"
 	"github.com/castrowithcee/qatlas-host/internal/service"
@@ -44,6 +46,38 @@ func useEndpoint(t *testing.T, ep localipc.ServiceEndpoint) {
 	old := serviceEndpoint
 	serviceEndpoint = func() localipc.ServiceEndpoint { return ep }
 	t.Cleanup(func() { serviceEndpoint = old })
+	useDeploySetupDone(t)
+	missing := channeltest.Endpoint(t)
+	missing.Dir += "/missing"
+	useHostEndpoint(t, missing)
+}
+
+// useDeploySetupDone makes the host look as if the setup of the deploy service ran: its unit is installed.
+func useDeploySetupDone(t *testing.T) {
+	t.Helper()
+	root := t.TempDir()
+	unit := filepath.Join(root, filepath.FromSlash(deploysetup.UnitPath()))
+	if err := os.MkdirAll(filepath.Dir(unit), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(unit, []byte("[Service]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	useDeploySetupRoot(t, root)
+}
+
+func useDeploySetupRoot(t *testing.T, root string) {
+	t.Helper()
+	old := deploySetup
+	deploySetup.host = deploysetup.Host{Root: root}
+	t.Cleanup(func() { deploySetup = old })
+}
+
+func useHostEndpoint(t *testing.T, ep localipc.ServiceEndpoint) {
+	t.Helper()
+	old := hostEndpoint
+	hostEndpoint = func() localipc.ServiceEndpoint { return ep }
+	t.Cleanup(func() { hostEndpoint = old })
 }
 
 func useStateDir(t *testing.T) string {

@@ -1,0 +1,22 @@
+[Unit]
+Description=qhost stack deployment service
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/qhost deploy-service run
+User=qhost-deploy
+Group=qhost-deploy
+SupplementaryGroups=docker
+ReadWritePaths=/run/qhost-deploy
+StateDirectory=qhost-deploy
+StateDirectoryMode=0700
+ConfigurationDirectory=qhost-deploy
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

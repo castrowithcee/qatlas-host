@@ -74,6 +74,8 @@ const (
 	// actMoveUp and actMoveDown move an entry of an ordered list in its editor.
 	actMoveUp   kittui.ActionID = "moveup"
 	actMoveDown kittui.ActionID = "movedown"
+	// actSetupDeploy asks to set up the deploy service where it does not exist yet.
+	actSetupDeploy kittui.ActionID = "setupdeploy"
 )
 
 // areaKeys are the keys of actArea, one per area in the order of the tab line.
@@ -135,6 +137,7 @@ func keyTable() []kittui.Action {
 		act(actRemoveSettings, kittui.LevelLetter, textKeyRemoveSettings, "E"),
 		act(actMoveUp, kittui.LevelLetter, textKeyMoveUp, "K"),
 		act(actMoveDown, kittui.LevelLetter, textKeyMoveDown, "J"),
+		act(actSetupDeploy, kittui.LevelLetter, textKeySetupDeploy, "D"),
 		act(actYes, kittui.LevelConfirm, textAnswerYes, "y"),
 		act(actNo, kittui.LevelConfirm, textAnswerCancel, "n", "esc"),
 		act(actShowLog, kittui.LevelConfirm, textAnswerLog, "l"),

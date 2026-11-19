@@ -22,13 +22,25 @@ import (
 // Version is the protocol version every request and answer carries.
 const Version = 1
 
-// ServiceGroup is the group of the service user. The channel admits root and its members; of those, the service
-// serves root and the administrators among them, and runs a command that writes for root only.
+// ServiceGroup is the group whose members the channels admit besides root. The deploy service serves root and
+// the administrators among them and runs a command that writes for root only; the host service serves root only.
 const ServiceGroup = "qhost"
 
-// Endpoint returns the channel of the service. The service runs as the system user qhost, so the directory
-// belongs to that user and its group and is closed to others; the service manager creates it.
-func Endpoint() localipc.ServiceEndpoint {
+// DeployEndpoint returns the channel of the deploy service. It runs as the system user qhost-deploy, which is
+// not a member of the service group: the directory belongs to that user and carries the group through its
+// setgid bit, so the members of the group reach the socket without the deploy service reaching the host
+// service. The directory is closed to others and is created by the setup of the deploy service, not by the
+// service manager.
+func DeployEndpoint() localipc.ServiceEndpoint {
+	return localipc.ServiceEndpoint{
+		Dir: "/run/qhost-deploy", SocketBase: "control", ServiceUser: "qhost-deploy", Group: ServiceGroup,
+		ErrorName: "qhost-deploy service",
+	}
+}
+
+// HostEndpoint returns the channel of the host service. The service runs as the system user qhost, so the
+// directory belongs to that user and its group and is closed to others; the service manager creates it.
+func HostEndpoint() localipc.ServiceEndpoint {
 	return localipc.ServiceEndpoint{
 		Dir: "/run/qhost", SocketBase: "control", ServiceUser: "qhost", Group: ServiceGroup, ErrorName: "qhost service",
 	}

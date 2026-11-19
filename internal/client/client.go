@@ -19,8 +19,9 @@ import (
 // CallTimeout bounds one call that has no deadline of its own.
 const CallTimeout = 30 * time.Second
 
-// ErrNotRunning means nothing listens on the service channel.
-var ErrNotRunning = errors.New("the qhost service is not running")
+// ErrNotRunning means nothing listens on the service channel. Whether the service was ever set up is for the
+// caller to tell.
+var ErrNotRunning = errors.New("the service is not running")
 
 // ErrNoAccess means the operating system denies this user the service channel.
 var ErrNoAccess = errors.New("this user may not use the service channel")

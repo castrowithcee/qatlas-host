@@ -23,14 +23,14 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
-// DefaultStateDir is the state directory of the service under systemd's StateDirectory convention.
-const DefaultStateDir = "/var/lib/qhost"
+// DefaultStateDir is the state directory of the deploy service under systemd's StateDirectory convention.
+const DefaultStateDir = "/var/lib/qhost-deploy"
 
 // Config is what Run needs from its caller.
 type Config struct {
 	// Version is reported by the status command.
 	Version string
-	// Endpoint is the channel to listen on; control.Endpoint() in production.
+	// Endpoint is the channel to listen on; control.DeployEndpoint() in production.
 	Endpoint localipc.ServiceEndpoint
 	// StateDir holds the credential store; it is required. DefaultStateDir in production.
 	StateDir string

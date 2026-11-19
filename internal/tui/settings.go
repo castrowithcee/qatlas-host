@@ -119,6 +119,7 @@ const (
 	opStackSettingsCompose
 	opStackSettingsCheck
 	opStackSettingsRemove
+	opDeploySetup
 )
 
 // settingMsg carries the answer of a write. A write answers with the name it concerned, never with a value.
@@ -499,6 +500,10 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		cmds = append(cmds, m.reloadNow())
 	case dataDirsResult:
 		cmds = append(cmds, m.dataDirsDone(res, done))
+	case deploySetUp:
+		m.notSetUp = false
+		done(t.Lookup(textDoneSetup))
+		cmds = append(cmds, m.reloadNow())
 	case control.BackupRestoreResult:
 		done(t.Lookup(textDoneRestored, res.Backup.ID, res.Backup.Stack))
 		cmds = append(cmds, m.reloadNow(), m.readBackups())

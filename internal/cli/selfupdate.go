@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/selfupdate"
 	"github.com/castrowithcee/qatlas-kit/sysservice"
 
+	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/release"
 )
 
@@ -32,6 +34,9 @@ const (
 	manPath  = "/usr/local/share/man/man1/qhost.1"
 )
 
+// deployService is the unit and the system user of the deploy service, which exists only after the setup.
+const deployService = deploysetup.Service
+
 // selfUpdateHost is everything the self-update takes from the host. Production code never changes it;
 // tests replace it so that no real service manager, release server or installed file is involved.
 type selfUpdateHost struct {
@@ -39,9 +44,10 @@ type selfUpdateHost struct {
 	keys       func() []ssh.PublicKey
 	euid       func() int
 	executable func() (string, error)
-	companions []selfupdate.Companion
-	restart    func(ctx context.Context, result selfupdate.Result) error
-	shadowed   func() (bool, error)
+	// root is prepended to every host path of the units and the manpage; empty in production.
+	root string
+	// systemctl runs the service manager; nil runs the real one.
+	systemctl func(ctx context.Context, args ...string) error
 }
 
 var selfUpdate = selfUpdateHost{
@@ -49,14 +55,62 @@ var selfUpdate = selfUpdateHost{
 	keys:       release.TrustedKeys,
 	euid:       os.Geteuid,
 	executable: os.Executable,
-	companions: []selfupdate.Companion{
-		sysservice.Companion(programName),
-		{Entry: manEntry, Path: manPath},
-	},
-	restart: func(ctx context.Context, result selfupdate.Result) error {
-		return sysservice.Restart(ctx, programName, result)
-	},
-	shadowed: func() (bool, error) { return sysservice.Shadowed(programName) },
+}
+
+func (h selfUpdateHost) options() []sysservice.Option {
+	var opts []sysservice.Option
+	if h.root != "" {
+		opts = append(opts, sysservice.WithRoot(h.root))
+	}
+	if h.systemctl != nil {
+		opts = append(opts, sysservice.WithRunner(h.systemctl))
+	}
+	return opts
+}
+
+// deployInstalled reports whether the setup of the deploy service installed its unit. An update never installs
+// that unit by itself.
+func (h selfUpdateHost) deployInstalled() bool { return deploysetup.Installed(h.root) }
+
+func (h selfUpdateHost) companions() []selfupdate.Companion {
+	opts := h.options()
+	list := []selfupdate.Companion{sysservice.Companion(programName, opts...)}
+	if h.deployInstalled() {
+		list = append(list, sysservice.Companion(deployService, opts...))
+	}
+	man := manPath
+	if h.root != "" {
+		man = filepath.Join(h.root, filepath.FromSlash(manPath))
+	}
+	return append(list, selfupdate.Companion{Entry: manEntry, Path: man})
+}
+
+// services are the units the update restarts: the host service always, the deploy service when it is set up.
+func (h selfUpdateHost) services() []string {
+	if h.deployInstalled() {
+		return []string{programName, deployService}
+	}
+	return []string{programName}
+}
+
+func (h selfUpdateHost) restart(ctx context.Context, services []string, result selfupdate.Result) error {
+	for _, service := range services {
+		if err := sysservice.Restart(ctx, service, result, h.options()...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// shadowed returns the services whose unit an administrator's own unit in /etc/systemd/system overrides.
+func (h selfUpdateHost) shadowed(services []string) []string {
+	var out []string
+	for _, service := range services {
+		if ok, err := sysservice.Shadowed(service, h.options()...); err == nil && ok {
+			out = append(out, service)
+		}
+	}
+	return out
 }
 
 func (h selfUpdateHost) client() *selfupdate.Client {
@@ -75,7 +129,7 @@ func (h selfUpdateHost) client() *selfupdate.Client {
 		SignatureAsset: release.SignatureAsset,
 		TrustedKeys:    h.keys(),
 		ProgramName:    programName,
-		Companions:     h.companions,
+		Companions:     h.companions(),
 	}
 }
 
@@ -86,7 +140,7 @@ func newSelfUpdateCommand(program *cobracli.Program) *cobra.Command {
 		Use:   "update [version]",
 		Short: "Update qhost to the latest stable release or to a given newer one",
 		Long: "update replaces the installed program, its systemd unit and its main manpage with those of a signed\n" +
-			"release and restarts the service; drop-ins of the unit stay as they are. Without an argument it\n" +
+			"release, and the unit of the deploy service if it is set up, and restarts the services; drop-ins of the unit stay as they are. Without an argument it\n" +
 			"installs the newest stable release if that is newer than the running version; with a version such as\n" +
 			"v1.2.3 it installs exactly that release, which must be newer than the running one. Updating never\n" +
 			"installs an older release.\n" +
@@ -144,6 +198,8 @@ func runSelfUpdate(c *cobra.Command, program *cobracli.Program, gate *cobracli.G
 	if err != nil {
 		return selfUpdateFailure(fmt.Errorf("cannot find the running program: %w", err))
 	}
+	// The set of units is fixed before the archive is read, so what is replaced is what is restarted.
+	services := selfUpdate.services()
 	updater := selfUpdate.client()
 	updater.Executable = exe
 	if updater.ArchiveName("v0.0.0") == "" {
@@ -185,10 +241,10 @@ func runSelfUpdate(c *cobra.Command, program *cobracli.Program, gate *cobracli.G
 		if err != nil {
 			return selfUpdateFailure(err)
 		}
-		if shadowed, err := selfUpdate.shadowed(); err == nil && shadowed {
-			fmt.Fprintln(c.ErrOrStderr(), "warning: a unit in /etc/systemd/system overrides the installed unit of the service")
+		for _, service := range selfUpdate.shadowed(services) {
+			fmt.Fprintf(c.ErrOrStderr(), "warning: a unit in /etc/systemd/system overrides the installed unit of %s\n", service)
 		}
-		if err := selfUpdate.restart(ctx, result); err != nil {
+		if err := selfUpdate.restart(ctx, services, result); err != nil {
 			return selfUpdateFailure(err)
 		}
 		return emitSelfUpdate(c, program, result.Current, result.Latest, true, true)

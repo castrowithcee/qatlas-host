@@ -1,7 +1,7 @@
 #!/bin/sh
 # Acceptance scenario: a fresh qhost installation looks after n8n and BookStack, the way an administrator would
-# set it up. The service comes from the signed test release with the installer and backs up with its default helper
-# image (no --backup-image option). The first setup goes through the terminal interface only: deploy key, repository
+# set it up. The services come from the signed test release with the installer and the setup of the deploy service, which
+# backs up with its default helper image (no --backup-image option). The first setup goes through the terminal interface only: deploy key, repository
 # with a confirmed host key, maintenance window, a webhook channel and the stack secrets from secrets.example.env.
 # Both stacks are deployed and get test data. A real maintenance window then updates them with a version commit
 # each, after the changelog was shown; a later update to the test tags with a failing healthcheck ends with the
@@ -266,9 +266,9 @@ acc_first_setup() {
 	tui_wait "The stack folder $acc_stacks is bound" 120
 	tui_send Enter
 	docker exec "$host" test -f "$acc_stacks/n8n/compose.yaml" || fail "the clone is missing in $acc_stacks"
-	[ "$(docker exec "$host" stat -c %U:%G:%a "$acc_stacks")" = qhost:qhost:755 ] ||
-		fail "$acc_stacks is $(docker exec "$host" stat -c %U:%G:%a "$acc_stacks"), want qhost:qhost:755"
-	docker exec "$host" systemctl show -p ReadWritePaths qhost | grep -qF "$acc_stacks" || fail "the service has no write access to $acc_stacks"
+	[ "$(docker exec "$host" stat -c %U:%G:%a "$acc_stacks")" = qhost-deploy:qhost-deploy:755 ] ||
+		fail "$acc_stacks is $(docker exec "$host" stat -c %U:%G:%a "$acc_stacks"), want qhost-deploy:qhost-deploy:755"
+	docker exec "$host" systemctl show -p ReadWritePaths qhost-deploy | grep -qF "$acc_stacks" || fail "the deploy service has no write access to $acc_stacks"
 	acc "repository bound through the interface, host key $expected confirmed"
 
 	step 'the Stacks area lists n8n and bookstack; their first runs end without secrets'
@@ -316,7 +316,7 @@ VALUES_END
 		stack_secrets=$(printf '%s\n' "$values" | grep -v '^#' | grep -v '^$' | sed "s/^\\([^=]*\\)=\\(.*\\)\$/\\1='\\2'/")
 		[ "$(docker exec "$host" cat "$acc_stacks/$stack/secrets.env")" = "$stack_secrets" ] ||
 			fail "secrets.env of $stack does not hold the example secrets"
-		[ "$(docker exec "$host" stat -c %U:%a "$acc_stacks/$stack/secrets.env")" = qhost:600 ] ||
+		[ "$(docker exec "$host" stat -c %U:%a "$acc_stacks/$stack/secrets.env")" = qhost-deploy:600 ] ||
 			fail "secrets.env of $stack has the wrong owner or mode"
 	done
 	acc 'secrets of n8n and bookstack set through the interface (mode 600, owner qhost)'
@@ -571,12 +571,13 @@ run_acceptance() {
 	[ "$(as_admin "ls ~/stacks/.qatlas/qhost | tr '\n' ' '")" = 'bookstack.yaml n8n.yaml ' ] || fail 'the stacks repository does not hold only the settings of n8n and bookstack'
 
 	setup_service default-backup-image
-	if docker exec "$host" test -e /etc/systemd/system/qhost.service.d; then fail 'the unit has a drop-in'; fi
-	exec_start=$(docker exec "$host" systemctl show -p ExecStart --value qhost)
-	case $exec_start in *backup-image*) fail "the unit passes a backup image: $exec_start" ;; esac
+	if docker exec "$host" test -e /etc/systemd/system/qhost-deploy.service.d; then fail 'the unit of the deploy service has a drop-in'; fi
+	exec_start=$(docker exec "$host" systemctl show -p ExecStart --value qhost-deploy)
+	case $exec_start in *backup-image*) fail "the deploy unit passes a backup image: $exec_start" ;; esac
 	if docker exec "$host" test -e "$acc_stacks"; then fail "the installation created the stack folder $acc_stacks"; fi
-	[ "$(docker exec "$host" systemctl is-active qhost)" = active ] || fail 'the service does not run after the installation'
-	acc 'installed from the test release with the installer; the service runs without --backup-image and without a stack folder'
+	[ "$(docker exec "$host" systemctl is-active qhost)" = active ] || fail 'the host service does not run after the installation'
+	[ "$(docker exec "$host" systemctl is-active qhost-deploy)" = active ] || fail 'the deploy service does not run after its setup'
+	acc 'installed from the test release with the installer and the deploy service set up; it runs without --backup-image and without a stack folder'
 
 	acc_first_setup
 
@@ -611,18 +612,19 @@ run_acceptance() {
 	step 'backups ran with the default helper image, and the database dump of bookstack made by the service user holds the data'
 	docker exec "$host" docker image ls --digests --format '{{.Repository}}@{{.Digest}}' | grep -qx "$(backup_helper_ref)" ||
 		fail "the host does not hold the default helper image $(backup_helper_ref)"
-	dump=$(docker exec "$host" sh -c 'ls -d /var/lib/qhost/backups/bookstack/*/command.out | tail -n 1')
-	[ "$(docker exec "$host" stat -c %U "$dump")" = qhost ] || fail "the dump $dump does not belong to the service user"
+	dump=$(docker exec "$host" sh -c 'ls -d /var/lib/qhost-deploy/backups/bookstack/*/command.out | tail -n 1')
+	[ "$(docker exec "$host" stat -c %U "$dump")" = qhost-deploy ] || fail "the dump $dump does not belong to the service user"
 	docker exec "$host" grep -q "$acc_alpha" "$dump" && docker exec "$host" grep -q 'CREATE TABLE' "$dump" ||
 		fail "the database dump $dump does not hold the test data"
-	acc "default helper image $(backup_helper_ref) in use; database dump of bookstack made by qhost: $(docker exec "$host" stat -c %s "$dump") bytes with the test data"
+	acc "default helper image $(backup_helper_ref) in use; database dump of bookstack made by qhost-deploy: $(docker exec "$host" stat -c %s "$dump") bytes with the test data"
 
 	acc_lock_wait
 
-	step 'the service is stopped'
-	docker exec "$host" systemctl stop qhost || fail 'cannot stop the qhost service'
-	[ "$(docker exec "$host" systemctl is-active qhost || true)" = inactive ] || fail 'the qhost service is still active'
+	step 'the services are stopped'
+	docker exec "$host" systemctl stop qhost-deploy qhost || fail 'cannot stop the services'
+	[ "$(docker exec "$host" systemctl is-active qhost-deploy || true)" = inactive ] || fail 'the deploy service is still active'
+	[ "$(docker exec "$host" systemctl is-active qhost || true)" = inactive ] || fail 'the host service is still active'
 	docker exec "$host" rm -f "$acc_jar"
-	acc 'service stopped'
+	acc 'services stopped'
 	log 'acceptance: passed'
 }

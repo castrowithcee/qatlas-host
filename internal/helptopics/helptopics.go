@@ -9,6 +9,7 @@ import "github.com/castrowithcee/qatlas-kit/helptopics"
 func All() []helptopics.Topic {
 	return []helptopics.Topic{
 		{Name: "qhost", Short: "What qhost is and what it is for", Text: overview},
+		{Name: "deploy-setup", Short: "The deploy service as its own service: what the setup creates and why", Text: deployServiceTopic},
 		{Name: "credentials", Short: "The deploy keys and stored credentials", Text: credentialsTopic},
 		{Name: "repository", Short: "Binding the stacks repository and trusting its host key", Text: repositoryTopic},
 		{Name: "sources", Short: "Several stack folders on one host: taking over a folder, ids, deploy keys and unique stack names", Text: sourcesTopic},
@@ -25,9 +26,10 @@ func All() []helptopics.Topic {
 const overview = `qhost runs as a service on a Linux host and keeps the Docker stacks of that host rolled out and up to date from its stacks repository.
 
 Commands:
-- qhost run: run the service in the foreground until it receives SIGTERM or SIGINT
-- qhost tui, or qhost without a command at a terminal: open the terminal interface with the areas Stacks, Stack detail, Runs, Settings and Containers; it shows each stack's versions, state, last run and findings, follows the log of a running run, v in Runs opens the log of the service (V chooses its minimum level), and offers update, deploy, pause, pin, resume, start, stop and restart (a stopped stack shows as stopped) and the registry query on the cursor stack or on stacks ticked with space; the stack detail sets and deletes the stack's secrets (value hidden) and restores an older backup; Stacks groups the stacks under a row for each stack folder, and a adds a folder, F fetches the folder on the cursor, x releases it and e generates, stores and shows its deploy key; Settings shows what applies to the whole host or device on four sub-tabs under the tab line (arrow down leads to them, left and right choose one): General sets the preferences of this device, Credentials sets credentials, Maintenance window changes the maintenance window and Notifications adds, tests and removes notification channels; Containers lists every container of the host by own stack, foreign project and single container with state and a detail, and reads again every 5 seconds while it is shown, and S, X and Z there start, stop and restart the container on the cursor or in the detail after a question, also a foreign or single one, and a on a foreign project takes it over as a stack folder (see qhost help sources); the stack detail lists the containers of its stack; o opens the output of the container on the cursor, or in the stack detail of all containers of the stack, which follows once a second and takes a period with T and a search with /; every change comes after a confirmation and needs sudo qhost; without sudo the interface only reads
-- qhost status: show whether the service is running, its version and start time, the last poll and the state of each stack (runs without sudo for an administrator in the group qhost)
+- qhost run: run the host service in the foreground until it receives SIGTERM or SIGINT; the deploy service is started by its own unit with qhost deploy-service run
+- qhost deploy-service setup [--confirm] [--yes]: set up the deploy service as its own system user qhost-deploy with the group docker, after showing what it does and the exact commands and asking; only the steps still needed run (needs sudo; see qhost help deploy-setup)
+- qhost tui, or qhost without a command at a terminal: open the terminal interface with the areas Stacks, Stack detail, Runs, Settings and Containers; it shows each stack's versions, state, last run and findings, follows the log of a running run, v in Runs opens the log of the service (V chooses its minimum level), and offers update, deploy, pause, pin, resume, start, stop and restart (a stopped stack shows as stopped) and the registry query on the cursor stack or on stacks ticked with space; the stack detail sets and deletes the stack's secrets (value hidden) and restores an older backup; Stacks groups the stacks under a row for each stack folder, and a adds a folder, F fetches the folder on the cursor, x releases it and e generates, stores and shows its deploy key; Settings shows what applies to the whole host or device on four sub-tabs under the tab line (arrow down leads to them, left and right choose one): General sets the preferences of this device, Credentials sets credentials, Maintenance window changes the maintenance window and Notifications adds, tests and removes notification channels; Containers lists every container of the host by own stack, foreign project and single container with state and a detail, and reads again every 5 seconds while it is shown, and S, X and Z there start, stop and restart the container on the cursor or in the detail after a question, also a foreign or single one, and a on a foreign project takes it over as a stack folder (see qhost help sources); the stack detail lists the containers of its stack; o opens the output of the container on the cursor, or in the stack detail of all containers of the stack, which follows once a second and takes a period with T and a search with /; every change comes after a confirmation and needs sudo qhost; without sudo the interface only reads; where the deploy service is not set up the areas around Docker say so and D sets it up after a question (needs sudo qhost)
+- qhost status: show the host service and the deploy service, which is shown as not set up until its setup; for the deploy service its version, start time, last poll and the state of each stack (runs without sudo for an administrator in the group qhost, who sees the host service as running with details for root only)
 - qhost key generate|set|show [--dir <path>]: create or store the SSH deploy key of a stack folder and show its public part (show runs without sudo for an administrator in the group qhost; generate and set need sudo)
 - qhost repo set <ssh-url> [--dir <path>]: bind a stacks repository to a stack folder, confirm its host key and clone it; a further folder becomes a further source (run with sudo; see qhost help sources)
 - qhost repo fetch: fetch new commits of every stack folder without touching the working copies (run with sudo)
@@ -62,6 +64,16 @@ Commands:
 - qhost container start|stop|restart <name> [--yes]: start, stop or restart one container of the host after a question (run with sudo; see qhost help containers)
 - qhost version: print the version
 - qhost help <topic>: show a help topic`
+
+const deployServiceTopic = `qhost runs as two services. The host service runs as the system user qhost without access to the container engine. The deploy service rolls out the stacks and runs as the system user qhost-deploy in the group docker, which is practically root, with its own channel in /run/qhost-deploy and its own state in /var/lib/qhost-deploy. The deploy service cannot read the state of the host service or reach its channel.
+
+The installer sets up the host service only. The deploy service exists after a person sets it up:
+- qhost deploy-service setup [--confirm] [--yes]: run as root, it shows what it does and the exact commands, asks, and then creates the system group and user qhost-deploy without login, adds the user to docker, writes /etc/tmpfiles.d/qhost-deploy.conf for the channel directory and the unit qhost-deploy.service, and enables and starts it. The user never joins the group qhost. A repeated setup changes nothing, and one that stopped at a step continues from there. --confirm and the question (--yes) are needed as for qhost update.
+- The terminal interface offers the same with D, after a question, when it runs as root; without sudo it says that it needs sudo qhost.
+- Until then the commands that need the deploy service end with exit code 3 and the message that it is not set up, and qhost status shows it as not set up.
+- qhost update replaces the unit of the deploy service and restarts it only where it is set up.
+
+The setup needs the groups docker and qhost: install the container engine and qhost with its installer first.`
 
 const credentialsTopic = `The service keeps its own secrets in a private store that only the service user can read. Listing the credentials runs without sudo for an administrator in the group qhost; setting and deleting need sudo, because they change the service.
 
@@ -144,7 +156,7 @@ Binding:
 - Compare the fingerprint with the one the git platform publishes before you confirm it.
 - The stack folder is any absolute path, for example on another disk; each host chooses its own. It must be empty or already a clone of the same URL. Another folder becomes a further stack folder next to the earlier ones, with its own deploy key from qhost key generate --dir <path> or qhost key set --dir <path>; a bound folder is never rebound to another URL.
 - A folder that does not exist is created only after you confirmed its exact path: answer the question at a terminal, or pass --create without one. It gets the owner qhost:qhost and mode 0755. Neither the installer, the service nor an update creates a stack folder.
-- The service runs sandboxed and may write only where the systemd drop-in /etc/systemd/system/qhost.service.d/10-stack-folders.conf allows it. repo set adds the folder there as ReadWritePaths=-<path> (entries are only ever added), reloads systemd and restarts the service once. A bound folder without that entry, as after an update from an older release, is added when you next run qhost as root.
+- The service runs sandboxed and may write only where the systemd drop-in /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf allows it. repo set adds the folder there as ReadWritePaths=-<path> (entries are only ever added), reloads systemd and restarts the service once. A bound folder without that entry, as after an update from an older release, is added when you next run qhost as root.
 - The same steps are offered by sudo qhost in the Settings area.
 - qhost repo set is the short form of qhost source add for cloning into an empty or missing folder and for taking over an existing clone; source add also binds a repository without a remote (see qhost help sources).
 
@@ -200,7 +212,7 @@ Commands (list runs without sudo for an administrator in the group qhost, the re
 - qhost stack backup restore <stack> <backup> [--yes]: replace the data with the content of one backup; the stack is stopped and started again if it ran
 
 How it works:
-- A data directory or volume is packed into a tar archive with owners and permissions by a short-lived helper container without network. The helper image is set with qhost run --backup-image; it needs sh, find, rm and a tar that knows --numeric-owner.
+- A data directory or volume is packed into a tar archive with owners and permissions by a short-lived helper container without network. The helper image is set with qhost deploy-service run --backup-image; it needs sh, find, rm and a tar that knows --numeric-owner.
 - backup.command runs on the host, not in a container, as a program in the search path or an absolute path, in the stack folder and without a shell; its standard output is saved as command.out in the backup. A relative path such as ./dump.sh is refused.
 - The backup records the stack, the time, the commit deployed at that time and the image versions.
 - A failed backup is removed and a stack that ran is started again.
@@ -318,7 +330,7 @@ Stacks: qhost stack start|stop|restart <stack> [--yes] act on all containers of 
 
 Metrics: --metrics adds CPU (100 per fully used CPU) and memory of the running containers. Reading them takes about two seconds per running container, in parallel and within a time limit, so the command may wait up to two minutes. If a reading fails or the time runs out, the list says that the metrics are incomplete and the container shows none.
 
-Container engine: the service reads the engine's socket, by default /var/run/docker.sock; qhost run --docker-socket <path> names another one. If the engine cannot be reached, the service user may not use it, or it does not answer in time, the command says so and shows nothing.
+Container engine: the service reads the engine's socket, by default /var/run/docker.sock; qhost deploy-service run --docker-socket <path> names another one. If the engine cannot be reached, the service user may not use it, or it does not answer in time, the command says so and shows nothing.
 
 Failure monitor: every 30 seconds the service checks the containers of own stacks and reports a failure once, as the finding container-failed in qhost status and as the notification event container-failed; when the failure ends it sends recovered. The kinds:
 - exited: a container exited with a non-zero code or is dead (an exit with code 0, such as an init job, is fine)

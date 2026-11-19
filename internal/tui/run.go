@@ -17,6 +17,8 @@ type Options struct {
 	Backend Backend
 	// Folders prepares a stack folder on the host before the service clones into it; nil skips the step.
 	Folders Folders
+	// Deploy sets up the deploy service on the host; nil means the interface cannot offer it.
+	Deploy  DeploySetup
 	In, Out *os.File
 	// Prefs are the device-local preferences; PrefsWarnings the problems found while loading them, of which the
 	// first is shown at start.
@@ -45,7 +47,7 @@ func Run(opts Options) error {
 	defer cancel()
 	env := os.Environ()
 	profile := kittui.DetectColorProfile(opts.Out, env)
-	m, err := newModel(config{ctx: ctx, backend: opts.Backend, folders: opts.Folders, lang: uiprefs.Language(opts.Prefs.Language),
+	m, err := newModel(config{ctx: ctx, backend: opts.Backend, folders: opts.Folders, deploy: opts.Deploy, lang: uiprefs.Language(opts.Prefs.Language),
 		theme: opts.Prefs.Theme, profile: profile, charset: kittui.DetectCharsetMode(env),
 		start: kittui.AreaID(opts.Prefs.Start), loc: time.Local, warnings: opts.PrefsWarnings, mouse: opts.Prefs.MouseEnabled,
 		prefs: opts.Prefs, savePrefs: opts.SavePrefs})

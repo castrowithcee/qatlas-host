@@ -16,6 +16,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/hostservice"
 )
 
 // ExitServiceNotRunning is the exit code of a command that found no running service. The kit's exit contract
@@ -23,7 +24,7 @@ import (
 const ExitServiceNotRunning = 3
 
 // serviceEndpoint names the channel the commands talk to; tests replace it.
-var serviceEndpoint = control.Endpoint
+var serviceEndpoint = control.DeployEndpoint
 
 // notRunning records that the command failed because no service listens.
 type notRunning struct{ seen bool }
@@ -31,14 +32,21 @@ type notRunning struct{ seen bool }
 func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
-		Short: "Show whether the qhost service is running",
-		Long: "status asks the running service for its version and start time, the state of the last poll of each stack folder\n" +
+		Short: "Show whether the qhost services are running",
+		Long: "status shows the host service and the deploy service. For the host service it shows whether it runs and, for root, its version\n" +
+			"and start time; for an administrator without root it shows that it runs and that the details need root. The deploy\n" +
+			"service is shown as not set up until 'sudo qhost deploy-service setup'; then status asks it for its version and start time, the state of the last poll of each stack folder\n" +
 			"and, per stack, what is deployed, pending or running, the last run result, a pause after a failed rollback, the operator's pause and pin, the observation time after an update, and the findings,\n" +
 			"and whether the maintenance window is open and when it opens next (see 'qhost window'). A stack is listed as\n" +
 			"stack.<name>; when another stack folder holds its name, as source.<id>.stack.<name> (see 'qhost help sources').\n" +
-			"Root and administrators in the group qhost may read; run it without sudo. Without a running service it ends with exit code 3.",
+			"Root and administrators in the group qhost may read; run it without sudo. A set up deploy service that is not running ends with exit code 3.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
+			host := hostFields(c.Context())
+			if !deployInstalled() {
+				fields := append([]output.Field{{Name: "running", Value: false}, {Name: "deploy_service", Value: "not set up"}}, host...)
+				return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: fields})
+			}
 			var st control.StatusResult
 			if err := call(c.Context(), serviceEndpoint(), control.StatusCommand, nil, &st); err != nil {
 				if errors.Is(err, client.ErrNotRunning) {
@@ -56,9 +64,30 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 				fields = append(fields, output.Field{Name: "window_open", Value: w.Open},
 					output.Field{Name: "window_next_opening", Value: w.NextOpening.Format(time.RFC3339)})
 			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: fields})
+			fields = append(fields, output.Field{Name: "deploy_service", Value: "running"})
+			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: append(fields, host...)})
 		},
 	}
+}
+
+// hostFields describes the host service. A failed reading is a state of the host service, never a failure of
+// the command: a user who is not root gets "running", because the service answers only root with details.
+func hostFields(ctx context.Context) []output.Field {
+	var st hostservice.StatusResult
+	err := call(ctx, hostEndpoint(), control.StatusCommand, nil, &st)
+	var remote *control.Error
+	switch {
+	case err == nil:
+		return []output.Field{{Name: "host_service", Value: "running"}, {Name: "host_version", Value: st.Version},
+			{Name: "host_started_at", Value: st.StartedAt.UTC().Format(time.RFC3339)}}
+	case errors.Is(err, client.ErrNotRunning):
+		return []output.Field{{Name: "host_service", Value: "not running"}}
+	case errors.As(err, &remote) && remote.Code == control.CodeNotRoot:
+		return []output.Field{{Name: "host_service", Value: "running (details need root)"}}
+	case errors.Is(err, client.ErrNoAccess):
+		return []output.Field{{Name: "host_service", Value: "unknown (no access to its channel)"}}
+	}
+	return []output.Field{{Name: "host_service", Value: "unreachable"}}
 }
 
 // engineFields flattens the engine part into scalar fields, which every output format can carry.
@@ -161,8 +190,11 @@ func failureOf(err error) error {
 	var remote *control.Error
 	switch {
 	case errors.Is(err, client.ErrNotRunning):
-		return &cli.Failure{Code: output.CodeUnreachable, Message: "the qhost service is not running",
-			NextStep: "Start the service, then run the command again.", Cause: err}
+		if !deployInstalled() {
+			return notSetUp(err)
+		}
+		return &cli.Failure{Code: output.CodeUnreachable, Message: "the deploy service is not running",
+			NextStep: "Start it with 'sudo systemctl start qhost-deploy', then run the command again.", Cause: err}
 	case errors.As(err, &remote) && remote.Code == control.CodeNotRoot:
 		return &cli.Failure{Code: output.CodePermission, Message: "only root may use the service; run the command with sudo",
 			NextStep: "Run the same command with sudo.", Cause: err}

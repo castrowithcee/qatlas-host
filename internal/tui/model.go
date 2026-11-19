@@ -66,6 +66,7 @@ type config struct {
 	ctx      context.Context
 	backend  Backend
 	folders  Folders
+	deploy   DeploySetup
 	lang     i18n.Lang
 	theme    string
 	profile  kittui.ColorProfile
@@ -89,10 +90,13 @@ type Model struct {
 	ctx     context.Context
 	backend Backend
 	folders Folders
-	keys    *kittui.Keymap
-	text    kittui.Translator
-	lang    i18n.Lang
-	frame   *kittui.Frame
+	deploy  DeploySetup
+	// notSetUp is set while the deploy service does not exist; the areas that need it show how to set it up.
+	notSetUp bool
+	keys     *kittui.Keymap
+	text     kittui.Translator
+	lang     i18n.Lang
+	frame    *kittui.Frame
 	// prefs are the preferences as saved last; a save changes the chosen values and keeps the rest.
 	prefs     uiprefs.Prefs
 	savePrefs func(uiprefs.Prefs) error
@@ -177,7 +181,7 @@ func newModel(c config) (*Model, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := &Model{ctx: c.ctx, backend: c.backend, folders: c.folders, keys: keys, text: text, lang: c.lang, frame: kittui.NewFrame(keys, text),
+	m := &Model{ctx: c.ctx, backend: c.backend, folders: c.folders, deploy: c.deploy, keys: keys, text: text, lang: c.lang, frame: kittui.NewFrame(keys, text),
 		prefs: c.prefs, savePrefs: c.savePrefs,
 		loc: c.loc, themes: themes, theme: c.theme, profile: c.profile, charset: c.charset, area: areaStacks,
 		tones: map[string]kittui.TextStyle{}, rows: map[kittui.ItemID]stackRow{},
@@ -363,9 +367,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) apply(msg refreshMsg) {
 	m.loading = false
 	if msg.err != nil {
+		if m.markNotSetUp(msg.err) {
+			m.failure, m.loaded = "", true
+			return
+		}
 		m.failure = m.errorText(msg.err)
 		return
 	}
+	m.notSetUp = false
 	m.snap, m.loaded, m.failure = msg.snap, true, ""
 	if msg.problem != nil {
 		m.failure = m.errorText(msg.problem)
@@ -416,6 +425,8 @@ func (m *Model) serviceText(err error) string {
 	var remote *control.Error
 	var text string
 	switch {
+	case errors.Is(err, client.ErrNotRunning) && m.notSetUp:
+		text = t.Lookup(textErrNotSetUp)
 	case errors.Is(err, client.ErrNotRunning):
 		text = t.Lookup(textErrNotRunning)
 	case errors.As(err, &remote) && remote.Code == control.CodeNotRoot:
@@ -552,6 +563,10 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			return nil
 		case actReload:
 			return m.reloadAll()
+		case actSetupDeploy:
+			if m.setupShown() {
+				return m.beginSetup()
+			}
 		case actStackOnly:
 			if m.area == areaRuns && !m.log.open {
 				m.toggleStackOnly()
@@ -903,6 +918,8 @@ func (m *Model) footer() []kittui.Hint {
 			{Action: actNext, Label: textKeyZone, Priority: 3}}, common...)
 	}
 	switch {
+	case m.setupShown() && !m.clogShown():
+		return append([]kittui.Hint{{Action: actSetupDeploy, Label: textKeySetupDeploy, Priority: 3}}, common...)
 	case m.clogShown():
 		if m.clog.view.Searching() || m.clog.view.FilterOpen() {
 			return m.clog.view.Hints()
@@ -1216,6 +1233,10 @@ func (m *Model) workspace(width, height int) string {
 	}
 	if m.formShown() && m.area != areaSettings {
 		return m.formView(width, height)
+	}
+	if m.setupShown() {
+		m.scrollNote = ""
+		return m.setupView(width, height)
 	}
 	if m.area == areaContainers {
 		return m.containersView(width, height)

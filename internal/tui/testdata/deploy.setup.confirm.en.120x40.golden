@@ -1,0 +1,40 @@
+◆ qhost                                                                                                         [?] help
+  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers                                             
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  The deploy service is not set up yet. It rolls out and updates your stacks and runs as its own system user, apart from
+  the host service, with access to Docker. D sets it up; on the command line: sudo qhost deploy-service setup           
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Deploy service ═════════════════════════════════════════════╗                            
+                            ║ ⚠ Set up the deploy service now?                             ║                            
+                            ║                                                              ║                            
+                            ║ It creates the system user qhost-deploy in the group docker, ║                            
+                            ║ its channel and its unit, and starts the service. The host   ║                            
+                            ║ service gets no access to Docker. These steps run as root:   ║                            
+                            ║ $ groupadd --system qhost-deploy                             ║                            
+                            ║ $ useradd --system --gid qhost-deploy --no-create-home       ║                            
+                            ║   --home-dir /var/lib/qhost-deploy --shell /usr/sbin/nologin ║                            
+                            ║   qhost-deploy                                               ║                            
+                            ║ $ usermod --append --groups docker qhost-deploy              ║                            
+                            ║ $ systemctl enable --now qhost-deploy                        ║                            
+                            ║                                                              ║                            
+                            ║ [ yes, do it ]  > cancel <                                   ║                            
+                            ║ y yes, do it  n/esc/enter cancel                             ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        

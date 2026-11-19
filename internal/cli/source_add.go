@@ -441,7 +441,7 @@ func previewSourceAdd(c *cobra.Command, res control.SourceInspectResult, url str
 func filesPreview(res control.SourceInspectResult) []string {
 	lines := []string{
 		fmt.Sprintf("Start a git repository in %s (branch main, core.sharedRepository=group) and bind it as a local source.", res.Path),
-		"The first commit is made as " + serviceAccount + "; no file in the folder is written.",
+		"The first commit is made as " + commitAuthor + "; no file in the folder is written.",
 	}
 	return append(lines, fileListLines(res, "The first commit takes")...)
 }
@@ -454,7 +454,7 @@ func filesRemotePreview(res control.SourceInspectResult, remote *filesRemote) []
 			res.Path, branch, remote.address),
 	}
 	if remote.cmp.State == control.SourceRemoteDifferent {
-		lines = append(lines, fmt.Sprintf("The state of the host becomes one commit as %s on %s and is pushed to the remote.", serviceAccount, branch))
+		lines = append(lines, fmt.Sprintf("The state of the host becomes one commit as %s on %s and is pushed to the remote.", commitAuthor, branch))
 	} else {
 		lines = append(lines, "The files equal the remote: no commit is made and nothing is pushed.")
 	}

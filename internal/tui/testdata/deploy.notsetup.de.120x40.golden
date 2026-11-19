@@ -1,0 +1,40 @@
+◆ qhost                                                                                                        [?] Hilfe
+  [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container                                       
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Der Deploy-Dienst ist noch nicht eingerichtet. Er rollt deine Stacks aus und hält sie aktuell, läuft als eigener      
+  Systembenutzer getrennt vom Host-Dienst und hat Zugriff auf Docker. D richtet ihn ein; auf der Kommandozeile: sudo    
+  qhost deploy-service setup                                                                                            
+                                                                                                                        
+  Das Einrichten braucht root: beende und starte sudo qhost.                                                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+D Deploy-Dienst einrichten  r Neu laden  1-5 Bereich  q Beenden                                                         

@@ -114,6 +114,18 @@ func TestArchitecture(t *testing.T) {
 			Hint:  "containers belong to the deploy part; the host administration never talks to the container engine",
 		},
 		{
+			Name:  "host-service-imports-only-the-protocol",
+			Files: archtest.Files{Under: []string{"internal/hostservice"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports("internal/control", "internal/client", "internal/channeltest"),
+			Hint:  "the host service knows the wire protocol and nothing of the deploy part, the command surface or the host administration",
+		},
+		{
+			Name:  "host-service-does-not-touch-the-container-engine",
+			Files: archtest.Files{Under: []string{"internal/hostservice"}, Tests: archtest.WithTests},
+			Check: archtest.ForbidImportPaths(archtest.Exact("github.com/castrowithcee/qatlas-kit/docker")),
+			Hint:  "containers belong to the deploy service; the host service runs without access to the container engine",
+		},
+		{
 			Name:  "hostadmin-imports-no-other-package-of-the-module",
 			Files: archtest.Files{Under: []string{"internal/host/hostadmin"}, Tests: archtest.WithTests},
 			Check: archtest.AllowImports(),

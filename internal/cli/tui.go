@@ -86,8 +86,10 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"A small icon stands before the product name and before each area on the tab line. Settings, General\n" +
 			"chooses them under Icons: unicode (the default), nerdfont (needs a Nerd Font patched terminal font) or\n" +
 			"none. A terminal without Unicode shows no icons.\n\n" +
-			"It needs a terminal on both standard input and output and the running service. Root and administrators in\n" +
-			"the group qhost may open it; without sudo it only reads, and a change says that it needs sudo qhost. Without a running service it ends with exit code 3 before it draws\n" +
+			"It needs a terminal on both standard input and output and the running deploy service. Root and administrators in\n" +
+			"the group qhost may open it; without sudo it only reads, and a change says that it needs sudo qhost. A deploy\n" +
+			"service that is not set up is no failure: the areas that need it say so and, with y after a question, set it up\n" +
+			"(D; as root, otherwise it says that it needs sudo qhost). A set up deploy service that is not running ends with exit code 3 before it draws\n" +
 			"anything. Device-local preferences are read from ~/.qatlas/qhost/tui.yaml; a missing file means\n" +
 			"the defaults. Change them in Settings under General (theme, start area, language, icons and mouse)\n" +
 			"instead of editing the file by hand.",
@@ -100,14 +102,14 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			}
 			backend := tui.NewBackend(serviceEndpoint())
 			// The interface refuses before it takes the terminal, so a missing service or root fails as every
-			// channel command does.
-			if _, err := backend.Status(c.Context()); err != nil {
+			// channel command does. A deploy service that is not set up is no failure: the interface offers the setup.
+			if _, err := backend.Status(c.Context()); err != nil && !(errors.Is(err, client.ErrNotRunning) && !deployInstalled()) {
 				if errors.Is(err, client.ErrNotRunning) {
 					state.seen = true
 				}
 				return failureOf(err)
 			}
-			opts := tui.Options{Backend: backend, Folders: tuiFolders{}, In: in, Out: out}
+			opts := tui.Options{Backend: backend, Folders: tuiFolders{}, Deploy: tuiDeploySetup{}, In: in, Out: out}
 			schema, err := tui.PrefsSchema()
 			if err != nil {
 				return &cli.Failure{Code: output.CodeRuntime, Message: "the terminal interface cannot start: " + err.Error(),

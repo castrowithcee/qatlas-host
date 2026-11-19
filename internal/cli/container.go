@@ -165,7 +165,7 @@ func containerCall(c *cobra.Command, state *notRunning, limit time.Duration, com
 		switch remote.Code {
 		case control.CodeDockerUnreachable:
 			return &cli.Failure{Code: output.CodeUnreachable, Message: "the container engine is not reachable",
-				NextStep: "Start the container engine, or point the service at its socket with 'qhost run --docker-socket'.", Cause: err}
+				NextStep: "Start the container engine, or point the service at its socket with 'qhost deploy-service run --docker-socket'.", Cause: err}
 		case control.CodeDockerPermission:
 			return &cli.Failure{Code: output.CodePermission, Message: "the service may not use the container engine",
 				NextStep: "Give the service user access to the engine's socket, then run the command again.", Cause: err}

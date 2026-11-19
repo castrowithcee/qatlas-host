@@ -183,7 +183,7 @@ func TestSourceAddFilesWithYesPassesTheConfirmedList(t *testing.T) {
 	if svc.count(control.SourceAddCommand) != 1 || got.Path != tree.dir || strings.Join(got.Files, ",") != ".env,compose.yaml,conf/app.yaml" {
 		t.Fatalf("source.add args %+v, calls %d", got, svc.count(control.SourceAddCommand))
 	}
-	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) || strings.Join(d.cmds, ";") != "daemon-reload;restart qhost" {
+	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) || strings.Join(d.cmds, ";") != "daemon-reload;restart qhost-deploy" {
 		t.Fatalf("drop-in %q, commands %v", d.dropIn(t), d.cmds)
 	}
 	if tree.hasGit() {
