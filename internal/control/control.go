@@ -840,7 +840,9 @@ type SourceInspectArgs struct {
 // folder and what the service may do there; it is empty for a rejection. PlannedFiles and Excluded are set
 // for SourceCaseFiles only. Stacks holds the stacks the folder would bring, none for a clone or a rejection;
 // StacksError says they could not be read. ContainersChecked says the container engine was asked;
-// ContainersError says why it could not be, and then the rest of the answer still holds.
+// ContainersError says why it could not be, and then the rest of the answer still holds. EnginesNotChecked
+// lists the rootless engines that are set up but could not be asked, each with the reason; only the root
+// client asks them, so the service leaves it empty.
 type SourceInspectResult struct {
 	Path              string           `json:"path"`
 	Case              string           `json:"case"`
@@ -855,6 +857,15 @@ type SourceInspectResult struct {
 	StacksError       string           `json:"stacks_error,omitempty"`
 	ContainersChecked bool             `json:"containers_checked"`
 	ContainersError   string           `json:"containers_error,omitempty"`
+
+	EnginesNotChecked []EngineNotChecked `json:"engines_not_checked,omitempty"`
+}
+
+// EngineNotChecked is a container engine that was not asked, with the reason. Engine is named as in
+// SourceConflict.Engine.
+type EngineNotChecked struct {
+	Engine string `json:"engine"`
+	Reason string `json:"reason"`
 }
 
 // SourceAddCommand binds a repository without a remote as a local source. It does so only for a folder that
@@ -1053,10 +1064,16 @@ type SourceStack struct {
 	EnvFiles     []string `json:"env_files,omitempty"`
 }
 
-// SourceConflict is a container of another Compose project that runs in the folder of a stack.
+// EngineSystem names the container engine of the deploy service in SourceConflict.Engine. A rootless engine
+// of a user is named "rootless:<user>".
+const EngineSystem = "system"
+
+// SourceConflict is a container that runs in the folder of a stack and would collide with it. Engine says
+// which container engine it runs in.
 type SourceConflict struct {
 	Container string `json:"container"`
 	Project   string `json:"project"`
+	Engine    string `json:"engine"`
 }
 
 // The commands that save and restore the data of a stack.

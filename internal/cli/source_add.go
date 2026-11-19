@@ -36,6 +36,10 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			"(the state of the host becomes one commit and is pushed when the files differ) and binds it as a\n" +
 			"remote source. If the list changed since it was shown, add stops before it changes anything.\n" +
 			"A folder that is rejected is refused and nothing changes.\n" +
+			"Like 'source inspect', add checks the Docker engine of the service and the rootless engines of the\n" +
+			"users for containers of the stack folders and names each conflict with its engine, and the engines it\n" +
+			"could not check. Conflicts only warn: the question says deploying would create duplicate containers\n" +
+			"and take their ports twice, and the folder can still be taken over.\n" +
 			"When the service cannot write the folder or its .git, add gives them to the group of the service account\n" +
 			"as root: the group of the folder, of the folders of versioned files and of .git, group write and setgid\n" +
 			"on folders, group read and write on versioned files (for a folder of files, the listed files) and on\n" +
@@ -449,10 +453,15 @@ func previewSourceAdd(w io.Writer, res control.SourceInspectResult, url string, 
 	for _, l := range lines {
 		_, _ = fmt.Fprintln(w, "  "+l)
 	}
-	if remote != nil {
-		return filesRemoteQuestion(remote)
+	warn := conflictConsequence(res)
+	if warn != "" {
+		_, _ = fmt.Fprintln(w, "  "+warn)
+		warn += " "
 	}
-	return fmt.Sprintf("Apply these changes (case %s, folder %s)?", res.Case, res.Path)
+	if remote != nil {
+		return warn + filesRemoteQuestion(remote)
+	}
+	return warn + fmt.Sprintf("Apply these changes (case %s, folder %s)?", res.Case, res.Path)
 }
 
 // filesPreview describes the repository a folder of files gets: the files of the first commit, what is left

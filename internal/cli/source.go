@@ -40,7 +40,12 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"the reason) or reject (with the reason and what to do). It shows the owner, group and mode of the\n" +
 			"folder, whether the service can write there and whether source add would have to set permissions\n" +
 			"(group qhost-deploy, group write, setgid), and per stack the functions, the findings and the containers\n" +
-			"of other Compose projects that run in the stack's folder: deploying would create duplicates of them.\n" +
+			"that run in the stack's folder: those of other Compose projects in the Docker engine of the service,\n" +
+			"and every container of the folder, also under the stack's own project name, in the rootless Docker\n" +
+			"engines of the host's users. Each conflict names its engine, system or rootless:<user>. A rootless\n" +
+			"engine that is set up but cannot be asked is listed as not checked, with the reason. Deploying would\n" +
+			"create duplicate containers and take their ports twice; qhost warns and does not block. Without sudo\n" +
+			"no rootless engine is asked and all are listed as not checked.\n" +
 			"--url is the SSH address to clone or to expect as origin. A folder on a read-only file system is\n" +
 			"rejected. A rejection is a complete answer and exits 0; read the case. Nothing is created, changed\n" +
 			"or fetched, and no value of an env file is shown. Run it with sudo.",
@@ -103,7 +108,7 @@ func inspectSource(c *cobra.Command, state *notRunning, path, url string) (contr
 				Stacks: []control.SourceStack{}}
 		}
 	}
-	return res, nil
+	return addEngines(c.Context(), res), nil
 }
 
 // pathOnReadOnlyFS reports whether the file system of path, or of its nearest existing parent while it is
@@ -155,6 +160,9 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 		addText("stacks_error", res.StacksError)
 		add("containers_checked", res.ContainersChecked)
 		addText("containers_error", res.ContainersError)
+		if len(res.EnginesNotChecked) > 0 {
+			add("engines_not_checked", structured(format, res.EnginesNotChecked))
+		}
 		return output.Object{Fields: fields}
 	}
 	f := []output.Field{{Name: "path", Value: res.Path}, {Name: "case", Value: res.Case}}
@@ -213,9 +221,11 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 			add(p+"finding."+fd.Rule, fd.Severity+": "+fd.Cause+" Fix: "+fd.Fix)
 		}
 		for _, cf := range st.Conflicts {
-			add(p+"conflict", fmt.Sprintf("container %s of project %s runs in this folder; deploying would create duplicate containers",
-				cf.Container, cf.Project))
+			add(p+"conflict", conflictText(cf))
 		}
+	}
+	for _, nc := range res.EnginesNotChecked {
+		add("engine_not_checked", notCheckedText(nc))
 	}
 	if res.StacksError != "" {
 		add("stacks_error", res.StacksError)

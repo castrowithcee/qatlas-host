@@ -585,7 +585,7 @@ func (s *inspectService) conflicts(ctx context.Context, list []stacks.Stack) (ma
 				continue
 			}
 			for _, c := range p.Containers {
-				out[i] = append(out[i], control.SourceConflict{Container: maskControl(c.Name), Project: maskControl(p.Name)})
+				out[i] = append(out[i], control.SourceConflict{Container: maskControl(c.Name), Project: maskControl(p.Name), Engine: control.EngineSystem})
 			}
 		}
 	}

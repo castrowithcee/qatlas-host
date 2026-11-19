@@ -446,11 +446,11 @@ func TestInspectReportsContainersOfOtherProjectsInTheStackFolders(t *testing.T) 
 	if !res.ContainersChecked || res.ContainersError != "" {
 		t.Fatalf("containers = %+v", res)
 	}
-	want := []control.SourceConflict{{Container: "old-web-1", Project: "oldweb"}, {Container: "old-web-2", Project: "oldweb"}}
+	want := []control.SourceConflict{{Container: "old-web-1", Project: "oldweb", Engine: control.EngineSystem}, {Container: "old-web-2", Project: "oldweb", Engine: control.EngineSystem}}
 	if got := inspectedStack(t, res, "web").Conflicts; !slices.Equal(got, want) {
 		t.Fatalf("web conflicts = %+v, want %+v", got, want)
 	}
-	if got := inspectedStack(t, res, "db").Conflicts; !slices.Equal(got, []control.SourceConflict{{Container: "other-db-1", Project: "other"}}) {
+	if got := inspectedStack(t, res, "db").Conflicts; !slices.Equal(got, []control.SourceConflict{{Container: "other-db-1", Project: "other", Engine: control.EngineSystem}}) {
 		t.Fatalf("db conflicts = %+v", got)
 	}
 
