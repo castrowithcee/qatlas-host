@@ -90,14 +90,17 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"files in what would be pushed stop it, with no way around. Adding a folder of files offers the same\n" +
 			"comparison with an address.\n\n" +
 			"System lists the local users and groups of the host, read from its account files, so it works without the\n" +
-			"deploy service; Users and Groups are its sub-tabs. On Users, a creates a user with an initial password that\n" +
-			"must be changed at the first login, e or enter offers the changes of the marked user (administrator, Docker,\n" +
-			"groups, password, SSH keys, lock and unlock) and x deletes it, keeping its home unless deleting it is chosen.\n" +
-			"On Groups, a creates a group, e or enter adds and removes members of the marked group, several at once, n\n" +
-			"renames it and x deletes it. Every change shows a sentence and the exact commands; y hands the terminal to\n" +
-			"sudo qhost host apply, which asks for the password itself, and started with sudo the interface runs it\n" +
-			"directly. A password or key is never shown and never goes into a command line. Changes of root, of system\n" +
-			"accounts and of system groups and every rename of a group ask in red (see qhost help host-tui).\n\n" +
+			"deploy service; Users, Groups and Folders are its sub-tabs. On Users, a creates a user with an initial\n" +
+			"password that must be changed at the first login, e or enter offers the changes of the marked user\n" +
+			"(administrator, Docker, groups, password, SSH keys, lock and unlock) and x deletes it, keeping its home\n" +
+			"unless deleting it is chosen. On Groups, a creates a group, e or enter adds and removes members of the\n" +
+			"marked group, several at once, n renames it and x deletes it. On Folders, enter chooses a folder and e\n" +
+			"changes its owner, group and what the owner, the group and everyone else may (nothing, read, or read and\n" +
+			"write), optionally for everything below it, which names the number of entries first. Every change shows a\n" +
+			"sentence and the exact commands; y hands the terminal to sudo qhost host apply, which asks for the password\n" +
+			"itself, and started with sudo the interface runs it directly. A password or key is never shown and never\n" +
+			"goes into a command line. Changes of root, of system accounts, of system groups and of system paths and\n" +
+			"every rename of a group ask in red (see qhost help host-tui).\n\n" +
 			"The mouse works too: click a tab, a key in the header or footer, or a row, and turn the wheel to scroll.\n" +
 			"A click does what the key does, so every action still asks first. The mouse is on by default; with it\n" +
 			"on, hold Shift to select text. Settings, General switches it off.\n\n" +

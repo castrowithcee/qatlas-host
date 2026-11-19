@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 5 6 [7 System]                                                        
+   Benutzer   Gruppen  [Ordner]                                                 
+────────────────────────────────────────────────────────────────────────────────
+╭─ /etc/demo ──────────────────────────────────────────────────────────────────╮
+│ Art: Ordner                                                                  │
+│ Besitz╔═ Host ändern ════════════════════════════════════════════════╗       │
+│ Gruppe║ ⚠ /etc/demo ändern: Besitzer cleo, Gruppe media. Der         ║       │
+│ Alle a║   Besitzer darf lesen und schreiben, die Gruppe lesen, alle  ║       │
+│ Modus:║   anderen nichts.                                            ║       │
+│ Das is║                                                              ║ost b… │
+╰───────║ Das ist ein Systempfad: Falsche Besitzer oder Rechte können  ║───────╯
+        ║ hier Dienste stoppen und Anmeldungen auf diesem Host         ║        
+        ║ blockieren. Läuft mit sudo, steht im Journal und lässt sich  ║        
+        ║ rückgängig machen.                                           ║        
+        ║ $ chown -- cleo:media /etc/demo                              ║        
+        ║ $ chmod -- u=rwX,g=rX,o= /etc/demo                           ║        
+        ║                                                              ║        
+        ║ [ ja, mit sudo ]  > abbrechen <                              ║        
+        ║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                

@@ -160,3 +160,53 @@ func TestGoldenSystemGroupDeleteConfirm(t *testing.T) {
 		send(m, "x")
 	})
 }
+
+func TestGoldenSystemFoldersEmpty(t *testing.T) {
+	goldenSystem(t, "system.folders", func(t *testing.T, m *Model) {
+		toFolderPage(t, m)
+	})
+}
+
+func TestGoldenSystemFolderPath(t *testing.T) {
+	goldenSystem(t, "system.folder.path", func(t *testing.T, m *Model) {
+		fakeHostFolders(m, 42, "/srv/media/", "/srv/mail/")
+		toFolderPage(t, m)
+		send(m, "enter")
+		send(m, typed("/srv/m")...)
+	})
+}
+
+func TestGoldenSystemFolder(t *testing.T) {
+	goldenSystem(t, "system.folder", func(t *testing.T, m *Model) {
+		fakeHostFolders(m, 42)
+		toFolderPage(t, m)
+		showFolder(t, m, "/srv/media")
+	})
+}
+
+func TestGoldenSystemFolderForm(t *testing.T) {
+	goldenSystem(t, "system.folder.form", func(t *testing.T, m *Model) {
+		fakeHostFolders(m, 42)
+		toFolderPage(t, m)
+		showFolder(t, m, "/srv/media")
+		send(m, "e", "down", "down", "left")
+	})
+}
+
+func TestGoldenSystemFolderRecursiveConfirm(t *testing.T) {
+	goldenSystem(t, "system.folder.recursive.confirm", func(t *testing.T, m *Model) {
+		fakeHostFolders(m, 42)
+		toFolderPage(t, m)
+		showFolder(t, m, "/srv/media")
+		changeBelow(m)
+	})
+}
+
+func TestGoldenSystemFolderSystemConfirm(t *testing.T) {
+	goldenSystem(t, "system.folder.system.confirm", func(t *testing.T, m *Model) {
+		fakeHostFolders(m, 42)
+		toFolderPage(t, m)
+		showFolder(t, m, "/etc/demo")
+		send(m, "e", "f2")
+	})
+}

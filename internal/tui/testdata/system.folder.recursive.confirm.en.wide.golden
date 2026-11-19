@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
+   Users   Groups  [Folders]                                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+╭─ /srv/media ─────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Type: folder                                                                                                         │
+│ Owner cleo may: read and write                                                                                       │
+│ Group media may: read                                                                                                │
+│ Everyone else may: nothing                                                                                           │
+│ Mode: 0750                                                                                                           │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Change the host ════════════════════════════════════════════╗                            
+                            ║ ⚠ Change /srv/media and everything below it: owner cleo,     ║                            
+                            ║   group media; the owner may read and write, the group read, ║                            
+                            ║   everyone else nothing.                                     ║                            
+                            ║                                                              ║                            
+                            ║ 42 entries change: the folder and everything below it. Runs  ║                            
+                            ║ with sudo, goes into the journal and can be undone.          ║                            
+                            ║ $ chown -R -h -- cleo:media /srv/media                       ║                            
+                            ║ $ chmod -R -- u=rwX,g=rX,o= /srv/media                       ║                            
+                            ║                                                              ║                            
+                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ y yes, with sudo  n/esc/enter cancel                         ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        

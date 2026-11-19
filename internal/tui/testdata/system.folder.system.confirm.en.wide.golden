@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
+   Users   Groups  [Folders]                                                                                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+╭─ /etc/demo ──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Type: folder                                                                                                         │
+│ Owner cleo may: read and write                                                                                       │
+│ Group media may: read                                                                                                │
+│ Everyone else may: nothing                                                                                           │
+│ Mode: 0750                                                                                                           │
+│ This is a system path: a wrong owner or permission here can break the host.                                          │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Change the host ════════════════════════════════════════════╗                            
+                            ║ ⚠ Change /etc/demo: owner cleo, group media; the owner may   ║                            
+                            ║   read and write, the group read, everyone else nothing.     ║                            
+                            ║                                                              ║                            
+                            ║ This is a system path: wrong owners or permissions here can  ║                            
+                            ║ stop services and block logins on this host. Runs with sudo, ║                            
+                            ║ goes into the journal and can be undone.                     ║                            
+                            ║ $ chown -- cleo:media /etc/demo                              ║                            
+                            ║ $ chmod -- u=rwX,g=rX,o= /etc/demo                           ║                            
+                            ║                                                              ║                            
+                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ y yes, with sudo  n/esc/enter cancel                         ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
