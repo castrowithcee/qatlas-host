@@ -1,6 +1,7 @@
-// Package uninstall removes both services from the host. It runs as root, deletes only the fixed paths named
-// below and starts programs without a shell; nothing it deletes or runs is built from input. The stack
-// folders, their data and the containers are never part of it.
+// Package uninstall removes both services and every instance of the deploy service from the host. It runs as root, deletes only the fixed paths named
+// below and the paths deploysetup derives for the instances, and starts programs without a shell; nothing it
+// deletes or runs is built from input. The users, their homes and rootless engines, the stack folders, their
+// data and the containers are never part of it.
 package uninstall
 
 import (
@@ -13,8 +14,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"syscall"
+
+	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 )
 
 // The units, users and groups of the two services.
@@ -81,6 +85,10 @@ type Step struct {
 type Plan struct {
 	Steps []Step
 	Purge bool
+	// Instances are the units of the deploy service instances the removal covers.
+	Instances []string
+	// Leftover are the units of instances removed earlier whose state or configuration the purge deletes.
+	Leftover []string
 }
 
 // Empty reports whether nothing is left to do.
@@ -105,7 +113,19 @@ func (p Plan) Sentence() string {
 			"changes, the system users qhost and qhost-deploy and the group qhost are deleted too, and they cannot be restored."
 		keep = ""
 	}
-	return s + keep + " The stack folders, their data and the containers are not touched."
+	if len(p.Instances) > 0 {
+		s += " The deploy service instances " + strings.Join(p.Instances, ", ") + " for rootless engines are stopped and " +
+			"disabled too, and their drop-in folders, channel rules and channels and the template unit are deleted."
+		if p.Purge {
+			s += " Their state and configuration are deleted as well."
+		} else {
+			s += " Their state and configuration stay."
+		}
+	}
+	if p.Purge && len(p.Leftover) > 0 {
+		s += " The state and configuration of the instances " + strings.Join(p.Leftover, ", ") + " removed earlier are deleted too."
+	}
+	return s + keep + " The stack folders, their data and the containers, and the users, their homes and rootless engines are not touched."
 }
 
 // Apply carries out the steps in order and stops at the first failure; what ran stays in place, and a repeated
@@ -121,14 +141,24 @@ func (p Plan) Apply(ctx context.Context) error {
 
 // Targets lists every path the removal can delete on a host that has everything, for pages the manpages of
 // the program. It is the only list of what is deleted.
-func Targets(purge bool, pages []string) []string {
+// instances are the instances of the host; their paths come from deploysetup.
+func Targets(purge bool, pages []string, instances ...deploysetup.Instance) []string {
 	out := []string{hostUnitPath, deployUnitPath, dropInFile, dropInDir, tmpfilesPath, channelDir}
+	for _, i := range instances {
+		out = append(out, i.DropInDir(), i.TmpfilesConf(), i.ChannelDir())
+	}
+	if len(instances) > 0 {
+		out = append(out, deploysetup.TemplatePath())
+	}
 	for _, page := range validPages(pages) {
 		out = append(out, manDir+"/"+page)
 	}
 	out = append(out, binaryPath)
 	if purge {
 		out = append(out, hostStateDir, deployStateDir, journalDir)
+		for _, i := range instances {
+			out = append(out, i.StateDir(), i.ConfigDir())
+		}
 	}
 	return out
 }
@@ -149,10 +179,30 @@ func validPages(pages []string) []string {
 // cannot start, with nothing changed. pages are the file names of the manpages of the program. keep are paths
 // that must stay, the bound stack folders: a plan whose deletions would reach one, or lie in one, is refused.
 func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
+	instances, err := deploysetup.Instances(h.Root)
+	if err != nil {
+		return Plan{}, err
+	}
+	// A removal without --purge deletes the rules the instances are found by, so a later purge finds their state
+	// and configuration by name.
+	purged := instances
+	var leftover []deploysetup.Instance
+	if purge {
+		if leftover, err = h.leftover(instances); err != nil {
+			return Plan{}, err
+		}
+		purged = append(slices.Clone(instances), leftover...)
+	}
 	// Only the directories go with everything in them, so only they can reach a stack folder.
 	recursive := []string{channelDir}
+	for _, i := range instances {
+		recursive = append(recursive, i.ChannelDir())
+	}
 	if purge {
 		recursive = append(recursive, hostStateDir, deployStateDir, journalDir)
+		for _, i := range purged {
+			recursive = append(recursive, i.StateDir(), i.ConfigDir())
+		}
 	}
 	for _, target := range recursive {
 		for _, k := range keep {
@@ -162,6 +212,12 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 		}
 	}
 	plan := Plan{Purge: purge}
+	for _, i := range instances {
+		plan.Instances = append(plan.Instances, i.Unit())
+	}
+	for _, i := range leftover {
+		plan.Leftover = append(plan.Leftover, i.Unit())
+	}
 	add := func(command string, do func(ctx context.Context) error) {
 		plan.Steps = append(plan.Steps, Step{Command: command, do: do})
 	}
@@ -225,6 +281,29 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 	if err := h.dir(&plan, channelDir, "rm -r "+channelDir, exists); err != nil {
 		return Plan{}, err
 	}
+	if len(instances) > 0 {
+		reload = true
+	}
+	for _, i := range instances {
+		// The rule goes last: an instance counts as set up while its rule exists, so a removal that stopped
+		// earlier finds the instance again.
+		command("systemctl", "disable", "--now", i.Unit())
+		if err := h.dir(&plan, i.ChannelDir(), "rm -r "+i.ChannelDir(), exists); err != nil {
+			return Plan{}, err
+		}
+		dropIn := i.DropInDir()
+		if ok, err := exists(dropIn); err != nil {
+			return Plan{}, err
+		} else if ok {
+			add("rmdir "+dropIn+" if it is empty", func(context.Context) error { return h.removeEmptyDir(dropIn) })
+		}
+		if err := file(i.TmpfilesConf()); err != nil {
+			return Plan{}, err
+		}
+	}
+	if err := file(deploysetup.TemplatePath()); err != nil {
+		return Plan{}, err
+	}
 	var found []string
 	for _, page := range validPages(pages) {
 		p := manDir + "/" + page
@@ -262,6 +341,13 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 				return Plan{}, err
 			}
 		}
+		for _, i := range purged {
+			for _, d := range []string{i.StateDir(), i.ConfigDir()} {
+				if err := h.dir(&plan, d, "rm -r "+d, exists); err != nil {
+					return Plan{}, err
+				}
+			}
+		}
 		users, err := h.names("/etc/passwd")
 		if err != nil {
 			return Plan{}, err
@@ -288,6 +374,37 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 		}
 	}
 	return plan, nil
+}
+
+// leftover finds the instances other than known whose state or configuration directory is still there, as after a
+// removal without --purge. Only plain directories named like those of an instance count.
+func (h Host) leftover(known []deploysetup.Instance) ([]deploysetup.Instance, error) {
+	seen := map[string]bool{}
+	for _, i := range known {
+		seen[i.User()] = true
+	}
+	var out []deploysetup.Instance
+	for _, parent := range []string{"/var/lib", "/etc"} {
+		entries, err := os.ReadDir(h.path(parent))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range entries {
+			user, ok := strings.CutPrefix(e.Name(), deploysetup.Service+"-")
+			if !ok || !e.IsDir() || seen[user] {
+				continue
+			}
+			if i, err := deploysetup.NewInstance(user); err == nil {
+				seen[user] = true
+				out = append(out, i)
+			}
+		}
+	}
+	slices.SortFunc(out, func(a, b deploysetup.Instance) int { return strings.Compare(a.User(), b.User()) })
+	return out, nil
 }
 
 // dir adds the removal of the directory p if it exists as a plain directory.

@@ -47,14 +47,20 @@
 # update run backs up exactly that volume. The HTTP check of a stack is set in the interface: the settings file gets a
 # commit with the check, and "clear settings" deletes the file by a commit. At the very
 # end the installed program updates itself to a newer signed test release, which replaces and restarts both
-# services, refuses tampered ones, and updates once more with the deploy service put aside, which leaves its unit
-# uninstalled. The very last section puts the deploy service back and removes both services with sudo qhost uninstall:
-# the containers of the stacks keep running, the stack folders stay unchanged, both units and the program are gone and
-# the state, the users and the group stay; sudo qhost uninstall --purge then removes the three state folders, the users
-# and the group. Sourced by run.sh scenario.
+# services, renews the changed template of the rootless instance, restarts the instance with the new program and warns
+# about an instance unit an administrator overrides, refuses tampered ones, and updates once more with the deploy
+# service put aside, which leaves its unit uninstalled. The very last section puts the deploy service back and removes
+# both services and the rootless instance with sudo qhost uninstall: the containers of the stacks keep running, the
+# stack folders stay unchanged, both units, the instance, its template and the program are gone and the state, the
+# users and the group stay; sudo qhost uninstall --purge then removes the three state folders, the state and
+# configuration of the instance, the users and the group. The test user, its home, its rootless engine and its
+# container stay throughout. Sourced by run.sh scenario.
 
 # signature_asset is the name of the release file with the signature; it must match release.SignatureAsset.
 signature_asset=checksums.txt.sig
+# instance_service names the deploy service instances, and release_template is their template unit in packaging/.
+instance_service=qhost-deploy
+release_template=$instance_service@.service
 
 as_admin() {
 	docker exec -i -u "$admin" "$host" sh -ec "$*"
@@ -358,12 +364,14 @@ scanned_git_key() {
 
 # release_build builds the fake release $1 (a tag) for the architecture of the host into $work/releases/$1 and
 # signs its checksums with the test key. The binary trusts that key through a source overlay of the key list, so
-# release.json and the sources stay as they are.
+# release.json and the sources stay as they are. With changed-template as $2 the binary also carries a template unit
+# of the deploy service instances with one more comment line, $work/releasebuild/$release_template, the same way.
 release_build() {
 	tag=$1
 	arch=$(docker exec "$host" dpkg --print-architecture)
 	dir=$work/releasebuild
-	if [ ! -f "$dir/overlay.json" ]; then
+	overlay=$dir/overlay.json
+	if [ ! -f "$overlay" ]; then
 		mkdir -p "$dir"
 		ssh-keygen -q -t ed25519 -N '' -C "$prefix-release-test-key" -f "$work/keys/release"
 		printf 'qhost-release %s\n' "$(cut -d ' ' -f 1,2 "$work/keys/release.pub")" >"$dir/allowed-signers"
@@ -373,8 +381,14 @@ release_build() {
 		printf '{"Replace":{"%s":"%s"}}' "$root/internal/release/release.go" "$dir/release.go" >"$dir/overlay.json"
 		sed "s|\"targets\": .*|\"targets\": [\"linux/$arch\"],|" "$root/release.json" >"$dir/release.json"
 	fi
+	if [ "${2:-}" = changed-template ]; then
+		overlay=$dir/overlay-template.json
+		{ cat "$root/packaging/$release_template" && printf '# Changed by the self-update test of the template.\n'; } >"$dir/$release_template"
+		printf '{"Replace":{"%s":"%s","%s":"%s"}}' "$root/internal/release/release.go" "$dir/release.go" \
+			"$root/packaging/$release_template" "$dir/$release_template" >"$overlay"
+	fi
 	rel_signers=$(realpath --relative-to="$root" "$dir/allowed-signers")
-	(cd "$root" && SOURCE_DATE_EPOCH=1700000000 GOFLAGS="${GOFLAGS:+$GOFLAGS }-overlay=$dir/overlay.json" \
+	(cd "$root" && SOURCE_DATE_EPOCH=1700000000 GOFLAGS="${GOFLAGS:+$GOFLAGS }-overlay=$overlay" \
 		go run github.com/castrowithcee/qatlas-kit/cmd/releasebuild -config "$dir/release.json" -program qhost \
 		-namespace qhost-release -signature-asset "$signature_asset" -allowed-signers "$rel_signers" \
 		-releases-url https://github.com/castrowithcee/qatlas-host/releases -version "$tag" -out "$work/releases/$tag" >/dev/null) ||
@@ -392,11 +406,12 @@ release_publish() {
 # setup_service installs qhost from the fake release, checks the host service the installer started and the state
 # without a deploy service, then sets the deploy service up the way an administrator does. With the argument
 # default-backup-image the deploy service keeps the unit as installed and backs up with its default helper image;
-# otherwise a drop-in names the local helper image, and the second release for the self-update section is built too.
+# otherwise a drop-in names the local helper image, and the second release for the self-update section is built too,
+# with a changed template of the instances.
 setup_service() {
 	step 'install qhost from a signed test release with the published installer'
 	release_build v0.1.0
-	[ "${1:-}" = default-backup-image ] || release_build v0.2.0
+	[ "${1:-}" = default-backup-image ] || release_build v0.2.0 changed-template
 	release_publish v0.1.0
 	as_admin 'curl -fsSL -o /tmp/install.sh https://github.com/castrowithcee/qatlas-host/releases/latest/download/install.sh &&
 		sudo sh /tmp/install.sh && rm -f /tmp/install.sh' || fail 'the installer failed'
@@ -3713,13 +3728,28 @@ unit_is_release() {
 		docker exec -i "$host" cmp -s - "/usr/local/lib/systemd/system/$1.service"
 }
 
+# instance_version_is succeeds when qhost status, run without root, shows the version $1 for the instance $su_unit.
+instance_version_is() {
+	as_admin 'qhost --output json status 2>&1' | grep -q "\"instance\.$rootless_user\.version\": *\"$1\""
+}
+
+# instance_template_is succeeds when the installed template of the instances equals the file $1 on this machine.
+instance_template_is() {
+	docker exec -i "$host" cmp -s - "$su_template" <"$1"
+}
+
 # scenario_selfupdate updates the installed services to a newer signed test release and refuses tampered ones.
-# The simulated host has the deploy service set up; at the end the update runs once more on the same host with
-# the deploy service put aside, which is the host of an administrator who never set it up. Only scenario_uninstall
-# follows; it puts the deploy service back.
+# The simulated host has the deploy service set up and the instance of scenario_rootless_instance running; every
+# update renews its template from the new program and restarts it. At the end the update runs once more on the same
+# host with the deploy service put aside, which is the host of an administrator who never set it up. Only
+# scenario_uninstall follows; it puts the deploy service back.
 scenario_selfupdate() {
+	su_unit=$instance_service@$rootless_user.service
+	su_template=/usr/local/lib/systemd/system/$release_template
+	su_override=/etc/systemd/system/$su_unit
 	docker exec "$host" systemctl start qhost qhost-deploy || fail 'cannot start the services'
 	wait_for 'the services to answer' 30 service_serving
+	[ "$(docker exec "$host" systemctl is-active "$su_unit")" = active ] || fail "the instance $su_unit does not run"
 
 	step 'update status reports the newer test release without root'
 	release_publish v0.2.0
@@ -3735,12 +3765,17 @@ scenario_selfupdate() {
 	if out=$(as_admin 'sudo qhost update --yes 2>&1'); then fail "update without --confirm succeeded: $out"; fi
 	[ "$(installed_sum)" = "$before" ] || fail 'a refused update changed the installation'
 
-	step 'sudo qhost update installs the newer release, replaces both units and restarts both services'
+	step 'sudo qhost update installs the newer release, replaces both units, restarts both services, renews the template of the instance, restarts the instance and warns about its overriding unit'
 	# The units of v0.2.0 equal the installed ones, so both are made stale first; only a replacement removes the mark.
 	docker exec "$host" sh -ec 'for u in qhost qhost-deploy; do printf "# stale\n" >>/usr/local/lib/systemd/system/$u.service; done; systemctl daemon-reload' ||
 		fail 'cannot mark the installed units'
 	if unit_is_release qhost v0.2.0 || unit_is_release qhost-deploy v0.2.0; then fail 'the installed units were not made stale'; fi
+	# The template v0.2.0 carries has one more line than the installed one. A copy of the installed template in
+	# /etc/systemd/system overrides the unit of the instance, as an administrator may do.
+	if instance_template_is "$work/releasebuild/$release_template"; then fail 'the installed template equals the one of v0.2.0'; fi
+	docker exec "$host" sh -ec "cp $su_template $su_override && systemctl daemon-reload" || fail "cannot write $su_override"
 	hpid=$(service_pid qhost) hentered=$(service_entered qhost) pid=$(service_pid) entered=$(service_entered)
+	ipid=$(service_pid "$su_unit") ientered=$(service_entered "$su_unit")
 	out=$(as_admin 'sudo qhost update --yes --confirm 2>&1') || fail "update failed: $out"
 	wait_for 'the updated services' 60 service_serving
 	[ "$(service_pid qhost)" != "$hpid" ] && [ "$(service_entered qhost)" != "$hentered" ] || fail 'the host service was not restarted by the update'
@@ -3754,7 +3789,18 @@ scenario_selfupdate() {
 	docker exec "$host" grep -qx 'ReadWritePaths=-/opt/stacks' /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf ||
 		fail 'the update removed the stack folder grant'
 	docker exec "$host" systemctl show -p ReadWritePaths qhost-deploy | grep -qF /opt/stacks || fail 'the updated deploy service has no write access to /opt/stacks'
-	log "scenario: updated to v0.2.0, host service pid $hpid -> $(service_pid qhost), deploy service pid $pid -> $(service_pid), services answering: $out"
+	instance_template_is "$work/releasebuild/$release_template" || fail "$su_template is not the template of v0.2.0"
+	wait_for "the instance $su_unit to answer with v0.2.0" 30 instance_version_is v0.2.0
+	[ "$(service_pid "$su_unit")" != "$ipid" ] && [ "$(service_entered "$su_unit")" != "$ientered" ] ||
+		fail "the instance $su_unit was not restarted by the update"
+	printf '%s' "$out" | grep -qF "overrides the installed unit of $su_unit" || fail "the update does not warn about $su_override: $out"
+	if printf '%s' "$out" | grep -q 'instances were not all renewed'; then fail "the renewal of the instance failed: $out"; fi
+	log "scenario: updated to v0.2.0, host service pid $hpid -> $(service_pid qhost), deploy service pid $pid -> $(service_pid), instance pid $ipid -> $(service_pid "$su_unit"), services answering: $out"
+	# Without the override the instance runs from the renewed template.
+	docker exec "$host" sh -ec "rm $su_override && systemctl daemon-reload && systemctl restart $su_unit" || fail "cannot remove $su_override"
+	[ "$(docker exec "$host" systemctl show -p FragmentPath --value "$su_unit")" = "$su_template" ] ||
+		fail "$su_unit does not run from $su_template: $(docker exec "$host" systemctl show -p FragmentPath --value "$su_unit")"
+	wait_for "the instance $su_unit to answer" 30 instance_version_is v0.2.0
 
 	step 'a release with a tampered checksums.txt is refused and changes nothing'
 	release_build v0.3.0
@@ -3783,7 +3829,7 @@ scenario_selfupdate() {
 	release_publish v0.3.0 "$bad"
 	refuse_update v0.3.0
 
-	step 'on a host without a deploy service the update replaces and restarts only the host service and installs no deploy unit'
+	step 'on a host without a deploy service the update replaces and restarts only the host service of the two, installs no deploy unit and still renews and restarts the instance'
 	# The deploy service and its unit are put aside on the simulated host only; the drop-ins stay where they are.
 	docker exec "$host" sh -ec '
 		systemctl disable --now qhost-deploy
@@ -3796,8 +3842,16 @@ scenario_selfupdate() {
 		fail "qhost status does not show the deploy service as not set up: $(as_admin 'qhost --output json status 2>&1')"
 	release_publish v0.3.0
 	hpid=$(service_pid qhost) hentered=$(service_entered qhost)
+	ipid=$(service_pid "$su_unit") ientered=$(service_entered "$su_unit")
 	out=$(as_admin 'sudo qhost update --yes --confirm 2>&1') || fail "update without a deploy service failed: $out"
 	wait_for 'the updated host service' 60 host_serving
+	# v0.3.0 carries the template of the sources again.
+	instance_template_is "$root/packaging/$release_template" || fail "$su_template is not the template of v0.3.0"
+	wait_for "the instance $su_unit to answer with v0.3.0" 30 instance_version_is v0.3.0
+	[ "$(service_pid "$su_unit")" != "$ipid" ] && [ "$(service_entered "$su_unit")" != "$ientered" ] ||
+		fail "the instance $su_unit was not restarted by the update"
+	if printf '%s' "$out" | grep -qF "overrides the installed unit of $su_unit"; then fail "the update warns about an instance unit that is not overridden: $out"; fi
+	if printf '%s' "$out" | grep -q 'instances were not all renewed'; then fail "the renewal of the instance failed: $out"; fi
 	[ "$(service_pid qhost)" != "$hpid" ] && [ "$(service_entered qhost)" != "$hentered" ] || fail 'the host service was not restarted by the update'
 	docker exec "$host" qhost version 2>&1 | grep -q v0.3.0 || fail "the installed version is not v0.3.0: $(docker exec "$host" qhost version 2>&1)"
 	unit_is_release qhost v0.3.0 || fail 'the unit of the host service is not the one of v0.3.0'
@@ -3825,12 +3879,31 @@ all_running_containers() {
 	docker exec "$host" docker ps --format '{{.Names}}' | sort
 }
 
+# rootless_kept succeeds when the test user, its home with the probe file $un_probe, its rootless engine and the
+# container $un_ct in it are as they were before the uninstall.
+rootless_kept() {
+	docker exec "$host" id "$rootless_user" >/dev/null 2>&1 &&
+		[ "$(as_rootless "sha256sum $un_probe")" = "$un_probe_sum" ] &&
+		[ "$(as_rootless 'systemctl --user is-active docker.service')" = active ] &&
+		[ "$(as_rootless "docker inspect -f '{{.State.Running}}' $un_ct")" = true ]
+}
+
 # scenario_uninstall puts the deploy service back and proves sudo qhost uninstall: it needs root and --confirm, stops
-# both services and deletes the program, the units, the drop-in of the deploy unit, its tmpfiles rule and channel and the
-# manpages, and leaves the state, the journal, the users, the group, the containers and the stack folders as they were.
+# both services and the rootless instance and deletes the program, the units, the drop-in of the deploy unit, its
+# tmpfiles rule and channel, those of the instance, the template and the manpages, and leaves the state, the journal,
+# the state and configuration of the instance, the users, the group, the containers and the stack folders as they were.
 # The program is copied away first, because uninstall deletes it; the copy then runs --purge, which deletes the three
-# state folders, the users and the group. Nothing runs after it, and no later step may call qhost.
+# state folders, the state and configuration of the instance, the users and the group. The test user of the instance,
+# its home, its rootless engine and its container stay. Nothing runs after it, and no later step may call qhost.
 scenario_uninstall() {
+	un_unit=$instance_service@$rootless_user.service
+	un_template=/usr/local/lib/systemd/system/$release_template
+	un_rule=/etc/tmpfiles.d/$instance_service-$rootless_user.conf
+	un_channel=/run/$instance_service-$rootless_user
+	un_state=/var/lib/$instance_service-$rootless_user
+	un_config=/etc/$instance_service-$rootless_user
+	un_ct=$prefix-uninstall-rootless-probe
+	un_probe=/home/$rootless_user/stacks/probe/compose.yaml
 	step 'the deploy service is put back and both services run, with a container beside them'
 	docker exec "$host" sh -ec '
 		mv /root/qhost-deploy.service.aside /usr/local/lib/systemd/system/qhost-deploy.service
@@ -3843,6 +3916,15 @@ scenario_uninstall() {
 	docker exec "$host" docker run -d --name "$prefix-uninstall-probe" "$image" >/dev/null || fail 'cannot start the probe container'
 	containers=$(all_running_containers)
 	[ -n "$containers" ] || fail 'no container runs before the uninstall'
+	[ "$(docker exec "$host" systemctl is-active "$un_unit")" = active ] || fail "the instance $un_unit does not run before the uninstall"
+	for p in "$un_template" "$un_rule" "$un_channel" "$un_state" "$un_config"; do
+		docker exec "$host" test -e "$p" || fail "$p is missing before the uninstall"
+	done
+	as_rootless "docker rm -f $un_ct >/dev/null 2>&1; docker run -d --quiet --name $un_ct demo/app:1.0.0" >/dev/null ||
+		fail 'cannot start the probe container in the rootless engine'
+	as_rootless "umask 022; mkdir -p ${un_probe%/*} && printf 'services: {}\n' >$un_probe" || fail "cannot write $un_probe"
+	un_probe_sum=$(as_rootless "sha256sum $un_probe")
+	rootless_kept || fail "the test user, its home, its engine or its container are not ready before the uninstall"
 	# The folders are read from the drop-in now, because the uninstall deletes it.
 	stack_folders=$(docker exec "$host" sed -n 's/^ReadWritePaths=-//p' /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf)
 	folders=$(stack_folder_listing)
@@ -3856,9 +3938,24 @@ scenario_uninstall() {
 	if out=$(as_admin 'sudo qhost uninstall --confirm 2>&1 </dev/null'); then fail "uninstall without an answer succeeded: $out"; fi
 	[ "$(installed_sum)" = "$before" ] || fail 'a refused uninstall changed the installation'
 	service_serving || fail 'the services do not answer after a refused uninstall'
+	[ "$(docker exec "$host" systemctl is-active "$un_unit")" = active ] || fail "a refused uninstall stopped $un_unit"
+	docker exec "$host" test -f "$un_template" || fail "a refused uninstall deleted $un_template"
 
-	step 'sudo qhost uninstall removes both services and keeps state, users, containers and stack folders'
+	step 'sudo qhost uninstall removes both services and the instance and keeps state, users, containers and stack folders'
 	out=$(as_admin 'sudo qhost uninstall --yes --confirm 2>&1') || fail "uninstall failed: $out"
+	for want in "systemctl disable --now $un_unit" "rm $un_rule" "rm $un_template"; do
+		printf '%s' "$out" | grep -qF -- "$want" || fail "the steps of the uninstall do not show '$want': $out"
+	done
+	for p in "$un_template" "$un_rule" "$un_channel"; do
+		if docker exec "$host" test -e "$p" || docker exec "$host" test -L "$p"; then fail "uninstall left $p: $out"; fi
+	done
+	[ "$(docker exec "$host" systemctl is-active "$un_unit" || true)" != active ] || fail "$un_unit still runs after the uninstall"
+	if docker exec "$host" systemctl is-enabled --quiet "$un_unit"; then fail "$un_unit is still enabled after the uninstall"; fi
+	if docker exec "$host" systemctl cat "$un_unit" >/dev/null 2>&1; then fail "systemd still knows the unit $un_unit after the uninstall"; fi
+	for p in "$un_state" "$un_config"; do
+		docker exec "$host" test -d "$p" || fail "uninstall without --purge removed $p"
+	done
+	rootless_kept || fail "the uninstall changed the test user, its home, its rootless engine or its container"
 	for p in /usr/local/bin/qhost /usr/local/lib/systemd/system/qhost.service /usr/local/lib/systemd/system/qhost-deploy.service \
 		/etc/tmpfiles.d/qhost-deploy.conf /run/qhost-deploy /usr/local/share/man/man1/qhost.1 \
 		/etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf; do
@@ -3879,9 +3976,9 @@ scenario_uninstall() {
 		fail 'uninstall without --purge removed a user or a group'
 	log "scenario: uninstalled both services, the containers and stack folders are unchanged: $out"
 
-	step 'sudo qhost uninstall --purge removes the three state folders, the users and the group'
+	step 'sudo qhost uninstall --purge removes the three state folders, the state and configuration of the instance, the users and the group'
 	out=$(as_admin 'sudo /root/qhost.copy uninstall --purge --yes --confirm 2>&1') || fail "uninstall --purge failed: $out"
-	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host; do
+	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host "$un_state" "$un_config"; do
 		if docker exec "$host" test -e "$p"; then fail "uninstall --purge left $p: $out"; fi
 	done
 	for u in qhost qhost-deploy; do
@@ -3890,7 +3987,9 @@ scenario_uninstall() {
 	done
 	[ "$(all_running_containers)" = "$containers" ] || fail "the purge changed the containers: $(all_running_containers)"
 	[ "$(stack_folder_listing)" = "$folders" ] || fail 'the purge changed a stack folder'
+	rootless_kept || fail "the purge changed the test user, its home, its rootless engine or its container"
 	docker exec "$host" docker rm -f "$prefix-uninstall-probe" >/dev/null 2>&1 || true
+	as_rootless "docker rm -f $un_ct" >/dev/null 2>&1 || true
 	log "scenario: purged the state, the users and the group, the containers and stack folders are unchanged: $out"
 }
 
