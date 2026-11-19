@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                            [?] Hilfe
+  [1 Stacks] 2 3 4 5 6 7                                                        
+────────────────────────────────────────────────────────────────────────────────
+      STACK        VERSION      VERFÜGBAR      ZUSTAND   BEFUNDE                
+> [ ] demo-stack   1.4.2        1.5.0          deployt   1 Warnung              
+  [ ] mail-relay   3.1          aktuell        offen     keine                  
+  [ ] old-tool     -            ungeprüft      entfernt  keine                  
+  [ ] photo-album  2.0.1        Fehler         Rollback  1 Fehler               
+  [ ] we╔═ Deploy-Dienst ══════════════════════════════════════════════╗        
+  [ ] wi║ Benutzer der rootless Engine (mit Engine: demo_ops, bob)     ║        
+        ║                                                              ║        
+        ║ _                                                            ║        
+        ║   demo_ops                                                   ║        
+        ║   bob                                                        ║        
+        ║                                                              ║        
+        ║ > Schritte zeigen <  [ abbrechen ]                           ║        
+        ║ tab Übernehmen  enter Schritte zeigen  esc abbrechen         ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                             1/6

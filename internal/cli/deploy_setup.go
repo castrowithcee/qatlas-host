@@ -10,6 +10,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/cli"
 	"github.com/castrowithcee/qatlas-kit/cobracli"
+	"github.com/castrowithcee/qatlas-kit/localipc"
 	"github.com/castrowithcee/qatlas-kit/output"
 
 	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
@@ -21,11 +22,52 @@ import (
 type deploySetupHost struct {
 	host deploysetup.Host
 	euid func() int
-	// wait returns once the deploy service answers on its channel; nil does not wait.
-	wait func(ctx context.Context) error
+	// wait returns once a deploy service answers on its channel; nil does not wait.
+	wait func(ctx context.Context, ep localipc.ServiceEndpoint) error
 }
 
-var deploySetup = deploySetupHost{euid: os.Geteuid, wait: waitForService}
+var deploySetup = deploySetupHost{euid: os.Geteuid, wait: waitForEndpoint}
+
+// setupTarget is the deploy service a setup is for: the one of the system engine, or with user the instance for
+// the rootless engine of that user. The command line and the terminal interface share it.
+type setupTarget struct {
+	user string
+}
+
+func (t setupTarget) plan(ctx context.Context) (deploysetup.Plan, error) {
+	if t.user != "" {
+		return deploySetup.host.PlanInstance(ctx, t.user)
+	}
+	return deploySetup.host.Plan(ctx)
+}
+
+// endpoint is the channel the service answers on once it runs; plan has checked the user name before.
+func (t setupTarget) endpoint() localipc.ServiceEndpoint {
+	if t.user != "" {
+		if inst, err := deploysetup.NewInstance(t.user); err == nil {
+			return inst.Endpoint()
+		}
+	}
+	return serviceEndpoint()
+}
+
+func (t setupTarget) question() string {
+	if t.user != "" {
+		return "Set up the deploy service for the rootless engine of " + t.user + " with these steps?"
+	}
+	return "Set up the deploy service with these steps?"
+}
+
+// apply carries the plan out and waits for the service to answer.
+func (t setupTarget) apply(ctx context.Context, plan deploysetup.Plan) error {
+	if err := plan.Apply(ctx); err != nil {
+		return err
+	}
+	if deploySetup.wait != nil {
+		return deploySetup.wait(ctx, t.endpoint())
+	}
+	return nil
+}
 
 // deployInstalled reports whether the setup installed the unit of the deploy service.
 func deployInstalled() bool { return deploysetup.Installed(deploySetup.host.Root) }
@@ -59,6 +101,9 @@ func setupFailure(err error, started bool) *cli.Failure {
 func planText(p deploysetup.Plan) string {
 	var b strings.Builder
 	b.WriteString(p.Sentence())
+	for _, w := range p.Warnings {
+		b.WriteString("\nwarning: " + w)
+	}
 	b.WriteString("\nThese steps run as root:\n")
 	for _, c := range p.Commands() {
 		b.WriteString("  " + c + "\n")
@@ -68,57 +113,78 @@ func planText(p deploysetup.Plan) string {
 
 func newDeploySetupCommand(program *cobracli.Program) *cobra.Command {
 	var gate *cobracli.Gate
+	var target setupTarget
 	cmd := &cobra.Command{
-		Use:   "setup",
-		Short: "Set up the deploy service as its own system user",
+		Use:   "setup [--rootless <user>]",
+		Short: "Set up the deploy service as its own system user, or for the rootless engine of a user",
 		Long: "setup creates what the deploy service needs and starts it: the system user and group qhost-deploy, with the\n" +
 			"group docker as its only extra group and no login, its channel directory (made at every boot by\n" +
 			"/etc/tmpfiles.d/qhost-deploy.conf) and the unit qhost-deploy.service, which it enables and starts. The\n" +
-			"user qhost-deploy never joins the group qhost and cannot reach the host service. Setting up needs root.\n" +
+			"user qhost-deploy never joins the group qhost and cannot reach the host service.\n" +
+			"With --rootless <user> it sets up an instance for the rootless Docker engine of an existing user instead:\n" +
+			"the unit qhost-deploy@<user>.service from the template qhost-deploy@.service runs as that user with its\n" +
+			"own state /var/lib/qhost-deploy-<user>, its channel /run/qhost-deploy-<user> (made at every boot by\n" +
+			"/etc/tmpfiles.d/qhost-deploy-<user>.conf) and the engine at /run/user/<uid>/docker.sock, and lingering\n" +
+			"is enabled for the user when it is off. The user needs a rootless engine and entries in /etc/subuid and\n" +
+			"/etc/subgid, and setup refuses a user in the group qhost or docker; it warns about an administrator. It\n" +
+			"never creates a user or changes a group. Setting up needs root.\n" +
 			"It first shows what it will do and the exact commands and asks; it needs --confirm and asks for\n" +
 			"confirmation on a terminal, and --yes answers the question. Only the steps still needed run, so a\n" +
-			"repeated setup changes nothing, and a setup that stopped at a step continues from there.",
+			"repeated setup changes nothing, and a setup that stopped at a step continues from there.\n" +
+			"See 'qhost help deploy-setup'.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if err := deploySetup.requireRoot(); err != nil {
 				return err
 			}
+			if c.Flags().Changed("rootless") {
+				if _, err := deploysetup.NewInstance(target.user); err != nil {
+					return &cli.Failure{Code: output.CodeInvalidRequest, Message: err.Error(), Usage: true,
+						NextStep: "Name an existing user with a rootless Docker engine."}
+				}
+			}
 			ctx := c.Context()
-			plan, err := deploySetup.host.Plan(ctx)
+			plan, err := target.plan(ctx)
 			if err != nil {
 				return setupFailure(err, false)
 			}
 			if plan.Empty() {
-				return emitDeploySetup(c, program, 0)
+				return emitDeploySetup(c, program, target, 0)
 			}
 			// Without --confirm the request fails before anything is shown or changed.
 			if err := gate.Run(cobracli.Request{Changes: true}, func() error { return nil }); err != nil {
 				return err
 			}
 			_, _ = fmt.Fprint(c.ErrOrStderr(), planText(plan))
-			return gate.Run(cobracli.Request{Question: "Set up the deploy service with these steps?", Changes: true}, func() error {
+			return gate.Run(cobracli.Request{Question: target.question(), Changes: true}, func() error {
 				if err := plan.Apply(ctx); err != nil {
 					return setupFailure(err, true)
 				}
 				if deploySetup.wait != nil {
-					if err := deploySetup.wait(ctx); err != nil {
+					if err := deploySetup.wait(ctx, target.endpoint()); err != nil {
 						_, _ = fmt.Fprintf(c.ErrOrStderr(), "warning: %v\n", err)
 					}
 				}
-				return emitDeploySetup(c, program, len(plan.Steps))
+				return emitDeploySetup(c, program, target, len(plan.Steps))
 			})
 		},
 	}
+	cmd.Flags().StringVar(&target.user, "rootless", "",
+		"set up an instance for the rootless Docker engine of this existing user instead of the system engine's service")
 	gate = program.AddGate(cmd, cobracli.Gates{Question: true, Change: true})
 	return cmd
 }
 
-func emitDeploySetup(c *cobra.Command, program *cobracli.Program, steps int) error {
-	return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
+func emitDeploySetup(c *cobra.Command, program *cobracli.Program, target setupTarget, steps int) error {
+	fields := []output.Field{
 		{Name: "set_up", Value: true},
 		{Name: "changed", Value: steps > 0},
 		{Name: "steps", Value: steps},
-	}})
+	}
+	if inst, err := deploysetup.NewInstance(target.user); err == nil {
+		fields = append(fields, output.Field{Name: "unit", Value: inst.Unit()})
+	}
+	return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: fields})
 }
 
 // tuiDeploySetup is the setup as the interface offers it: it lists the steps still needed and runs them.
@@ -128,27 +194,30 @@ var _ tui.DeploySetup = tuiDeploySetup{}
 
 func (tuiDeploySetup) Installed() bool { return deployInstalled() }
 
-func (tuiDeploySetup) Plan(ctx context.Context) ([]string, error) {
-	plan, err := deploySetup.host.Plan(ctx)
+func (tuiDeploySetup) Users() []string {
+	users, err := deploySetup.host.RootlessUsers()
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	return plan.Commands(), nil
+	return users
 }
 
-func (tuiDeploySetup) Run(ctx context.Context) error {
+func (tuiDeploySetup) Plan(ctx context.Context, user string) (tui.SetupPlan, error) {
+	plan, err := setupTarget{user: user}.plan(ctx)
+	if err != nil {
+		return tui.SetupPlan{}, err
+	}
+	return tui.SetupPlan{Commands: plan.Commands(), Warnings: plan.Warnings}, nil
+}
+
+func (tuiDeploySetup) Run(ctx context.Context, user string) error {
 	if err := deploySetup.requireRoot(); err != nil {
 		return err
 	}
-	plan, err := deploySetup.host.Plan(ctx)
+	target := setupTarget{user: user}
+	plan, err := target.plan(ctx)
 	if err != nil {
 		return err
 	}
-	if err := plan.Apply(ctx); err != nil {
-		return err
-	}
-	if deploySetup.wait != nil {
-		return deploySetup.wait(ctx)
-	}
-	return nil
+	return target.apply(ctx, plan)
 }

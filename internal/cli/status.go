@@ -16,6 +16,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/hostservice"
 )
 
@@ -25,6 +26,9 @@ const ExitServiceNotRunning = 3
 
 // serviceEndpoint names the channel the commands talk to; tests replace it.
 var serviceEndpoint = control.DeployEndpoint
+
+// instanceEndpoint names the channel of a deploy service instance; tests replace it.
+var instanceEndpoint = deploysetup.Instance.Endpoint
 
 // notRunning records that the command failed because no service listens.
 type notRunning struct{ seen bool }
@@ -39,10 +43,12 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"and, per stack, what is deployed, pending or running, the last run result, a pause after a failed rollback, the operator's pause and pin, the observation time after an update, and the findings,\n" +
 			"and whether the maintenance window is open and when it opens next (see 'qhost window'). A stack is listed as\n" +
 			"stack.<name>; when another stack folder holds its name, as source.<id>.stack.<name> (see 'qhost help sources').\n" +
+			"Every instance for the rootless engine of a user that is set up is listed as instance.<user>, with its unit, whether it\n" +
+			"runs and, when it does, its version and start time.\n" +
 			"Root and administrators in the group qhost may read; run it without sudo. A set up deploy service that is not running ends with exit code 3.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			host := hostFields(c.Context())
+			host := append(hostFields(c.Context()), instanceFields(c.Context())...)
 			if !deployInstalled() {
 				fields := append([]output.Field{{Name: "running", Value: false}, {Name: "deploy_service", Value: "not set up"}}, host...)
 				return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: fields})
@@ -88,6 +94,39 @@ func hostFields(ctx context.Context) []output.Field {
 		return []output.Field{{Name: "host_service", Value: "unknown (no access to its channel)"}}
 	}
 	return []output.Field{{Name: "host_service", Value: "unreachable"}}
+}
+
+// instanceFields describes every deploy service instance set up on the host. As for the host service, a failed
+// reading is a state of the instance, never a failure of the command.
+func instanceFields(ctx context.Context) []output.Field {
+	list, err := deploysetup.Instances(deploySetup.host.Root)
+	if err != nil {
+		return []output.Field{{Name: "instances", Value: "unknown: " + err.Error()}}
+	}
+	var out []output.Field
+	for _, inst := range list {
+		p := "instance." + inst.User() + "."
+		out = append(out, output.Field{Name: p + "unit", Value: inst.Unit()})
+		var st control.StatusResult
+		err := call(ctx, instanceEndpoint(inst), control.StatusCommand, nil, &st)
+		var remote *control.Error
+		state := "unreachable"
+		switch {
+		case err == nil:
+			out = append(out, output.Field{Name: p + "deploy_service", Value: "running"},
+				output.Field{Name: p + "version", Value: st.Version},
+				output.Field{Name: p + "started_at", Value: st.StartedAt.UTC().Format(time.RFC3339)})
+			continue
+		case errors.Is(err, client.ErrNotRunning):
+			state = "not running"
+		case errors.As(err, &remote) && (remote.Code == control.CodeNoAccess || remote.Code == control.CodeNotAdmin):
+			state = "running (reserved for administrators)"
+		case errors.Is(err, client.ErrNoAccess):
+			state = "unknown (no access to its channel)"
+		}
+		out = append(out, output.Field{Name: p + "deploy_service", Value: state})
+	}
+	return out
 }
 
 // engineFields flattens the engine part into scalar fields, which every output format can carry.

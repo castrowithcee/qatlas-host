@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                      [?] help
+  [1 Stacks] 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+      STACK        CURRENT      AVAILABLE      MODE       STATE     FINDINGS    
+> [ ] demo-stack   1.4.2        1.5.0          automatic  deployed  1 warning   
+  [ ] mail-relay   3.1          up to date     manual     pending   none        
+  [ ] old-tool     -            unchecked      -          removed   none        
+  [ ] photo-album  2.0.1        error          automatic  rollback  1 error     
+  [ ] we╔═ Deploy service ═════════════════════════════════════════════╗        
+  [ ] wi║ ⚠ Which deploy service do you want to set up?                ║rnings  
+        ║                                                              ║        
+        ║ The system engine gets a service with its own system user. A ║        
+        ║ rootless engine gets a service that runs as the user who     ║        
+        ║ owns that engine.                                            ║        
+        ║                                                              ║        
+        ║ [ system engine ]  [ rootless engine ]  > cancel <           ║        
+        ║ y system engine  r rootless engine  n/esc/enter cancel       ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                             1/6

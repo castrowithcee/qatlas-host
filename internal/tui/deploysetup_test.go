@@ -17,22 +17,37 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/client"
 )
 
-// fakeDeploy is the host side of the setup; nothing of the real host is touched.
+// fakeDeploy is the host side of the setup; nothing of the real host is touched. Instances are planned by user:
+// instanceCommands for a user without an entry in refusals, otherwise the refusal.
 type fakeDeploy struct {
 	installed bool
 	commands  []string
 	planErr   error
 	runErr    error
 	ran       int
+	// ranFor holds the user of every run.
+	ranFor           []string
+	users            []string
+	instanceCommands map[string][]string
+	warnings         map[string][]string
+	refusals         map[string]error
 }
 
 func (f *fakeDeploy) Installed() bool { return f.installed }
-func (f *fakeDeploy) Plan(context.Context) ([]string, error) {
-	return f.commands, f.planErr
+func (f *fakeDeploy) Users() []string { return f.users }
+func (f *fakeDeploy) Plan(_ context.Context, user string) (SetupPlan, error) {
+	if user == "" {
+		return SetupPlan{Commands: f.commands}, f.planErr
+	}
+	if err := f.refusals[user]; err != nil {
+		return SetupPlan{}, err
+	}
+	return SetupPlan{Commands: f.instanceCommands[user], Warnings: f.warnings[user]}, nil
 }
-func (f *fakeDeploy) Run(context.Context) error {
+func (f *fakeDeploy) Run(_ context.Context, user string) error {
 	f.ran++
-	if f.runErr == nil {
+	f.ranFor = append(f.ranFor, user)
+	if f.runErr == nil && user == "" {
 		f.installed = true
 	}
 	return f.runErr
@@ -50,8 +65,17 @@ func newFakeDeploy() *fakeDeploy {
 // notSetUpModel is the interface on a host whose deploy service does not exist, run as euid.
 func notSetUpModel(t *testing.T, lang i18n.Lang, d *fakeDeploy, euid, width, rows int) (*Model, *fakeBackend) {
 	t.Helper()
+	return deployModel(t, lang, d, euid, width, rows, false)
+}
+
+// deployModel is the interface with the host side d; with running the deploy service answers, otherwise it does
+// not exist.
+func deployModel(t *testing.T, lang i18n.Lang, d *fakeDeploy, euid, width, rows int, running bool) (*Model, *fakeBackend) {
+	t.Helper()
 	b := demoBackend()
-	b.statusErr = fmt.Errorf("dial: %w", client.ErrNotRunning)
+	if !running {
+		b.statusErr = fmt.Errorf("dial: %w", client.ErrNotRunning)
+	}
 	m, err := newModel(config{ctx: context.Background(), backend: b, deploy: d, lang: lang, theme: kittui.ThemeTerminal,
 		profile: kittui.ProfileNone, charset: kittui.CharsetUnicode, loc: time.UTC,
 		prefs: uiprefs.Prefs{Theme: kittui.ThemeTerminal, Start: string(areaStacks), Icons: uiprefs.IconsUnicode,
@@ -99,7 +123,7 @@ func TestNotSetUpWithoutRootNeedsSudo(t *testing.T) {
 func TestSetupAsksWithCommandsAndRunsOnlyAfterYes(t *testing.T) {
 	d := newFakeDeploy()
 	m, b := notSetUpModel(t, i18n.English, d, 0, wideWidth, 24)
-	send(m, "G")
+	send(m, "G", "y")
 	screen := m.render()
 	for _, want := range []string{"Set up the deploy service now?", "$ groupadd --system qhost-deploy", "$ systemctl enable --now qhost-deploy"} {
 		if !strings.Contains(screen, want) {
@@ -110,7 +134,7 @@ func TestSetupAsksWithCommandsAndRunsOnlyAfterYes(t *testing.T) {
 	if d.ran != 0 || m.modal != nil {
 		t.Fatal("cancel ran the setup or left the question open")
 	}
-	send(m, "G")
+	send(m, "G", "y")
 	b.statusErr = nil
 	drain(m, press(m, "y"))
 	if d.ran != 1 {
@@ -129,7 +153,7 @@ func TestSetupFailureIsShown(t *testing.T) {
 	d := newFakeDeploy()
 	d.runErr = errors.New("useradd: exit status 9")
 	m, _ := notSetUpModel(t, i18n.English, d, 0, wideWidth, 24)
-	send(m, "G")
+	send(m, "G", "y")
 	drain(m, press(m, "y"))
 	if screen := m.render(); !strings.Contains(screen, "useradd: exit status 9") || !m.notSetUp {
 		t.Fatalf("failure not shown:\n%s", screen)
@@ -166,11 +190,151 @@ func TestGoldenSetupConfirmation(t *testing.T) {
 		for size, wh := range setupSizes {
 			t.Run(name+"."+size, func(t *testing.T) {
 				m, _ := notSetUpModel(t, lang, newFakeDeploy(), 0, wh[0], wh[1])
-				send(m, "G")
+				send(m, "G", "y")
 				screen := m.render()
 				checkScreen(t, screen, wh[0], wh[1])
 				checkGolden(t, "deploy.setup.confirm."+name+"."+size+".golden", screen+"\n")
 			})
+		}
+	}
+}
+
+// instanceDeploy is a host with the system service set up and rootless engines for demo_ops and bob. demo_ops is an
+// administrator, bob is in the group docker and is refused.
+func instanceDeploy() *fakeDeploy {
+	d := newFakeDeploy()
+	d.installed = true
+	d.users = []string{"demo_ops", "bob"}
+	d.instanceCommands = map[string][]string{"demo_ops": {
+		"loginctl enable-linger demo_ops",
+		"write /etc/tmpfiles.d/qhost-deploy-demo_ops.conf (mode 0644)",
+		"systemctl enable --now " + instanceUnit("demo_ops"),
+	}}
+	d.warnings = map[string][]string{"demo_ops": {"demo_ops is an administrator: the damage of a taken-over instance is not limited."}}
+	d.refusals = map[string]error{"bob": errors.New("the user bob is in the group docker; remove bob from the group first")}
+	return d
+}
+
+// instanceUnit is the unit of the instance of user.
+func instanceUnit(user string) string { return "qhost-deploy" + "@" + user + ".service" }
+
+func instanceModel(t *testing.T, lang i18n.Lang, d *fakeDeploy, euid, width, rows int) (*Model, *fakeBackend) {
+	t.Helper()
+	m, b := deployModel(t, lang, d, euid, width, rows, true)
+	return m, b
+}
+
+func TestInstanceSetupIsOfferedInStacksOfARunningHost(t *testing.T) {
+	m, _ := instanceModel(t, i18n.English, instanceDeploy(), 0, wideWidth, goldenRows)
+	if screen := m.render(); !strings.Contains(screen, "set up deploy service") {
+		t.Fatalf("no hint for the setup:\n%s", screen)
+	}
+	send(m, "G")
+	contains(t, m, "Which deploy service do you want to set up?", "system engine", "rootless engine")
+}
+
+func TestInstanceSetupWithoutRootNeedsSudo(t *testing.T) {
+	d := instanceDeploy()
+	m, _ := instanceModel(t, i18n.English, d, 1000, wideWidth, goldenRows)
+	send(m, "G")
+	if m.modal != nil || d.ran != 0 {
+		t.Fatal("the setup was offered without root")
+	}
+	contains(t, m, "needs root")
+}
+
+func TestInstanceSetupListsUsersAndAsksWithWarningAndSteps(t *testing.T) {
+	d := instanceDeploy()
+	m, b := instanceModel(t, i18n.English, d, 0, wideWidth, 30)
+	send(m, "G", "r")
+	contains(t, m, "with an engine: demo_ops, bob")
+	send(m, "d", "e", "m", "o", "_", "o", "p", "s", "enter")
+	contains(t, m, "Set up the deploy service for the", "! demo_ops is an",
+		"$ loginctl enable-linger demo_ops", "$ systemctl enable --now "+instanceUnit("demo_ops"), "These steps run as root:")
+	if d.ran != 0 {
+		t.Fatal("the setup ran before the answer")
+	}
+	send(m, "n")
+	if d.ran != 0 || m.modal != nil {
+		t.Fatal("cancel ran the setup or left the question open")
+	}
+	_ = b
+	send(m, "G", "r", "d", "e", "m", "o", "_", "o", "p", "s", "enter")
+	drain(m, press(m, "y"))
+	if d.ran != 1 || d.ranFor[0] != "demo_ops" {
+		t.Fatalf("setup ran %d times for %v", d.ran, d.ranFor)
+	}
+	contains(t, m, "deploy service for the rootless engine of demo_ops is set up and started")
+}
+
+func TestInstanceSetupAcceptsATypedNameOutsideTheList(t *testing.T) {
+	d := instanceDeploy()
+	d.users = nil
+	d.instanceCommands["carol"] = []string{"loginctl enable-linger carol"}
+	m, _ := instanceModel(t, i18n.English, d, 0, wideWidth, 30)
+	send(m, "G", "r")
+	contains(t, m, "no user with an engine found")
+	send(m, "c", "a", "r", "o", "l", "enter")
+	contains(t, m, "rootless engine of carol", "$ loginctl enable-linger carol")
+}
+
+func TestInstanceSetupShowsRefusalWithReason(t *testing.T) {
+	d := instanceDeploy()
+	m, _ := instanceModel(t, i18n.English, d, 0, wideWidth, 30)
+	send(m, "G", "r", "b", "o", "b", "enter")
+	if m.modal != nil || d.ran != 0 {
+		t.Fatal("a refused user got a question")
+	}
+	contains(t, m, "the user bob is in the group docker")
+}
+
+func TestRepeatedInstanceSetupSaysThereIsNothingToDo(t *testing.T) {
+	d := instanceDeploy()
+	d.instanceCommands["demo_ops"] = nil
+	m, _ := instanceModel(t, i18n.English, d, 0, wideWidth, 30)
+	send(m, "G", "r", "d", "e", "m", "o", "_", "o", "p", "s", "enter")
+	if m.modal != nil || d.ran != 0 {
+		t.Fatal("a finished setup asked again")
+	}
+	contains(t, m, "nothing to do")
+}
+
+func TestSystemSetupOfARunningHostSaysThereIsNothingToDo(t *testing.T) {
+	d := instanceDeploy()
+	d.commands = nil
+	m, _ := instanceModel(t, i18n.English, d, 0, wideWidth, 30)
+	send(m, "G", "y")
+	contains(t, m, "nothing to do")
+}
+
+func TestInstanceSetupOnAHostWithoutServiceKeepsTheSetupScreen(t *testing.T) {
+	d := instanceDeploy()
+	d.installed = false
+	m, _ := notSetUpModel(t, i18n.English, d, 0, wideWidth, 30)
+	send(m, "G", "r", "d", "e", "m", "o", "_", "o", "p", "s", "enter")
+	drain(m, press(m, "y"))
+	if !m.notSetUp {
+		t.Fatal("an instance of a rootless engine marked the service of the system engine as set up")
+	}
+}
+
+func TestGoldenInstanceSetup(t *testing.T) {
+	steps := map[string][]string{
+		"choose": {"G"},
+		"user":   {"G", "r"},
+		"ask":    {"G", "r", "d", "e", "m", "o", "_", "o", "p", "s", "enter"},
+	}
+	for step, keys := range steps {
+		for name, lang := range goldenLangs {
+			for size, wh := range setupSizes {
+				t.Run(step+"."+name+"."+size, func(t *testing.T) {
+					m, _ := instanceModel(t, lang, instanceDeploy(), 0, wh[0], wh[1])
+					send(m, keys...)
+					screen := m.render()
+					checkScreen(t, screen, wh[0], wh[1])
+					checkGolden(t, "deploy.instance."+step+"."+name+"."+size+".golden", screen+"\n")
+				})
+			}
 		}
 	}
 }

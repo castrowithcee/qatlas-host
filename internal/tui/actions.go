@@ -429,7 +429,7 @@ func (m *Model) answer(answer kittui.ActionID) tea.Cmd {
 			return md.yes()
 		}
 		return m.start(md.plan)
-	case actWithRemote:
+	case actWithRemote, actRootless:
 		if md.alt != nil {
 			return md.alt()
 		}

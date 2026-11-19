@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/castrowithcee/qatlas-kit/cli"
+	"github.com/castrowithcee/qatlas-kit/localipc"
 	"github.com/castrowithcee/qatlas-kit/output"
 
 	"github.com/castrowithcee/qatlas-host/internal/client"
@@ -89,12 +90,15 @@ var folders = folderHost{
 }
 
 // waitForService polls the control socket until the service answers; any answer counts, also a refusal.
-func waitForService(ctx context.Context) error {
+func waitForService(ctx context.Context) error { return waitForEndpoint(ctx, serviceEndpoint()) }
+
+// waitForEndpoint is waitForService for the service at ep.
+func waitForEndpoint(ctx context.Context, ep localipc.ServiceEndpoint) error {
 	ctx, cancel := context.WithTimeout(ctx, serviceWait)
 	defer cancel()
 	for {
 		var res control.StatusResult
-		err := client.Do(ctx, serviceEndpoint(), 2*time.Second, control.StatusCommand, nil, &res)
+		err := client.Do(ctx, ep, 2*time.Second, control.StatusCommand, nil, &res)
 		var remote *control.Error
 		if err == nil || errors.As(err, &remote) || errors.Is(err, client.ErrNoAccess) {
 			return nil

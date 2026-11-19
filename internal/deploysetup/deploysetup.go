@@ -1,6 +1,7 @@
-// Package deploysetup sets up the deploy service on the host: its system user, its channel directory and its
-// unit. The setup runs as root, writes only fixed paths and starts programs without a shell; nothing it runs
-// or writes is built from input.
+// Package deploysetup sets up the deploy services on the host: the service of the system engine with its system
+// user, channel directory and unit, and an instance for the rootless engine of an existing user. The setup runs
+// as root and starts programs without a shell; the only input in what it runs or writes is the user name of an
+// instance, which matches UserPattern.
 package deploysetup
 
 import (
@@ -79,6 +80,9 @@ type Step struct {
 // Plan is the list of steps a setup still needs; it is empty when the service is set up already.
 type Plan struct {
 	Steps []Step
+	// Warnings are said with the question; they do not stop the setup.
+	Warnings []string
+	sentence string
 }
 
 // Empty reports whether nothing is left to do.
@@ -95,6 +99,9 @@ func (p Plan) Commands() []string {
 
 // Sentence says in plain words what the setup does.
 func (p Plan) Sentence() string {
+	if p.sentence != "" {
+		return p.sentence
+	}
 	return "Set up the deploy service: it runs as its own system user qhost-deploy in the group docker, with its own " +
 		"channel and state, and starts at boot. The host service does not get access to the container engine."
 }

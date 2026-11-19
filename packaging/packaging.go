@@ -1,4 +1,4 @@
-// Package packaging carries the unit files of the services, so the program can install the deploy unit
+// Package packaging carries the unit files of the services, so the program can install the deploy units
 // without a release archive at hand.
 package packaging
 
@@ -8,3 +8,9 @@ import _ "embed"
 //
 //go:embed qhost-deploy.service
 var DeployUnit []byte
+
+// DeployInstanceUnit is the template unit of a deploy service instance for the rootless engine of a user. It is
+// not in the release archive, because the archive allows no '@' in its paths; the setup writes it.
+//
+//go:embed qhost-deploy@.service
+var DeployInstanceUnit []byte
