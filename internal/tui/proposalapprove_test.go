@@ -123,7 +123,7 @@ func TestProposalApproveWithoutSudoDoesNothing(t *testing.T) {
 	if m.modal != nil || m.set.form != nil {
 		t.Fatal("approving opened something without sudo")
 	}
-	send(m, "D")
+	send(m, "N")
 	if m.modal != nil || m.set.form != nil {
 		t.Fatal("rejecting opened something without sudo")
 	}
@@ -247,7 +247,7 @@ func TestProposalApproveCancelChangesNothing(t *testing.T) {
 func TestProposalRejectWithReason(t *testing.T) {
 	b := approveBackend()
 	m := proposalOpen(t, b, true, 0)
-	send(m, "D")
+	send(m, "N")
 	if m.set.form == nil || m.set.form.kind != formProposalReject {
 		t.Fatal("no form")
 	}
@@ -268,13 +268,13 @@ func TestProposalRejectWithReason(t *testing.T) {
 func TestProposalRejectWithoutReasonAndWithTooLongOne(t *testing.T) {
 	b := approveBackend()
 	m := proposalOpen(t, b, true, 0)
-	send(m, "D", "f2", "y")
+	send(m, "N", "f2", "y")
 	if len(b.proposalRejects) != 1 || b.proposalRejects[0].Reason != "" {
 		t.Fatalf("rejects = %+v", b.proposalRejects)
 	}
 	b = approveBackend()
 	m = proposalOpen(t, b, true, 0)
-	send(m, "D")
+	send(m, "N")
 	send(m, typed(strings.Repeat("x", 301))...)
 	send(m, "f2")
 	contains(t, m, "at most 300 characters")
@@ -286,7 +286,7 @@ func TestProposalRejectWithoutReasonAndWithTooLongOne(t *testing.T) {
 func TestProposalRejectDiscardLeavesNothing(t *testing.T) {
 	b := approveBackend()
 	m := proposalOpen(t, b, true, 0)
-	send(m, "D", "esc")
+	send(m, "N", "esc")
 	if m.set.form != nil || !m.pv.open {
 		t.Fatal("the form stayed or the view was left")
 	}
@@ -299,7 +299,7 @@ func TestProposalDecidedProposalOffersNoKeys(t *testing.T) {
 	if screen := m.render(); strings.Contains(screen, "approve") {
 		t.Fatalf("approve offered on a rejected proposal:\n%s", screen)
 	}
-	send(m, "A", "D")
+	send(m, "A", "N")
 	if m.modal != nil || m.set.form != nil {
 		t.Fatal("a decided proposal opened a step")
 	}

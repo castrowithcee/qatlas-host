@@ -95,6 +95,8 @@ type Model struct {
 	text    kittui.Translator
 	lang    i18n.Lang
 	frame   *kittui.Frame
+	// diagnosing is set while a diagnostic package is being collected.
+	diagnosing bool
 	// prefs are the preferences as saved last; a save changes the chosen values and keeps the rest.
 	prefs     uiprefs.Prefs
 	savePrefs func(uiprefs.Prefs) error
@@ -308,6 +310,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.reload(), m.tick())
 	case containerTickMsg:
 		return m, m.containerTick(msg)
+	case diagnoseMsg:
+		m.applyDiagnose(msg)
 	case containersMsg:
 		m.applyContainers(msg)
 	case containerDetailMsg:
@@ -967,7 +971,8 @@ func (m *Model) footer() []kittui.Hint {
 			return m.clog.view.Hints()
 		}
 		if m.clog.service {
-			common = append([]kittui.Hint{{Action: actLogLevel, Label: textKeyLogLevel, Priority: 2}}, common...)
+			common = append([]kittui.Hint{{Action: actLogLevel, Label: textKeyLogLevel, Priority: 2},
+				{Action: actDiagnose, Label: textKeyDiagnose, Priority: 2}}, common...)
 		}
 		return append(m.clog.view.Hints(), append([]kittui.Hint{saveLogHint()}, common...)...)
 	case m.area == areaSettings:

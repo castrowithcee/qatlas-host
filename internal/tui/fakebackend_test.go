@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/diagnose"
 )
 
 // fakeBackend answers from fixed results. A set error makes that call fail.
@@ -101,6 +102,11 @@ type fakeBackend struct {
 	svcLog  []control.ServiceLogEntry
 	svcPage int
 	svcArgs []control.ServiceLogArgs
+	// diagCalls counts the packages asked for; diagCall is what they are built from (nil: every part answers
+	// empty) and diagGate, when set, holds the build until it is closed.
+	diagCalls int
+	diagCall  diagnose.Call
+	diagGate  chan struct{}
 }
 
 func (f *fakeBackend) count(name string) {
@@ -992,4 +998,19 @@ func (f *fakeBackend) ProposalResult(_ context.Context, args control.ProposalRes
 	f.proposalResults = append(f.proposalResults, args)
 	f.mu.Unlock()
 	return control.ProposalInfo{ID: args.ID}, err
+}
+
+func (f *fakeBackend) Diagnose(ctx context.Context) *diagnose.Package {
+	f.mu.Lock()
+	f.diagCalls++
+	call, gate := f.diagCall, f.diagGate
+	f.mu.Unlock()
+	if gate != nil {
+		<-gate
+	}
+	if call == nil {
+		call = func(context.Context, string, any, any) error { return nil }
+	}
+	return diagnose.Build(ctx, diagnose.Options{Call: call, Version: "1.2.3", Now: func() time.Time { return clogStart },
+		Hostname: func() (string, error) { return "demo", nil }})
 }

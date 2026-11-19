@@ -48,6 +48,12 @@ func TestArchitecture(t *testing.T) {
 			Hint:  "only the service talks to the container engine; the command surface and the terminal interface ask the service",
 		},
 		{
+			Name:  "diagnose-reaches-the-service-through-a-call-only",
+			Files: archtest.Files{Under: []string{"internal/diagnose"}, Tests: archtest.SkipTests},
+			Check: archtest.ForbidImports("internal/service", "internal/client", "internal/cli", "internal/tui", "internal/engine", "internal/stacks"),
+			Hint:  "the package is built from channel answers handed in by the caller, so the command line and the terminal interface share it",
+		},
+		{
 			Name:  "helptopics-import-nothing-of-the-module",
 			Files: archtest.Files{Under: []string{"internal/helptopics"}, Tests: archtest.WithTests},
 			Check: archtest.AllowImports(),

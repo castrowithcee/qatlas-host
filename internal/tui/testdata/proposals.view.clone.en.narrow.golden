@@ -21,4 +21,4 @@
     owner: root, group: root, mode: 0755                                        
     the service can write it: no                                                
     permissions are set: no                                                     
-esc back  A approve  D reject  r reload  1-6 area  q quit      ↑/↓ scroll  20/27
+esc back  A approve  N reject  r reload  1-6 area  q quit      ↑/↓ scroll  20/27

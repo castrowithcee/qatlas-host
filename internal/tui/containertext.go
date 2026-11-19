@@ -111,6 +111,11 @@ const (
 	textKeySaveLog     kittui.TextID = "key.savelog"
 	textLogSaved       kittui.TextID = "log.saved"
 	textLogSaveFailed  kittui.TextID = "log.savefailed"
+	textKeyDiagnose    kittui.TextID = "key.diagnose"
+	textDiagBusy       kittui.TextID = "diagnose.busy"
+	textDiagSaved      kittui.TextID = "diagnose.saved"
+	textDiagPartial    kittui.TextID = "diagnose.partial"
+	textDiagFailed     kittui.TextID = "diagnose.failed"
 	textErrCtLogGone   kittui.TextID = "error.ctlog.gone"
 	textErrCtLogStack  kittui.TextID = "error.ctlog.stack"
 	textErrCtLogSlow   kittui.TextID = "error.ctlog.slow"
@@ -224,6 +229,11 @@ func containerEnglish() map[kittui.TextID]string {
 		textKeySaveLog:     "save log",
 		textLogSaved:       "Log saved to %s",
 		textLogSaveFailed:  "The log was not saved: %s",
+		textKeyDiagnose:    "diagnose",
+		textDiagBusy:       "Collecting the diagnostic package is still running",
+		textDiagSaved:      "Diagnostic package saved to %s. It holds the host name and paths: check it before you pass it on.",
+		textDiagPartial:    "Diagnostic package saved to %s, but %d parts have a problem; their reasons are in the package. It holds the host name and paths: check it before you pass it on.",
+		textDiagFailed:     "The diagnostic package was not saved: %s",
 		textErrCtLogGone:   "this container no longer exists; press {back} to leave the log",
 		textErrCtLogStack:  "this stack is not known to the service; press {back} to leave the log",
 		textErrCtLogSlow:   "the service did not answer in time; press {reload} to try again",
@@ -338,6 +348,11 @@ func containerGerman() map[kittui.TextID]string {
 		textKeySaveLog:     "Log speichern",
 		textLogSaved:       "Log gespeichert unter %s",
 		textLogSaveFailed:  "Das Log wurde nicht gespeichert: %s",
+		textKeyDiagnose:    "Diagnose",
+		textDiagBusy:       "Das Diagnosepaket wird noch gesammelt",
+		textDiagSaved:      "Diagnosepaket gespeichert unter %s. Es enthält Hostnamen und Pfade: prüfe es, bevor du es weitergibst.",
+		textDiagPartial:    "Diagnosepaket gespeichert unter %s, aber %d Bestandteile haben ein Problem; die Gründe stehen im Paket. Es enthält Hostnamen und Pfade: prüfe es, bevor du es weitergibst.",
+		textDiagFailed:     "Das Diagnosepaket wurde nicht gespeichert: %s",
 		textErrCtLogGone:   "diesen Container gibt es nicht mehr; verlasse das Log mit {back}",
 		textErrCtLogStack:  "der Dienst kennt diesen Stack nicht; verlasse das Log mit {back}",
 		textErrCtLogSlow:   "der Dienst hat nicht rechtzeitig geantwortet; drücke {reload}, um es erneut zu versuchen",

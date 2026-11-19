@@ -11,6 +11,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/diagnose"
 )
 
 // Backend is what the interface asks of the service, one method per channel command. Calls run off the event
@@ -39,6 +40,9 @@ type Backend interface {
 	ContainerLogs(ctx context.Context, args control.ContainerLogsArgs) (control.ContainerLogsResult, error)
 	// ServiceLog reads a page of the log of the service itself.
 	ServiceLog(ctx context.Context, args control.ServiceLogArgs) (control.ServiceLogResult, error)
+	// Diagnose collects the diagnostic package from read-only calls; it never fails, a part that could not be
+	// collected carries its reason.
+	Diagnose(ctx context.Context) *diagnose.Package
 
 	// The calls below change something in the service; the interface makes them only after a confirmation.
 
@@ -142,10 +146,21 @@ const containerCallLimit = 10 * time.Second
 // may run concurrently.
 type ChannelBackend struct {
 	endpoint localipc.ServiceEndpoint
+	version  string
 }
 
 // NewBackend returns the Backend over the channel at ep.
 func NewBackend(ep localipc.ServiceEndpoint) *ChannelBackend { return &ChannelBackend{endpoint: ep} }
+
+// WithVersion sets the version of qhost that a diagnostic package states.
+func (b *ChannelBackend) WithVersion(v string) *ChannelBackend {
+	b.version = v
+	return b
+}
+
+func (b *ChannelBackend) Diagnose(ctx context.Context) *diagnose.Package {
+	return diagnose.Build(ctx, diagnose.Options{Call: b.call, Version: b.version})
+}
 
 func (b *ChannelBackend) call(ctx context.Context, command string, args, result any) error {
 	return client.Do(ctx, b.endpoint, client.CallTimeout, command, args, result)
