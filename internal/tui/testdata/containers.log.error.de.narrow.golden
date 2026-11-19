@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
-   1 Stacks   2 Stack-Details   3 Läufe   4 Einstellungen  [5 Container]        
+  1 Stacks 2 Stack-Details 3 Läufe 4 Einstellungen [5 Container] 6 Vorschläge   
 ────────────────────────────────────────────────────────────────────────────────
   legacy-blog-db-1                                                              
 Noch keine Zeilen.                                                              
@@ -21,4 +21,4 @@ Noch keine Zeilen.
                                                                                 
 [ L mitlaufend ]  [ / Suchen ]  [ T Zeitraum: alle ]  [ w aus ]  [ t aus ]      
 / Suchen  L mitlaufen  T Zeitraum  w Zeilen umbrechen  t Zeitstempel            
-W Log speichern  r Neu laden  1-5 Bereich  q Beenden                ↑/↓ Scrollen
+W Log speichern  r Neu laden  1-6 Bereich  q Beenden                ↑/↓ Scrollen

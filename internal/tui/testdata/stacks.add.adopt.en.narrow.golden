@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed              [?] help
-  [1 Stacks] 2 3 4 5                                    
+  [1 Stacks] 2 3 4 5 6                                  
 ────────────────────────────────────────────────────────
   ⚠ Take over the clone /srv/clone-example with the     
     address ssh://git.example.test/ops/stacks.git?      

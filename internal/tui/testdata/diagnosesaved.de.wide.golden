@@ -1,5 +1,5 @@
 ◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
-   1 ▤ Stacks   2 ▣ Stack-Details  [3 ▶ Läufe]  4 ⚙ Einstellungen   5 ▦ Container                                       
+   1 ▤ Stacks   2 ▣ Stack-Details  [3 ▶ Läufe]  4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge                      
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Dienstlog                                                                                                  alle Stufen
   INFO service started version=1.2.3                                                                                    
@@ -11,4 +11,4 @@
 Diagnosepaket gespeichert unter /home/demo/qhost/qhost-diagnose-demo-20261030-170000.tar.gz. Es enthält Hostnamen und   
 Pfade: prüfe es, bevor du es weitergibst.                                                                               
 / Suchen  L mitlaufen  T Zeitraum  w Zeilen umbrechen  t Zeitstempel  W Log speichern  V Stufe  D Diagnose  r Neu laden 
-1-5 Bereich  q Beenden                                                                                      ↑/↓ Scrollen
+1-6 Bereich  q Beenden                                                                                      ↑/↓ Scrollen

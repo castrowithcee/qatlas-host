@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed              [?] help
-  [1 Stacks] 2 3 4 5                                    
+  [1 Stacks] 2 3 4 5 6                                  
 ────────────────────────────────────────────────────────
         STACK                      CURRENT  AVAILABLE  S
   ▾ [ ] ■ /srv/local-example (0)   local               …
@@ -21,4 +21,4 @@ error: the fetch of /srv/stacks-example failed: the
 service refused the request: cannot reach               
 git.example.test: connection refused                    
 enter details  / search  F fetch now  e deploy key      
-x release  a add  r reload  1-5 area  q quit         1/6
+x release  a add  r reload  1-6 area  q quit         1/6

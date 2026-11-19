@@ -53,6 +53,9 @@ type proposalRecord struct {
 	SubmitterName string          `json:"submitter_name"`
 	Submitted     time.Time       `json:"submitted"`
 	State         string          `json:"state"`
+	// Decided is when the approval was accepted or the proposal was rejected; Message is the reason or failure.
+	Decided time.Time `json:"decided,omitzero"`
+	Message string    `json:"message,omitempty"`
 }
 
 // proposalService keeps the proposals below the state directory of the service, one private file each,
@@ -76,6 +79,9 @@ func registerProposalCommands(r *control.Registry, p *proposalService) error {
 	commands := map[string]control.Command{
 		control.ProposalSubmitCommand:   proposing(p.handleSubmit),
 		control.ProposalWithdrawCommand: proposing(p.handleWithdraw),
+		control.ProposalApproveCommand:  writing(p.handleApprove),
+		control.ProposalRejectCommand:   writing(p.handleReject),
+		control.ProposalResultCommand:   writing(p.handleResult),
 		control.ProposalListCommand:     reading(p.handleList),
 		control.ProposalShowCommand:     reading(p.handleShow),
 	}
@@ -248,19 +254,83 @@ func (p *proposalService) handleWithdraw(ctx context.Context, raw json.RawMessag
 	return p.info(rec), nil
 }
 
-// resolve moves an open proposal to applied or rejected, the one change a later approval makes. It refuses a
-// proposal that is not open or has expired, so nothing expired is ever applied.
-func (p *proposalService) resolve(id, to string) error {
-	if to != control.ProposalApplied && to != control.ProposalRejected {
-		return errors.New("a proposal is resolved as applied or rejected")
+// handleApprove accepts the approval of an open proposal whose fingerprint is the one the person was shown. It
+// runs before anything is applied: from here on the proposal can be neither withdrawn, rejected nor approved
+// again, and it waits for its result. After ProposalApprovalWindow without a result it counts as failed.
+func (p *proposalService) handleApprove(_ context.Context, raw json.RawMessage) (any, error) {
+	var a control.ProposalApproveArgs
+	if err := decodeArgs(raw, &a); err != nil {
+		return nil, err
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	rec, err := p.find(id)
+	rec, err := p.find(a.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return p.transition(rec, to)
+	if st := p.stateOf(rec); st != control.ProposalOpen {
+		return nil, control.NewError(control.CodeInvalid, fmt.Sprintf("the proposal is %s, not open", st))
+	}
+	if a.Fingerprint != rec.Fingerprint {
+		return nil, control.NewError(control.CodeProposalChanged, "the proposal is not the one that was shown")
+	}
+	rec.State, rec.Decided = control.ProposalApproving, p.now().UTC().Truncate(time.Second)
+	if err := p.save(rec); err != nil {
+		return nil, p.internal("store the proposal", err)
+	}
+	return p.info(rec), nil
+}
+
+// handleReject closes an open proposal as rejected with an optional reason the submitter can read.
+func (p *proposalService) handleReject(_ context.Context, raw json.RawMessage) (any, error) {
+	var a control.ProposalRejectArgs
+	if err := decodeArgs(raw, &a); err != nil {
+		return nil, err
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	rec, err := p.find(a.ID)
+	if err != nil {
+		return nil, err
+	}
+	if st := p.stateOf(rec); st != control.ProposalOpen {
+		return nil, control.NewError(control.CodeInvalid, fmt.Sprintf("the proposal is %s, not open", st))
+	}
+	rec.State, rec.Decided, rec.Message = control.ProposalRejected, p.now().UTC().Truncate(time.Second), printable(a.Reason)
+	if err := p.save(rec); err != nil {
+		return nil, p.internal("store the proposal", err)
+	}
+	return p.info(rec), nil
+}
+
+// handleResult records the outcome of an approved proposal. It also takes a result that arrives after the window
+// ran out, because the outcome that happened is the truth.
+func (p *proposalService) handleResult(_ context.Context, raw json.RawMessage) (any, error) {
+	var a control.ProposalResultArgs
+	if err := decodeArgs(raw, &a); err != nil {
+		return nil, err
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	rec, err := p.find(a.ID)
+	if err != nil {
+		return nil, err
+	}
+	if rec.State != control.ProposalApproving {
+		return nil, control.NewError(control.CodeInvalid, fmt.Sprintf("the proposal is %s, not being approved", rec.State))
+	}
+	if a.Fingerprint != rec.Fingerprint {
+		return nil, control.NewError(control.CodeProposalChanged, "the proposal is not the one that was approved")
+	}
+	if a.Applied {
+		rec.State, rec.Message = control.ProposalApplied, ""
+	} else if rec.State, rec.Message = control.ProposalFailed, printable(a.Message); rec.Message == "" {
+		rec.Message = "the change failed"
+	}
+	if err := p.save(rec); err != nil {
+		return nil, p.internal("store the proposal", err)
+	}
+	return p.info(rec), nil
 }
 
 func (p *proposalService) transition(rec proposalRecord, to string) error {
@@ -277,16 +347,23 @@ func (p *proposalService) transition(rec proposalRecord, to string) error {
 // stateOf is the state shown for a record: an open proposal past its lifetime is expired, whatever the clock
 // said when it was stored.
 func (p *proposalService) stateOf(r proposalRecord) string {
-	if r.State == control.ProposalOpen && !p.now().Before(r.Submitted.Add(control.ProposalLifetime)) {
+	switch {
+	case r.State == control.ProposalOpen && !p.now().Before(r.Submitted.Add(control.ProposalLifetime)):
 		return control.ProposalExpired
+	case r.State == control.ProposalApproving && !p.now().Before(r.Decided.Add(control.ProposalApprovalWindow)):
+		return control.ProposalFailed
 	}
 	return r.State
 }
 
 func (p *proposalService) info(r proposalRecord) control.ProposalInfo {
-	return control.ProposalInfo{ID: r.ID, Kind: r.Kind, State: p.stateOf(r), Fingerprint: r.Fingerprint,
+	st, msg := p.stateOf(r), printable(r.Message)
+	if st == control.ProposalFailed && r.State == control.ProposalApproving {
+		msg = "the approval did not finish"
+	}
+	return control.ProposalInfo{ID: r.ID, Kind: r.Kind, State: st, Fingerprint: r.Fingerprint,
 		SubmitterUID: r.SubmitterUID, SubmitterName: printable(r.SubmitterName), Submitted: r.Submitted,
-		Expires: r.Submitted.Add(control.ProposalLifetime)}
+		Expires: r.Submitted.Add(control.ProposalLifetime), Message: msg}
 }
 
 func (p *proposalService) internal(what string, err error) error {
@@ -321,7 +398,8 @@ func readProposal(path string) (proposalRecord, error) {
 		return proposalRecord{}, err
 	}
 	switch r.State {
-	case control.ProposalOpen, control.ProposalWithdrawn, control.ProposalRejected, control.ProposalApplied:
+	case control.ProposalOpen, control.ProposalWithdrawn, control.ProposalRejected, control.ProposalApproving,
+		control.ProposalApplied, control.ProposalFailed:
 		return r, nil
 	}
 	return proposalRecord{}, errors.New("unknown state")

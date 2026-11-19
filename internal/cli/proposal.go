@@ -23,13 +23,15 @@ import (
 func newProposalCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
 	group := &cobra.Command{
 		Use:   "proposal",
-		Short: "Submit, list, show and withdraw proposals of changes to the setup",
+		Short: "Submit, list, show, withdraw, approve and reject proposals of changes to the setup",
 		Long: "A proposal asks for a change of the setup, for example a stack folder. The service checks and stores it and\n" +
 			"changes nothing on the host. Every command runs without sudo for an administrator in the group qhost;\n" +
-			"a proposal can be withdrawn by its submitter or by root. See 'qhost help proposals'.",
+			"a proposal can be withdrawn by its submitter or by root. approve and reject are for root at a terminal.\n" +
+			"See 'qhost help proposals'.",
 	}
 	group.AddCommand(newProposalSubmit(program, state), newProposalList(program, state),
-		newProposalShow(program, state), newProposalWithdraw(program, state))
+		newProposalShow(program, state), newProposalWithdraw(program, state),
+		newProposalApprove(program, state), newProposalReject(program, state))
 	return group
 }
 
@@ -204,6 +206,9 @@ func proposalCall(c *cobra.Command, state *notRunning, command string, args, res
 		case control.CodeNotSubmitter:
 			return &cli.Failure{Code: output.CodePermission, Message: remote.Message,
 				NextStep: "Only the submitter or root may withdraw it.", Cause: remote}
+		case control.CodeProposalChanged:
+			return &cli.Failure{Code: output.CodeInvalidRequest, Message: remote.Message + "; nothing was applied", Usage: true,
+				NextStep: "Show the proposal with 'qhost proposal show <id>' and review it again.", Cause: remote}
 		case control.CodeNotFound:
 			return &cli.Failure{Code: output.CodeNotFound, Message: remote.Message,
 				NextStep: "List the proposals with 'qhost proposal list'.", Cause: remote}
@@ -213,12 +218,16 @@ func proposalCall(c *cobra.Command, state *notRunning, command string, args, res
 }
 
 func proposalFields(format output.Format, p control.ProposalInfo) []output.Field {
-	return []output.Field{
+	fields := []output.Field{
 		{Name: "id", Value: text(format, p.ID)}, {Name: "kind", Value: text(format, p.Kind)},
 		{Name: "state", Value: text(format, p.State)}, {Name: "fingerprint", Value: text(format, p.Fingerprint)},
 		{Name: "submitter", Value: text(format, p.SubmitterName)}, {Name: "submitter_uid", Value: p.SubmitterUID},
 		{Name: "submitted", Value: proposalTime(p.Submitted)}, {Name: "expires", Value: proposalTime(p.Expires)},
 	}
+	if p.Message != "" {
+		fields = append(fields, output.Field{Name: "message", Value: text(format, p.Message)})
+	}
+	return fields
 }
 
 func proposalTime(t time.Time) string {

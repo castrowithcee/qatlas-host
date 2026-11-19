@@ -23,6 +23,10 @@ type snapshot struct {
 	check   control.StacksCheckResult
 	updates control.UpdatesResult
 	runs    control.RunsResult
+	// proposals are the proposals read last; a failed read leaves them empty and sets proposalsErr, which
+	// only the Proposals area shows.
+	proposals    control.ProposalListResult
+	proposalsErr error
 }
 
 // refreshMsg carries a refresh: err is set when the service could not be asked at all, problem when a part
@@ -60,6 +64,7 @@ func fetch(ctx context.Context, b Backend) refreshMsg {
 	}
 	msg.snap.runs, err = b.Runs(ctx, "")
 	keep(err)
+	msg.snap.proposals, msg.snap.proposalsErr = b.ProposalList(ctx)
 	return msg
 }
 

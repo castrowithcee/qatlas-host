@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers  [6 ◈ Proposals]                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  stack folder                                                                                                    p-0002
+                                                                                                                        
+  from       ben (1002)                                                                                                 
+  submitted  10-28 08:00                                                                                                
+  expires    11-11 08:00                                                                                                
+  state      rejected                                                                                                   
+    reason: the folder holds another project                                                                            
+                                                                                                                        
+  Proposed                                                                                                              
+    path: /srv/repo-example                                                                                             
+    address: none proposed                                                                                              
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+esc back  r reload  1-6 area  q quit                                                                          ↑/↓ scroll

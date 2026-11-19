@@ -54,7 +54,7 @@ Commands:
 - qhost stack secret set <stack> <KEY>, qhost stack secret list <stack>, qhost stack secret delete <stack> <KEY>: write, list by key and remove the secrets in a stack's secrets.env; the value is read without echo at a terminal or from standard input, never from an argument, and nothing is redeployed (list runs without sudo for an administrator in the group qhost, set and delete need sudo)
 - qhost credential set|list|delete: manage registry tokens and notification credentials (list runs without sudo for an administrator in the group qhost, set and delete need sudo)
 - qhost notify list|add|remove|test: manage the notification channels (webhook, Slack, Telegram, e-mail) and send a test message through one (list runs without sudo for an administrator in the group qhost, the rest needs sudo; see qhost help notifications)
-- qhost proposal submit|list|show|withdraw: ask for a change of the setup, for now a stack folder, without sudo for an administrator in the group qhost; nothing on the host changes and approving is not done with these commands (see qhost help proposals)
+- qhost proposal submit|list|show|withdraw: ask for a change of the setup, for now a stack folder, without sudo for an administrator in the group qhost; nothing on the host changes. qhost proposal approve|reject: decide on a proposal, only root at a terminal (see qhost help proposals)
 - qhost update [version], qhost update status: update qhost itself to the latest stable release or to a given newer one from its signed GitHub releases and restart the service; status shows the installed version and the latest release and changes nothing (update runs with sudo and needs --confirm; stack updates are qhost stack update)
 - qhost container list [--metrics], qhost container show <name>: show every container of the host, own stacks, foreign Compose projects and single containers, with state; changes nothing (runs without sudo for an administrator in the group qhost; see qhost help containers)
 - qhost container logs <name>|--stack <stack> [--since T] [--until T] [--tail N] [--follow]: show the output of a container or of a whole stack (runs without sudo for an administrator in the group qhost; see qhost help containers)
@@ -331,13 +331,17 @@ Repair: the monitor also repairs a failure by restarts, each under the run slot 
 
 Environment: only the names of the variables are shown, never their values.`
 
-const proposalsTopic = `A proposal asks for a change of the setup. An administrator in the group qhost, who needs no sudo to read, submits it; the service checks and stores it. Submitting changes nothing on the host: the service does not touch the proposed folder, uses no network and runs no git. Approving a proposal, which would apply it, is not possible with these commands yet.
+const proposalsTopic = `A proposal asks for a change of the setup. An administrator in the group qhost, who needs no sudo to read, submits it; the service checks and stores it. Submitting changes nothing on the host: the service does not touch the proposed folder, uses no network and runs no git. Only a person decides: root at a terminal approves or rejects it.
 
-Commands (all run without sudo for an administrator in the group qhost):
+Commands submit, list, show and withdraw run without sudo for an administrator in the group qhost:
 - qhost proposal submit --kind source-add [--file <path>|-]: read the content as JSON from the file or from standard input and print the id of the new proposal. The file is read as the calling user, at most a little over 64 KiB.
 - qhost proposal list: list the proposals, newest first, with id, kind, state, submitter and times
 - qhost proposal show <id>: show one proposal with its fingerprint, submitter and content
 - qhost proposal withdraw <id>: close an open proposal as withdrawn; only its submitter or root may do that
+
+Commands approve and reject need sudo and a terminal; they refuse --agent and input that is no terminal, and there is no --yes:
+- sudo qhost proposal approve <id> [--url <ssh-url>]: show the proposal and, below it, its effect, worked out with the same check as qhost source add (case, permissions, conflicts, file list). You confirm the host key of the server yourself, because a proposal never does, add the deploy key if the folder has none, and answer a last question. Right before anything changes the proposal is read again and the effect is worked out again; if either differs from what you saw, nothing is applied and the new effect is shown. The change is then made the way qhost source add makes it. --url replaces the proposed address.
+- sudo qhost proposal reject <id> [--reason <text>]: close an open proposal as rejected; the reason is kept at most 300 characters long
 
 Kind source-add proposes a folder as a stack folder (see qhost help sources). Its content is a JSON object with these fields and no others:
 - path: the absolute, clean path of the folder (required)
@@ -347,6 +351,6 @@ A proposal holds configuration only, never a command, a secret or a host key fin
 
 Limits: at most 20 open proposals per submitter, at most 64 KiB per proposal, and an open proposal expires after 14 days.
 
-States: open, withdrawn, rejected, applied and expired. An open proposal past its time shows as expired and cannot be applied. The fingerprint identifies exactly the content, so a later approval binds to what was shown.
+States: open, withdrawn, rejected, approving, applied, failed and expired. An open proposal past its time shows as expired and cannot be approved. The fingerprint identifies exactly the content, and the service accepts an approval only with the fingerprint that was shown. Once accepted, the proposal is approving: it can no longer be withdrawn, rejected or approved again, and it ends as applied or as failed with a message. An approval that gets no result within 15 minutes, for example after an interrupted command, shows as failed; the submitter then submits a new proposal. The reason of a rejection and the message of a failure show in qhost proposal show.
 
 Text of a submitter is shown with control characters replaced; --output json keeps the text as submitted.`

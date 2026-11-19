@@ -14,11 +14,11 @@ type iconSet struct {
 
 var (
 	unicodeIcons = iconSet{logo: "◆", areas: map[kittui.AreaID]string{
-		areaStacks: "▤", areaDetail: "▣", areaRuns: "▶", areaSettings: "⚙", areaContainers: "▦",
+		areaStacks: "▤", areaDetail: "▣", areaRuns: "▶", areaSettings: "⚙", areaContainers: "▦", areaProposals: "◈",
 	}}
 	// The nerd font glyphs are Font Awesome code points of the patched fonts.
 	nerdFontIcons = iconSet{logo: "", areas: map[kittui.AreaID]string{
-		areaStacks: "", areaDetail: "", areaRuns: "", areaSettings: "", areaContainers: "",
+		areaStacks: "", areaDetail: "", areaRuns: "", areaSettings: "", areaContainers: "", areaProposals: "\uf01c",
 	}}
 )
 

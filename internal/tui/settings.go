@@ -119,6 +119,7 @@ const (
 	opStackSettingsCompose
 	opStackSettingsCheck
 	opStackSettingsRemove
+	opProposalReject
 )
 
 // settingMsg carries the answer of a write. A write answers with the name it concerned, never with a value.
@@ -392,8 +393,14 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		return nil
 	}
 	s.busy = false
+	var decided *proposalDone
+	if d, ok := msg.res.(proposalDone); ok {
+		// The answer of approving a proposal is that of the change it applied, with what became of the proposal.
+		decided, msg.res, msg.err = &d, d.res, d.err
+	}
 	if msg.err != nil {
-		return m.settingFailed(msg)
+		cmd := m.settingFailed(msg)
+		return tea.Batch(cmd, m.proposalDecided(decided))
 	}
 	t := m.text
 	var cmds []tea.Cmd
@@ -404,6 +411,14 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		m.tell(textSettingDoneTitle, text, details)
 	}
 	switch res := msg.res.(type) {
+	case proposalRefused:
+		s.add = nil
+		m.failure = t.Lookup(kittui.TextError, t.Lookup(textPropChanged))
+		m.applyProposal(res.msg)
+		return nil
+	case control.ProposalInfo:
+		done(t.Lookup(textDonePropRejected, kittui.Escape(proposalShort(res.ID))))
+		cmds = append(cmds, m.reloadNow(), m.readProposal())
 	case inspected:
 		s.form, s.add = nil, res.flow
 		m.showInspection(res.flow)
@@ -513,7 +528,7 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		}
 		cmds = append(cmds, m.loadPage(true))
 	}
-	return tea.Batch(cmds...)
+	return tea.Batch(append(cmds, m.proposalDecided(decided))...)
 }
 
 // settingFailed shows why a write failed. The service words contain no stored value.

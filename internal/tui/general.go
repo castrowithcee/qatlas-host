@@ -131,7 +131,7 @@ func (mem listMemory) restore(l *kittui.List) {
 func (m *Model) relocalize(lang i18n.Lang) tea.Cmd {
 	text, err := kittui.NewTranslator(lang, catalog(), m.keys)
 	var set *settingsState
-	var stacks, runs, containers *kittui.List
+	var stacks, runs, containers, proposals *kittui.List
 	if err == nil {
 		set, err = newSettings(m.keys, text)
 	}
@@ -144,13 +144,16 @@ func (m *Model) relocalize(lang i18n.Lang) tea.Cmd {
 	if err == nil {
 		containers, err = m.newContainerList(text)
 	}
+	if err == nil {
+		proposals, err = m.newProposalList(text)
+	}
 	if err != nil {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return nil
 	}
 	s := m.set
-	old := []**kittui.List{&m.list, &m.runsList, &m.ctList, &s.credList, &s.notifyList}
-	fresh := []*kittui.List{stacks, runs, containers, set.credList, set.notifyList}
+	old := []**kittui.List{&m.list, &m.runsList, &m.ctList, &m.propList, &s.credList, &s.notifyList}
+	fresh := []*kittui.List{stacks, runs, containers, proposals, set.credList, set.notifyList}
 	mem := make([]listMemory, len(old))
 	for i, l := range old {
 		mem[i] = remember(*l)
@@ -162,6 +165,9 @@ func (m *Model) relocalize(lang i18n.Lang) tea.Cmd {
 	}
 	if m.ct.loaded {
 		m.fillContainers()
+	}
+	if m.prop.loaded {
+		m.fillProposals()
 	}
 	m.setCredentials(s.credRead)
 	m.setChannels(s.notifyRead)

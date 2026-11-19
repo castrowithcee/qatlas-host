@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                            [?] Hilfe
+  [1 Stacks] 2 Stack-Details 3 Läufe 4 Einstellungen 5 Container 6 Vorschläge   
+────────────────────────────────────────────────────────────────────────────────
+        STACK                      VERSION     VERFÜGBAR  ZUSTAND   BEFUNDE     
+  ▾ [ ] ■ /srv/local-example (0)   lokal                            Abruf fehlg…
+  ▾ [ ] ■ /srv/stacks-example (6)  Klon                             abgerufen 2…
+>   [ ] demo-stack                 1.4.2       1.5.0      deployt   1 Warnung   
+    [ ] mail-relay                 3.1         aktuell    offen     keine       
+    [ ] old-tool                   -           ungeprüft  entfernt  keine       
+    [ ] photo-album                2.0.1       Fehler     Rollback  1 Fehler    
+    [ ] web-shop                   5.2.0, 16…  6.0.0 (M…  läuft     keine       
+    [ ] wiki                       1.41.0      ungeprüft  gepinnt   2 Warnungen 
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+Warnung: 3 offene Vorschläge warten auf dich. Mit 6 prüfst du sie.              
+enter Details  / Suchen  space markieren  u update  d deploy  a hinzufügen      
+r Neu laden  1-6 Bereich  q Beenden                           ↑/↓ Auswählen  1/6

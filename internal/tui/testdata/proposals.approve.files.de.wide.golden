@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container  [6 ◈ Vorschläge]                     
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Vorschlag p-0005 freigeben und diese Änderungen an /srv/files-example anwenden?                                     
+                                                                                                                        
+  Ja markiert den Vorschlag als freigegeben und nimmt dann die gezeigten Änderungen vor, so wie das Hinzufügen des      
+  Ordners von Hand. Direkt davor werden der Vorschlag und seine Wirkung neu gelesen, und nichts wird angewendet, wenn   
+  eines von beiden vom Gezeigten abweicht. Das Ergebnis bleibt am Vorschlag.                                            
+                                                                                                                        
+    Ordner: /srv/files-example                                                                                          
+    Fall: files (Dateien ohne Repository; ein erster Commit nimmt die aufgeführten Dateien)                             
+    Eigentümer: root, Gruppe: root, Modus: 0755                                                                         
+    der Dienst kann ihn schreiben: nein                                                                                 
+    Rechte werden gesetzt: ja                                                                                           
+                                                                                                                        
+  Dateien des ersten Commits (2)                                                                                        
+    demo/.env                                                                                                           
+    demo/compose.yaml                                                                                                   
+                                                                                                                        
+  Ausgelassen (1), nur in .git/info/exclude vermerkt                                                                    
+    demo/data: bind-mount (Stack demo)                                                                                  
+                                                                                                                        
+  Stacks (1)                                                                                                            
+    demo (Ordner demo)                                                                                                  
+      funktioniert: deploy                                                                                              
+      funktioniert nicht: backup                                                                                        
+      warning secrets-env-not-ignored: secrets.env is not listed in .gitignore                                          
+      Konflikt: Der Container demo-app-1 des Projekts old-demo läuft im Ordner                                          
+                                                                                                                        
+  Änderungen nach Ja                                                                                                    
+    Ein Git-Repository wird mit Branch main und einem ersten Commit der aufgeführten Dateien als qhost angelegt; keine  
+    Datei im Ordner wird geschrieben. Es wird als lokaler Stack-Ordner übernommen.                                      
+    3 paths get the group of the service account with group write; the owner stays                                      
+    Der Ordner wird in das systemd-Drop-in des Dienstes eingetragen, der einmal neu startet.                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+y ja, ausführen  w mit Remote  n/esc/enter abbrechen                                                        ↑/↓ Scrollen

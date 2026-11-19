@@ -258,6 +258,17 @@ func TestProposalsOverTheChannelUseThePeerOfTheRequest(t *testing.T) {
 	if err := h.call(control.ProposalWithdrawCommand, control.ProposalIDArgs{ID: info.ID}, &info); err != nil || info.State != control.ProposalWithdrawn {
 		t.Fatalf("withdraw = %+v, %v", info, err)
 	}
+	// Deciding on a proposal is root's: an administrator, the submitter included, gets the refusal of a write.
+	for _, c := range []struct {
+		command string
+		args    any
+	}{
+		{control.ProposalApproveCommand, control.ProposalApproveArgs{ID: info.ID, Fingerprint: info.Fingerprint}},
+		{control.ProposalRejectCommand, control.ProposalRejectArgs{ID: info.ID}},
+		{control.ProposalResultCommand, control.ProposalResultArgs{ID: info.ID, Fingerprint: info.Fingerprint, Applied: true}},
+	} {
+		wantCode(t, h.call(c.command, c.args, nil), control.CodeNotRoot)
+	}
 	// A proposal changes nothing else: an administrator still cannot write.
 	wantCode(t, h.call(control.SourceAddCommand, control.SourceAddArgs{Path: "/srv/example-stacks"}, nil), control.CodeNotRoot)
 }

@@ -100,6 +100,8 @@ const (
 
 	CodeProposalLimit = "proposal-limit"
 	CodeNotSubmitter  = "not-submitter"
+	// CodeProposalChanged answers an approval whose fingerprint is not that of the stored proposal.
+	CodeProposalChanged = "proposal-changed"
 )
 
 // Request is what a client sends. Args is command specific and may be absent.
@@ -1672,22 +1674,32 @@ type ContainerNetwork struct {
 // person with root applies later; submitting stores it and has no other effect. ProposalSubmitCommand and
 // ProposalWithdrawCommand are open to root and the administrators of the service group, and touch the user's own
 // proposals only; withdrawing another user's proposal is root's.
+//
+// ProposalApproveCommand, ProposalRejectCommand and ProposalResultCommand are root's. An approval is accepted
+// before anything is applied and closes the proposal against withdrawing and a second approval; the person
+// then applies the change and reports it with ProposalResultCommand.
 const (
 	ProposalSubmitCommand   = "proposal.submit"
 	ProposalListCommand     = "proposal.list"
 	ProposalShowCommand     = "proposal.show"
 	ProposalWithdrawCommand = "proposal.withdraw"
+	ProposalApproveCommand  = "proposal.approve"
+	ProposalRejectCommand   = "proposal.reject"
+	ProposalResultCommand   = "proposal.result"
 )
 
 // ProposalKindSourceAdd proposes a folder as a stack folder; its content is a ProposalSourceAdd.
 const ProposalKindSourceAdd = "source-add"
 
-// The states of a proposal. A proposal that is open and older than ProposalLifetime is answered as expired.
+// The states of a proposal. A proposal that is open and older than ProposalLifetime is answered as expired, and
+// one that has been approving for longer than ProposalApprovalWindow is answered as failed.
 const (
 	ProposalOpen      = "open"
 	ProposalWithdrawn = "withdrawn"
 	ProposalRejected  = "rejected"
+	ProposalApproving = "approving"
 	ProposalApplied   = "applied"
+	ProposalFailed    = "failed"
 	ProposalExpired   = "expired"
 )
 
@@ -1697,6 +1709,9 @@ const (
 	ProposalMaxOpen  = 20
 	ProposalMaxBytes = 64 << 10
 	ProposalLifetime = 14 * 24 * time.Hour
+	// ProposalApprovalWindow is how long an accepted approval may wait for its result before the proposal counts
+	// as failed, so an interrupted approval never blocks root for good.
+	ProposalApprovalWindow = 15 * time.Minute
 )
 
 // ProposalSubmitArgs are the arguments of ProposalSubmitCommand. Content is JSON in the schema of Kind; unknown
@@ -1723,6 +1738,8 @@ type ProposalInfo struct {
 	SubmitterName string    `json:"submitter_name"`
 	Submitted     time.Time `json:"submitted"`
 	Expires       time.Time `json:"expires"`
+	// Message is the reason of a rejection or the failure of an approval; the service keeps it printable and at most 300 characters.
+	Message string `json:"message,omitempty"`
 }
 
 // ProposalListResult answers ProposalListCommand, the newest proposal first.
@@ -1739,4 +1756,26 @@ type ProposalIDArgs struct {
 type ProposalShowResult struct {
 	ProposalInfo
 	Content json.RawMessage `json:"content"`
+}
+
+// ProposalApproveArgs are the arguments of ProposalApproveCommand. Fingerprint is the one of the proposal as the
+// person was shown it.
+type ProposalApproveArgs struct {
+	ID          string `json:"id"`
+	Fingerprint string `json:"fingerprint"`
+}
+
+// ProposalRejectArgs are the arguments of ProposalRejectCommand; Reason is optional and read by the submitter.
+type ProposalRejectArgs struct {
+	ID     string `json:"id"`
+	Reason string `json:"reason,omitempty"`
+}
+
+// ProposalResultArgs are the arguments of ProposalResultCommand: whether the change of an approved proposal was
+// applied and, if not, why.
+type ProposalResultArgs struct {
+	ID          string `json:"id"`
+	Fingerprint string `json:"fingerprint"`
+	Applied     bool   `json:"applied"`
+	Message     string `json:"message,omitempty"`
 }

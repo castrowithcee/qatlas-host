@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
-   1 ▤ Stacks   2 ▣ Stack detail  [3 ▶ Runs]  4 ⚙ Settings   5 ▦ Containers                                             
+   1 ▤ Stacks   2 ▣ Stack detail  [3 ▶ Runs]  4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals                             
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Service log                                                                                                 all levels
   INFO service started version=1.2.3                                                                                    
@@ -10,5 +10,5 @@
 [ L following ]  [ / search ]  [ T period: all ]  [ w wrap lines off ]  [ t timestamps off ]              lines 1-4 of 4
 Diagnostic package saved to /home/demo/qhost/qhost-diagnose-demo-20261030-170000.tar.gz. It holds the host name and     
 paths: check it before you pass it on.                                                                                  
-/ search  L follow  T period  w wrap lines  t timestamps  W save log  V level  D diagnose  r reload  1-5 area  q quit   
+/ search  L follow  T period  w wrap lines  t timestamps  W save log  V level  D diagnose  r reload  1-6 area  q quit   
                                                                                                               ↑/↓ scroll

@@ -183,6 +183,8 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitFolder(f, text("path"))
 	case formFolderURL:
 		return m.submitFolderURL(f, text("url"))
+	case formProposalReject:
+		return m.submitProposalReject(f, text("reason"))
 	case formCred:
 		return m.submitCredential(f, string(v["kind"].Choice), text("host"), text("user"), v["token"].Text)
 	case formWindow:

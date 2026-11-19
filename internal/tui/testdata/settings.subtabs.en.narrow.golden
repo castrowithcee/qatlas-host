@@ -1,5 +1,5 @@
 ◆ qhost  maintenance window closed  [esc] back  [?] help
-  1 2 3 [4 Settings] 5                                  
+  1 2 3 [4 Settings] 5 6                                
 > [Credentials]                                         
 ────────────────────────────────────────────────────────
   NAME                STORED                            
@@ -21,4 +21,4 @@
                                                         
                                                         
 ← previous page  → next page  a add  x remove  esc back 
-r reload  1-5 area  q quit               ↑/↓ choose  1/2
+r reload  1-6 area  q quit               ↑/↓ choose  1/2
