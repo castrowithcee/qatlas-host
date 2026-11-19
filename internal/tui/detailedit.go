@@ -229,7 +229,11 @@ func (m *Model) formView(width, height int) string {
 	}
 	var head []string
 	if f.kind != formGeneral {
-		head = []string{m.heading(f.title, width), ""}
+		title := m.text.Lookup(f.title)
+		if f.titleArg != "" {
+			title = m.text.Lookup(f.title, f.titleArg)
+		}
+		head = []string{m.line(detailMargin, kittui.StyleActive, title, width), ""}
 	}
 	if f.kind == formDataDirs {
 		head = append(head, m.formDataDirLines(f, width)...)

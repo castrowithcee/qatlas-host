@@ -12,6 +12,7 @@ import (
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/host/hostadmin"
 )
 
 type formKind int
@@ -44,8 +45,11 @@ type settingsForm struct {
 	// eff and shown are the proposal a secret form belongs to: its content and the state it was shown in.
 	eff   *kindEffect
 	shown *proposalCtx
-	// user is what a form of System > Users is about.
-	user *userForm
+	// user is what a form of System > Users is about, group what a form of System > Groups is about.
+	user  *userForm
+	group *hostadmin.Group
+	// titleArg is the name of the host the title of the form names.
+	titleArg string
 }
 
 // input is the input focus of the form, or of the editor that is open in it.
@@ -244,6 +248,12 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitUserKeyRemove(f, v)
 	case formUserDelete:
 		return m.submitUserDelete(f, v)
+	case formGroupCreate:
+		return m.submitGroupCreate(f, v)
+	case formGroupMembers:
+		return m.submitGroupMembers(f, v)
+	case formGroupRename:
+		return m.submitGroupRename(f, v)
 	}
 	return nil
 }

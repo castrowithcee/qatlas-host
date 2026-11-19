@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 5 6 [7 System]                                                        
+   Benutzer  [Gruppen]                                                          
+────────────────────────────────────────────────────────────────────────────────
+    NAME           GID    MITGLIEDER                                            
+  ▾ ■ Gruppen (5)                                                               
+    ada            1000   ada                                                   
+    ben ╔═ Host ändern ════════════════════════════════════════════════╗        
+    cleo║ ⚠ ada, ben zur Gruppe media hinzufügen. cleo aus der Gruppe  ║        
+>   medi║   media entfernen.                                           ║        
+    back║                                                              ║        
+  ▾ ■ Sy║ Läuft mit sudo, steht im Journal und lässt sich rückgängig   ║        
+    root║ machen.                                                      ║        
+    daem║ $ gpasswd -a ada media                                       ║        
+    adm ║ $ gpasswd -a ben media                                       ║        
+    sudo║ $ gpasswd -d cleo media                                      ║        
+    user║                                                              ║        
+    qhos║ [ ja, mit sudo ]  > abbrechen <                              ║        
+    dock║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+    nogr╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                            4/13

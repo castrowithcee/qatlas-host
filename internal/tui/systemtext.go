@@ -45,9 +45,12 @@ const (
 	textAccessAdminNoQhost kittui.TextID = "system.access.adminnoqhost"
 	textAccessNone         kittui.TextID = "system.access.none"
 
-	textKeyNewUser    kittui.TextID = "key.newuser"
-	textKeyChange     kittui.TextID = "key.change"
-	textKeyDeleteUser kittui.TextID = "key.deleteuser"
+	textKeyNewUser  kittui.TextID = "key.newuser"
+	textKeyChange   kittui.TextID = "key.change"
+	textKeyDelete   kittui.TextID = "key.delete"
+	textKeyNewGroup kittui.TextID = "key.newgroup"
+	textKeyMembers  kittui.TextID = "key.members"
+	textKeyRename   kittui.TextID = "key.rename"
 
 	textTitleNewUser      kittui.TextID = "title.newuser"
 	textTitleChangeUser   kittui.TextID = "title.changeuser"
@@ -59,6 +62,36 @@ const (
 	textTitleDeleteUser   kittui.TextID = "title.deleteuser"
 	textLeadNewUser       kittui.TextID = "lead.newuser"
 	textLeadDeleteUser    kittui.TextID = "lead.deleteuser"
+
+	textTitleNewGroup      kittui.TextID = "title.newgroup"
+	textTitleMembers       kittui.TextID = "title.members"
+	textTitleRenameGroup   kittui.TextID = "title.renamegroup"
+	textLeadNewGroup       kittui.TextID = "lead.newgroup"
+	textLeadMembers        kittui.TextID = "lead.members"
+	textLeadMembersSudo    kittui.TextID = "lead.memberssudo"
+	textLeadMembersDocker  kittui.TextID = "lead.membersdocker"
+	textLeadRenameGroup    kittui.TextID = "lead.renamegroup"
+	textFieldNewName       kittui.TextID = "field.newname"
+	textFieldMembersAdd    kittui.TextID = "field.membersadd"
+	textFieldMembersRemove kittui.TextID = "field.membersremove"
+	textHintMembers        kittui.TextID = "hint.members"
+	textProblemGroupName   kittui.TextID = "problem.groupname"
+	textProblemGroupTaken  kittui.TextID = "problem.grouptaken"
+	textProblemTickUser    kittui.TextID = "problem.tickuser"
+	textAskCreateGroup     kittui.TextID = "ask.creategroup"
+	textAskMembersAdd      kittui.TextID = "ask.membersadd"
+	textAskMembersRemove   kittui.TextID = "ask.membersremove"
+	textAskRenameGroup     kittui.TextID = "ask.renamegroup"
+	textAskDeleteGroup     kittui.TextID = "ask.deletegroup"
+	textMembersSudoNote    kittui.TextID = "host.memberssudo"
+	textRiskGroupRoot      kittui.TextID = "host.riskgrouproot"
+	textRiskGroupDocker    kittui.TextID = "host.riskgroupdocker"
+	textRiskRename         kittui.TextID = "host.riskrename"
+	textRiskMembers        kittui.TextID = "host.riskmembers"
+	textGroupKeepName      kittui.TextID = "host.groupkeepname"
+	textGroupKeepDelete    kittui.TextID = "host.groupkeepdelete"
+	textGroupPrimary       kittui.TextID = "host.groupprimary"
+	textNoMemberChange     kittui.TextID = "host.nomemberchange"
 
 	textFieldUserName   kittui.TextID = "field.username"
 	textHintUserName    kittui.TextID = "hint.username"
@@ -225,9 +258,12 @@ func systemEnglish() map[kittui.TextID]string {
 		textAccessAdminNoQhost: "administrator without access to qhost",
 		textAccessNone:         "no administrator",
 
-		textKeyNewUser:    "new user",
-		textKeyChange:     "change",
-		textKeyDeleteUser: "delete",
+		textKeyNewUser:  "new user",
+		textKeyChange:   "change",
+		textKeyDelete:   "delete",
+		textKeyNewGroup: "new group",
+		textKeyMembers:  "members",
+		textKeyRename:   "rename",
 
 		textTitleNewUser:      "New user",
 		textTitleChangeUser:   "Change %s",
@@ -239,6 +275,36 @@ func systemEnglish() map[kittui.TextID]string {
 		textTitleDeleteUser:   "Delete user",
 		textLeadNewUser:       "The user must change the initial password at the first login.",
 		textLeadDeleteUser:    "Locking is the usual way when someone leaves. Keeping the home keeps the delete undoable.",
+
+		textTitleNewGroup:      "New group",
+		textTitleMembers:       "Members of %s",
+		textTitleRenameGroup:   "Rename %s",
+		textLeadNewGroup:       "The system gives the group a regular group number.",
+		textLeadMembers:        "One confirmation covers all changes. A user whose primary group this is cannot be added or removed.",
+		textLeadMembersSudo:    "Adding to sudo also gives access to qhost; removing takes both. Admin rights allow practically everything on this host.",
+		textLeadMembersDocker:  "Members of the group docker use Docker, which is practically root. One confirmation covers all changes.",
+		textLeadRenameGroup:    "Configurations such as sudoers address a group by its name; they keep the old name.",
+		textFieldNewName:       "New name",
+		textFieldMembersAdd:    "Add",
+		textFieldMembersRemove: "Remove",
+		textHintMembers:        "Space ticks a user; several at once are fine.",
+		textProblemGroupName:   "Enter a name of lower-case letters, digits, _ and -, at most 32.",
+		textProblemGroupTaken:  "This group exists already.",
+		textProblemTickUser:    "Tick at least one user.",
+		textAskCreateGroup:     "Create the group %s.",
+		textAskMembersAdd:      "Add %s to the group %s.",
+		textAskMembersRemove:   "Remove %s from the group %s.",
+		textAskRenameGroup:     "Rename the group %s to %s.",
+		textAskDeleteGroup:     "Delete the group %s.",
+		textMembersSudoNote:    "Administrators gain or lose access to qhost (group qhost) with it.",
+		textRiskGroupRoot:      "The group root belongs to the root account and to system files.",
+		textRiskGroupDocker:    "Members of the group docker use Docker, which is practically root.",
+		textRiskRename:         "Configurations such as sudoers address a group by its name and keep the old one; they stop working until they are changed too.",
+		textRiskMembers:        "Packages or services may depend on a system account of this change.",
+		textGroupKeepName:      "%s keeps its name: administrator rights and access to qhost depend on it.",
+		textGroupKeepDelete:    "%s is never deleted: administrator rights and access to qhost depend on it.",
+		textGroupPrimary:       "%s is the primary group of %s and cannot be deleted.",
+		textNoMemberChange:     "There is no user to add to or remove from %s.",
 
 		textFieldUserName:   "Name",
 		textHintUserName:    "Lower-case letters, digits, _ and -, at most 32.",
@@ -406,9 +472,12 @@ func systemGerman() map[kittui.TextID]string {
 		textAccessAdminNoQhost: "Administrator ohne Zugang zu qhost",
 		textAccessNone:         "kein Administrator",
 
-		textKeyNewUser:    "neuer Benutzer",
-		textKeyChange:     "ändern",
-		textKeyDeleteUser: "löschen",
+		textKeyNewUser:  "neuer Benutzer",
+		textKeyChange:   "ändern",
+		textKeyDelete:   "löschen",
+		textKeyNewGroup: "neue Gruppe",
+		textKeyMembers:  "Mitglieder",
+		textKeyRename:   "umbenennen",
 
 		textTitleNewUser:      "Neuer Benutzer",
 		textTitleChangeUser:   "%s ändern",
@@ -420,6 +489,36 @@ func systemGerman() map[kittui.TextID]string {
 		textTitleDeleteUser:   "Benutzer löschen",
 		textLeadNewUser:       "Der Benutzer muss das Startpasswort beim ersten Login ändern.",
 		textLeadDeleteUser:    "Sperren ist der übliche Weg, wenn jemand geht. Bleibt das Home, lässt sich das Löschen rückgängig machen.",
+
+		textTitleNewGroup:      "Neue Gruppe",
+		textTitleMembers:       "Mitglieder von %s",
+		textTitleRenameGroup:   "%s umbenennen",
+		textLeadNewGroup:       "Das System gibt der Gruppe eine reguläre Gruppennummer.",
+		textLeadMembers:        "Eine Rückfrage deckt alle Änderungen ab. Wessen primäre Gruppe dies ist, kann weder hinzugefügt noch entfernt werden.",
+		textLeadMembersSudo:    "Wer zu sudo kommt, bekommt auch Zugang zu qhost; wer entfernt wird, verliert beides. Adminrechte erlauben praktisch alles auf diesem Host.",
+		textLeadMembersDocker:  "Mitglieder der Gruppe docker nutzen Docker, und das ist praktisch root. Eine Rückfrage deckt alle Änderungen ab.",
+		textLeadRenameGroup:    "Konfigurationen wie sudoers sprechen eine Gruppe über ihren Namen an; sie behalten den alten Namen.",
+		textFieldNewName:       "Neuer Name",
+		textFieldMembersAdd:    "Hinzufügen",
+		textFieldMembersRemove: "Entfernen",
+		textHintMembers:        "Leertaste wählt einen Benutzer, auch mehrere auf einmal.",
+		textProblemGroupName:   "Gib einen Namen aus Kleinbuchstaben, Ziffern, _ und - ein, höchstens 32.",
+		textProblemGroupTaken:  "Diese Gruppe gibt es schon.",
+		textProblemTickUser:    "Wähle mindestens einen Benutzer.",
+		textAskCreateGroup:     "Die Gruppe %s anlegen.",
+		textAskMembersAdd:      "%s zur Gruppe %s hinzufügen.",
+		textAskMembersRemove:   "%s aus der Gruppe %s entfernen.",
+		textAskRenameGroup:     "Die Gruppe %s in %s umbenennen.",
+		textAskDeleteGroup:     "Die Gruppe %s löschen.",
+		textMembersSudoNote:    "Administratoren bekommen oder verlieren damit den Zugang zu qhost (Gruppe qhost).",
+		textRiskGroupRoot:      "Die Gruppe root gehört zum Konto root und zu Systemdateien.",
+		textRiskGroupDocker:    "Mitglieder der Gruppe docker nutzen Docker, und das ist praktisch root.",
+		textRiskRename:         "Konfigurationen wie sudoers sprechen eine Gruppe über ihren Namen an und behalten den alten; sie wirken nicht mehr, bis sie ebenfalls geändert sind.",
+		textRiskMembers:        "Pakete oder Dienste können von einem Systemkonto dieser Änderung abhängen.",
+		textGroupKeepName:      "%s behält ihren Namen: Adminrechte und der Zugang zu qhost hängen daran.",
+		textGroupKeepDelete:    "%s wird nie gelöscht: Adminrechte und der Zugang zu qhost hängen daran.",
+		textGroupPrimary:       "%s ist die primäre Gruppe von %s und lässt sich nicht löschen.",
+		textNoMemberChange:     "Es gibt keinen Benutzer, der zu %s hinzukommen oder daraus entfernt werden könnte.",
 
 		textFieldUserName:   "Name",
 		textHintUserName:    "Kleinbuchstaben, Ziffern, _ und -, höchstens 32.",

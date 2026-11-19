@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
+   Users  [Groups]                                                              
+────────────────────────────────────────────────────────────────────────────────
+    NAME          GID    MEMBERS                                                
+  ▾ ■ Groups (5)                                                                
+    ada           1000   ada                                                    
+    ben ╔═ Change the host ════════════════════════════════════════════╗        
+    cleo║ ⚠ Add ben to the group docker.                               ║        
+    medi║                                                              ║        
+    back║ Members of the group docker use Docker, which is practically ║        
+  ▾ ■ Sy║ root. Packages or services may depend on a system group of   ║        
+    root║ this change. Runs with sudo, goes into the journal and can   ║        
+    daem║ be undone.                                                   ║        
+    adm ║ $ gpasswd -a ben docker                                      ║        
+    sudo║                                                              ║        
+    user║ [ yes, with sudo ]  > cancel <                               ║        
+    qhos║ y yes, with sudo  n/esc/enter cancel                         ║        
+>   dock╚══════════════════════════════════════════════════════════════╝        
+    nogroup       65534  nobody                                                 
+                                                                                
+                                                                                
+                                                                                
+                                                                           12/13

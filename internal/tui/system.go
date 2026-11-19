@@ -306,7 +306,8 @@ func (m *Model) systemInput() kittui.InputFocus {
 	return m.sys.activeList().Input()
 }
 
-// systemTyped gives a key to the list shown; enter on a user opens the choice of a change, on a change picks it.
+// systemTyped gives a key to the list shown; enter on a user opens the choice of a change, on a change picks it,
+// and on a group opens its members.
 func (m *Model) systemTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	s := m.sys
 	open, handled := s.activeList().Update(msg)
@@ -318,6 +319,8 @@ func (m *Model) systemTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 		return m.pickChange(string(open)), true
 	case s.page == pageUsers:
 		return m.openChanges(), true
+	case s.page == pageGroups:
+		return m.openGroupMembers(), true
 	}
 	return nil, handled
 }
@@ -325,22 +328,33 @@ func (m *Model) systemTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 // systemAction acts on a letter of the System area; handled is false for a key that is none here.
 func (m *Model) systemAction(id kittui.ActionID) (tea.Cmd, bool) {
 	s := m.sys
-	if s.page != pageUsers || s.changes != nil {
+	if s.changes != nil {
+		return nil, false
+	}
+	var act func() tea.Cmd
+	switch {
+	case s.page == pageUsers && id == actAdd:
+		act = func() tea.Cmd { return m.openForm(m.userCreateForm()) }
+	case s.page == pageUsers && id == actEdit:
+		act = m.openChanges
+	case s.page == pageUsers && id == actRemove:
+		act = m.openUserDelete
+	case s.page == pageGroups && id == actAdd:
+		act = func() tea.Cmd { return m.openForm(m.groupCreateForm()) }
+	case s.page == pageGroups && id == actEdit:
+		act = m.openGroupMembers
+	case s.page == pageGroups && id == actRename:
+		act = m.openGroupRename
+	case s.page == pageGroups && id == actRemove:
+		act = m.askGroupDelete
+	default:
 		return nil, false
 	}
 	if s.busy {
 		m.warn(m.text.Lookup(textActionBusy))
 		return nil, true
 	}
-	switch id {
-	case actAdd:
-		return m.openForm(m.userCreateForm()), true
-	case actEdit:
-		return m.openChanges(), true
-	case actRemove:
-		return m.openUserDelete(), true
-	}
-	return nil, false
+	return act(), true
 }
 
 // systemBack is esc in the System area: it closes the choice of a change, clears a search, then leads to the
@@ -383,20 +397,17 @@ func (m *Model) systemFooter(common, nav []kittui.Hint) []kittui.Hint {
 		own = append(own, kittui.Hint{Action: actAdd, Label: textKeyNewUser, Priority: 3})
 		if _, ok := m.selectedUser(); ok {
 			own = append(own, kittui.Hint{Action: actEdit, Label: textKeyChange, Priority: 3},
-				kittui.Hint{Action: actRemove, Label: textKeyDeleteUser, Priority: 3})
+				kittui.Hint{Action: actRemove, Label: textKeyDelete, Priority: 3})
 		}
 		return m.listFooter(s.userList, len(s.users), textKeyChange, append(own, common...), nav)
 	}
-	// The groups page has no action of its own yet; enter opens nothing there.
-	switch l := s.groupList; {
-	case len(s.groups) == 0:
-		return append(own, common...)
-	case l.Searching():
-		return []kittui.Hint{{Action: actEnter, Label: textFilterKeep}, {Action: actBack, Label: textFilterClear}}
-	case l.Query() != "":
-		own = append(own, kittui.Hint{Action: actBack, Label: textFilterClear})
+	own = append(own, kittui.Hint{Action: actAdd, Label: textKeyNewGroup, Priority: 3})
+	if _, ok := m.selectedGroup(); ok {
+		own = append(own, kittui.Hint{Action: actEdit, Label: textKeyMembers, Priority: 3},
+			kittui.Hint{Action: actRename, Label: textKeyRename, Priority: 3},
+			kittui.Hint{Action: actRemove, Label: textKeyDelete, Priority: 3})
 	}
-	return append(append(append([]kittui.Hint{{Action: actSearch, Label: kittui.TextKeySearch, Priority: 1}}, own...), common...), nav...)
+	return m.listFooter(s.groupList, len(s.groups), textKeyMembers, append(own, common...), nav)
 }
 
 // systemPosition is the position text of the header.

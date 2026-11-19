@@ -7,7 +7,7 @@ import (
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
-// The goldens of the System area: its lists, the forms of the users page and the questions, in 80x24 and 120x40,
+// The goldens of the System area: its lists, the forms of the users and groups pages and the questions, in 80x24 and 120x40,
 // in English and German. The masked fields hold typed values and a pasted key; goldenSystem fails if one shows.
 
 func goldenSystem(t *testing.T, prefix string, steps func(t *testing.T, m *Model)) {
@@ -109,5 +109,54 @@ func TestGoldenSystemResult(t *testing.T) {
 		toUser(t, m, "cleo")
 		pickChangeRow(t, m, chgLock)
 		send(m, "y")
+	})
+}
+
+func TestGoldenSystemGroupCreateForm(t *testing.T) {
+	goldenSystem(t, "system.group.create", func(t *testing.T, m *Model) {
+		toGroup(t, m, "media")
+		send(m, seq(keys("a"), typed("crew"))...)
+	})
+}
+
+func TestGoldenSystemGroupMembersForm(t *testing.T) {
+	goldenSystem(t, "system.group.members", func(t *testing.T, m *Model) {
+		toGroup(t, m, "media")
+		send(m, "e", "space", "right", "space", "down", "space")
+	})
+}
+
+func TestGoldenSystemGroupMembersConfirm(t *testing.T) {
+	goldenSystem(t, "system.group.members.confirm", func(t *testing.T, m *Model) {
+		toGroup(t, m, "media")
+		send(m, "e", "space", "right", "space", "down", "space", "f2")
+	})
+}
+
+func TestGoldenSystemGroupSystemConfirm(t *testing.T) {
+	goldenSystem(t, "system.group.system.confirm", func(t *testing.T, m *Model) {
+		toGroup(t, m, "docker")
+		send(m, "e", "space", "f2")
+	})
+}
+
+func TestGoldenSystemGroupRenameForm(t *testing.T) {
+	goldenSystem(t, "system.group.rename", func(t *testing.T, m *Model) {
+		toGroup(t, m, "media")
+		send(m, seq(keys("n"), typed("studio"))...)
+	})
+}
+
+func TestGoldenSystemGroupRenameConfirm(t *testing.T) {
+	goldenSystem(t, "system.group.rename.confirm", func(t *testing.T, m *Model) {
+		toGroup(t, m, "media")
+		send(m, seq(keys("n"), typed("studio"), keys("f2"))...)
+	})
+}
+
+func TestGoldenSystemGroupDeleteConfirm(t *testing.T) {
+	goldenSystem(t, "system.group.delete.confirm", func(t *testing.T, m *Model) {
+		toGroup(t, m, "backup-ops")
+		send(m, "x")
 	})
 }

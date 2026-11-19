@@ -66,7 +66,8 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"the log of a run, which follows a run in progress; Settings holds what applies to the whole host or\n" +
 			"this device, on four sub-tabs below the tab line: General (the preferences of this device),\n" +
 			"Credentials, Maintenance window and Notifications; Containers lists every container of the\n" +
-			"host. ? opens the help, r reads the service again, q quits.\n\n" +
+			"host; Proposals lists the proposals of agents; System lists the users and groups of the host.\n" +
+			"? opens the help, r reads the service again, q quits.\n\n" +
 			"The sub-tabs of Settings are a second line under the tab line. From the tab line, down leads to it, and\n" +
 			"there left and right choose the sub-tab with wrap-around and show its content at once; down, enter or\n" +
 			"tab lead into the content, and up in its first row or field, at the top of a text, or esc lead back to\n" +
@@ -92,9 +93,11 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"deploy service; Users and Groups are its sub-tabs. On Users, a creates a user with an initial password that\n" +
 			"must be changed at the first login, e or enter offers the changes of the marked user (administrator, Docker,\n" +
 			"groups, password, SSH keys, lock and unlock) and x deletes it, keeping its home unless deleting it is chosen.\n" +
-			"Every change shows a sentence and the exact commands; y hands the terminal to sudo qhost host apply, which\n" +
-			"asks for the password itself, and started with sudo the interface runs it directly. A password or key is never\n" +
-			"shown and never goes into a command line. Changes of root and of system accounts ask in red.\n\n" +
+			"On Groups, a creates a group, e or enter adds and removes members of the marked group, several at once, n\n" +
+			"renames it and x deletes it. Every change shows a sentence and the exact commands; y hands the terminal to\n" +
+			"sudo qhost host apply, which asks for the password itself, and started with sudo the interface runs it\n" +
+			"directly. A password or key is never shown and never goes into a command line. Changes of root, of system\n" +
+			"accounts and of system groups and every rename of a group ask in red (see qhost help host-tui).\n\n" +
 			"The mouse works too: click a tab, a key in the header or footer, or a row, and turn the wheel to scroll.\n" +
 			"A click does what the key does, so every action still asks first. The mouse is on by default; with it\n" +
 			"on, hold Shift to select text. Settings, General switches it off.\n\n" +
