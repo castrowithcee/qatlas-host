@@ -685,6 +685,9 @@ func (s *sourceSet) Snapshot() (engine.Snapshot, error) {
 	return out, nil
 }
 
+// hasStack tells whether a stack of that name is listed by a source's working copy or still deployed by one.
+func (s *sourceSet) hasStack(name string) bool { return s.resolve().owner[name] != nil }
+
 // Stack returns the state of a stack at the source responsible for it.
 func (s *sourceSet) Stack(name string) (engine.StackState, bool, error) {
 	e, err := s.route(name)

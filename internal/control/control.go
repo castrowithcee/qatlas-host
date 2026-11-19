@@ -1691,6 +1691,9 @@ const (
 // ProposalKindSourceAdd proposes a folder as a stack folder; its content is a ProposalSourceAdd.
 const ProposalKindSourceAdd = "source-add"
 
+// ProposalKindStackSettings proposes the settings of a stack; its content is a ProposalStackSettings.
+const ProposalKindStackSettings = "stack-settings"
+
 // The states of a proposal. A proposal that is open and older than ProposalLifetime is answered as expired, and
 // one that has been approving for longer than ProposalApprovalWindow is answered as failed.
 const (
@@ -1726,6 +1729,14 @@ type ProposalSubmitArgs struct {
 type ProposalSourceAdd struct {
 	Path string `json:"path"`
 	URL  string `json:"url,omitempty"`
+}
+
+// ProposalStackSettings is the content of a proposal of kind ProposalKindStackSettings: the name of a stack and
+// its settings in the schema of StackSettingsSetCommand. The schema has no secret member, so a proposal cannot
+// carry one; a member it does not name refuses the proposal.
+type ProposalStackSettings struct {
+	Stack    string        `json:"stack"`
+	Settings StackSettings `json:"settings"`
 }
 
 // ProposalInfo describes one proposal. Fingerprint binds a later approval to exactly this content.

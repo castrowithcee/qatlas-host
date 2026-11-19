@@ -23,8 +23,10 @@ import (
 	"github.com/castrowithcee/qatlas-kit/approval"
 	"github.com/castrowithcee/qatlas-kit/configfile"
 
+	"github.com/castrowithcee/qatlas-host/internal/backup"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 const (
@@ -65,7 +67,10 @@ type proposalService struct {
 	passwd string
 	now    func() time.Time
 	log    *slog.Logger
-	mu     sync.Mutex
+	// stackKnown tells whether a stack of that name is among those the service deploys; kinds that name a
+	// stack are refused without it.
+	stackKnown func(name string) bool
+	mu         sync.Mutex
 }
 
 func newProposalService(stateDir, passwd string, now func() time.Time, log *slog.Logger) *proposalService {
@@ -97,27 +102,66 @@ func invalid(format string, a ...any) *control.Error {
 	return control.NewError(control.CodeInvalid, fmt.Sprintf(format, a...))
 }
 
-// normalizeProposal checks the content of a proposal of the given kind with the rules of the hand-typed input
-// and returns it in its canonical form. It decodes strictly: a field the schema does not name is refused. It
-// looks at nothing outside the content: no file, no network, no repository.
-func normalizeProposal(kind string, content json.RawMessage) (any, *control.Error) {
-	switch kind {
-	case control.ProposalKindSourceAdd:
-		var c control.ProposalSourceAdd
-		if err := decodeStrict(content, &c); err != nil {
-			return nil, invalid("the content of a %s proposal must be a JSON object with the fields path and url only", kind)
-		}
-		if err := checkDirShape(c.Path); err != nil {
-			return nil, invalid("the path is not valid: %s", err)
-		}
-		if c.URL != "" {
-			if err := gitrepo.ValidateURL(c.URL); err != nil {
-				return nil, invalid("the url is not valid: %s", err)
-			}
-		}
-		return c, nil
+// proposalNormalizers has one function per kind of proposal. Each checks the content of its kind with the
+// rules of the hand-typed input and returns it in its canonical form, the one the fingerprint covers. It
+// decodes strictly: a field the schema does not name is refused. It never runs, evaluates or expands the
+// content, and looks at nothing but the content and, where the kind names a stack, whether the stack exists.
+var proposalNormalizers = map[string]func(p *proposalService, content json.RawMessage) (any, *control.Error){
+	control.ProposalKindSourceAdd:     (*proposalService).normalizeSourceAdd,
+	control.ProposalKindStackSettings: (*proposalService).normalizeStackSettings,
+}
+
+func (p *proposalService) normalizeProposal(kind string, content json.RawMessage) (any, *control.Error) {
+	if n, ok := proposalNormalizers[kind]; ok {
+		return n(p, content)
 	}
 	return nil, invalid("unknown proposal kind %q", printable(kind))
+}
+
+func (p *proposalService) normalizeSourceAdd(content json.RawMessage) (any, *control.Error) {
+	var c control.ProposalSourceAdd
+	if err := decodeStrict(content, &c); err != nil {
+		return nil, invalid("the content of a %s proposal must be a JSON object with the fields path and url only", control.ProposalKindSourceAdd)
+	}
+	if err := checkDirShape(c.Path); err != nil {
+		return nil, invalid("the path is not valid: %s", err)
+	}
+	if c.URL != "" {
+		if err := gitrepo.ValidateURL(c.URL); err != nil {
+			return nil, invalid("the url is not valid: %s", err)
+		}
+	}
+	return c, nil
+}
+
+// normalizeStackSettings checks the settings with stacks.ParseSettings, the check of stack.settings.set, and
+// stores them with every default written out, as stack.settings.get answers them. The schema has no secret
+// member, so a secret field is an unknown field and refuses the proposal; nothing is dropped.
+func (p *proposalService) normalizeStackSettings(content json.RawMessage) (any, *control.Error) {
+	var c control.ProposalStackSettings
+	if err := decodeStrict(content, &c); err != nil {
+		return nil, invalid("the content of a %s proposal must be a JSON object with the fields stack and settings only, "+
+			"and settings in the schema of 'qhost stack settings'", control.ProposalKindStackSettings)
+	}
+	if !backup.ValidStack(c.Stack) {
+		return nil, invalid("the stack name is not valid")
+	}
+	data, err := json.Marshal(c.Settings)
+	if err != nil {
+		return nil, invalid("the settings cannot be encoded")
+	}
+	rules, err := stacks.ParseSettings(data)
+	if err != nil {
+		return nil, invalid("%s", printable(err.Error()))
+	}
+	if p.stackKnown == nil || !p.stackKnown(c.Stack) {
+		return nil, control.NewError(control.CodeInvalid, "the stack is not known to the service")
+	}
+	canonical, err := settingsOf(rules)
+	if err != nil {
+		return nil, invalid("the settings cannot be encoded")
+	}
+	return control.ProposalStackSettings{Stack: c.Stack, Settings: canonical}, nil
 }
 
 func decodeStrict(raw json.RawMessage, into any) error {
@@ -145,7 +189,7 @@ func (p *proposalService) handleSubmit(ctx context.Context, raw json.RawMessage)
 	if err := decodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
-	content, cerr := normalizeProposal(a.Kind, a.Content)
+	content, cerr := p.normalizeProposal(a.Kind, a.Content)
 	if cerr != nil {
 		return nil, cerr
 	}

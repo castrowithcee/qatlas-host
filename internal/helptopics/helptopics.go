@@ -17,7 +17,7 @@ func All() []helptopics.Topic {
 		{Name: "backups", Short: "Backing up and restoring the data of a stack", Text: backupsTopic},
 		{Name: "data-directories", Short: "Missing data directories of a stack: the data-dir-missing finding and how to resolve it", Text: dataDirectoriesTopic},
 		{Name: "notifications", Short: "Notification channels: events, types and secrets", Text: notificationsTopic},
-		{Name: "proposals", Short: "Proposals: asking for a change of the setup without sudo, the kind source-add, limits and states", Text: proposalsTopic},
+		{Name: "proposals", Short: "Proposals: asking for a change of the setup without sudo, the kinds source-add and stack-settings, limits and states", Text: proposalsTopic},
 		{Name: "containers", Short: "The containers of the host: kinds, states, metrics, start, stop, restart", Text: containersTopic},
 	}
 }
@@ -54,7 +54,7 @@ Commands:
 - qhost stack secret set <stack> <KEY>, qhost stack secret list <stack>, qhost stack secret delete <stack> <KEY>: write, list by key and remove the secrets in a stack's secrets.env; the value is read without echo at a terminal or from standard input, never from an argument, and nothing is redeployed (list runs without sudo for an administrator in the group qhost, set and delete need sudo)
 - qhost credential set|list|delete: manage registry tokens and notification credentials (list runs without sudo for an administrator in the group qhost, set and delete need sudo)
 - qhost notify list|add|remove|test: manage the notification channels (webhook, Slack, Telegram, e-mail) and send a test message through one (list runs without sudo for an administrator in the group qhost, the rest needs sudo; see qhost help notifications)
-- qhost proposal submit|list|show|withdraw: ask for a change of the setup, for now a stack folder, without sudo for an administrator in the group qhost; nothing on the host changes. qhost proposal approve|reject: decide on a proposal, only root at a terminal (see qhost help proposals)
+- qhost proposal submit|list|show|withdraw: ask for a change of the setup, a stack folder or the settings of a stack, without sudo for an administrator in the group qhost; nothing on the host changes. qhost proposal approve|reject: decide on a proposal, only root at a terminal (see qhost help proposals)
 - qhost update [version], qhost update status: update qhost itself to the latest stable release or to a given newer one from its signed GitHub releases and restart the service; status shows the installed version and the latest release and changes nothing (update runs with sudo and needs --confirm; stack updates are qhost stack update)
 - qhost container list [--metrics], qhost container show <name>: show every container of the host, own stacks, foreign Compose projects and single containers, with state; changes nothing (runs without sudo for an administrator in the group qhost; see qhost help containers)
 - qhost container logs <name>|--stack <stack> [--since T] [--until T] [--tail N] [--follow]: show the output of a container or of a whole stack (runs without sudo for an administrator in the group qhost; see qhost help containers)
@@ -334,7 +334,7 @@ Environment: only the names of the variables are shown, never their values.`
 const proposalsTopic = `A proposal asks for a change of the setup. An administrator in the group qhost, who needs no sudo to read, submits it; the service checks and stores it. Submitting changes nothing on the host: the service does not touch the proposed folder, uses no network and runs no git. Only a person decides: root at a terminal approves or rejects it.
 
 Commands submit, list, show and withdraw run without sudo for an administrator in the group qhost:
-- qhost proposal submit --kind source-add [--file <path>|-]: read the content as JSON from the file or from standard input and print the id of the new proposal. The file is read as the calling user, at most a little over 64 KiB.
+- qhost proposal submit --kind source-add|stack-settings [--file <path>|-]: read the content as JSON from the file or from standard input and print the id of the new proposal. The file is read as the calling user, at most a little over 64 KiB.
 - qhost proposal list: list the proposals, newest first, with id, kind, state, submitter and times
 - qhost proposal show <id>: show one proposal with its fingerprint, submitter and content
 - qhost proposal withdraw <id>: close an open proposal as withdrawn; only its submitter or root may do that
@@ -347,6 +347,12 @@ Kind source-add proposes a folder as a stack folder (see qhost help sources). It
 - path: the absolute, clean path of the folder (required)
 - url: the SSH address of its repository, for example ssh://git.example.test/stacks.git (optional)
 Example: {"path": "/srv/stacks", "url": "ssh://git.example.test/stacks.git"}
+
+Kind stack-settings proposes the settings of a stack (see qhost stack settings --help). Its content is a JSON object with these fields and no others:
+- stack: the name of a stack the service deploys; an unknown stack is refused when submitting and when approving
+- settings: the settings object of qhost stack settings, with the members version (1, required), compose, update, backup and check; it is checked with the same rules as qhost stack settings set
+Example: {"stack": "web", "settings": {"version": 1, "update": {"mode": "manual"}, "backup": {"paths": ["data"]}}}
+The schema has no secret member, so a secret is not proposable: a proposal with a field the schema does not name is refused, never trimmed. Approving shows the difference to the settings that apply now, every value in full and broken into lines, a backup command marked because it runs on the host later; the settings are then written the way qhost stack settings set writes them (a commit, pushed when the folder has a remote).
 A proposal holds configuration only, never a command, a secret or a host key fingerprint; a field the kind does not name, and an unknown kind, are refused.
 
 Limits: at most 20 open proposals per submitter, at most 64 KiB per proposal, and an open proposal expires after 14 days.

@@ -33,8 +33,10 @@ func newProposalApprove(program *cobracli.Program, state *notRunning) *cobra.Com
 	c := &cobra.Command{
 		Use:   "approve <id> [--url <ssh-url>]",
 		Short: "Review an open proposal with its effect and apply it after you confirm",
-		Long: "approve shows the proposal and, below it, what applying it would change, worked out with the same check\n" +
-			"as 'qhost source add'. You confirm the server's host key yourself (a proposal never does), add the deploy\n" +
+		Long: "approve shows the proposal and, below it, what applying it would change. For a source-add proposal it is\n" +
+			"worked out with the same check as 'qhost source add'; for a stack-settings proposal it is the difference to\n" +
+			"the settings that apply now, with every value in full and a backup command marked, and the settings are\n" +
+			"written the way 'qhost stack settings set' writes them. You confirm the server's host key yourself (a proposal never does), add the deploy\n" +
 			"key if the folder has none, and answer a last question. Right before anything is changed the proposal is\n" +
 			"read again and the effect is worked out again; if either differs from what you saw, nothing is applied and\n" +
 			"the new effect is shown. The change is then made the way 'qhost source add' makes it, and the result is\n" +
@@ -92,11 +94,45 @@ func requirePerson(program *cobracli.Program, what string) error {
 	return nil
 }
 
+// proposalApprovers has one function per kind of proposal that can be approved. It gets the proposal as it was
+// first read, open and of its kind, and does the review and the change of that kind.
+var proposalApprovers = map[string]func(c *cobra.Command, program *cobracli.Program, state *notRunning, shown control.ProposalShowResult, url string) error{
+	control.ProposalKindSourceAdd:     approveSourceAdd,
+	control.ProposalKindStackSettings: approveStackSettings,
+}
+
 func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notRunning, id, url string) error {
 	if err := requirePerson(program, "approving a proposal"); err != nil {
 		return err
 	}
-	shown, content, err := loadSourceProposal(c, state, id)
+	shown, err := loadOpenProposal(c, state, id)
+	if err != nil {
+		return err
+	}
+	approve, ok := proposalApprovers[shown.Kind]
+	if !ok {
+		return usageFailure("this version cannot apply a proposal of the kind "+shortText(shown.Kind),
+			"Reject it with 'sudo qhost proposal reject "+id+"'.")
+	}
+	return approve(c, program, state, shown, url)
+}
+
+// loadOpenProposal reads a proposal and refuses one that is not open.
+func loadOpenProposal(c *cobra.Command, state *notRunning, id string) (control.ProposalShowResult, error) {
+	var res control.ProposalShowResult
+	if err := proposalCall(c, state, control.ProposalShowCommand, control.ProposalIDArgs{ID: id}, &res); err != nil {
+		return res, err
+	}
+	if res.State != control.ProposalOpen {
+		return res, usageFailure("the proposal is "+plainText(res.State)+", not open",
+			"List the proposals with 'qhost proposal list'.")
+	}
+	return res, nil
+}
+
+func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRunning, first control.ProposalShowResult, url string) error {
+	id := first.ID
+	shown, content, err := decodeSourceProposal(first)
 	if err != nil {
 		return err
 	}
@@ -184,15 +220,16 @@ func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notR
 
 // loadSourceProposal reads a proposal of the kind source-add that is still open.
 func loadSourceProposal(c *cobra.Command, state *notRunning, id string) (control.ProposalShowResult, control.ProposalSourceAdd, error) {
-	var res control.ProposalShowResult
+	res, err := loadOpenProposal(c, state, id)
+	if err != nil {
+		return res, control.ProposalSourceAdd{}, err
+	}
+	return decodeSourceProposal(res)
+}
+
+func decodeSourceProposal(res control.ProposalShowResult) (control.ProposalShowResult, control.ProposalSourceAdd, error) {
 	var content control.ProposalSourceAdd
-	if err := proposalCall(c, state, control.ProposalShowCommand, control.ProposalIDArgs{ID: id}, &res); err != nil {
-		return res, content, err
-	}
-	if res.State != control.ProposalOpen {
-		return res, content, usageFailure("the proposal is "+plainText(res.State)+", not open",
-			"List the proposals with 'qhost proposal list'.")
-	}
+	id := res.ID
 	if res.Kind != control.ProposalKindSourceAdd {
 		return res, content, usageFailure("this version cannot apply a proposal of the kind "+shortText(res.Kind),
 			"Reject it with 'sudo qhost proposal reject "+id+"'.")
