@@ -33,8 +33,8 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show whether the qhost services are running",
-		Long: "status shows the host service and the deploy service. For the host service it shows whether it runs and, for root, its version\n" +
-			"and start time; for an administrator without root it shows that it runs and that the details need root. The deploy\n" +
+		Long: "status shows the host service and the deploy service. For the host service it shows whether it runs and its version\n" +
+			"and start time; for a user of the group qhost who is no administrator it shows that it runs and is reserved for administrators. The deploy\n" +
 			"service is shown as not set up until 'sudo qhost deploy-service setup'; then status asks it for its version and start time, the state of the last poll of each stack folder\n" +
 			"and, per stack, what is deployed, pending or running, the last run result, a pause after a failed rollback, the operator's pause and pin, the observation time after an update, and the findings,\n" +
 			"and whether the maintenance window is open and when it opens next (see 'qhost window'). A stack is listed as\n" +
@@ -71,7 +71,7 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 }
 
 // hostFields describes the host service. A failed reading is a state of the host service, never a failure of
-// the command: a user who is not root gets "running", because the service answers only root with details.
+// the command: a user who reaches the channel but is no administrator gets "running" without details.
 func hostFields(ctx context.Context) []output.Field {
 	var st hostservice.StatusResult
 	err := call(ctx, hostEndpoint(), control.StatusCommand, nil, &st)
@@ -82,8 +82,8 @@ func hostFields(ctx context.Context) []output.Field {
 			{Name: "host_started_at", Value: st.StartedAt.UTC().Format(time.RFC3339)}}
 	case errors.Is(err, client.ErrNotRunning):
 		return []output.Field{{Name: "host_service", Value: "not running"}}
-	case errors.As(err, &remote) && remote.Code == control.CodeNotRoot:
-		return []output.Field{{Name: "host_service", Value: "running (details need root)"}}
+	case errors.As(err, &remote) && remote.Code == control.CodeNotAdmin:
+		return []output.Field{{Name: "host_service", Value: "running (reserved for administrators)"}}
 	case errors.Is(err, client.ErrNoAccess):
 		return []output.Field{{Name: "host_service", Value: "unknown (no access to its channel)"}}
 	}

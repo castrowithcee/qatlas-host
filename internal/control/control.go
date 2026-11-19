@@ -22,8 +22,8 @@ import (
 // Version is the protocol version every request and answer carries.
 const Version = 1
 
-// ServiceGroup is the group whose members the channels admit besides root. The deploy service serves root and
-// the administrators among them and runs a command that writes for root only; the host service serves root only.
+// ServiceGroup is the group whose members the channels admit besides root. Both services serve root and the
+// administrators among them and run a command that writes for root only.
 const ServiceGroup = "qhost"
 
 // DeployEndpoint returns the channel of the deploy service. It runs as the system user qhost-deploy, which is

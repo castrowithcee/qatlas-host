@@ -8,8 +8,6 @@ import (
 )
 
 const (
-	// DefaultDir is where the service keeps its log files.
-	DefaultDir = "/var/lib/qhost-host/logs"
 	// RetentionDays is how long a day file is kept.
 	RetentionDays = 90
 

@@ -6,7 +6,9 @@
 # and that status names the deploy service as not set up and a deploy command says so. Then set the deploy service
 # up with sudo qhost deploy-service setup and check its user qhost-deploy with the group docker, its channel and
 # state, that the two services cannot reach each other's state, and that an administrator of the group reads
-# status without sudo while a change needs root. Then bind the stacks repository with its own deploy key, list the
+# status without sudo while a change needs root. The host service serves an administrator of the group without sudo,
+# answers a user of the group without sudo not-admin, turns away a user outside the group and a revoked administrator,
+# and the check of its action log reports a changed line. Then bind the stacks repository with its own deploy key, list the
 # stacks, deploy a new commit, show the available image versions per update ceiling without changing anything,
 # roll back a commit with a failing healthcheck (data restored from the run's backup, revert commit on the
 # remote), leave a stack whose rollback fails stopped and paused until resume, and refuse a changed host key of the git server.
@@ -285,6 +287,81 @@ setup_service() {
 	printf '%s' "$out_plain" | grep -q '"deploy_service": *"running"' || fail "qhost status without sudo does not show the deploy service: $out_plain"
 	printf '%s' "$out_plain" | grep -q '"host_service": *"running' || fail "qhost status without sudo does not show the host service: $out_plain"
 	log "scenario: qhost status answers with and without sudo: $(printf '%s' "$out_plain" | tr -d '\n ')"
+}
+
+# host_log_file prints the newest day file of the action log of the host service.
+host_log_file() {
+	docker exec "$host" sh -c 'ls /var/lib/qhost/logs/*.jsonl | tail -n 1'
+}
+
+# host_log_rewrite runs the sed expression $1 on the day file $2 in place without replacing the file, so it keeps its
+# owner qhost and its mode, and the service keeps appending to it.
+host_log_rewrite() {
+	docker exec "$host" sh -ec 'sed -E "$1" "$2" >/tmp/qhost-log.jsonl && cat /tmp/qhost-log.jsonl >"$2" && rm -f /tmp/qhost-log.jsonl' sh "$1" "$2"
+}
+
+# scenario_host_service proves the access to the host service and its action log: an administrator of the group qhost
+# reads the state of the host service and the log without sudo, a user of the group without sudo is told not-admin, a
+# user outside the group is turned away at the channel, a revoked administrator is refused at the next request, and
+# the check of the log reports a changed line. It runs right after the setup.
+scenario_host_service() {
+	step 'an administrator of the group qhost reads the state of the host service and its action log without sudo'
+	out=$(as_admin 'qhost --output json status 2>&1') || fail "qhost status without sudo failed: $out"
+	printf '%s' "$out" | grep -q '"host_service": *"running"' || fail "qhost status without sudo does not show the host service as running: $out"
+	printf '%s' "$out" | grep -q '"host_version": *"v0.1.0"' || fail "qhost status without sudo does not show the version of the host service: $out"
+	out=$(as_admin 'qhost --output json audit --action control.status 2>&1') || fail "qhost audit without sudo failed: $out"
+	printf '%s' "$out" | grep -q '"action": *"control.status"' || fail "qhost audit does not list the status requests: $out"
+	[ "$(docker exec "$host" stat -c %U:%a /var/lib/qhost/logs)" = qhost:700 ] ||
+		fail "/var/lib/qhost/logs is $(docker exec "$host" stat -c %U:%a /var/lib/qhost/logs), want qhost:700"
+	[ "$(docker exec "$host" stat -c %U:%a "$(host_log_file)")" = qhost:600 ] || fail 'the day file of the action log is not qhost:600'
+	if docker exec "$host" test -e /var/lib/qhost-host/logs; then fail 'the action log was written outside the state of the host service'; fi
+	log "scenario: $admin read the host service and its action log without sudo"
+
+	step 'a user of the group qhost without sudo is told not-admin by the host service, a user outside the group is turned away'
+	ensure_user e2e-hostreader
+	ensure_user e2e-outsider
+	docker exec "$host" usermod -aG qhost e2e-hostreader || fail 'cannot add e2e-hostreader to the group qhost'
+	reader_uid=$(docker exec "$host" id -u e2e-hostreader)
+	for cmd in 'qhost audit' 'qhost audit verify'; do
+		if out=$(as_user e2e-hostreader "$cmd 2>&1"); then fail "'$cmd' succeeded for e2e-hostreader: $out"; fi
+		printf '%s' "$out" | grep -q 'qhost is reserved for administrators (sudo)' || fail "unexpected refusal of '$cmd' for e2e-hostreader: $out"
+		if printf '%s' "$out" | grep -q 'control\.\|log\.read\|intact'; then fail "'$cmd' shows data to e2e-hostreader: $out"; fi
+		if out=$(as_user e2e-outsider "$cmd 2>&1"); then fail "'$cmd' succeeded for e2e-outsider: $out"; fi
+		printf '%s' "$out" | grep -q 'may not use the qhost service channel' || fail "unexpected refusal of '$cmd' for e2e-outsider: $out"
+	done
+	out=$(as_admin 'qhost --output json audit --action control.refuse --result failure 2>&1') || fail "qhost audit of the refusals failed: $out"
+	printf '%s' "$out" | tr -d ' \n' | grep -q "\"client_uid\":$reader_uid,\"action\":\"control.refuse\",\"result\":\"failure\",\"error_code\":\"not-admin\"" ||
+		fail "the action log does not record e2e-hostreader as refused with not-admin: $out"
+	log "scenario: e2e-hostreader (uid $reader_uid, group qhost, no sudo) got not-admin, e2e-outsider was turned away at the channel"
+
+	step 'a revoked administrator is refused by the host service at the next request'
+	ensure_user e2e-hostadmin
+	docker exec "$host" usermod -aG qhost,sudo e2e-hostadmin || fail 'cannot make e2e-hostadmin an administrator of the group qhost'
+	out=$(as_user e2e-hostadmin 'qhost audit verify 2>&1') || fail "qhost audit verify failed for the administrator e2e-hostadmin: $out"
+	docker exec "$host" gpasswd -d e2e-hostadmin sudo >/dev/null || fail 'cannot remove e2e-hostadmin from the group sudo'
+	if out=$(as_user e2e-hostadmin 'qhost audit verify 2>&1'); then fail "qhost audit verify succeeded after the revocation: $out"; fi
+	printf '%s' "$out" | grep -q 'qhost is reserved for administrators (sudo)' || fail "unexpected refusal after the revocation: $out"
+	docker exec "$host" id -nG e2e-hostadmin | tr ' ' '\n' | grep -qx qhost || fail 'e2e-hostadmin lost the group qhost, so the refusal proves nothing about sudo'
+	log 'scenario: e2e-hostadmin read the log as an administrator and was refused after leaving the group sudo'
+
+	step 'the check of the action log reports a changed line and passes again once the line is back'
+	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed on the untouched log: $out"
+	printf '%s' "$out" | grep -q 'intact' || fail "qhost audit verify does not report the log as intact: $out"
+	file=$(host_log_file)
+	[ "$(docker exec "$host" sh -c 'wc -l <"$1"' sh "$file")" -ge 3 ] || fail "the day file $file has fewer than three lines"
+	uid2=$(docker exec "$host" sed -n '2p' "$file" | sed -E 's/.*"client_uid":([0-9]+).*/\1/')
+	case $uid2 in '' | *[!0-9]*) fail "line 2 of $file names no client: $(docker exec "$host" sed -n '2p' "$file")" ;; esac
+	host_log_rewrite "2s/\"client_uid\":$uid2([,}])/\"client_uid\":4242424\\1/" "$file" || fail "cannot change line 2 of $file"
+	docker exec "$host" sed -n '2p' "$file" | grep -q '"client_uid":4242424' || fail 'line 2 of the action log was not changed'
+	if out=$(as_admin 'qhost audit verify 2>&1'); then fail "qhost audit verify passed a changed line: $out"; fi
+	printf '%s' "$out" | grep -q 'broken' || fail "qhost audit verify does not mark the day as broken: $out"
+	printf '%s' "$out" | grep -q 'entry with sequence [0-9]* (line 3) does not chain from the previous entry' || fail "qhost audit verify does not name the line after the change: $out"
+	printf '%s' "$out" | grep -q 'the action log of the host service is broken' || fail "qhost audit verify does not say that the log is broken: $out"
+	log "scenario: qhost audit verify on a changed line: $(printf '%s' "$out" | grep broken | head -n 1)"
+	host_log_rewrite "2s/\"client_uid\":4242424([,}])/\"client_uid\":$uid2\\1/" "$file" || fail "cannot restore line 2 of $file"
+	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the line was restored: $out"
+	if printf '%s' "$out" | grep -q 'broken'; then fail "qhost audit verify still reports a broken day: $out"; fi
+	[ "$(docker exec "$host" stat -c %U:%a "$file")" = qhost:600 ] || fail 'the day file lost its owner or mode'
 }
 
 # service_log_warn_count prints how many entries of the service log at the level warn or above say that the window
@@ -1334,6 +1411,7 @@ scenario_update() {
 
 scenario_stacks_repo() {
 	setup_service
+	scenario_host_service
 	url=git.$domain:stacks.git
 
 	scenario_service_log
