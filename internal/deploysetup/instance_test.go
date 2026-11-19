@@ -352,3 +352,18 @@ func TestInstanceSetupStopsAtTheFirstFailure(t *testing.T) {
 
 // instanceUnit is the unit name of the instance of user.
 func instanceUnit(user string) string { return "qhost-deploy@" + user + ".service" }
+
+func TestRootlessUsersListsOwnersOfAnEngine(t *testing.T) {
+	h := newInstanceHost(t)
+	if err := os.Remove(h.host.path(path.Join("/home/carol", userUnit))); err != nil {
+		t.Fatal(err)
+	}
+	h.put("/run/user/1003/docker.sock", "")
+	got, err := h.host.RootlessUsers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"alice", "dave", "erin", "frank"}; !slices.Equal(got, want) {
+		t.Fatalf("users %v, want %v", got, want)
+	}
+}

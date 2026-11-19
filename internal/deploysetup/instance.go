@@ -183,6 +183,31 @@ func (h Host) hasSubIDs(p, user string, uid uint32) (bool, error) {
 	return found, err
 }
 
+// hasRootlessEngine reports whether the account has a rootless engine: its socket or its user unit exists.
+func (h Host) hasRootlessEngine(a account) bool {
+	if h.exists(EngineSocket(a.uid)) {
+		return true
+	}
+	return filepath.IsAbs(a.home) && h.exists(path.Join(a.home, userUnit))
+}
+
+// RootlessUsers lists the users that can own an instance as far as the engine goes: not root, a valid name and a
+// rootless engine. It is a list to choose from; PlanInstance still checks and refuses every user.
+func (h Host) RootlessUsers() ([]string, error) {
+	users, err := h.readAccounts()
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for name, a := range users {
+		if a.uid != 0 && UserPattern.MatchString(name) && h.hasRootlessEngine(a) {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
 func (h Host) exists(p string) bool {
 	_, err := os.Lstat(h.path(p))
 	return err == nil
@@ -224,11 +249,7 @@ func (h Host) PlanInstance(ctx context.Context, user string) (Plan, error) {
 		}
 	}
 	socket := EngineSocket(a.uid)
-	unit := ""
-	if filepath.IsAbs(a.home) {
-		unit = path.Join(a.home, userUnit)
-	}
-	if !h.exists(socket) && (unit == "" || !h.exists(unit)) {
+	if !h.hasRootlessEngine(a) {
 		return Plan{}, fmt.Errorf("the user %s has no rootless Docker engine: neither %s nor %s exists; set up rootless Docker "+
 			"for the user first", user, socket, path.Join(a.home, userUnit))
 	}

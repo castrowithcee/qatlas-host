@@ -80,6 +80,8 @@ const (
 	actMoveDown kittui.ActionID = "movedown"
 	// actSetupDeploy asks to set up the deploy service where it does not exist yet.
 	actSetupDeploy kittui.ActionID = "setupdeploy"
+	// actRootless is the answer that sets up the service of a rootless engine.
+	actRootless kittui.ActionID = "rootless"
 	// actApprove and actReject decide the proposal shown in the Proposals area.
 	actApprove kittui.ActionID = "approve"
 	actReject  kittui.ActionID = "reject"
@@ -149,6 +151,7 @@ func keyTable() []kittui.Action {
 		act(actSetupDeploy, kittui.LevelLetter, textKeySetupDeploy, "G"),
 		act(actApprove, kittui.LevelLetter, textKeyApprove, "A"),
 		act(actReject, kittui.LevelLetter, textKeyReject, "N"),
+		act(actRootless, kittui.LevelConfirm, textAnswerSetupRootless, "r"),
 		act(actYes, kittui.LevelConfirm, textAnswerYes, "y"),
 		act(actNo, kittui.LevelConfirm, textAnswerCancel, "n", "esc"),
 		act(actShowLog, kittui.LevelConfirm, textAnswerLog, "l"),

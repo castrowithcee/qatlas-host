@@ -531,8 +531,12 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 	case dataDirsResult:
 		cmds = append(cmds, m.dataDirsDone(res, done))
 	case deploySetUp:
-		m.notSetUp = false
-		done(t.Lookup(textDoneSetup))
+		if res.user == "" {
+			m.notSetUp = false
+			done(t.Lookup(textDoneSetup))
+		} else {
+			done(t.Lookup(textDoneSetupUser, res.user))
+		}
 		cmds = append(cmds, m.reloadNow())
 	case control.BackupRestoreResult:
 		done(t.Lookup(textDoneRestored, res.Backup.ID, res.Backup.Stack))

@@ -194,21 +194,30 @@ var _ tui.DeploySetup = tuiDeploySetup{}
 
 func (tuiDeploySetup) Installed() bool { return deployInstalled() }
 
-func (tuiDeploySetup) Plan(ctx context.Context) ([]string, error) {
-	plan, err := setupTarget{}.plan(ctx)
+func (tuiDeploySetup) Users() []string {
+	users, err := deploySetup.host.RootlessUsers()
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	return plan.Commands(), nil
+	return users
 }
 
-func (tuiDeploySetup) Run(ctx context.Context) error {
+func (tuiDeploySetup) Plan(ctx context.Context, user string) (tui.SetupPlan, error) {
+	plan, err := setupTarget{user: user}.plan(ctx)
+	if err != nil {
+		return tui.SetupPlan{}, err
+	}
+	return tui.SetupPlan{Commands: plan.Commands(), Warnings: plan.Warnings}, nil
+}
+
+func (tuiDeploySetup) Run(ctx context.Context, user string) error {
 	if err := deploySetup.requireRoot(); err != nil {
 		return err
 	}
-	plan, err := setupTarget{}.plan(ctx)
+	target := setupTarget{user: user}
+	plan, err := target.plan(ctx)
 	if err != nil {
 		return err
 	}
-	return setupTarget{}.apply(ctx, plan)
+	return target.apply(ctx, plan)
 }

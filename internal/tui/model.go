@@ -652,7 +652,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 		case actReload:
 			return m.reloadAll()
 		case actSetupDeploy:
-			if m.setupShown() {
+			if m.setupOffered() {
 				return m.beginSetup()
 			}
 		case actStackOnly:
@@ -1472,6 +1472,9 @@ func (m *Model) stacksFooter(common, nav []kittui.Hint) []kittui.Hint {
 		common = append(append(m.actionHints(), add), common...)
 	default:
 		common = append([]kittui.Hint{add}, common...)
+	}
+	if m.setupOffered() {
+		common = append(common, kittui.Hint{Action: actSetupDeploy, Label: textKeySetupDeploy, Priority: 3})
 	}
 	return m.listFooter(m.list, len(m.rows)+len(m.set.folderData), textKeyDetails, common, nav)
 }
