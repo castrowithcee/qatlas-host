@@ -338,7 +338,7 @@ Stacks: qhost stack start|stop|restart <stack> [--yes] act on all containers of 
 
 Metrics: --metrics adds CPU (100 per fully used CPU) and memory of the running containers. Reading them takes about two seconds per running container, in parallel and within a time limit, so the command may wait up to two minutes. If a reading fails or the time runs out, the list says that the metrics are incomplete and the container shows none.
 
-Container engine: the service reads the engine's socket, by default /var/run/docker.sock; qhost deploy-service run --docker-socket <path> names another one. If the engine cannot be reached, the service user may not use it, or it does not answer in time, the command says so and shows nothing.
+Container engine: the service uses one engine socket for every Docker access (container list and actions, logs, monitoring, Compose, checks, backups and restores), by default /var/run/docker.sock; qhost deploy-service run --docker-socket <path> names another one. A DOCKER_HOST in the service's own environment has no effect. If the engine cannot be reached, the service user may not use it, or it does not answer in time, the command says so and shows nothing.
 
 Failure monitor: every 30 seconds the service checks the containers of own stacks and reports a failure once, as the finding container-failed in qhost status and as the notification event container-failed; when the failure ends it sends recovered. The kinds:
 - exited: a container exited with a non-zero code or is dead (an exit with code 0, such as an init job, is fine)
