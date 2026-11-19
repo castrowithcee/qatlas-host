@@ -354,3 +354,19 @@ func TestFailedDisableRemovesNothing(t *testing.T) {
 		t.Error("files were removed after the services could not be stopped")
 	}
 }
+
+func TestTargetsIncludeTheInstancesPaths(t *testing.T) {
+	inst, err := deploysetup.NewInstance("alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := Targets(true, nil, inst)
+	for _, want := range []string{inst.DropInDir(), inst.TmpfilesConf(), inst.ChannelDir(), deploysetup.TemplatePath(), inst.StateDir(), inst.ConfigDir()} {
+		if !slices.Contains(got, want) {
+			t.Errorf("targets lack %s: %q", want, got)
+		}
+	}
+	if slices.Contains(Targets(false, nil, inst), inst.StateDir()) {
+		t.Error("the state is a target without purge")
+	}
+}

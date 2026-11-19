@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -48,6 +50,9 @@ type selfUpdateHost struct {
 	root string
 	// systemctl runs the service manager; nil runs the real one.
 	systemctl func(ctx context.Context, args ...string) error
+	// refresh runs the internal command of the newly installed program at exe that brings the deploy service
+	// instances to its template; nil starts that program.
+	refresh func(ctx context.Context, exe string, stderr io.Writer) error
 }
 
 var selfUpdate = selfUpdateHost{
@@ -113,6 +118,33 @@ func (h selfUpdateHost) shadowed(services []string) []string {
 	return out
 }
 
+// instances reports whether a deploy service instance for a rootless engine is set up.
+func (h selfUpdateHost) instances() bool {
+	list, err := deploysetup.Instances(h.root)
+	return err == nil && len(list) > 0
+}
+
+// refreshInstances lets the newly installed program renew the template unit and restart the instances: the
+// running program knows only its own template, and sysservice takes no instance names. A failure is a warning,
+// because the program and its services are installed and restarted by then.
+func (h selfUpdateHost) refreshInstances(ctx context.Context, exe string, stderr io.Writer) {
+	if !h.instances() {
+		return
+	}
+	run := h.refresh
+	if run == nil {
+		run = func(ctx context.Context, exe string, stderr io.Writer) error {
+			cmd := exec.CommandContext(ctx, exe, "deploy-service", refreshInstancesCommand)
+			cmd.Stdout, cmd.Stderr = io.Discard, stderr
+			return cmd.Run()
+		}
+	}
+	if err := run(ctx, exe, stderr); err != nil {
+		_, _ = fmt.Fprintf(stderr, "warning: the deploy service instances were not all renewed and restarted: %v\n"+
+			"Run 'sudo qhost deploy-service %s' to retry.\n", err, refreshInstancesCommand)
+	}
+}
+
 func (h selfUpdateHost) client() *selfupdate.Client {
 	return &selfupdate.Client{
 		RepositoryAPI:  strings.TrimRight(h.apiURL, "/"),
@@ -140,7 +172,11 @@ func newSelfUpdateCommand(program *cobracli.Program) *cobra.Command {
 		Use:   "update [version]",
 		Short: "Update qhost to the latest stable release or to a given newer one",
 		Long: "update replaces the installed program, its systemd unit and its main manpage with those of a signed\n" +
-			"release, and the unit of the deploy service if it is set up, and restarts the services; drop-ins of the unit stay as they are. Without an argument it\n" +
+			"release, and the unit of the deploy service if it is set up, and restarts the services; drop-ins of the unit stay as they are.\n" +
+			"If deploy service instances for rootless engines are set up, the newly installed program then replaces the\n" +
+			"template unit qhost-deploy@.service where it differs, reloads systemd and restarts every instance; a failure there is a\n" +
+			"warning and does not undo the update, and 'sudo qhost deploy-service refresh-instances' repeats that step. A unit of\n" +
+			"the same name in /etc/systemd/system overrides the installed one, and the update warns about it. Without an argument it\n" +
 			"installs the newest stable release if that is newer than the running version; with a version such as\n" +
 			"v1.2.3 it installs exactly that release, which must be newer than the running one. Updating never\n" +
 			"installs an older release.\n" +
@@ -247,6 +283,7 @@ func runSelfUpdate(c *cobra.Command, program *cobracli.Program, gate *cobracli.G
 		if err := selfUpdate.restart(ctx, services, result); err != nil {
 			return selfUpdateFailure(err)
 		}
+		selfUpdate.refreshInstances(ctx, exe, c.ErrOrStderr())
 		return emitSelfUpdate(c, program, result.Current, result.Latest, true, true)
 	})
 }

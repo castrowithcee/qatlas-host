@@ -38,7 +38,7 @@ func newDeployServiceCommand(program *cobracli.Program) *cobra.Command {
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error { return c.Help() },
 	}
-	cmd.AddCommand(run, newDeploySetupCommand(program))
+	cmd.AddCommand(run, newDeploySetupCommand(program), newRefreshInstancesCommand(program))
 	return cmd
 }
 
@@ -110,5 +110,46 @@ func newDeployRunCommand() *cobra.Command {
 		"helper image of backups and restores; it needs a POSIX shell, find, rm and a tar that knows --numeric-owner")
 	cmd.Flags().StringVar(&dockerSocket, "docker-socket", service.DefaultDockerSocket,
 		"socket of the container engine for every Docker access of the service")
+	return cmd
+}
+
+// refreshInstancesCommand is the internal command 'qhost update' runs in the newly installed program.
+const refreshInstancesCommand = "refresh-instances"
+
+func newRefreshInstancesCommand(program *cobracli.Program) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:    refreshInstancesCommand,
+		Short:  "Bring the deploy service instances to the template of this program",
+		Hidden: true,
+		Long: "refresh-instances is run by 'qhost update' in the newly installed program, because only that program knows its\n" +
+			"template unit. If deploy service instances for rootless engines are set up, it replaces\n" +
+			"qhost-deploy@.service where it differs from the one built into this program, runs systemctl daemon-reload and\n" +
+			"restarts every instance; it warns about an instance whose unit or template an administrator overrides in\n" +
+			"/etc/systemd/system. Without an instance it changes nothing. A failed restart does not stop the others and\n" +
+			"makes the command fail. Needs root.",
+		Args: cobra.NoArgs,
+		RunE: func(c *cobra.Command, _ []string) error {
+			if deploySetup.euid() != 0 {
+				return &cli.Failure{Code: output.CodePermission, Message: "renewing the deploy service instances needs root; run with sudo",
+					NextStep: "Run the same command with sudo."}
+			}
+			res, err := deploySetup.host.RefreshInstances(c.Context())
+			for _, unit := range res.Shadowed {
+				_, _ = fmt.Fprintf(c.ErrOrStderr(), "warning: a unit in /etc/systemd/system overrides the installed unit of %s\n", unit)
+			}
+			if err != nil {
+				return &cli.Failure{Code: output.CodeRuntime, Message: "refresh-instances: " + err.Error(), Cause: err,
+					NextStep: "Fix the cause named in the message, then run the command again."}
+			}
+			restarted := res.Restarted
+			if restarted == nil {
+				restarted = []string{}
+			}
+			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
+				{Name: "template_written", Value: res.TemplateWritten},
+				{Name: "restarted", Value: restarted},
+			}})
+		},
+	}
 	return cmd
 }

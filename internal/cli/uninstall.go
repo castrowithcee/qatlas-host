@@ -59,7 +59,12 @@ func newUninstallCommand(program *cobracli.Program) *cobra.Command {
 			"deletion would reach a bound stack folder, nothing is changed.\n" +
 			"Uninstalling needs root. It first shows what it will do and the exact commands and asks; it needs\n" +
 			"--confirm and asks for confirmation on a terminal, and --yes answers the question. A removal that\n" +
-			"stopped at a step continues from there when run again.",
+			"stopped at a step continues from there when run again.\n" +
+			"Every deploy service instance for a rootless engine that is set up (see 'qhost help deploy-setup') is stopped and\n" +
+			"disabled with systemctl disable --now, and its /etc/tmpfiles.d/qhost-deploy-<user>.conf, channel directory\n" +
+			"/run/qhost-deploy-<user> and drop-in directory (only if empty) are deleted, and last the template unit\n" +
+			"qhost-deploy@.service; with --purge also /var/lib/qhost-deploy-<user> and /etc/qhost-deploy-<user>. The users,\n" +
+			"their homes, their rootless engines and containers always stay.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if uninstaller.euid() != 0 {
