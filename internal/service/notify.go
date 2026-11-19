@@ -218,6 +218,18 @@ func (n *notifyService) handleAdd(_ context.Context, raw json.RawMessage) (any, 
 	return channelInfo(c), nil
 }
 
+// hasChannel tells whether a channel of that name is stored.
+func (n *notifyService) hasChannel(name string) (bool, error) {
+	_, err := n.settings.Get(name)
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, notifier.ErrNotFound):
+		return false, nil
+	}
+	return false, err
+}
+
 func (n *notifyService) credentialFailure(err error) error {
 	if errors.Is(err, credentials.ErrInvalidValue) || errors.Is(err, credentials.ErrInvalidName) {
 		return control.NewError(control.CodeInvalid, err.Error())

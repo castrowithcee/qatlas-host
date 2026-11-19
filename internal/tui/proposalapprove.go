@@ -19,6 +19,9 @@ import (
 // formProposalReject asks for the optional reason of rejecting a proposal.
 const formProposalReject formKind = formCheck + 1
 
+// formProposalSecrets asks for the secret parts of the channel a proposal names.
+const formProposalSecrets = formProposalReject + 1
+
 // maxRejectReason is how long the service keeps the reason of a rejection.
 const maxRejectReason = 300
 
@@ -83,16 +86,28 @@ func effectSignature(flow *addFlow) string {
 // proposalChanged says the proposal read now is not the one shown: another fingerprint, no longer open, or an
 // effect that differs.
 func proposalChanged(now proposalMsg, shown *proposalCtx) bool {
+	sig := ""
+	switch {
+	case now.flow != nil:
+		sig = effectSignature(now.flow)
+	case now.kind != nil:
+		sig = now.kind.sig
+	}
 	return now.res.Fingerprint != shown.fingerprint || now.res.State != control.ProposalOpen || now.bad ||
-		now.effectErr != nil || now.flow == nil || effectSignature(now.flow) != shown.effect
+		now.effectErr != nil || sig == "" || sig != shown.effect
 }
 
 // canApprove says the open proposal can be approved here: with root, an open proposal of the kind this version
 // applies, content it can read and an effect it worked out.
 func (m *Model) canApprove() bool {
 	v := &m.pv
-	return m.euid() == 0 && m.folders != nil && v.open && v.loaded && v.info.State == control.ProposalOpen &&
-		v.info.Kind == control.ProposalKindSourceAdd && !v.contentBad && v.effectErr == nil && v.flow != nil
+	if !(m.euid() == 0 && v.open && v.loaded && v.info.State == control.ProposalOpen && !v.contentBad && v.effectErr == nil) {
+		return false
+	}
+	if isKindProposal(v.info.Kind) {
+		return v.kind != nil && v.kind.worked
+	}
+	return m.folders != nil && v.info.Kind == control.ProposalKindSourceAdd && v.flow != nil
 }
 
 // canReject says the open proposal can be rejected: with root, as long as it is open.
@@ -123,7 +138,7 @@ func (m *Model) proposalAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 		m.warn(m.text.Lookup(textActionBusy))
 	case !m.pv.loaded || m.pv.info.State != control.ProposalOpen:
 		m.warn(m.text.Lookup(textPropNotOpen))
-	case m.euid() != 0 || m.folders == nil:
+	case m.euid() != 0 || (m.folders == nil && !isKindProposal(m.pv.info.Kind)):
 		m.warn(m.text.Lookup(textPropNeedsSudo))
 	case id == actReject:
 		return m.openForm(m.proposalRejectForm()), true
@@ -139,6 +154,9 @@ func (m *Model) proposalAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 // the proposal. The proposal is read and its effect worked out again first; nothing is changed.
 func (m *Model) approveProposal() tea.Cmd {
 	v := &m.pv
+	if isKindProposal(v.info.Kind) {
+		return m.approveKind()
+	}
 	shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, effect: effectSignature(v.flow), url: v.content.URL, gen: v.gen}
 	ctx, host, path := m.ctx, m.folders, v.content.Path
 	return m.writeCall(opInspect, path, func(b Backend) (any, error) {

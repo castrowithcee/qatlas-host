@@ -17,6 +17,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/cli"
 	"github.com/castrowithcee/qatlas-kit/cobracli"
 	"github.com/castrowithcee/qatlas-kit/output"
+	"github.com/castrowithcee/qatlas-kit/redact"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
@@ -28,13 +29,19 @@ const effectLabel = "qhost/proposal-effect/v1"
 // shownLimit is how many characters of a proposed value are shown before the rest is only counted.
 const shownLimit = 200
 
-func newProposalApprove(program *cobracli.Program, state *notRunning) *cobra.Command {
+func newProposalApprove(program *cobracli.Program, state *notRunning, secrets *redact.Redactor) *cobra.Command {
 	var url string
 	c := &cobra.Command{
 		Use:   "approve <id> [--url <ssh-url>]",
 		Short: "Review an open proposal with its effect and apply it after you confirm",
-		Long: "approve shows the proposal and, below it, what applying it would change, worked out with the same check\n" +
-			"as 'qhost source add'. You confirm the server's host key yourself (a proposal never does), add the deploy\n" +
+		Long: "approve shows the proposal and, below it, what applying it would change. For a source-add proposal it is\n" +
+			"worked out with the same check as 'qhost source add'; for a stack-settings proposal it is the difference to\n" +
+			"the settings that apply now, with every value in full and a backup command marked, and the settings are\n" +
+			"written the way 'qhost stack settings set' writes them; for a window proposal it is the difference to the window\n" +
+			"that applies now, and the window is set the way 'qhost window set' sets it; for a notify-channel proposal every field of\n" +
+			"the channel is shown in full, you enter its secret parts as 'qhost notify add' asks for them (hidden at the\n" +
+			"terminal, never kept on the proposal), and the channel is added the way 'qhost notify add' adds it. For a\n" +
+			"source-add proposal you confirm the server's host key yourself (a proposal never does), add the deploy\n" +
 			"key if the folder has none, and answer a last question. Right before anything is changed the proposal is\n" +
 			"read again and the effect is worked out again; if either differs from what you saw, nothing is applied and\n" +
 			"the new effect is shown. The change is then made the way 'qhost source add' makes it, and the result is\n" +
@@ -42,7 +49,7 @@ func newProposalApprove(program *cobracli.Program, state *notRunning) *cobra.Com
 			"there is no --yes, and --agent and input that is no terminal are refused. Run it with sudo.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			return runProposalApprove(c, program, state, args[0], url)
+			return runProposalApprove(c, program, state, secrets, args[0], url)
 		},
 	}
 	c.Flags().StringVar(&url, "url", "", "SSH address of the repository, replacing the proposed one")
@@ -92,11 +99,47 @@ func requirePerson(program *cobracli.Program, what string) error {
 	return nil
 }
 
-func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notRunning, id, url string) error {
+// proposalApprovers has one function per kind of proposal that can be approved. It gets the proposal as it was
+// first read, open and of its kind, and does the review and the change of that kind.
+var proposalApprovers = map[string]func(c *cobra.Command, program *cobracli.Program, state *notRunning, secrets *redact.Redactor, shown control.ProposalShowResult, url string) error{
+	control.ProposalKindSourceAdd:     approveSourceAdd,
+	control.ProposalKindStackSettings: approveStackSettings,
+	control.ProposalKindWindow:        approveWindow,
+	control.ProposalKindNotifyChannel: approveNotifyChannel,
+}
+
+func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notRunning, secrets *redact.Redactor, id, url string) error {
 	if err := requirePerson(program, "approving a proposal"); err != nil {
 		return err
 	}
-	shown, content, err := loadSourceProposal(c, state, id)
+	shown, err := loadOpenProposal(c, state, id)
+	if err != nil {
+		return err
+	}
+	approve, ok := proposalApprovers[shown.Kind]
+	if !ok {
+		return usageFailure("this version cannot apply a proposal of the kind "+shortText(shown.Kind),
+			"Reject it with 'sudo qhost proposal reject "+id+"'.")
+	}
+	return approve(c, program, state, secrets, shown, url)
+}
+
+// loadOpenProposal reads a proposal and refuses one that is not open.
+func loadOpenProposal(c *cobra.Command, state *notRunning, id string) (control.ProposalShowResult, error) {
+	var res control.ProposalShowResult
+	if err := proposalCall(c, state, control.ProposalShowCommand, control.ProposalIDArgs{ID: id}, &res); err != nil {
+		return res, err
+	}
+	if res.State != control.ProposalOpen {
+		return res, usageFailure("the proposal is "+plainText(res.State)+", not open",
+			"List the proposals with 'qhost proposal list'.")
+	}
+	return res, nil
+}
+
+func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRunning, _ *redact.Redactor, first control.ProposalShowResult, url string) error {
+	id := first.ID
+	shown, content, err := decodeSourceProposal(first)
 	if err != nil {
 		return err
 	}
@@ -184,15 +227,16 @@ func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notR
 
 // loadSourceProposal reads a proposal of the kind source-add that is still open.
 func loadSourceProposal(c *cobra.Command, state *notRunning, id string) (control.ProposalShowResult, control.ProposalSourceAdd, error) {
-	var res control.ProposalShowResult
+	res, err := loadOpenProposal(c, state, id)
+	if err != nil {
+		return res, control.ProposalSourceAdd{}, err
+	}
+	return decodeSourceProposal(res)
+}
+
+func decodeSourceProposal(res control.ProposalShowResult) (control.ProposalShowResult, control.ProposalSourceAdd, error) {
 	var content control.ProposalSourceAdd
-	if err := proposalCall(c, state, control.ProposalShowCommand, control.ProposalIDArgs{ID: id}, &res); err != nil {
-		return res, content, err
-	}
-	if res.State != control.ProposalOpen {
-		return res, content, usageFailure("the proposal is "+plainText(res.State)+", not open",
-			"List the proposals with 'qhost proposal list'.")
-	}
+	id := res.ID
 	if res.Kind != control.ProposalKindSourceAdd {
 		return res, content, usageFailure("this version cannot apply a proposal of the kind "+shortText(res.Kind),
 			"Reject it with 'sudo qhost proposal reject "+id+"'.")

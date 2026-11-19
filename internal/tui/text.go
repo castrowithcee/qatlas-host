@@ -229,6 +229,8 @@ func catalog() i18n.Catalogs[kittui.TextID] {
 	maps.Copy(c[i18n.English], proposalDecideEnglish())
 	maps.Copy(c[i18n.German], proposalGerman())
 	maps.Copy(c[i18n.German], proposalDecideGerman())
+	maps.Copy(c[i18n.English], proposalKindEnglish())
+	maps.Copy(c[i18n.German], proposalKindGerman())
 	return c
 }
 

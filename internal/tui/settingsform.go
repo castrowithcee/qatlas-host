@@ -41,6 +41,9 @@ type settingsForm struct {
 	// lists are the editors of the list fields of the form by field; editor is the one that is open.
 	lists  map[kittui.FieldID]*listEditor
 	editor *listEditor
+	// eff and shown are the proposal a secret form belongs to: its content and the state it was shown in.
+	eff   *kindEffect
+	shown *proposalCtx
 }
 
 // input is the input focus of the form, or of the editor that is open in it.
@@ -141,23 +144,39 @@ func (m *Model) notifyBasicsForm() *settingsForm {
 	})
 }
 
+// notifySecretFields are the masked fields of the secret parts of a channel type, in the order they are asked.
+// The password of an SMTP channel counts only with a user.
+func notifySecretFields(typ string) []kittui.FormField {
+	switch typ {
+	case control.NotifyWebhook:
+		return []kittui.FormField{maskedField("secret", textFieldWebhookURL, textHintWebhookURL),
+			maskedField("key", textFieldSigningKey, textHintSigningKey)}
+	case control.NotifySlack:
+		return []kittui.FormField{maskedField("secret", textFieldSlackURL, textHintSlackURL)}
+	case control.NotifyTelegram:
+		return []kittui.FormField{maskedField("secret", textFieldBotToken, textHintBotToken)}
+	case control.NotifySMTP:
+		return []kittui.FormField{maskedField("secret", textFieldPassword, textHintPassword)}
+	}
+	return nil
+}
+
 // notifyDetailForm asks for the settings and secret parts of the type the first step chose.
 func (m *Model) notifyDetailForm(basics control.NotifyAddArgs) *settingsForm {
 	var fields []kittui.FormField
 	switch basics.Type {
 	case control.NotifyWebhook:
-		fields = []kittui.FormField{maskedField("secret", textFieldWebhookURL, textHintWebhookURL),
-			maskedField("key", textFieldSigningKey, textHintSigningKey)}
+		fields = notifySecretFields(basics.Type)
 	case control.NotifySlack:
-		fields = []kittui.FormField{maskedField("secret", textFieldSlackURL, textHintSlackURL)}
+		fields = notifySecretFields(basics.Type)
 	case control.NotifyTelegram:
-		fields = []kittui.FormField{maskedField("secret", textFieldBotToken, textHintBotToken),
+		fields = []kittui.FormField{notifySecretFields(basics.Type)[0],
 			textField("chat_id", textFieldChatID, textHintChatID, ""), textField("base_url", textFieldBaseURL, textHintBaseURL, "")}
 	case control.NotifySMTP:
 		fields = []kittui.FormField{textField("host", textFieldHost, textHintHost, ""), textField("port", textFieldPort, textHintPort, ""),
 			{ID: "security", Kind: kittui.FieldChoice, Label: textFieldSecurity, Hint: textHintSecurity,
 				Choices: []kittui.Choice{choice("starttls", textSecStartTLS), choice("tls", textSecTLS)}},
-			textField("user", textFieldUser, textHintUser, ""), maskedField("secret", textFieldPassword, textHintPassword),
+			textField("user", textFieldUser, textHintUser, ""), notifySecretFields(basics.Type)[0],
 			textField("from", textFieldFrom, textHintFrom, ""), textField("to", textFieldTo, textHintTo, "")}
 	}
 	f := m.newSettingsForm(formNotifyDetail, textTitleNotifyDetail, fields)
@@ -185,6 +204,8 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitFolderURL(f, text("url"))
 	case formProposalReject:
 		return m.submitProposalReject(f, text("reason"))
+	case formProposalSecrets:
+		return m.submitProposalSecrets(f, v)
 	case formCred:
 		return m.submitCredential(f, string(v["kind"].Choice), text("host"), text("user"), v["token"].Text)
 	case formWindow:

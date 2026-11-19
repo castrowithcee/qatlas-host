@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers  [6 ◈ Proposals]                            
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  notification channel                                                                                            p-0014
+                                                                                                                        
+  from       ana (1001)                                                                                                 
+  submitted  10-30 14:00                                                                                                
+  expires    11-13 14:00                                                                                                
+  state      open                                                                                                       
+                                                                                                                        
+  Proposed                                                                                                              
+    from: "qhost@example.test"                                                                                          
+    host: "mail.long-label.long-label.long-label.long-label.long-label.long-label.long-label.long-label.long-label.long-
+    label.long-label.long-label.example.test"                                                                           
+    name: "alerts"                                                                                                      
+    port: 2525                                                                                                          
+    security: "tls"                                                                                                     
+    to[0]: "ops@example.test"                                                                                           
+    to[1]: "dev@example.test"                                                                                           
+    type: "smtp"                                                                                                        
+    user: "qd"                                                                                                          
+                                                                                                                        
+  Effect if applied now                                                                                                 
+    The channel would be added; no channel of this name exists now. The proposal holds no secret parts: you enter them  
+    on approving.                                                                                                       
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+esc back  A approve  N reject  r reload  1-6 area  q quit                                                     ↑/↓ scroll
