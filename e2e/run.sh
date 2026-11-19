@@ -15,6 +15,8 @@
 #   e2e/run.sh check <scenario|acceptance>   up, run it, down, also when interrupted
 #
 # On the host, e2e-admin reaches the stacks repo with: git clone git.qhoste2e.test:stacks.git
+# The test user e2e-rootless runs a rootless Docker engine of its own, without a login session, on the socket
+# /run/user/<uid>/docker.sock; it uses the registry mirror like the host's Docker daemon.
 # The registry is registry.qhoste2e.test (image demo/app, tags 1.0.0 1.0.1 1.1.0 2.0.0 2.1.0-rc.1 3.0.0 4.0.0
 # 5.0.0); a demo container turns unhealthy with DEMO_HEALTH=fail, and the image 4.0.0 is always unhealthy.
 # For the acceptance scenario only, it also holds two versions each of the real images of the stacks n8n and
@@ -42,6 +44,9 @@ instances='1 2 3 4'
 domain=qhoste2e.test
 hostname_=qhost-e2e-host
 admin=e2e-admin
+# Fixed in base.Dockerfile.
+rootless_user=e2e-rootless
+rootless_uid=1001
 tags='1.0.0 1.0.1 1.1.0 2.0.0 2.1.0-rc.1 3.0.0 4.0.0 5.0.0'
 unhealthy_tags='4.0.0'
 # Tags of the repository demo/late: 1.0.0 is a healthy demo, 1.1.0 fails 100 seconds after its start.
@@ -287,6 +292,7 @@ start_services() {
 	docker network create --internal --label "$label" "$net" >/dev/null
 	docker volume create --label "$label" "$prefix-docker" >/dev/null
 	docker volume create --label "$label" "$prefix-containerd" >/dev/null
+	docker volume create --label "$label" "$prefix-rootless" >/dev/null
 	docker volume create --label "$label" "$prefix-registry" >/dev/null
 	docker volume create --label "$label" "$prefix-git" >/dev/null
 
@@ -305,6 +311,7 @@ start_services() {
 	docker run -d --name "$host" --label "$label" --hostname "$hostname_" --network "$net" \
 		--privileged --cgroupns=private --tmpfs /run --tmpfs /run/lock $(host_limits) \
 		-v "$prefix-docker:/var/lib/docker" -v "$prefix-containerd:/var/lib/containerd" \
+		-v "$prefix-rootless:/home/$rootless_user/.local/share/docker" \
 		"$(base_image host)" >/dev/null
 }
 
@@ -346,6 +353,25 @@ prepare_host() {
 	docker cp "$ssh_dir" "$host:/home/$admin/.ssh"
 	docker exec "$host" sh -c "chown -R $admin:$admin /home/$admin/.ssh && chmod 700 /home/$admin/.ssh && chmod 600 /home/$admin/.ssh/id_ed25519"
 	rm -rf "$ssh_dir"
+}
+
+# prepare_rootless starts the rootless Docker engine of the test user with the user unit and socket of
+# dockerd-rootless-setuptool.sh; lingering keeps it running without a login session. It trusts the test CA and uses
+# the registry mirror like the system engine.
+prepare_rootless() {
+	log "starting the rootless Docker engine of $rootless_user"
+	docker exec "$host" loginctl enable-linger "$rootless_user"
+	wait_for "the user manager of $rootless_user" 30 docker exec "$host" systemctl is-active "user@$rootless_uid.service"
+	# docker exec leaves the umask at 0, which would make the unit and the daemon.json writable for everyone.
+	docker exec -i -u "$rootless_user" -e XDG_RUNTIME_DIR="/run/user/$rootless_uid" "$host" sh -ec "
+		umask 022
+		mkdir -p ~/.config/docker/certs.d/registry.$domain
+		cat >~/.config/docker/certs.d/registry.$domain/ca.crt
+		cp /etc/docker/daemon.json ~/.config/docker/daemon.json
+		dockerd-rootless-setuptool.sh install" <"$work/ctx/certs/ca.crt" >"$work/rootless-setup.log" 2>&1 ||
+		fail "setting up the rootless Docker engine failed: $(tail -n 20 "$work/rootless-setup.log")"
+	wait_for 'the rootless Docker engine' 60 \
+		docker exec -u "$rootless_user" "$host" docker -H "unix:///run/user/$rootless_uid/docker.sock" info
 }
 
 # push_images builds the demo image once per tag inside the host and pushes it to the registry.
@@ -501,6 +527,7 @@ up() {
 	build_images
 	start_services
 	prepare_host
+	prepare_rootless
 	push_images
 	load_backup_helper
 	check_services
@@ -587,7 +614,7 @@ main() {
 		exec docker exec -i -u "$user" "$host" "$@"
 		;;
 	*)
-		sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//'
+		sed -n '2,39p' "$0" | sed 's/^# \{0,1\}//'
 		[ -z "$cmd" ] || exit 2
 		;;
 	esac
