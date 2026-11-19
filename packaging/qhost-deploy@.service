@@ -1,0 +1,21 @@
+[Unit]
+Description=qhost stack deployment service for the rootless Docker engine of %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/qhost deploy-service run --instance %i
+User=%i
+Environment=DOCKER_CONFIG=/var/lib/qhost-deploy-%i/docker
+ReadWritePaths=/run/qhost-deploy-%i
+StateDirectory=qhost-deploy-%i
+StateDirectoryMode=0700
+ConfigurationDirectory=qhost-deploy-%i
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

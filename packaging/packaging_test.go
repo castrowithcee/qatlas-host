@@ -207,3 +207,79 @@ func TestInstallerRendersTheSystemVariant(t *testing.T) {
 		}
 	}
 }
+
+const instanceTemplate = "packaging/qhost-deploy@.service"
+
+func TestEmbeddedInstanceTemplateIsTheFile(t *testing.T) {
+	if string(DeployInstanceUnit) != string(readFile(t, instanceTemplate)) {
+		t.Fatal("the embedded instance template differs from " + instanceTemplate)
+	}
+}
+
+// An instance runs as the owner of a rootless engine, who is in neither docker nor qhost. The kit's unit check
+// does not apply to a service under an existing user, so this test holds the hardening of the template. %i keeps
+// a '-' of the user name, which %I would turn into '/'.
+func TestInstanceTemplateMeetsItsContract(t *testing.T) {
+	lines := unitLines(DeployInstanceUnit)
+	for _, want := range []string{
+		"ExecStart=/usr/local/bin/qhost deploy-service run --instance %i",
+		"User=%i",
+		"Environment=DOCKER_CONFIG=/var/lib/qhost-deploy-%i/docker",
+		"ReadWritePaths=/run/qhost-deploy-%i",
+		"StateDirectory=qhost-deploy-%i",
+		"StateDirectoryMode=0700",
+		"ConfigurationDirectory=qhost-deploy-%i",
+		"NoNewPrivileges=yes",
+		"PrivateTmp=yes",
+		"ProtectSystem=strict",
+	} {
+		if !lines[want] {
+			t.Errorf("instance template lacks the line %q", want)
+		}
+	}
+	forbidden := []string{"Group=", "SupplementaryGroups=", "DynamicUser=", "AmbientCapabilities=", "RuntimeDirectory",
+		"PermissionsStartOnly=", "ProtectHome=", "User=root", "RootDirectory="}
+	execs := 0
+	for l := range lines {
+		for _, f := range forbidden {
+			if strings.HasPrefix(l, f) {
+				t.Errorf("instance template has the line %q", l)
+			}
+		}
+		if strings.Contains(l, "docker.service") || strings.Contains(l, "%I") {
+			t.Errorf("instance template has the line %q", l)
+		}
+		if strings.HasPrefix(l, "ReadWritePaths=") && l != "ReadWritePaths=/run/qhost-deploy-%i" {
+			t.Errorf("instance template names a writable path: %q", l)
+		}
+		if key, value, ok := strings.Cut(l, "="); ok && strings.HasPrefix(key, "Exec") {
+			execs++
+			if prefix := value[:len(value)-len(strings.TrimLeft(value, "@-:+!|"))]; strings.ContainsAny(prefix, "+!") {
+				t.Errorf("instance template runs a command with elevated rights: %q", l)
+			}
+		}
+	}
+	if execs != 1 {
+		t.Errorf("instance template has %d Exec lines, want only ExecStart", execs)
+	}
+}
+
+// The template keeps every hardening line of the deploy unit of the system engine.
+func TestInstanceTemplateKeepsTheHardeningOfTheDeployUnit(t *testing.T) {
+	lines := unitLines(DeployInstanceUnit)
+	for l := range unitLines(DeployUnit) {
+		for _, key := range []string{"NoNewPrivileges=", "PrivateTmp=", "ProtectSystem=", "StateDirectoryMode=", "Restart="} {
+			if strings.HasPrefix(l, key) && !lines[l] {
+				t.Errorf("instance template lacks %q of the deploy unit", l)
+			}
+		}
+	}
+}
+
+func TestInstanceTemplateStaysOutOfTheReleaseArchive(t *testing.T) {
+	for _, f := range loadConfig(t).Files {
+		if strings.Contains(f.Source, "@") || strings.Contains(f.Path, "@") {
+			t.Errorf("release file %+v; the setup writes the instance template", f)
+		}
+	}
+}
