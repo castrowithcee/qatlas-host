@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+   1 Stacks   2 Stack detail   3 Runs   4 Settings   5 Containers  [6 Proposals]
+────────────────────────────────────────────────────────────────────────────────
+  maintenance window                                                      p-0012
+                                                                                
+  from       ana (1001)                                                         
+  submitted  10-30 18:00                                                        
+  expires    11-13 18:00                                                        
+  state      open                                                               
+                                                                                
+  Proposed                                                                      
+    days[0]: "mon"                                                              
+    days[1]: "thu"                                                              
+    start: "02:30"                                                              
+                                                                                
+  Effect if applied now                                                         
+    The maintenance window would change:                                        
+       days                                                                     
+       before: "sun"                                                            
+       after:  "mon,thu"                                                        
+       start                                                                    
+       before: "03:00"                                                          
+       after:  "02:30"                                                          
+esc back  A approve  N reject  r reload  1-6 area  q quit             ↑/↓ scroll

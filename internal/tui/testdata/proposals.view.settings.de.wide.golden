@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container  [6 ◈ Vorschläge]                     
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Stack-Einstellungen                                                                                             p-0011
+                                                                                                                        
+  von          ana (1001)                                                                                               
+  eingereicht  10-30 17:00                                                                                              
+  läuft ab     11-13 17:00                                                                                              
+  Zustand      offen                                                                                                    
+                                                                                                                        
+  Vorgeschlagen                                                                                                         
+    Stack: demo                                                                                                         
+    !! backup.command[0]: "sh"                                                                                          
+    !! backup.command[1]: "-c"                                                                                          
+    !! backup.command[2]: "tar czf /backup/demo.tgz /srv/demo && curl -T /backup/demo.tgz                               
+    https://backup.example.test/upload/end-of-the-command"                                                              
+    backup.paths[0]: "data"                                                                                             
+    update.ceiling: "minor"                                                                                             
+    update.mode: "automatic"                                                                                            
+    version: 1                                                                                                          
+    !! Der Backup-Befehl läuft später auf dem Host, vor jedem Update. Lies jedes Wort davon.                            
+                                                                                                                        
+  Wirkung bei Anwendung jetzt                                                                                           
+    Diese Einstellungen würden sich ändern:                                                                             
+    !! backup.command[0]                                                                                                
+       vorher:  -                                                                                                       
+       nachher: "sh"                                                                                                    
+    !! backup.command[1]                                                                                                
+       vorher:  -                                                                                                       
+       nachher: "-c"                                                                                                    
+    !! backup.command[2]                                                                                                
+       vorher:  -                                                                                                       
+       nachher: "tar czf /backup/demo.tgz /srv/demo && curl -T /backup/demo.tgz https://backup.example.test/upload/end- 
+       of-the-command"                                                                                                  
+       backup.paths[0]                                                                                                  
+       vorher:  -                                                                                                       
+       nachher: "data"                                                                                                  
+       update.mode                                                                                                      
+       vorher:  "manual"                                                                                                
+esc Zurück  A freigeben  N ablehnen  r Neu laden  1-6 Bereich  q Beenden                             ↑/↓ Scrollen  36/39

@@ -120,6 +120,7 @@ const (
 	opStackSettingsCheck
 	opStackSettingsRemove
 	opProposalReject
+	opProposalApply
 )
 
 // settingMsg carries the answer of a write. A write answers with the name it concerned, never with a value.
@@ -416,6 +417,8 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		m.failure = t.Lookup(kittui.TextError, t.Lookup(textPropChanged))
 		m.applyProposal(res.msg)
 		return nil
+	case kindApplied:
+		cmds = append(cmds, m.kindDone(res, done)...)
 	case control.ProposalInfo:
 		done(t.Lookup(textDonePropRejected, kittui.Escape(proposalShort(res.ID))))
 		cmds = append(cmds, m.reloadNow(), m.readProposal())

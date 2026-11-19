@@ -44,6 +44,7 @@ type proposalView struct {
 	// needsRoot is set when the effect was not worked out because the interface runs without root.
 	needsRoot bool
 	flow      *addFlow
+	kind      *kindEffect
 	effectErr error
 	top       int
 	total     int
@@ -60,6 +61,7 @@ type proposalMsg struct {
 	bad       bool
 	needsRoot bool
 	flow      *addFlow
+	kind      *kindEffect
 	effectErr error
 }
 
@@ -114,8 +116,13 @@ func (m *Model) proposalStateWord(state string) (string, kittui.TextStyle) {
 
 // proposalKindWord is the word of a kind; a kind this version does not know shows as the service wrote it.
 func (m *Model) proposalKindWord(kind string) string {
-	if kind == control.ProposalKindSourceAdd {
+	switch kind {
+	case control.ProposalKindSourceAdd:
 		return m.text.Lookup(textPropKindSourceAdd)
+	case control.ProposalKindStackSettings:
+		return m.text.Lookup(textPropKindStackSettings)
+	case control.ProposalKindWindow:
+		return m.text.Lookup(textPropKindWindow)
 	}
 	return proposalShort(kind)
 }
@@ -202,11 +209,16 @@ func (m *Model) readProposal() tea.Cmd {
 	return func() tea.Msg { return loadProposal(ctx, b, host, gen, id, root) }
 }
 
-// loadProposal reads the proposal id and, while it is an open one of the kind source-add with readable content
-// and the interface runs with root, works out its effect. It only reads.
+// loadProposal reads the proposal id and, while it is an open one with readable content, works out its effect:
+// for the kind source-add only when the interface runs with root, for the kinds stack-settings and window
+// always. It only reads.
 func loadProposal(ctx context.Context, b Backend, host Folders, gen int, id string, root bool) proposalMsg {
 	msg := proposalMsg{gen: gen, id: id}
 	if msg.res, msg.err = b.ProposalShow(ctx, id); msg.err != nil {
+		return msg
+	}
+	if isKindProposal(msg.res.Kind) {
+		loadKind(ctx, b, &msg)
 		return msg
 	}
 	if msg.res.Kind != control.ProposalKindSourceAdd {
@@ -247,7 +259,7 @@ func (m *Model) applyProposal(msg proposalMsg) {
 		return
 	}
 	v.loaded, v.info, v.content, v.contentBad = true, msg.res, msg.content, msg.bad
-	v.needsRoot, v.flow, v.effectErr = msg.needsRoot, msg.flow, msg.effectErr
+	v.needsRoot, v.flow, v.effectErr, v.kind = msg.needsRoot, msg.flow, msg.effectErr, msg.kind
 }
 
 // proposalsView is the Proposals area: the list, or the proposal chosen in it.
@@ -306,6 +318,12 @@ func (m *Model) proposalLines(width int) []string {
 		lines = append(lines, m.wrapped(detailIndent, style, t.Lookup(label, proposalShort(p.Message)), width)...)
 	}
 	lines = append(lines, "", m.line(detailMargin, kittui.StyleActive, t.Lookup(textPropHeadContent), width))
+	if isKindProposal(p.Kind) {
+		if v.contentBad {
+			return append(lines, m.wrapped(detailIndent, kittui.StyleFail, t.Lookup(textPropContentBad), width)...)
+		}
+		return m.kindProposalLines(lines, width)
+	}
 	if p.Kind != control.ProposalKindSourceAdd {
 		return append(lines, m.wrapped(detailIndent, kittui.StyleHint, t.Lookup(textPropKindUnknown), width)...)
 	}
