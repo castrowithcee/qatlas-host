@@ -63,11 +63,17 @@ var fixedGroups = map[string]bool{hostadmin.GroupAdmin: true, hostadmin.GroupDoc
 
 type userActions struct{ h UserHost }
 
+// previewCreateInput and previewKey are the placeholders of the standard input of user.create and user.add-key
+// where only the plan is shown.
+var previewCreateInput = []byte(`{"password":"` + DefaultPreviewSecret + `"}`)
+
+const previewKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPr5vvtYX9h+VBtgkbK6H53xF/NVerEoHmjuQmrCY4Rp preview@example"
+
 // RegisterUserActions adds the user actions, reading the host through h.
 func RegisterUserActions(r *Registry, h UserHost) error {
 	u := userActions{h}
 	for _, d := range []Definition{
-		{ID: ActionUserCreate, WantsSecret: true, Plan: u.planCreate, Inverse: u.inverseCreate},
+		{ID: ActionUserCreate, WantsSecret: true, PreviewSecret: previewCreateInput, Plan: u.planCreate, Inverse: u.inverseCreate},
 		{ID: ActionUserCreateService, Plan: u.planCreateService, Inverse: u.inverseCreateService},
 		{ID: ActionUserSetPassword, WantsSecret: true, Plan: u.planPassword, Inverse: u.inversePassword},
 		{ID: ActionUserSetAdmin, Plan: u.planAdmin, Inverse: u.inverseMembership},
@@ -78,7 +84,7 @@ func RegisterUserActions(r *Registry, h UserHost) error {
 		{ID: ActionUserDelete, Plan: u.planDelete, Inverse: u.inverseDelete},
 		{ID: ActionUserAddGroups, Plan: u.planGroups(true), Inverse: u.inverseMembership},
 		{ID: ActionUserRemoveGroups, Plan: u.planGroups(false), Inverse: u.inverseMembership},
-		{ID: ActionUserAddKey, WantsSecret: true, Plan: u.planAddKey, Inverse: u.inverseAddKey},
+		{ID: ActionUserAddKey, WantsSecret: true, PreviewSecret: []byte(previewKey), Plan: u.planAddKey, Inverse: u.inverseAddKey},
 		{ID: ActionUserRemoveKey, Plan: u.planRemoveKey, Inverse: u.inverseRemoveKey},
 		{ID: ActionGroupCreate, Plan: u.planGroupCreate, Inverse: u.inverseGroupCreate},
 		{ID: ActionGroupDelete, Plan: u.planGroupDelete, Inverse: u.inverseGroupDelete},
@@ -846,8 +852,12 @@ func (u userActions) planAddKey(args []string, secret []byte) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	return u.addKeyPlan(name, anyUID, []string{k.line}, k.fingerprint,
-		"Add the SSH key "+k.fingerprint+" to "+name+"."), nil
+	fp := k.fingerprint
+	if string(secret) == previewKey {
+		// The fingerprint of the placeholder would pass for the one of the real key.
+		fp = "from standard input"
+	}
+	return u.addKeyPlan(name, anyUID, []string{k.line}, fp, "Add the SSH key "+fp+" to "+name+"."), nil
 }
 
 func (u userActions) addKeyPlan(name string, uid int, lines []string, fp, sentence string) Plan {

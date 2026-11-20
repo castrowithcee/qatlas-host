@@ -100,6 +100,9 @@ type Definition struct {
 	ID string
 	// WantsSecret makes the CLI read the secret input from standard input and pass it to Plan.
 	WantsSecret bool
+	// PreviewSecret stands in for the secret input where a plan is only shown, never run; empty means
+	// DefaultPreviewSecret. Set it when Plan rejects that default, as for a structured input.
+	PreviewSecret []byte
 	// Plan validates the arguments and builds the plan. It reads nothing from the host: the TUI calls it to
 	// show the confirmation before it asks for root.
 	Plan func(args []string, secret []byte) (Plan, error)
@@ -177,6 +180,26 @@ func (r *Registry) IDs() []string {
 	}
 	sort.Strings(ids)
 	return ids
+}
+
+// DefaultPreviewSecret is the secret input of an action whose plan is shown without a real secret.
+const DefaultPreviewSecret = "preview-only-secret"
+
+// Preview builds the plan of an action to show it before anything is asked or read: an action that wants a secret
+// gets its preview placeholder, which never reaches a command that runs.
+func (r *Registry) Preview(id string, args []string) (Plan, error) {
+	d, ok := r.defs[id]
+	if !ok {
+		return Plan{}, fmt.Errorf("unknown action %q", id)
+	}
+	var secret []byte
+	if d.WantsSecret {
+		secret = d.PreviewSecret
+		if len(secret) == 0 {
+			secret = []byte(DefaultPreviewSecret)
+		}
+	}
+	return d.Plan(args, secret)
 }
 
 // Describe builds the plan of an action without running or reading anything.

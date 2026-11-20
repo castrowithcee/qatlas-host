@@ -107,6 +107,31 @@ func (h selfUpdateHost) restart(ctx context.Context, services []string, result s
 	return nil
 }
 
+// planText says what an update replaces and restarts, from what is known without the release server: the target
+// version is checked only when the update runs.
+func (h selfUpdateHost) planText(exe, tag string) string {
+	target := "the newest stable release"
+	if tag != "" {
+		target = "release " + tag
+	}
+	if exe == "" {
+		exe = "the running program"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Update qhost from %s to %s. The release server is asked, and the version checked, only with --confirm.\n", version, target)
+	b.WriteString("These files are replaced:\n  " + exe + "\n")
+	for _, c := range h.companions() {
+		if c.Path != "" {
+			b.WriteString("  " + c.Path + "\n")
+		}
+	}
+	b.WriteString("These services restart: " + strings.Join(h.services(), ", ") + "\n")
+	if h.instances() {
+		b.WriteString("The template unit qhost-deploy@.service is renewed where it differs, and every deploy service instance restarts.\n")
+	}
+	return b.String()
+}
+
 // shadowed returns the services whose unit an administrator's own unit in /etc/systemd/system overrides.
 func (h selfUpdateHost) shadowed(services []string) []string {
 	var out []string
@@ -182,9 +207,10 @@ func newSelfUpdateCommand(program *cobracli.Program) *cobra.Command {
 			"installs an older release.\n" +
 			"The signature over the release's checksums.txt is verified against the release key built into\n" +
 			"qhost, then the archive's SHA-256 checksum; any failure leaves the installation unchanged.\n" +
-			"Installing needs root. The service restarts afterwards, so installing needs --confirm and asks for\n" +
-			"confirmation on a terminal; --yes answers the question. To update the image versions of stacks use\n" +
-			"'qhost stack update'.",
+			"Installing needs root. The service restarts afterwards. It first shows on standard error what it would\n" +
+			"replace and restart, without asking the release server; without --confirm it stops there with exit\n" +
+			"code 2 and changes nothing. With --confirm it asks for confirmation on a terminal, and --yes answers\n" +
+			"the question. To update the image versions of stacks use 'qhost stack update'.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return usageFailure("update takes at most one argument, the release version",
@@ -226,13 +252,14 @@ func runSelfUpdate(c *cobra.Command, program *cobracli.Program, gate *cobracli.G
 		return &cli.Failure{Code: output.CodePermission, Message: "updating qhost needs root; run with sudo",
 			NextStep: "Run the same command with sudo."}
 	}
-	// A request without --confirm fails before the release server is asked.
+	// A request without --confirm shows the plan and fails before the release server is asked.
+	exe, exeErr := selfUpdate.executable()
 	if err := gate.Run(cobracli.Request{Changes: true}, func() error { return nil }); err != nil {
+		_, _ = fmt.Fprint(c.ErrOrStderr(), selfUpdate.planText(exe, tag))
 		return err
 	}
-	exe, err := selfUpdate.executable()
-	if err != nil {
-		return selfUpdateFailure(fmt.Errorf("cannot find the running program: %w", err))
+	if exeErr != nil {
+		return selfUpdateFailure(fmt.Errorf("cannot find the running program: %w", exeErr))
 	}
 	// The set of units is fixed before the archive is read, so what is replaced is what is restarted.
 	services := selfUpdate.services()

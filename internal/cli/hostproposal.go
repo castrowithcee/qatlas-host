@@ -78,7 +78,10 @@ func loadHostProposal(c *cobra.Command, state *notRunning, id string) (control.P
 // applyProposal applies an open proposal of the host: the same check as when it was submitted, the sentence and
 // the commands shown, the approval bound to the fingerprint that was shown, and the change made by the runner of
 // 'host apply' with its journal, protection rules and report. The result is kept on the proposal.
-func applyProposal(c *cobra.Command, program *cobracli.Program, state *notRunning, secrets *redact.Redactor, id, reviewed string) error {
+//
+// A non-nil unconfirmed (no --confirm) makes it a preview: the proposal is checked and shown, then that error ends
+// the command before any question, the password on standard input, the journal or the approval.
+func applyProposal(c *cobra.Command, program *cobracli.Program, state *notRunning, secrets *redact.Redactor, id, reviewed string, unconfirmed error) error {
 	if err := requireHostPerson(program); err != nil {
 		return err
 	}
@@ -108,7 +111,9 @@ func applyProposal(c *cobra.Command, program *cobracli.Program, state *notRunnin
 			"Reject it with 'sudo qhost proposal reject "+plainText(id)+"'.")
 	}
 	password := ""
-	if hostproposal.NeedsPassword(content.Action) {
+	if hostproposal.NeedsPassword(content.Action) && unconfirmed != nil {
+		password = hostchange.DefaultPreviewSecret
+	} else if hostproposal.NeedsPassword(content.Action) {
 		if reviewed == "" {
 			return usageFailure("the initial password comes on standard input, so there is no question here; pass --fingerprint",
 				"Review the proposal with 'qhost proposal show "+plainText(id)+"', then pass its fingerprint with --fingerprint.")
@@ -127,6 +132,9 @@ func applyProposal(c *cobra.Command, program *cobracli.Program, state *notRunnin
 		return usageFailure("the proposal cannot be applied: "+shortText(err.Error()), "Reject it with 'sudo qhost proposal reject "+plainText(id)+"'.")
 	}
 	showHostProposal(c.ErrOrStderr(), first.ProposalInfo, content.Action, plan, keys)
+	if unconfirmed != nil {
+		return unconfirmed
+	}
 	if reviewed == "" {
 		if !stdinIsTerminal() {
 			return usageFailure("there is no terminal to ask; pass --fingerprint of the proposal you reviewed",

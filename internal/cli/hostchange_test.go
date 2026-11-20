@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -153,11 +154,89 @@ func TestHostChangeNeedsRootAndConfirm(t *testing.T) {
 	if code != 2 || out != "" || !strings.Contains(errOut, "--confirm") {
 		t.Errorf("missing --confirm: code %d out %q err %q", code, out, errOut)
 	}
-	if code, _, _ = run(t, "host", "undo", "20300102T030405.000000Z-aaaaaa"); code != 2 {
-		t.Errorf("undo without --confirm: code %d", code)
-	}
 	if len(f.w.calls) != 0 || f.w.values["alpha"] != "old" {
 		t.Errorf("nothing may run: %v", f.w.calls)
+	}
+}
+
+// failingReader fails the test when something reads it.
+type failingReader struct{ t *testing.T }
+
+func (r failingReader) Read([]byte) (int, error) {
+	r.t.Helper()
+	r.t.Error("standard input was read")
+	return 0, io.EOF
+}
+
+func journalFiles(t *testing.T, dir string) int {
+	t.Helper()
+	n := 0
+	files, _ := os.ReadDir(dir)
+	for _, de := range files {
+		if strings.HasSuffix(de.Name(), ".json") {
+			n++
+		}
+	}
+	return n
+}
+
+func TestHostApplyWithoutConfirmShowsThePlanAndChangesNothing(t *testing.T) {
+	f := newChangeFixture(t, 0)
+	code, out, errOut := run(t, "host", "apply", "demo.set", "alpha", "new")
+	if code != 2 || out != "" || !strings.Contains(errOut, "--confirm") {
+		t.Fatalf("code %d out %q err %q", code, out, errOut)
+	}
+	if strings.Count(errOut, "Set alpha to new.") != 1 || strings.Count(errOut, "demo-set alpha new") != 1 {
+		t.Errorf("the sentence and the commands must appear once: %q", errOut)
+	}
+	if len(f.w.calls) != 0 || f.w.values["alpha"] != "old" || len(f.audited) != 0 || journalFiles(t, f.dir) != 0 {
+		t.Errorf("nothing may run, be journaled or audited: %v %v", f.w.calls, f.audited)
+	}
+	// The state is not captured, so a rule that needs it does not refuse a preview.
+	if code, _, errOut = run(t, "host", "apply", "demo.guard"); code != 2 || !strings.Contains(errOut, "Guarded change.") {
+		t.Errorf("guard: code %d err %q", code, errOut)
+	}
+	// Argument errors are reported as such.
+	for _, args := range [][]string{{"host", "apply", "demo.set", "alpha"}, {"host", "apply", "demo.unknown"}} {
+		if code, out, errOut = run(t, args...); code != 2 || out != "" || strings.Contains(errOut, "These commands run") {
+			t.Errorf("%v: code %d out %q err %q", args, code, out, errOut)
+		}
+	}
+	// With --confirm the plan is not shown on top of the report.
+	if code, _, errOut = run(t, "host", "apply", "demo.set", "alpha", "new", "--confirm"); code != 0 || strings.Contains(errOut, "These commands run") {
+		t.Errorf("confirmed: code %d err %q", code, errOut)
+	}
+}
+
+func TestHostApplyPreviewReadsNoSecretAndShowsNoValue(t *testing.T) {
+	f := newChangeFixture(t, 0)
+	useStdin(t, failingReader{t})
+	code, out, errOut := run(t, "host", "apply", "demo.login")
+	if code != 2 || out != "" || !strings.Contains(errOut, "demo-login user1 < <password>") || !strings.Contains(errOut, "placeholder") {
+		t.Fatalf("code %d out %q err %q", code, out, errOut)
+	}
+	if strings.Contains(errOut, hostchange.DefaultPreviewSecret) || len(f.w.calls) != 0 || journalFiles(t, f.dir) != 0 {
+		t.Errorf("the placeholder value leaked or something ran: %q %v", errOut, f.w.calls)
+	}
+}
+
+func TestHostUndoWithoutConfirmShowsThePlanAndChangesNothing(t *testing.T) {
+	f := newChangeFixture(t, 0)
+	_, out, _ := run(t, "host", "apply", "demo.set", "alpha", "new", "--confirm", "--output", "json")
+	id := decode(t, out)["journal_id"].(string)
+	calls, entries, audited := len(f.w.calls), journalFiles(t, f.dir), len(f.audited)
+	code, out, errOut := run(t, "host", "undo", id)
+	if code != 2 || out != "" || !strings.Contains(errOut, "--confirm") {
+		t.Fatalf("code %d out %q err %q", code, out, errOut)
+	}
+	if strings.Count(errOut, "Put it back.") != 1 || strings.Count(errOut, "demo-set alpha old") != 1 {
+		t.Errorf("the sentence and the commands must appear once: %q", errOut)
+	}
+	if len(f.w.calls) != calls || f.w.values["alpha"] != "new" || journalFiles(t, f.dir) != entries || len(f.audited) != audited {
+		t.Errorf("the undo ran: %v", f.w.calls)
+	}
+	if code, _, _ = run(t, "host", "undo", "20300102T030405.000000Z-aaaaaa"); code == 0 {
+		t.Error("an unknown entry must fail without --confirm too")
 	}
 }
 

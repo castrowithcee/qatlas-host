@@ -110,8 +110,10 @@ func newHostApplyCommand(program *cobracli.Program, state *notRunning, secrets *
 		Long: "Runs one registered action as root: records the previous state in the journal, runs the commands,\n" +
 			"checks the result and restores the previous state when the change or its check fails, then reports it\n" +
 			"to the action log of the host service. A secret input (a password, an SSH key) is read from standard\n" +
-			"input only, never from an argument. A protection rule refuses a change before anything runs. It needs\n" +
-			"--confirm; there is no question here. See 'qhost help host-admin' for the actions.\n\n" +
+			"input only, never from an argument. A protection rule refuses a change before anything runs. It first\n" +
+			"shows the sentence and the commands on standard error; without --confirm it stops there with exit code\n" +
+			"2 and changes nothing, and a secret input is not read. With --confirm there is no question. See 'qhost\n" +
+			"help host-admin' for the actions.\n\n" +
 			"With --proposal it applies an open proposal of the host service instead (kind host-change): it reads the\n" +
 			"proposal, checks it again with the rules of proposals, shows the sentence and the commands on standard\n" +
 			"error, reads the proposal once more right before the change and applies nothing if it differs from what\n" +
@@ -119,8 +121,9 @@ func newHostApplyCommand(program *cobracli.Program, state *notRunning, secrets *
 			"on the proposal. The proposed SSH keys come from the proposal; the initial password of user.create comes\n" +
 			"on standard input as {\"password\": \"...\"}. --fingerprint binds the run to the proposal as you reviewed it\n" +
 			"with 'qhost proposal show'; without it you are asked at the terminal, which a user.create proposal does\n" +
-			"not allow because standard input holds the password. Only a person at a terminal may apply a proposal:\n" +
-			"--agent and a process without a terminal are refused.",
+			"not allow because standard input holds the password. Without --confirm the command shows the proposal\n" +
+			"and stops with exit code 2, without a question and without taking the approval. Only a person at a\n" +
+			"terminal may apply a proposal: --agent and a process without a terminal are refused.",
 		Args: func(_ *cobra.Command, args []string) error {
 			switch {
 			case proposal != "" && len(args) > 0:
@@ -137,12 +140,12 @@ func newHostApplyCommand(program *cobracli.Program, state *notRunning, secrets *
 			if err := requireRoot("host apply"); err != nil {
 				return err
 			}
+			// Without --confirm the plan is shown and this error then ends the command; with it the change runs.
+			unconfirmed := gate.Run(cobracli.Request{Changes: true}, func() error { return nil })
 			if proposal != "" {
-				return gate.Run(cobracli.Request{Changes: true}, func() error {
-					return applyProposal(c, program, state, secrets, proposal, fingerprint)
-				})
+				return applyProposal(c, program, state, secrets, proposal, fingerprint, unconfirmed)
 			}
-			return gate.Run(cobracli.Request{Changes: true}, func() error { return applyChange(c, program, secrets, args) })
+			return applyChange(c, program, secrets, args, unconfirmed)
 		},
 	}
 	cmd.Flags().StringVar(&proposal, "proposal", "", "id of an open proposal of the host to apply")
@@ -151,10 +154,45 @@ func newHostApplyCommand(program *cobracli.Program, state *notRunning, secrets *
 	return cmd
 }
 
-func applyChange(c *cobra.Command, program *cobracli.Program, secrets *redact.Redactor, args []string) error {
+// showChangePlan prints what a change does: the sentence and the exact commands, on standard error. Where the
+// action reads a secret input, the commands show a placeholder for it.
+func showChangePlan(w io.Writer, plan hostchange.Plan, secretInput bool) {
+	_, _ = fmt.Fprintf(w, "%s\n", plainText(plan.Sentence))
+	_, _ = fmt.Fprint(w, "These commands run as root:\n")
+	for _, cmd := range plan.Commands {
+		_, _ = fmt.Fprintf(w, "  %s\n", plainText(cmd.Display()))
+	}
+	if secretInput {
+		_, _ = fmt.Fprint(w, "The secret input is read from standard input when the change runs; it is shown as a placeholder.\n")
+	}
+}
+
+// previewChange shows the plan of an action and ends with the error of the missing confirmation. The plan is built
+// with a placeholder for a secret input, so standard input is not read and the state of the host is not captured;
+// the journal is not opened and nothing runs.
+func previewChange(c *cobra.Command, program *cobracli.Program, def hostchange.Definition, args []string, unconfirmed error) error {
+	plan, err := changeEnv.registry().Preview(args[0], args[1:])
+	if err != nil {
+		if refused, ok := refusedChange(c, program, args[0], err); ok {
+			return refused
+		}
+		var arg *hostchange.ArgumentError
+		if errors.As(err, &arg) {
+			return usageFailure(err.Error(), "Correct the arguments of the action.")
+		}
+		return changeFailed(fmt.Errorf("host apply: %w", err))
+	}
+	showChangePlan(c.ErrOrStderr(), plan, def.WantsSecret)
+	return unconfirmed
+}
+
+func applyChange(c *cobra.Command, program *cobracli.Program, secrets *redact.Redactor, args []string, unconfirmed error) error {
 	def, ok := changeEnv.registry().Lookup(args[0])
 	if !ok {
 		return usageFailure(fmt.Sprintf("unknown action %q", args[0]), "Use an action id that 'qhost help host-admin' lists.")
+	}
+	if unconfirmed != nil {
+		return previewChange(c, program, def, args, unconfirmed)
 	}
 	var secret []byte
 	if def.WantsSecret {
@@ -192,12 +230,17 @@ func newHostUndoCommand(program *cobracli.Program) *cobra.Command {
 		Use:   "undo <journal-id>",
 		Short: "Undo a journaled change of the host (needs root)",
 		Long: "Runs the inverse of a reversible change as root, with the same protection rules, check and restore\n" +
-			"as 'host apply', records the undo as a new journal entry and reports it to the action log. It needs\n" +
-			"--confirm; there is no question here.",
+			"as 'host apply', records the undo as a new journal entry and reports it to the action log. It first\n" +
+			"shows the sentence and the commands of the undo on standard error; without --confirm it stops there\n" +
+			"with exit code 2 and changes nothing. With --confirm there is no question.",
 		Args: exactlyOne("journal id"),
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := requireRoot("host undo"); err != nil {
 				return err
+			}
+			unconfirmed := gate.Run(cobracli.Request{Changes: true}, func() error { return nil })
+			if unconfirmed != nil {
+				return previewUndo(c, program, args[0], unconfirmed)
 			}
 			return gate.Run(cobracli.Request{Changes: true}, func() error {
 				journal, err := changeEnv.openJournal()
@@ -217,6 +260,24 @@ func newHostUndoCommand(program *cobracli.Program) *cobra.Command {
 	}
 	gate = program.AddGate(cmd, cobracli.Gates{Change: true})
 	return cmd
+}
+
+// previewUndo shows the plan of the undo of a journal entry and ends with the error of the missing confirmation.
+// It reads the entry and changes nothing.
+func previewUndo(c *cobra.Command, program *cobracli.Program, id string, unconfirmed error) error {
+	journal, err := changeEnv.openJournal()
+	if err != nil {
+		return changeFailed(fmt.Errorf("host undo: %w", err))
+	}
+	plan, err := changeEnv.runner(journal).PreviewUndo(id)
+	if err != nil {
+		if refused, ok := refusedChange(c, program, "", err); ok {
+			return refused
+		}
+		return changeFailed(fmt.Errorf("host undo: %w", err))
+	}
+	showChangePlan(c.ErrOrStderr(), plan, false)
+	return unconfirmed
 }
 
 func newHostJournalCommand(program *cobracli.Program) *cobra.Command {

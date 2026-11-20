@@ -299,6 +299,38 @@ func TestSelfUpdateNeedsRootAndConfirm(t *testing.T) {
 	}
 }
 
+func TestSelfUpdateWithoutConfirmShowsThePlanWithoutTheNetwork(t *testing.T) {
+	signer := releasetest.NewSigner(t)
+	releases := newFakeReleases(t, signer, false, "v0.1.0", "v0.2.0")
+	h := useFakeHost(t, releases, signer, "v0.1.0", true)
+	// Any request to the release server fails the test.
+	releases.server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("the release server was asked: %s", r.URL.Path)
+		http.NotFound(w, r)
+	})
+	for _, args := range [][]string{{"update"}, {"update", "v0.2.0", "--yes"}} {
+		code, stdout, stderr := run(t, args...)
+		if code != 2 || stdout != "" || !strings.Contains(stderr, "--confirm") {
+			t.Fatalf("%v: code %d, stdout %q, stderr %q", args, code, stdout, stderr)
+		}
+		for _, want := range []string{"from v0.1.0 to", h.exe, h.unit, h.deployUnit, "qhost.1", "qhost, qhost-deploy"} {
+			if strings.Count(stderr, want) != 1 {
+				t.Errorf("%v: %q must appear once in %q", args, want, stderr)
+			}
+		}
+	}
+	if code, _, stderr := run(t, "update", "v0.2.0"); code != 2 || !strings.Contains(stderr, "release v0.2.0") {
+		t.Errorf("a named version: code %d, stderr %q", code, stderr)
+	}
+	if h.program(t) != "old program" || len(h.calls) != 0 {
+		t.Fatal("the installation changed or a service was touched")
+	}
+	selfUpdate.euid = func() int { return 1000 }
+	if code, _, stderr := run(t, "update"); code == 0 || !strings.Contains(stderr, "root") || strings.Contains(stderr, "These files") {
+		t.Errorf("not root: code %d, stderr %q", code, stderr)
+	}
+}
+
 func TestSelfUpdateNothingToDo(t *testing.T) {
 	signer := releasetest.NewSigner(t)
 	h := useFakeHost(t, newFakeReleases(t, signer, false, "v0.1.0", "v0.2.0"), signer, "v0.2.0")
