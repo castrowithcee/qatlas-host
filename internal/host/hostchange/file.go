@@ -58,8 +58,14 @@ func sha256Hex(data []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// journalStateDir holds the journal and its lock file. It is a variable so tests can point it at a fake root.
+var journalStateDir = filepath.Dir(DefaultJournalDir)
+
 // lockedReason names why nothing is written at path, or is empty.
 func lockedReason(path string) string {
+	if lexicallyUnder(journalStateDir, path) {
+		return "it holds the journal of the host changes, which is the way back (undo)"
+	}
 	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
 	for i, p := range parts {
 		switch {
