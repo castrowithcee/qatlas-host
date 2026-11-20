@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -183,21 +184,42 @@ func (m *Model) noteProposals() {
 		return
 	}
 	p.noted = true
-	n := 0
+	deploy, host := 0, 0
 	if p.loaded && p.err == nil {
-		n += openProposals(p.list)
+		deploy = openProposals(p.list)
 	}
 	if hp := &m.sys.prop; hp.read && hp.err == nil {
-		n += openProposals(hp.items)
+		host = openProposals(hp.items)
 	}
+	n := deploy + host
 	if n == 0 || m.notice != "" {
 		return
 	}
-	id := textPropNotice
-	if n == 1 {
-		id = textPropNoticeOne
+	var text string
+	switch {
+	case deploy > 0 && host > 0:
+		text = m.text.Lookup(textPropNoticeBoth, n, deploy, areaKey(areaProposals), m.text.Lookup(textAreaProposals),
+			host, areaKey(areaSystem), m.text.Lookup(textAreaSystem))
+	default:
+		id, area := textPropNotice, areaProposals
+		if n == 1 {
+			id = textPropNoticeOne
+		}
+		if deploy == 0 {
+			area = areaSystem
+		}
+		text = m.text.Lookup(id, n, areaKey(area))
 	}
-	m.notice = m.text.Lookup(kittui.TextWarning, m.text.Lookup(id, n, areaKeys[len(areaKeys)-1]))
+	m.notice = m.text.Lookup(kittui.TextWarning, text)
+}
+
+// areaKey is the key that opens the area id, taken from its place in the tab line.
+func areaKey(id kittui.AreaID) string {
+	i := slices.IndexFunc(areas(), func(a kittui.Area) bool { return a.ID == id })
+	if i < 0 || i >= len(areaKeys) {
+		return ""
+	}
+	return areaKeys[i]
 }
 
 func (m *Model) proposalTime(t time.Time) string {
