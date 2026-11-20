@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs [4 Settings] 5 Containers 6 Proposals 7 System 
+   General   Credentials   Maintenance window  [Notifications]                  
+────────────────────────────────────────────────────────────────────────────────
+  Settings of the channel                                                       
+                                                                                
+              ╭────────────────────────────────────────────────────────────────╮
+  Webhook URL │ (entered, hidden)                                              │
+        ╔═ Add a notification channel ═════════════════════════════════╗───────╯
+        ║ ⚠ Add the channel deploy-hook (webhook)?                     ║═══════╗
+> Signin║                                                              ║       ║
+        ║ The service stores the secret parts and never shows them     ║═══════╝
+        ║ again.                                                       ║        
+        ║ $ sudo qhost notify add --type webhook --events succeeded    ║        
+        ║   --output json -- deploy-hook                               ║        
+        ║                                                              ║        
+        ║ [ yes, with sudo ]  > cancel <                               ║        
+        ║ y yes, with sudo  n/esc/enter cancel                         ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+[ F2 save ]  [ esc discard ]                                                    
+                                                                                

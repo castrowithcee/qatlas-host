@@ -96,6 +96,12 @@ func (m *Model) askSettingsSet(title kittui.TextID, question, consequence string
 		decode: decodeSudo[control.StackSettingsSetResult](func(r control.StackSettingsSetResult) bool { return r.Stack != "" })})
 }
 
+// secretInput gives the standard input of a command that reads a secret: a copy for each run, which the run
+// overwrites once it is over. The value is never part of the question or the arguments.
+func secretInput(value string) func(context.Context, Backend) ([]byte, error) {
+	return func(context.Context, Backend) ([]byte, error) { return []byte(value), nil }
+}
+
 // decodeSudo reads the JSON answer of a command as T; ok says whether it holds an answer.
 func decodeSudo[T any](ok func(T) bool) func(sudoRun) (any, bool) {
 	return func(r sudoRun) (any, bool) {

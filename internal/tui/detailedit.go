@@ -111,9 +111,13 @@ func (m *Model) submitSecret(f *settingsForm, key, value string) tea.Cmd {
 		return nil
 	}
 	stack := f.stack
-	m.ask(textTitleSecret, m.text.Lookup(textAskSecretSet, key, stack), m.text.Lookup(textWhatSecretSet), nil, false, func() tea.Cmd {
-		return m.writeCall(opSecretSet, key, func(b Backend) (any, error) { return b.SecretSet(m.ctx, stack, key, value) })
-	})
+	// The value goes on standard input of the command; the question shows the command without it.
+	m.askSetting(settingChange{title: textTitleSecret, question: m.text.Lookup(textAskSecretSet, key, stack),
+		consequence: m.text.Lookup(textWhatSecretSet), op: opSecretSet, name: key,
+		direct: func(b Backend) (any, error) { return b.SecretSet(m.ctx, stack, key, value) },
+		args:   []string{"stack", "secret", "set", "--output", "json", "--", stack, key},
+		input:  secretInput(value),
+		decode: decodeSudo[control.SecretResult](func(r control.SecretResult) bool { return r.Stack != "" })})
 	return nil
 }
 

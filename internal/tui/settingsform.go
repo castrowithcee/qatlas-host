@@ -328,9 +328,12 @@ func (m *Model) submitCredential(f *settingsForm, kind, host, user, token string
 		f.problems(ps...)
 		return nil
 	}
-	m.ask(textTitleCred, m.text.Lookup(textAskCredSet, name), m.text.Lookup(textWhatCredSet), nil, false, func() tea.Cmd {
-		return m.writeCall(opCredSet, name, func(b Backend) (any, error) { return nil, b.CredentialSet(m.ctx, name, value) })
-	})
+	m.askSetting(settingChange{title: textTitleCred, question: m.text.Lookup(textAskCredSet, name),
+		consequence: m.text.Lookup(textWhatCredSet), op: opCredSet, name: name,
+		direct: func(b Backend) (any, error) { return nil, b.CredentialSet(m.ctx, name, value) },
+		args:   []string{"credential", "set", "--output", "json", "--", name},
+		input:  secretInput(value),
+		decode: decodeFlag("stored")})
 	return nil
 }
 
@@ -449,10 +452,60 @@ func (m *Model) submitNotifyDetail(f *settingsForm, v map[kittui.FieldID]kittui.
 		f.problems(ps...)
 		return nil
 	}
-	m.ask(textTitleNotify, m.text.Lookup(textAskNotifyAdd, args.Name, args.Type), m.text.Lookup(textWhatNotifyAdd), nil, false, func() tea.Cmd {
-		return m.writeCall(opNotifyAdd, args.Name, func(b Backend) (any, error) { return b.NotifyAdd(m.ctx, args) })
-	})
+	m.askSetting(settingChange{title: textTitleNotify, question: m.text.Lookup(textAskNotifyAdd, args.Name, args.Type),
+		consequence: m.text.Lookup(textWhatNotifyAdd), op: opNotifyAdd, name: args.Name,
+		direct: func(b Backend) (any, error) { return b.NotifyAdd(m.ctx, args) },
+		args:   notifyAddCommand(args),
+		input:  secretInput(notifyAddInput(args)),
+		decode: decodeNotifyAdd})
 	return nil
+}
+
+// notifyAddCommand is `notify add` for a channel without its secret parts; they go on standard input.
+func notifyAddCommand(a control.NotifyAddArgs) []string {
+	argv := []string{"notify", "add", "--type", a.Type}
+	if len(a.Events) > 0 {
+		argv = append(argv, "--events", strings.Join(a.Events, ","))
+	}
+	for _, flag := range []struct{ name, value string }{{"--host", a.Host}, {"--security", a.Security}, {"--user", a.User},
+		{"--from", a.From}, {"--to", strings.Join(a.To, ",")}, {"--chat-id", a.ChatID}, {"--base-url", a.BaseURL}} {
+		if flag.value != "" {
+			argv = append(argv, flag.name, flag.value)
+		}
+	}
+	if a.Port != 0 {
+		argv = append(argv, "--port", strconv.Itoa(a.Port))
+	}
+	return append(argv, "--output", "json", "--", a.Name)
+}
+
+// notifyAddInput is what `notify add` reads on standard input: the secret parts of the type, one line each, in the
+// order it asks for them. An SMTP password counts only with a user.
+func notifyAddInput(a control.NotifyAddArgs) string {
+	switch a.Type {
+	case control.NotifyWebhook:
+		return a.Secret + "\n" + a.Key
+	case control.NotifySlack, control.NotifyTelegram:
+		return a.Secret
+	case control.NotifySMTP:
+		if a.User != "" {
+			return a.Secret
+		}
+	}
+	return ""
+}
+
+// decodeNotifyAdd reads what `notify add` prints: the channel with its events as one comma list.
+func decodeNotifyAdd(r sudoRun) (any, bool) {
+	var v struct {
+		Name   string `json:"name"`
+		Type   string `json:"type"`
+		Events string `json:"events"`
+	}
+	if !r.decode(&v) || v.Name == "" {
+		return nil, false
+	}
+	return control.NotifyChannelInfo{Name: v.Name, Type: v.Type, Events: splitList(v.Events)}, true
 }
 
 // formKey hands a key to the open form.
