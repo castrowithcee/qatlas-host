@@ -83,15 +83,22 @@ func newResumeCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 }
 
 func newRunsCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	runs := &cobra.Command{
 		Use:   "runs [stack]",
 		Short: "List the recorded runs, newest first",
-		Long:  "runs lists the recorded runs of all stacks, or of one stack, newest first, with trigger, result and duration.",
-		Args:  cobra.MaximumNArgs(1),
+		Long: "runs lists the recorded runs of all stacks, or of one stack, newest first, with trigger, result and duration.\n" +
+			"The runs are those of one deploy service: without a stack all stacks of that service.",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			var a control.RunsArgs
 			if len(args) == 1 {
 				a.Stack = args[0]
+				if err := routeStacks(c, state, engine, a.Stack); err != nil {
+					return err
+				}
+			} else if err := routeInstance(c, engine); err != nil {
+				return err
 			}
 			var res control.RunsResult
 			if err := credentialCall(c, state, control.RunsCommand, a, &res); err != nil {
@@ -114,10 +121,13 @@ func newRunsCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 				Columns: []string{"run", "stack", "commit", "trigger", "started", "duration", "result", "error"}, Rows: rows})
 		},
 	}
+	addEngineFlag(runs, &engine, optionalStackEngineUsage, stackEngineNote+" "+wholeEngineNote)
+	return runs
 }
 
 func newLogCommand(_ *cobracli.Program, state *notRunning) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	logCmd := &cobra.Command{
 		Use:   "log <run>",
 		Short: "Print the log of one run",
 		Long:  "log prints the log of the run with the given id, as listed by 'qhost stack runs'.",
@@ -127,12 +137,46 @@ func newLogCommand(_ *cobracli.Program, state *notRunning) *cobra.Command {
 				return &cli.Failure{Code: output.CodeNotFound, Message: "no such run",
 					NextStep: "List the runs with 'qhost stack runs'.", Cause: fmt.Errorf("malformed run id")}
 			}
-			var res control.LogResult
-			if err := credentialCall(c, state, control.LogCommand, control.LogArgs{ID: args[0]}, &res); err != nil {
+			res, err := runLog(c, state, engine, args[0])
+			if err != nil {
 				return err
 			}
-			_, err := fmt.Fprint(c.OutOrStdout(), res.Text)
+			_, err = fmt.Fprint(c.OutOrStdout(), res.Text)
 			return err
 		},
 	}
+	addEngineFlag(logCmd, &engine, runEngineUsage, runEngineNote)
+	return logCmd
+}
+
+// runLog reads the log of a run from the deploy service that knows the run: the one of the named engine, the
+// only one of the host, or, with several, the one that answers for the id.
+func runLog(c *cobra.Command, state *notRunning, engine, id string) (control.LogResult, error) {
+	var res control.LogResult
+	targets := []engineTarget{}
+	if engine == "" {
+		var err error
+		if targets, err = folders.engineTargets(); err != nil {
+			return res, err
+		}
+	}
+	if len(targets) > 1 {
+		t, res, err := askRun(c, state, targets, id)
+		if err == nil {
+			c.SetContext(withEngine(c.Context(), t))
+		}
+		return res, err
+	}
+	if engine != "" {
+		t, err := folders.namedEngine(engine)
+		if err != nil {
+			return res, err
+		}
+		targets = []engineTarget{t}
+	}
+	if len(targets) == 1 {
+		c.SetContext(withEngine(c.Context(), targets[0]))
+	}
+	err := credentialCall(c, state, control.LogCommand, control.LogArgs{ID: id}, &res)
+	return res, err
 }

@@ -30,6 +30,7 @@ const (
 	// optionalFolderEngineUsage is for a command whose --dir may be left out.
 	optionalFolderEngineUsage = "Docker engine: " + engineIDs + "; with --dir needed only for a folder no engine has bound, " +
 		"without --dir it names the deploy service " + instanceDefault
+	runEngineUsage      = "Docker engine whose deploy service recorded the run: " + engineIDs + "; needed only when several engines know the run"
 	instanceEngineUsage = "Docker engine whose deploy service is meant: " + engineIDs + " " + instanceDefault
 
 	stackEngineNote = "The command reaches the deploy service of the engine that has the stack: the system engine or the " +
@@ -51,6 +52,9 @@ const (
 	notifyEngineNote = "Every deploy service keeps its own notification channels: the one of the system engine and the instance " +
 		"of each rootless engine. The command reaches " + instanceRule + " A channel and its secret parts never reach " +
 		"another engine."
+	runEngineNote = "The command reaches the deploy service that recorded the run: on a host with several deploy services it asks " +
+		"all of them and takes the one that knows the run. When several know it, it stops and names them; " + engineChoice +
+		" chooses one. A deploy service that cannot be asked is named in a warning, or in the error when none knows the run."
 	logsEngineNote = "With --stack the command reaches the deploy service of the engine that has the stack: the system engine " +
 		"or the instance of a rootless engine. When several engines have a stack of that name it stops and names " +
 		"them; " + engineChoice + " chooses one."
