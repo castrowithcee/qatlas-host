@@ -126,7 +126,7 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"sudo asks for the password itself. These still need sudo qhost, and the interface says so: data folders,\n" +
 			"setting up the deploy service and approving a proposal of the deploy service. A deploy\n" +
 			"service that is not set up is no failure: the areas that need it say so and, with y after a question, set it up\n" +
-			"(D; as root, otherwise it says that it needs sudo qhost). A set up deploy service that is not running ends with exit code 3 before it draws\n" +
+			"(G; as root, otherwise it says that it needs sudo qhost). A set up deploy service that is not running ends with exit code 3 before it draws\n" +
 			"anything. Device-local preferences are read from ~/.qatlas/qhost/tui.yaml; a missing file means\n" +
 			"the defaults. Change them in Settings under General (theme, start area, language, icons and mouse)\n" +
 			"instead of editing the file by hand.",

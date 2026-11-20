@@ -295,3 +295,11 @@ func TestRegroupStartsTheInterfaceAgainWithTheGroup(t *testing.T) {
 		t.Fatalf("ran %q, stderr %q", ran, stderr.String())
 	}
 }
+
+// The help of tui names the key that sets up the deploy service, not the one of the diagnosis.
+func TestTUIHelpNamesTheSetupKey(t *testing.T) {
+	long := newTUICommand(nil).Long
+	if !strings.Contains(long, "set it up\n(G;") || strings.Contains(long, "(D;") {
+		t.Fatalf("help of tui does not name G for setting up the deploy service:\n%s", long)
+	}
+}
