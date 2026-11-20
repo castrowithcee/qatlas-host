@@ -2330,6 +2330,8 @@ scenario_stacks_repo() {
 
 	scenario_tui_secrets
 
+	scenario_tui_folder_sudo
+
 	scenario_repair_start
 
 	scenario_container_monitor
@@ -3951,6 +3953,174 @@ scenario_tui_secrets() {
 	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
 	docker exec -u "$admin" "$host" sudo -K || fail "cannot remove the sudo timestamp of $admin"
 	docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1 || fail "sudo of $admin asks for a password after the scenario"
+}
+
+# fs_password hands the terminal password to the sudo prompt that follows an answer of the interface.
+fs_password() {
+	tui_wait "[sudo] password for $admin" 30
+	tui_type "$fs_login"
+	tui_send Enter
+}
+
+# scenario_tui_folder_sudo proves adding a stack folder and taking over a foreign Compose project in the interface
+# started without sudo. Like scenario_tui_sudo, the rule of $admin is put aside and sudo asks for the password at
+# every command (timestamp_timeout=0), which is typed in the terminal. A new folder is cloned from the repository
+# stacks8 (one stack, demo-fsudo): the path is inspected through sudo, the host key is read through sudo after a
+# question, and the last question shows `sudo qhost source add`; before its yes nothing is bound and the folder does
+# not exist. Afterwards the folder is bound and its stack deployed. A foreign Compose project below
+# /srv/qd-fsudo-foreign is taken over the same way. Both folders are released and removed at the end, the rule of the
+# administrator is put back and the password is locked again.
+scenario_tui_folder_sudo() {
+	tui_log=$work/tui-folder-sudo-screens.log
+	: >"$tui_log"
+	fs_login=E2e-admin-Login-7743
+	fs_clone=/srv/qd-fsudo-clone
+	fs_url=git.$domain:stacks8.git
+	fs_base=/srv/qd-fsudo-foreign/fsapp
+	fs_stack=demo-fsudo
+	fs_proj=fsapp
+	image=registry.$domain/demo/app
+
+	step 'a repository with one stack, a deploy key for the new folder, and sudo asking for the password at every command'
+	docker exec "$host" rm -rf "$fs_clone" /srv/qd-fsudo-foreign
+	docker exec "$prefix-git" su git -s /bin/sh -c "rm -rf /srv/git/stacks8.git && git init -q --bare --initial-branch=main /srv/git/stacks8.git" ||
+		fail 'cannot create the repository stacks8'
+	as_admin "rm -rf ~/stacks8 && mkdir -p ~/stacks8/$fs_stack && cd ~/stacks8 &&
+		printf 'name: $fs_stack\\n\\nservices:\\n  app:\\n    image: registry.$domain/demo/app:\${DEMO_APP_VERSION}\\n    restart: unless-stopped\\n    environment:\\n      DEMO_NAME: $fs_stack\\n      DEMO_VERSION: \${DEMO_APP_VERSION}\\n      DEMO_HEALTH: \${DEMO_HEALTH}\\n' >$fs_stack/compose.yaml &&
+		printf 'DEMO_APP_VERSION=1.0.0\\nDEMO_HEALTH=ok\\n' >$fs_stack/.env &&
+		printf 'secrets.env\\ndata/\\n' >$fs_stack/.gitignore && git init -q -b main &&
+		git add -A && git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -m 'Add the $fs_stack stack' &&
+		git push -q $fs_url main" || fail 'cannot fill the repository stacks8'
+	[ -z "$(stack_field "$fs_stack" source)" ] || fail "a stack $fs_stack exists before the folder"
+	if list_has_path "$fs_clone"; then fail 'the new folder is bound before the interface adds it'; fi
+	register_folder_key "$fs_clone"
+	printf '%s:%s\n' "$admin" "$fs_login" | docker exec -i "$host" chpasswd || fail "cannot give $admin a password"
+	docker exec "$host" sh -ec "mv /etc/sudoers.d/e2e-admin /etc/sudoers.d/e2e-admin.off &&
+		printf 'Defaults:%s timestamp_timeout=0\n' '$admin' >/etc/sudoers.d/e2e-ask && chmod 0440 /etc/sudoers.d/e2e-ask && visudo -c >/dev/null" ||
+		fail 'cannot put the sudo rule of the administrator aside'
+	if docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1; then fail "sudo runs a command of $admin without a password although the rule is put aside"; fi
+
+	step 'the interface without sudo clones a new folder: inspection, host key and the last question with their commands, nothing bound before yes'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'trap : INT; qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 1
+	tui_wait '[ ] demo-cache' 30
+	tui_send a
+	tui_wait 'Add a stack folder' 10
+	tui_type "$fs_clone"
+	tui_send F2
+	fs_password
+	tui_wait "Clone a repository into $fs_clone?" 60
+	tui_send y
+	tui_wait 'Address of the repository to clone' 10
+	tui_type "$fs_url"
+	tui_send F2
+	tui_wait 'Read the host key of the server' 15
+	tui_has 'sudo qhost repo probe' || fail "the question does not show the probe command: $(tui_screen)"
+	tui_excerpt 'Read the host key' 14
+	if list_has_path "$fs_clone" || docker exec "$host" test -e "$fs_clone"; then fail 'the folder is bound or exists at the probe question'; fi
+	tui_send y
+	fs_password
+	tui_wait 'Trust this host key for' 60
+	tui_has "$(git_ed25519_fingerprint)" || fail "the host key question does not show the fingerprint: $(tui_screen)"
+	tui_send y
+	tui_wait "Clone $fs_url into $fs_clone?" 30
+	tui_has 'sudo qhost source add' || fail "the last question does not show the source add command: $(tui_screen)"
+	tui_has "$(git_ed25519_fingerprint)" || fail "the last question does not show the fingerprint: $(tui_screen)"
+	tui_has '--expect-effect' || fail "the last question does not show the expected effect: $(tui_screen)"
+	tui_excerpt "Clone $fs_url" 20
+	if list_has_path "$fs_clone"; then fail 'the folder is bound before the last answer'; fi
+	if docker exec "$host" test -e "$fs_clone"; then fail 'the folder exists before the last answer'; fi
+	[ -z "$(stack_field "$fs_stack" source)" ] || fail "the stack $fs_stack exists before the last answer"
+
+	step 'yes binds the folder and deploys its stack'
+	tui_send y
+	fs_password
+	tui_wait "The stack folder $fs_clone is bound" 120
+	tui_send Enter
+	wait_for 'the deploy service to answer' 60 qd status
+	list_has_path "$fs_clone" || fail "source list does not show $fs_clone: $(qd --output json source list)"
+	docker exec "$host" test -f "$fs_clone/$fs_stack/compose.yaml" || fail 'the clone is missing in the new folder'
+	wait_for "the first run of $fs_stack" 240 stack_settled "$fs_stack" succeeded
+	[ "$(stack_images "$fs_stack")" = "$image:1.0.0" ] || fail "$fs_stack does not run 1.0.0: $(stack_images "$fs_stack")"
+	wait_for "$fs_stack healthy" 60 stack_healthy "$fs_stack"
+	log "scenario: the interface without sudo cloned $fs_clone through sudo and deployed $fs_stack"
+	tui_tmux kill-server >/dev/null 2>&1 || true
+
+	step 'a person starts a foreign Compose project; the interface without sudo takes it over'
+	docker exec "$host" sh -ec "rm -rf /srv/qd-fsudo-foreign && mkdir -p '$fs_base' && chmod 0755 /srv/qd-fsudo-foreign '$fs_base'" ||
+		fail 'cannot create the foreign project folder'
+	cat <<EOF2 | docker exec -i "$host" sh -ec "cat >'$fs_base/compose.yaml'"
+services:
+  app:
+    image: registry.$domain/demo/app:\${DEMO_APP_VERSION}
+    restart: unless-stopped
+    environment:
+      DEMO_NAME: foreign-fsapp
+      DEMO_VERSION: \${DEMO_APP_VERSION}
+      DEMO_HEALTH: \${DEMO_HEALTH}
+EOF2
+	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$fs_base/.env'"
+	docker exec "$host" sh -ec "chmod 0644 '$fs_base/compose.yaml' '$fs_base/.env'" || fail 'cannot set the modes of the foreign project files'
+	docker exec "$host" sh -ec "cd '$fs_base' && docker compose up -d" >/dev/null 2>&1 || fail 'cannot start the foreign project'
+	wait_for 'the foreign project fsapp' 60 stack_healthy "$fs_proj"
+	fs_ids=$(docker exec "$host" docker ps -q --no-trunc --filter label=com.docker.compose.project="$fs_proj" | sort)
+	[ -n "$fs_ids" ] || fail 'the foreign project has no running container'
+	if list_has_path "$fs_base"; then fail 'the folder of the foreign project is bound before the takeover'; fi
+	[ -z "$(stack_field "$fs_proj" source)" ] || fail "a stack $fs_proj exists before the takeover"
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'trap : INT; qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 5
+	tui_wait "foreign project $fs_proj" 30
+	tui_ct_cursor_to "$fs_proj-app-1"
+	tui_send Enter
+	tui_wait 'Compose files' 15
+	tui_send a
+	fs_password
+	tui_wait "Start a git repository in $fs_base and take it over?" 60
+	# The command stands at the end of the sheet, below the window.
+	for _ in 1 2 3 4 5 6 7 8 9 10; do tui_send Down; done
+	tui_wait 'sudo qhost source add' 10
+	tui_has '--expect-effect' || fail "the question does not show the expected effect: $(tui_screen)"
+	tui_excerpt 'Start a git repository' 20
+	if docker exec "$host" test -e "$fs_base/.git"; then fail 'the question made a repository'; fi
+	if list_has_path "$fs_base"; then fail 'the question bound the folder'; fi
+	[ "$(docker exec "$host" docker ps -q --no-trunc --filter label=com.docker.compose.project="$fs_proj" | sort)" = "$fs_ids" ] ||
+		fail 'the question changed the containers'
+	tui_send y
+	fs_password
+	tui_wait "The stack folder $fs_base is added" 120
+	tui_send Enter
+	wait_for 'the deploy service to answer' 60 qd status
+	list_has_path "$fs_base" || fail "source list does not show the folder: $(qd --output json source list)"
+	[ "$(qd --output json source list | jq -r --arg p "$fs_base" '.sources[] | select(.path == $p) | .kind')" = local ] || fail 'the foreign folder is not a local source'
+	docker exec "$host" test -d "$fs_base/.git" || fail 'the takeover made no repository'
+	fs_source=$(printf '%s' "${fs_base#/}" | tr / -)
+	out=$(qd --output json stack list) || fail "stack list failed: $out"
+	printf '%s' "$out" | jq -e --arg s "$fs_source" --arg n "$fs_proj" '[.[] | select(.source == $s)] | (length == 1 and .[0].stack == $n)' >/dev/null ||
+		fail "stack list does not show exactly one stack $fs_proj of the folder: $out"
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	log "scenario: the interface without sudo took over the foreign project $fs_proj through sudo"
+
+	step 'the password shows on no captured screen; folders and projects are released, the rule of the administrator is put back'
+	[ "$(wc -l <"$tui_log")" -gt 40 ] || fail 'too few screens were captured to check'
+	if grep -qF -- "$fs_login" "$tui_log"; then fail 'the password typed for sudo shows on a captured screen'; fi
+	docker exec "$host" sh -ec 'rm -f /etc/sudoers.d/e2e-ask && mv /etc/sudoers.d/e2e-admin.off /etc/sudoers.d/e2e-admin && visudo -c >/dev/null' ||
+		fail 'cannot put the sudo rule of the administrator back'
+	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
+	docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1 || fail "sudo of $admin asks for a password again after the rule is put back"
+	for fs_dir in "$fs_clone" "$fs_base"; do
+		out=$(qd --output json source remove "$fs_dir" --yes) || fail "source remove of $fs_dir failed: $out"
+		if list_has_path "$fs_dir"; then fail "source list still shows $fs_dir"; fi
+	done
+	docker exec "$host" sh -ec "cd '$fs_base' && docker compose down" >/dev/null 2>&1 || fail 'cannot shut down the foreign project'
+	docker exec "$host" sh -c "docker ps -aq --filter label=com.docker.compose.project=$fs_stack | xargs -r docker rm -f" >/dev/null ||
+		fail "cannot remove the containers of $fs_stack"
+	docker exec "$host" rm -rf "$fs_clone" /srv/qd-fsudo-foreign
+	wait_for 'the deploy service to answer' 30 qd status
 }
 
 # has_finding succeeds when the stack shows the finding $2 in qhost status.
