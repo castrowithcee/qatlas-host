@@ -111,8 +111,9 @@ func newHostApplyCommand(program *cobracli.Program, state *notRunning, secrets *
 		Long: "Runs one registered action as root: records the previous state in the journal, runs the commands,\n" +
 			"checks the result and restores the previous state when the change or its check fails, then reports it\n" +
 			"to the action log of the host service. A secret input (a password, an SSH key) is read from standard\n" +
-			"input only, never from an argument. A protection rule refuses a change before anything runs. It needs\n" +
-			"--confirm; there is no question here. See 'qhost help host-admin' for the actions.\n\n" +
+			"input only, never from an argument; file.write takes its content, up to 1 MiB, the same way. A protection\n" +
+			"rule refuses a change before anything runs. It needs --confirm; there is no question here. See\n" +
+			"'qhost help host-admin' for the actions.\n\n" +
 			"With --proposal it applies an open proposal of the host service instead (kind host-change): it reads the\n" +
 			"proposal, checks it again with the rules of proposals, shows the sentence and the commands on standard\n" +
 			"error, reads the proposal once more right before the change and applies nothing if it differs from what\n" +

@@ -665,6 +665,42 @@ scenario_host_changes() {
 	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the changes: $out"
 	as_admin "rm -rf '$dir'"
 
+	step 'sudo qhost host apply file.write writes a file under /etc in place from standard input, host file shows it, the journal keeps no content and the undo restores it'
+	sample=/etc/qhost-e2e-sample.conf
+	docker exec "$host" sh -c "printf 'qhost-e2e-old' >'$sample' && chmod 0640 '$sample'" || fail "cannot make $sample"
+	inode=$(docker exec "$host" stat -c %i "$sample")
+	if out=$(printf 'qhost-e2e-new' | as_admin "sudo qhost --output json host apply file.write '$sample' --confirm 2>&1"); then
+		fail "file.write under /etc without system-path succeeded: $out"
+	fi
+	printf '%s' "$out" | grep -q 'system path' || fail "file.write under /etc without system-path does not name the system path: $out"
+	[ "$(docker exec "$host" cat "$sample")" = qhost-e2e-old ] || fail 'a refused file.write changed the file'
+	out=$(printf 'qhost-e2e-new' | as_admin "sudo qhost --output json host apply file.write '$sample' system-path --confirm 2>&1") ||
+		fail "host apply file.write failed: $out"
+	flat=$(printf '%s' "$out" | tr -d ' \n')
+	write_id=$(json_value "$flat" journal_id)
+	[ -n "$write_id" ] || fail "host apply file.write reports no journal entry: $out"
+	printf '%s' "$flat" | grep -q '"result":"applied"' || fail "host apply file.write does not report the result applied: $out"
+	if printf '%s' "$out" | grep -q 'qhost-e2e-new'; then fail "the report of file.write shows the content: $out"; fi
+	[ "$(docker exec "$host" cat "$sample")" = qhost-e2e-new ] || fail "$sample does not hold the new content"
+	[ "$(docker exec "$host" stat -c %i:%a "$sample")" = "$inode:640" ] || fail "file.write did not keep the inode and the mode of $sample"
+	out=$(as_admin "sudo qhost --output json host file '$sample' 2>&1") || fail "sudo qhost host file failed: $out"
+	flat=$(printf '%s' "$out" | tr -d ' \n')
+	[ "$(json_value "$flat" content)" = qhost-e2e-new ] || fail "host file does not show the new content: $out"
+	out=$(as_admin "sudo qhost --output json host file /etc 2>&1") || fail "sudo qhost host file /etc failed: $out"
+	printf '%s' "$out" | tr -d ' \n' | grep -q '"name":"qhost-e2e-sample.conf","kind":"file"' || fail "host file /etc does not list the sample file: $out"
+	if out=$(as_admin "qhost host file '$sample' 2>&1"); then fail "host file without root succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'must run as root' || fail "host file without root does not say that it needs root: $out"
+	journal=$(as_admin 'sudo qhost --output json host journal 2>&1') || fail "sudo qhost host journal failed: $journal"
+	flat=$(printf '%s' "$journal" | tr -d ' \n')
+	printf '%s' "$flat" | grep -q "\"id\":\"$write_id\",[^}]*\"action\":\"file.write\"" || fail "the journal does not list the file.write $write_id: $journal"
+	if printf '%s' "$journal" | grep -q 'qhost-e2e-\(old\|new\)'; then fail "the journal listing shows file content: $journal"; fi
+	out=$(as_admin "sudo qhost --output json host undo $write_id --confirm 2>&1") || fail "host undo of file.write failed: $out"
+	[ "$(docker exec "$host" cat "$sample")" = qhost-e2e-old ] || fail "the undo did not restore the previous content of $sample"
+	[ "$(docker exec "$host" stat -c %i:%a "$sample")" = "$inode:640" ] || fail "the undo did not keep the inode and the mode of $sample"
+	if printf '%s' "$out" | grep -q 'qhost-e2e-\(old\|new\)'; then fail "the report of the undo shows file content: $out"; fi
+	docker exec "$host" rm -f "$sample"
+	log "scenario: file.write $write_id wrote $sample in place, the undo restored the previous content"
+
 	step 'the protection rules refuse changing the own account, the group sudo and a system path, and leave no journal entry'
 	before=$(docker exec "$host" sh -c 'ls /var/lib/qhost-host/journal | wc -l')
 	for refused in "user.lock $admin|you cannot lock yourself" "user.delete $admin|you cannot delete your own account" \
