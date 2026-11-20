@@ -49,9 +49,11 @@ func demoKey(t *testing.T, seed byte) string {
 // answers with report. root makes it a hook of an interface that runs as root, which needs no password check.
 type fakeRoot struct {
 	root bool
-	// report is what a run prints; runErr the error it ends with.
-	report string
-	runErr error
+	// report is what a run prints; runErr the error it ends with. reports, where set, gives the report of a
+	// command by its argument vector and takes the place of report.
+	report  string
+	reports func(argv []string) string
+	runErr  error
 	// stderr is what a run of the command writes to standard error.
 	stderr string
 	// reqs are the requests asked for, built the commands built, execs the commands handed the terminal and bgs
@@ -100,7 +102,7 @@ func (f *fakeRoot) exec(cmd *exec.Cmd, fn tea.ExecCallback) tea.Cmd {
 		// The password check succeeds; only the command itself ends as the test says.
 		return func() tea.Msg { return fn(nil) }
 	}
-	_, _ = io.WriteString(cmd.Stdout, f.report)
+	_, _ = io.WriteString(cmd.Stdout, f.reportOf(cmd))
 	_, _ = io.WriteString(cmd.Stderr, f.stderr)
 	return func() tea.Msg { return fn(f.runErr) }
 }
@@ -112,9 +114,17 @@ func (f *fakeRoot) bg(cmd *exec.Cmd) error {
 		in, _ = io.ReadAll(cmd.Stdin)
 	}
 	f.stdins = append(f.stdins, in)
-	_, _ = io.WriteString(cmd.Stdout, f.report)
+	_, _ = io.WriteString(cmd.Stdout, f.reportOf(cmd))
 	_, _ = io.WriteString(cmd.Stderr, f.stderr)
 	return f.runErr
+}
+
+// reportOf is what the command prints.
+func (f *fakeRoot) reportOf(cmd *exec.Cmd) string {
+	if f.reports != nil {
+		return f.reports(cmd.Args)
+	}
+	return f.report
 }
 
 // lastArgs are the arguments of the last command asked for after its command group, such as "host".

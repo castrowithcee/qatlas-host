@@ -11,6 +11,9 @@ const (
 	textSudoErrOutput      kittui.TextID = "sudo.err.output"
 	textSudoRemoteGitHub   kittui.TextID = "sudo.remote.github"
 	textSudoRemoteRegistry kittui.TextID = "sudo.remote.registry"
+	textSudoMoreCommands   kittui.TextID = "sudo.more"
+	textAskChangelog       kittui.TextID = "sudo.ask.changelog"
+	textWhatChangelog      kittui.TextID = "sudo.what.changelog"
 )
 
 func sudoEnglish() map[kittui.TextID]string {
@@ -21,6 +24,9 @@ func sudoEnglish() map[kittui.TextID]string {
 		textSudoErrOutput:      "The answer of qhost could not be read.",
 		textSudoRemoteGitHub:   "This asks GitHub, so the request leaves the host.",
 		textSudoRemoteRegistry: "This asks the registries of the images, so the requests leave the host.",
+		textSudoMoreCommands:   "%d more commands of the same form follow, one after another.",
+		textAskChangelog:       "Read the release notes before updating %s?",
+		textWhatChangelog:      "Nothing is changed. The update itself is asked for separately afterwards.",
 	}
 }
 
@@ -32,5 +38,8 @@ func sudoGerman() map[kittui.TextID]string {
 		textSudoErrOutput:      "Die Antwort von qhost ließ sich nicht lesen.",
 		textSudoRemoteGitHub:   "Dafür wird GitHub angefragt, die Anfrage verlässt also den Host.",
 		textSudoRemoteRegistry: "Dafür werden die Registries der Images angefragt, die Anfragen verlassen also den Host.",
+		textSudoMoreCommands:   "%d weitere Befehle derselben Form folgen nacheinander.",
+		textAskChangelog:       "Die Release Notes lesen, bevor %s aktualisiert wird?",
+		textWhatChangelog:      "Es wird nichts geändert. Das Update selbst wird danach gesondert bestätigt.",
 	}
 }

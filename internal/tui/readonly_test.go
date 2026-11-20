@@ -35,34 +35,40 @@ func TestGoldenDetailWithoutRoot(t *testing.T) {
 	goldenScreens(t, "detail.noroot", detailRows, noRootBackend, "enter")
 }
 
-// A change shows the message that it needs root and leaves the interface usable.
-func TestChangeWithoutRootSaysSo(t *testing.T) {
+// A change of the Stacks area, which the service refuses without root, is handed to sudo instead of the message.
+func TestChangeWithoutRootIsHandedToSudo(t *testing.T) {
 	b := noRootBackend()
-	m := newActionModel(t, b)
+	m, f := sudoStackModel(t, i18n.English, b, wideWidth, 60)
+	f.report = reportDeploy
 	send(m, "d", "y")
-	if screen := m.render(); !strings.Contains(screen, "this needs root; quit and run sudo qhost") {
-		t.Fatalf("no message that the change needs root:\n%s", screen)
+	if screen := m.render(); strings.Contains(screen, "this needs root; quit and run sudo qhost") || len(b.actions()) != 0 {
+		t.Fatalf("the change was refused instead of handed to sudo:\n%s", screen)
+	}
+	if len(f.execs) != 1 || !strings.Contains(strings.Join(f.execs[0].Args, " "), "sudo-fake qhost-fake stack deploy") {
+		t.Fatalf("sudo was not handed the command: %v", f.execs)
 	}
 	send(m, "esc", "esc")
 	if screen := m.render(); !strings.Contains(screen, "demo-stack") {
-		t.Fatalf("the list is gone after the refusal:\n%s", screen)
+		t.Fatalf("the list is gone after the change:\n%s", screen)
 	}
 }
 
-// The update preview reads the changelog first; without root it ends there with the message instead of a
-// question that could not be answered.
-func TestUpdatePreviewWithoutRootEndsWithTheMessage(t *testing.T) {
+// The update preview reads the changelog through sudo without root, after the question that names GitHub and the
+// command, instead of ending with the message.
+func TestUpdatePreviewWithoutRootIsHandedToSudo(t *testing.T) {
 	b := noRootBackend()
-	m := newActionModel(t, b)
+	m, f := sudoStackModel(t, i18n.English, b, wideWidth, 60)
+	f.report = reportChangelog
 	send(m, "u")
-	if m.modal != nil {
-		t.Fatalf("the preview stays open without root:\n%s", m.render())
+	if m.modal == nil || !strings.Contains(flat(m.render()), "This asks GitHub") {
+		t.Fatalf("no question with the sentence on GitHub:\n%s", m.render())
 	}
-	if !strings.Contains(m.render(), "this needs root; quit and run sudo qhost") {
-		t.Errorf("no message that the update needs root:\n%s", m.render())
+	if len(b.actions()) != 0 || len(f.reqs) != 0 {
+		t.Fatalf("calls = %v, sudo = %v", b.actions(), f.reqs)
 	}
-	if len(b.actions()) != 0 {
-		t.Errorf("calls = %v", b.actions())
+	send(m, "y")
+	if len(f.execs) != 1 || !strings.Contains(flat(m.render()), "Spring release") {
+		t.Fatalf("no preview after the command:\n%s", m.render())
 	}
 }
 

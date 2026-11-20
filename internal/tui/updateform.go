@@ -261,9 +261,7 @@ func (m *Model) submitUpdate(f *settingsForm, v map[kittui.FieldID]kittui.FormVa
 	case control.SourceKindLocal:
 		what = textWhatUpdateLocal
 	}
-	m.ask(textTitleUpdate, t.Lookup(textAskUpdateRules, stack), t.Lookup(what), details, false, func() tea.Cmd {
-		return m.writeCall(opStackSettingsSet, stack, func(b Backend) (any, error) { return saveUpdate(m, b, stack, r) })
-	})
+	m.askSettingsSet(textTitleUpdate, t.Lookup(textAskUpdateRules, stack), t.Lookup(what), details, stack, updateEdit(r))
 	return nil
 }
 
@@ -274,20 +272,13 @@ func observeText(t kittui.Translator, minutes int) string {
 	return t.Lookup(textObserveMinutes, minutes)
 }
 
-// saveUpdate sets the update rules on the settings the service holds now, so that what the form does not
+// updateEdit sets the update rules on the settings the service holds now, so that what the form does not
 // show stays as it is.
-func saveUpdate(m *Model, b Backend, stack string, r updateRules) (control.StackSettingsSetResult, error) {
-	cur, err := b.StackSettings(m.ctx, stack)
-	if err != nil {
-		return control.StackSettingsSetResult{}, err
+func updateEdit(r updateRules) settingsEdit {
+	return func(s *control.StackSettings) {
+		s.Update = &control.StackUpdateSettings{Mode: r.mode, Ceiling: r.ceiling, Major: r.major, Observe: &r.observe,
+			Tags: mapOf(r.tags), Changelog: mapOf(r.changelog)}
 	}
-	s := control.StackSettings{Version: 1}
-	if cur.Settings != nil {
-		s = *cur.Settings
-	}
-	s.Update = &control.StackUpdateSettings{Mode: r.mode, Ceiling: r.ceiling, Major: r.major, Observe: &r.observe,
-		Tags: mapOf(r.tags), Changelog: mapOf(r.changelog)}
-	return b.StackSettingsSet(m.ctx, stack, s)
 }
 
 // updateProblems places a refusal of the service at the field its path names; ok is false for any other

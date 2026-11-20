@@ -2,6 +2,7 @@ package tui
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -34,6 +35,11 @@ type sudoAsk struct {
 	danger bool
 	// args are the arguments after qhost: a public command that asks no question and prints its answer as JSON.
 	args []string
+	// also are further commands of the same form that done runs one after another once the first one ended, as
+	// one per stack; the question shows them with the first.
+	also [][]string
+	// input, where set, gives the standard input of args. It runs before the command, off the event loop.
+	input func(ctx context.Context, b Backend) ([]byte, error)
 	// begin, where set, runs on y before the command, as to mark the action busy.
 	begin func()
 	// done gets the end of the run.
@@ -55,6 +61,20 @@ func (r sudoRun) decode(v any) bool {
 	return len(out) > 0 && json.Unmarshal(out, v) == nil
 }
 
+// sudoProblem is the failure of a run through sudo in the plain words of problem; it stands where an action got an
+// error of the service.
+type sudoProblem string
+
+func (e sudoProblem) Error() string { return string(e) }
+
+// sudoInputMsg carries the standard input of a command that was read before it runs.
+type sudoInputMsg struct {
+	args  []string
+	input []byte
+	err   error
+	done  func(sudoRun) tea.Cmd
+}
+
 // sudoCommand is the command a question shows, exactly as it runs apart from the path of this program.
 func sudoCommand(args []string) string {
 	return hostchange.Command{Argv: append([]string{"sudo", "qhost"}, args...)}.Display()
@@ -66,9 +86,20 @@ func (m *Model) askSudo(a sudoAsk) {
 	if a.remote != "" {
 		consequence = strings.TrimSpace(a.remote + " " + consequence)
 	}
-	m.askCommands(a.title, a.question, consequence, false, a.danger, a.lead, []string{sudoCommand(a.args)}, func() tea.Cmd {
+	commands := []string{sudoCommand(a.args)}
+	for _, more := range a.also {
+		if len(commands) == maxListedTargets {
+			consequence = strings.TrimSpace(consequence + " " + m.text.Lookup(textSudoMoreCommands, len(a.also)+1-len(commands)))
+			break
+		}
+		commands = append(commands, sudoCommand(more))
+	}
+	m.askCommands(a.title, a.question, consequence, false, a.danger, a.lead, commands, func() tea.Cmd {
 		if a.begin != nil {
 			a.begin()
+		}
+		if a.input != nil {
+			return m.readSudoInput(a)
 		}
 		return m.runSudo(a.args, a.done)
 	}, a.drop)
@@ -76,9 +107,32 @@ func (m *Model) askSudo(a sudoAsk) {
 
 // runSudo hands the terminal to `sudo qhost args` and gives done the answer.
 func (m *Model) runSudo(args []string, done func(sudoRun) tea.Cmd) tea.Cmd {
-	return m.runHost(HostRequest{Args: args}, func(out []byte, err error) tea.Cmd {
+	return m.runSudoInput(args, nil, done)
+}
+
+// runSudoInput is runSudo for a command with standard input. Standard input belongs to the password prompt of sudo,
+// so the run goes in two steps, as one with a secret does: the password first, then the command without a prompt.
+func (m *Model) runSudoInput(args []string, input []byte, done func(sudoRun) tea.Cmd) tea.Cmd {
+	return m.runHost(HostRequest{Args: args, Secret: input}, func(out []byte, err error) tea.Cmd {
 		return done(sudoRun{out: out, problem: m.sudoProblem(out, err)})
 	})
+}
+
+// readSudoInput reads the standard input of the command of a, then runs it.
+func (m *Model) readSudoInput(a sudoAsk) tea.Cmd {
+	ctx, b := m.ctx, m.backend
+	return func() tea.Msg {
+		in, err := a.input(ctx, b)
+		return sudoInputMsg{args: a.args, input: in, err: err, done: a.done}
+	}
+}
+
+// applySudoInput runs the command whose standard input was read; a failed read ends the run without it.
+func (m *Model) applySudoInput(msg sudoInputMsg) tea.Cmd {
+	if msg.err != nil {
+		return msg.done(sudoRun{problem: m.serviceText(msg.err)})
+	}
+	return m.runSudoInput(msg.args, msg.input, msg.done)
 }
 
 // sudoProblem says in plain words why a run gave no usable answer. A failure qhost reported comes first, since
