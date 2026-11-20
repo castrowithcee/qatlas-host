@@ -128,9 +128,10 @@ func newDeploySetupCommand(program *cobracli.Program) *cobra.Command {
 			"is enabled for the user when it is off. The user needs a rootless engine and entries in /etc/subuid and\n" +
 			"/etc/subgid, and setup refuses a user in the group qhost or docker; it warns about an administrator. It\n" +
 			"never creates a user or changes a group. Setting up needs root.\n" +
-			"It first shows what it will do and the exact commands and asks; it needs --confirm and asks for\n" +
-			"confirmation on a terminal, and --yes answers the question. Only the steps still needed run, so a\n" +
-			"repeated setup changes nothing, and a setup that stopped at a step continues from there.\n" +
+			"It first shows what it will do and the exact commands; without --confirm it stops there and changes\n" +
+			"nothing. With --confirm it asks for confirmation on a terminal, and --yes answers the question. Only the\n" +
+			"steps still needed run, so a repeated setup changes nothing, and a setup that stopped at a step continues\n" +
+			"from there.\n" +
 			"See 'qhost help deploy-setup'.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
@@ -151,11 +152,11 @@ func newDeploySetupCommand(program *cobracli.Program) *cobra.Command {
 			if plan.Empty() {
 				return emitDeploySetup(c, program, target, 0)
 			}
-			// Without --confirm the request fails before anything is shown or changed.
+			// The plan is shown first; without --confirm the request then fails before anything is changed.
+			_, _ = fmt.Fprint(c.ErrOrStderr(), planText(plan))
 			if err := gate.Run(cobracli.Request{Changes: true}, func() error { return nil }); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprint(c.ErrOrStderr(), planText(plan))
 			return gate.Run(cobracli.Request{Question: target.question(), Changes: true}, func() error {
 				if err := plan.Apply(ctx); err != nil {
 					return setupFailure(err, true)

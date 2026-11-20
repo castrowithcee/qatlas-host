@@ -146,7 +146,7 @@ func TestNoMissingDirsRunsAsBefore(t *testing.T) {
 	if d.checks != 1 || r.stack("web").Deployed != commit(1) || r.stack("web").DataDirs != nil {
 		t.Fatalf("checks=%d web=%+v", d.checks, r.stack("web"))
 	}
-	if steps := r.dep.stepsOf("web"); !slices.Equal(steps, []string{"stop", "pull", "up", "check"}) {
+	if steps := r.dep.stepsOf("web"); !slices.Equal(steps, []string{"pull", "up", "check"}) {
 		t.Fatalf("steps = %v", steps)
 	}
 }

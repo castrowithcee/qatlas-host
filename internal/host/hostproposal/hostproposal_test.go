@@ -28,6 +28,9 @@ func checker(t *testing.T) Checker {
 	if err := hostchange.RegisterFolderActions(r, hostchange.FolderHost{Accounts: accounts}); err != nil {
 		t.Fatal(err)
 	}
+	if err := hostchange.RegisterFileActions(r); err != nil {
+		t.Fatal(err)
+	}
 	return New(r)
 }
 
@@ -80,6 +83,8 @@ func TestRefusedProposals(t *testing.T) {
 	}{
 		"set-admin":                  {hostchange.ActionUserSetAdmin, []string{"demo-user", "on"}, nil, "cannot be proposed"},
 		"set-password":               {hostchange.ActionUserSetPassword, []string{"demo-user"}, nil, "cannot be proposed"},
+		"file write":                 {hostchange.ActionFileWrite, []string{"/srv/demo/app.conf"}, nil, "cannot be proposed"},
+		"file create folder":         {hostchange.ActionFileCreateFolder, []string{"/srv/demo/data"}, nil, "cannot be proposed"},
 		"create with admin switch":   {hostchange.ActionUserCreate, []string{"demo-new", "admin"}, nil, "admin switch"},
 		"create with admin later":    {hostchange.ActionUserCreate, []string{"demo-new", "docker", "admin"}, nil, "admin switch"},
 		"unknown action":             {"user.make-root", []string{"demo-user"}, nil, "unknown action"},

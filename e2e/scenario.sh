@@ -467,6 +467,8 @@ setup_service() {
 	if out=$(as_admin 'qhost deploy-service setup --confirm --yes 2>&1'); then fail "the setup without root succeeded: $out"; fi
 	printf '%s' "$out" | grep -qi 'needs root' || fail "the setup without root does not say that it needs root: $out"
 	if out=$(as_admin 'sudo qhost deploy-service setup --yes 2>&1'); then fail "the setup without --confirm succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'Set up the deploy service' || fail "the setup without --confirm does not show its plan: $out"
+	printf '%s' "$out" | grep -q 'systemctl enable --now qhost-deploy' || fail "the setup without --confirm does not show its commands: $out"
 	if docker exec "$host" test -e /usr/local/lib/systemd/system/qhost-deploy.service; then fail 'a refused setup installed the unit'; fi
 	out=$(as_admin 'sudo qhost --output json deploy-service setup --confirm --yes 2>&1') || fail "the setup failed: $out"
 	printf '%s' "$out" | grep -q '"changed": *true' || fail "the first setup did not report a change: $out"
@@ -666,6 +668,42 @@ scenario_host_changes() {
 		fail "the action log does not record the undo $undo_id of $change_id for uid $admin_uid: $rows"
 	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the changes: $out"
 	as_admin "rm -rf '$dir'"
+
+	step 'sudo qhost host apply file.write writes a file under /etc in place from standard input, host file shows it, the journal keeps no content and the undo restores it'
+	sample=/etc/qhost-e2e-sample.conf
+	docker exec "$host" sh -c "printf 'qhost-e2e-old' >'$sample' && chmod 0640 '$sample'" || fail "cannot make $sample"
+	inode=$(docker exec "$host" stat -c %i "$sample")
+	if out=$(printf 'qhost-e2e-new' | as_admin "sudo qhost --output json host apply file.write '$sample' --confirm 2>&1"); then
+		fail "file.write under /etc without system-path succeeded: $out"
+	fi
+	printf '%s' "$out" | grep -q 'system path' || fail "file.write under /etc without system-path does not name the system path: $out"
+	[ "$(docker exec "$host" cat "$sample")" = qhost-e2e-old ] || fail 'a refused file.write changed the file'
+	out=$(printf 'qhost-e2e-new' | as_admin "sudo qhost --output json host apply file.write '$sample' system-path --confirm 2>&1") ||
+		fail "host apply file.write failed: $out"
+	flat=$(printf '%s' "$out" | tr -d ' \n')
+	write_id=$(json_value "$flat" journal_id)
+	[ -n "$write_id" ] || fail "host apply file.write reports no journal entry: $out"
+	printf '%s' "$flat" | grep -q '"result":"applied"' || fail "host apply file.write does not report the result applied: $out"
+	if printf '%s' "$out" | grep -q 'qhost-e2e-new'; then fail "the report of file.write shows the content: $out"; fi
+	[ "$(docker exec "$host" cat "$sample")" = qhost-e2e-new ] || fail "$sample does not hold the new content"
+	[ "$(docker exec "$host" stat -c %i:%a "$sample")" = "$inode:640" ] || fail "file.write did not keep the inode and the mode of $sample"
+	out=$(as_admin "sudo qhost --output json host file '$sample' 2>&1") || fail "sudo qhost host file failed: $out"
+	flat=$(printf '%s' "$out" | tr -d ' \n')
+	[ "$(json_value "$flat" content)" = qhost-e2e-new ] || fail "host file does not show the new content: $out"
+	out=$(as_admin "sudo qhost --output json host file /etc 2>&1") || fail "sudo qhost host file /etc failed: $out"
+	printf '%s' "$out" | tr -d ' \n' | grep -q '"name":"qhost-e2e-sample.conf","kind":"file"' || fail "host file /etc does not list the sample file: $out"
+	if out=$(as_admin "qhost host file '$sample' 2>&1"); then fail "host file without root succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'must run as root' || fail "host file without root does not say that it needs root: $out"
+	journal=$(as_admin 'sudo qhost --output json host journal 2>&1') || fail "sudo qhost host journal failed: $journal"
+	flat=$(printf '%s' "$journal" | tr -d ' \n')
+	printf '%s' "$flat" | grep -q "\"id\":\"$write_id\",[^}]*\"action\":\"file.write\"" || fail "the journal does not list the file.write $write_id: $journal"
+	if printf '%s' "$journal" | grep -q 'qhost-e2e-\(old\|new\)'; then fail "the journal listing shows file content: $journal"; fi
+	out=$(as_admin "sudo qhost --output json host undo $write_id --confirm 2>&1") || fail "host undo of file.write failed: $out"
+	[ "$(docker exec "$host" cat "$sample")" = qhost-e2e-old ] || fail "the undo did not restore the previous content of $sample"
+	[ "$(docker exec "$host" stat -c %i:%a "$sample")" = "$inode:640" ] || fail "the undo did not keep the inode and the mode of $sample"
+	if printf '%s' "$out" | grep -q 'qhost-e2e-\(old\|new\)'; then fail "the report of the undo shows file content: $out"; fi
+	docker exec "$host" rm -f "$sample"
+	log "scenario: file.write $write_id wrote $sample in place, the undo restored the previous content"
 
 	step 'the protection rules refuse changing the own account, the group sudo and a system path, and leave no journal entry'
 	before=$(docker exec "$host" sh -c 'ls /var/lib/qhost-host/journal | wc -l')
@@ -1349,7 +1387,10 @@ log_steps() {
 }
 
 rolled_back_steps=stop,backup,pull,up,check,rollback,stop,restore,revert,push,fast-forward,up,check
-rollback_failed_steps=stop,backup,pull,up,check,rollback,stop,restore,revert,push,stop
+# A stack without backup rules is not stopped for a backup, so its run starts at the backup step.
+rolled_back_plain_steps=backup,pull,up,check,rollback,stop,restore,revert,push,fast-forward,up,check
+# The rollback-failed run is one of demo-cache, which has no backup rules either.
+rollback_failed_steps=backup,pull,up,check,rollback,stop,restore,revert,push,stop
 
 # newest_run prints the id of the newest recorded run of a stack (empty when there is none).
 newest_run() {
@@ -1511,7 +1552,7 @@ $hook_signing_value
 	failed_log=$(qd stack log "$failed_run")
 	printf '%s' "$failed_log" | grep -q ' result rolled-back' || fail "the run log does not end rolled-back: $failed_log"
 	printf '%s' "$failed_log" | grep -q 'unhealthy' || fail "the run log does not name the unhealthy container: $failed_log"
-	[ "$(log_steps "$failed_log")" = "$rolled_back_steps" ] || fail "unexpected steps of the rolled-back run: $(log_steps "$failed_log")"
+	[ "$(log_steps "$failed_log")" = "$rolled_back_plain_steps" ] || fail "unexpected steps of the rolled-back run: $(log_steps "$failed_log")"
 	printf '%s' "$failed_log" | grep -q 'skipped: the stack has no backup rules' || fail "the rollback did not skip the data restore for a stack without backup rules: $failed_log"
 	revert=$(as_admin "cd ~/stacks && git pull -q --ff-only && git rev-parse HEAD")
 	[ "$revert" != "$bad" ] || fail 'no revert commit reached the remote branch'
@@ -2593,6 +2634,11 @@ list_has_path() {
 	qd --output json source list | jq -e --arg p "$1" '[.sources[].path] | index($p) != null' >/dev/null
 }
 
+# live_containers prints the id and the start time of every container of demo-live.
+live_containers() {
+	docker exec "$host" sh -c "docker ps -q --filter label=com.docker.compose.project=demo-live | sort | xargs -r docker inspect -f '{{.Id}} {{.State.StartedAt}}'"
+}
+
 # scenario_source_local proves source add, list and remove on a local repository without a remote below
 # /srv/qd-local, which no stack folder uses: the service gets the access it needs, a version committed by a person is
 # deployed, a failing one is rolled back by a local revert commit, and removing the source leaves the files and the
@@ -2616,6 +2662,20 @@ services:
       DEMO_HEALTH: \${DEMO_HEALTH}
 EOF2
 	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/demo-local/.env'"
+	# demo-live pins its image and is started by hand before the source is added, as an existing stack would be.
+	docker exec "$host" sh -ec "mkdir -p '$base/demo-live'"
+	cat <<EOF2 | docker exec -i "$host" sh -ec "cat >'$base/demo-live/compose.yaml'"
+name: demo-live
+
+services:
+  app:
+    image: registry.$domain/demo/app:1.0.0
+    restart: unless-stopped
+    environment:
+      DEMO_NAME: demo-live
+      DEMO_VERSION: 1.0.0
+      DEMO_HEALTH: ok
+EOF2
 	printf 'secrets.env\ndata/\n' | docker exec -i "$host" sh -ec "cat >'$base/demo-local/.gitignore'"
 	docker exec "$host" sh -ec "cd '$base' && git init -q -b main && git add -A &&
 		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-local stack' &&
@@ -2643,6 +2703,11 @@ EOF2
 	fi
 	if list_has_path "$base"; then fail 'a refused source add bound the folder'; fi
 
+	step 'demo-live is started by hand before the source is added'
+	docker exec "$host" docker compose --project-directory "$base/demo-live" up -d >/dev/null 2>&1 || fail 'cannot start demo-live by hand'
+	live_before=$(live_containers)
+	[ -n "$live_before" ] || fail 'demo-live has no running container'
+
 	step 'source add --yes binds the repository as a local source and gives the service the group access'
 	# qd merges stderr, where the preview and the notices go; the JSON answer is the last line.
 	out=$(qd --output json source add "$base" --yes) || fail "source add failed: $out"
@@ -2665,6 +2730,20 @@ EOF2
 		sleep 1
 	done
 	[ "$(stack_images demo-local)" = "$image:1.0.0" ] || fail "demo-local does not run 1.0.0: $(stack_images demo-local)"
+
+	step 'the first run of the running demo-live neither stops nor recreates it, and a stack with backup rules still stops before its backup'
+	i=0
+	until stack_settled demo-live succeeded; do
+		i=$((i + 1))
+		[ "$(stack_field demo-live last_run)" != failed ] || fail "the first run of demo-live failed: $(qd stack log "$(newest_run demo-live)")"
+		[ "$i" -lt 180 ] || fail "timeout waiting for the first run of demo-live: $(qd --output json status | tr ',' '\n' | grep -e qd-local -e demo-live)"
+		sleep 1
+	done
+	run_log=$(qd stack log "$(newest_run demo-live)")
+	[ "$(log_steps "$run_log")" = backup,pull,up,check ] || fail "unexpected steps of the first run of demo-live: $(log_steps "$run_log")"
+	if printf '%s\n' "$run_log" | grep -q '^[^ ]* step stop$'; then fail "the first run of demo-live stopped the stack: $run_log"; fi
+	[ "$(live_containers)" = "$live_before" ] || fail "the first run changed the containers of demo-live: before $live_before, now $(live_containers)"
+	# The runs of demo-stack with its backup rules keep the stop before the backup: see the good run of scenario_backup.
 
 	step 'a person in the group qhost-deploy commits a version; git refuses the folder until it is marked safe'
 	docker exec "$host" usermod -aG qhost-deploy "$admin" || fail 'cannot add the admin to the group qhost-deploy'
@@ -4079,6 +4158,8 @@ scenario_uninstall() {
 	before=$(installed_sum)
 	if out=$(as_admin 'qhost uninstall --yes --confirm 2>&1'); then fail "uninstall without root succeeded: $out"; fi
 	if out=$(as_admin 'sudo qhost uninstall --yes 2>&1'); then fail "uninstall without --confirm succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'Remove qhost' || fail "uninstall without --confirm does not show its plan: $out"
+	printf '%s' "$out" | grep -q 'rm /usr/local/bin/qhost' || fail "uninstall without --confirm does not show its commands: $out"
 	if out=$(as_admin 'sudo qhost uninstall --confirm 2>&1 </dev/null'); then fail "uninstall without an answer succeeded: $out"; fi
 	[ "$(installed_sum)" = "$before" ] || fail 'a refused uninstall changed the installation'
 	service_serving || fail 'the services do not answer after a refused uninstall'
@@ -4472,7 +4553,7 @@ scenario_tui() {
 		fail "the log on the screen is not the newest run of demo-cache ($screen_run): $(tui_screen)"
 	run_log=$(qd stack log "$screen_run")
 	printf '%s' "$run_log" | grep -q ' result succeeded' || fail "the update run did not succeed: $run_log"
-	[ "$(update_steps "$run_log")" = stop,backup,commit,push,fast-forward,pull,up,check ] || fail "unexpected steps of the update run: $(update_steps "$run_log")"
+	[ "$(update_steps "$run_log")" = backup,commit,push,fast-forward,pull,up,check ] || fail "unexpected steps of the update run: $(update_steps "$run_log")"
 	as_admin 'cd ~/stacks && git pull -q --ff-only'
 	[ "$(as_admin "cd ~/stacks && git rev-list --count $head_before..HEAD")" = 1 ] || fail 'the update did not create exactly one commit'
 	tui_commit_only_version "$(as_admin 'cd ~/stacks && git rev-parse HEAD')" demo-cache 1.0.1 1.1.0

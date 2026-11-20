@@ -12,19 +12,19 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
                             ╔═ deploy ═════════════════════════════════════════════════════╗                            
                             ║ ⚠ Deploy von demo-stack starten?                             ║                            
                             ║                                                              ║                            
-                            ║ Startet sofort einen Lauf: er stoppt den Stack, sichert      ║                            
-                            ║ seine Daten, lädt, startet und prüft ihn und macht bei einem ║                            
-                            ║ fehlgeschlagenen Schritt einen Rollback.                     ║                            
+                            ║ Startet sofort einen Lauf: ein Stack mit Backup-Regeln wird  ║                            
+                            ║ zuerst gestoppt und gesichert, dann lädt, startet und prüft  ║                            
+                            ║ der Lauf den Stack und macht bei einem fehlgeschlagenen      ║                            
+                            ║ Schritt einen Rollback. Ohne Backup-Regeln läuft der Stack   ║                            
+                            ║ weiter und nur geänderte Container werden neu erzeugt.       ║                            
                             ║ $ sudo qhost stack deploy --output json -- demo-stack        ║                            
                             ║                                                              ║                            
                             ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
                             ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
-                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         

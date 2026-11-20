@@ -4,19 +4,19 @@
       STACK        VERSION      VERFÜGBAR      ZUSTAND   BEFUNDE                
 > [ ] demo-stack   1.4.2        1.5.0          deployt   1 Warnung              
   [ ] mail-relay   3.1          aktuell        offen     keine                  
-  [ ] old-tool     -            ungeprüft      entfernt  keine                  
-  [ ] ph╔═ deploy ═════════════════════════════════════════════════════╗        
-  [ ] we║ ⚠ Deploy von demo-stack starten?                             ║        
-  [ ] wi║                                                              ║        
-        ║ Startet sofort einen Lauf: er stoppt den Stack, sichert      ║        
-        ║ seine Daten, lädt, startet und prüft ihn und macht bei einem ║        
-        ║ fehlgeschlagenen Schritt einen Rollback.                     ║        
+  [ ] ol╔═ deploy ═════════════════════════════════════════════════════╗        
+  [ ] ph║ ⚠ Deploy von demo-stack starten?                             ║        
+  [ ] we║                                                              ║        
+  [ ] wi║ Startet sofort einen Lauf: ein Stack mit Backup-Regeln wird  ║        
+        ║ zuerst gestoppt und gesichert, dann lädt, startet und prüft  ║        
+        ║ der Lauf den Stack und macht bei einem fehlgeschlagenen      ║        
+        ║ Schritt einen Rollback. Ohne Backup-Regeln läuft der Stack   ║        
+        ║ weiter und nur geänderte Container werden neu erzeugt.       ║        
         ║ $ sudo qhost stack deploy --output json -- demo-stack        ║        
         ║                                                              ║        
         ║ [ ja, mit sudo ]  > abbrechen <                              ║        
         ║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
         ╚══════════════════════════════════════════════════════════════╝        
-                                                                                
                                                                                 
                                                                                 
                                                                                 

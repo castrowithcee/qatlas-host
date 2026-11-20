@@ -164,7 +164,7 @@ func TestStackWithoutBackupRulesRollsBackWithoutRestore(t *testing.T) {
 	r.dep.noRules = true
 	r.dep.fail("check", errBoom)
 	r.poll()
-	wantSteps(t, r, "stop", "backup", "pull", "up", "check", "stop", "up", "check")
+	wantSteps(t, r, "pull", "up", "check", "stop", "up", "check")
 	st := wantRolledBack(t, r, commit(1001))
 	if text := r.runLog(st); !strings.Contains(text, "none: the stack has no backup rules") || !strings.Contains(text, "skipped: the stack has no backup rules") {
 		t.Fatalf("log:\n%s", text)

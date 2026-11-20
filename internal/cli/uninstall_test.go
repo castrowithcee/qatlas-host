@@ -69,9 +69,16 @@ func TestUninstallNeedsRoot(t *testing.T) {
 
 func TestUninstallWithoutConfirmChangesNothing(t *testing.T) {
 	root, ran := useUninstallRoot(t, 0)
-	code, _, stderr := run(t, "uninstall", "--yes")
-	if code == 0 || !strings.Contains(stderr, "--confirm") || len(*ran) != 0 || !present(root, "usr/local/bin/qhost") {
-		t.Fatalf("code %d, stderr %q, ran %v", code, stderr, *ran)
+	for _, args := range [][]string{{"uninstall"}, {"uninstall", "--yes"}, {"uninstall", "--purge"}} {
+		code, stdout, stderr := run(t, args...)
+		if code != 2 || stdout != "" || !strings.Contains(stderr, "--confirm") || len(*ran) != 0 || !present(root, "usr/local/bin/qhost") {
+			t.Fatalf("%v: code %d, stdout %q, stderr %q, ran %v", args, code, stdout, stderr, *ran)
+		}
+		for _, want := range []string{"Remove qhost", "rm /usr/local/bin/qhost"} {
+			if strings.Count(stderr, want) != 1 {
+				t.Errorf("%v: stderr should show %q once: %q", args, want, stderr)
+			}
+		}
 	}
 }
 

@@ -12,10 +12,11 @@ const (
 	textColSubmitted kittui.TextID = "col.submitted"
 	textColExpires   kittui.TextID = "col.expires"
 
-	textPropEmpty     kittui.TextID = "prop.empty"
-	textPropLoading   kittui.TextID = "prop.loading"
-	textPropNotice    kittui.TextID = "prop.notice"
-	textPropNoticeOne kittui.TextID = "prop.notice.one"
+	textPropEmpty      kittui.TextID = "prop.empty"
+	textPropLoading    kittui.TextID = "prop.loading"
+	textPropNotice     kittui.TextID = "prop.notice"
+	textPropNoticeOne  kittui.TextID = "prop.notice.one"
+	textPropNoticeBoth kittui.TextID = "prop.notice.both"
 
 	textPropKindSourceAdd kittui.TextID = "prop.kind.sourceadd"
 	textPropOpen          kittui.TextID = "prop.state.open"
@@ -53,10 +54,11 @@ func proposalEnglish() map[kittui.TextID]string {
 		textColSubmitted: "submitted",
 		textColExpires:   "expires",
 
-		textPropEmpty:     "No proposals.",
-		textPropLoading:   "Reading the proposals…",
-		textPropNotice:    "%d open proposals wait for you. Press %s to review them.",
-		textPropNoticeOne: "%d open proposal waits for you. Press %s to review it.",
+		textPropEmpty:      "No proposals.",
+		textPropLoading:    "Reading the proposals…",
+		textPropNotice:     "%d open proposals wait for you. Press %s to review them.",
+		textPropNoticeOne:  "%d open proposal waits for you. Press %s to review it.",
+		textPropNoticeBoth: "%d open proposals wait for you: %d under %s (%s), %d under %s (%s).",
 
 		textPropKindSourceAdd: "stack folder",
 		textPropOpen:          "open",
@@ -95,10 +97,11 @@ func proposalGerman() map[kittui.TextID]string {
 		textColSubmitted: "eingereicht",
 		textColExpires:   "läuft ab",
 
-		textPropEmpty:     "Keine Vorschläge.",
-		textPropLoading:   "Vorschläge werden gelesen…",
-		textPropNotice:    "%d offene Vorschläge warten auf dich. Mit %s prüfst du sie.",
-		textPropNoticeOne: "%d offener Vorschlag wartet auf dich. Mit %s prüfst du ihn.",
+		textPropEmpty:      "Keine Vorschläge.",
+		textPropLoading:    "Vorschläge werden gelesen…",
+		textPropNotice:     "%d offene Vorschläge warten auf dich. Mit %s prüfst du sie.",
+		textPropNoticeOne:  "%d offener Vorschlag wartet auf dich. Mit %s prüfst du ihn.",
+		textPropNoticeBoth: "%d offene Vorschläge warten auf dich: %d unter %s (%s), %d unter %s (%s).",
 
 		textPropKindSourceAdd: "Stack-Ordner",
 		textPropOpen:          "offen",

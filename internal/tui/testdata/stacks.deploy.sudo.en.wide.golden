@@ -12,19 +12,19 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-                                                                                                                        
                             ╔═ deploy ═════════════════════════════════════════════════════╗                            
                             ║ ⚠ Deploy demo-stack?                                         ║                            
                             ║                                                              ║                            
-                            ║ Starts a run at once: it stops the stack, backs up its data, ║                            
-                            ║ pulls, starts and checks it, and rolls back if a step fails. ║                            
+                            ║ Starts a run at once: a stack with backup rules is stopped   ║                            
+                            ║ and backed up first, then it pulls, starts and checks the    ║                            
+                            ║ stack, and rolls back if a step fails. Without backup rules  ║                            
+                            ║ the stack keeps running and only changed containers are      ║                            
+                            ║ recreated.                                                   ║                            
                             ║ $ sudo qhost stack deploy --output json -- demo-stack        ║                            
                             ║                                                              ║                            
                             ║ [ yes, with sudo ]  > cancel <                               ║                            
                             ║ y yes, with sudo  n/esc/enter cancel                         ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
-                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         
