@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -30,9 +29,10 @@ const effectLabel = "qhost/proposal-effect/v1"
 const shownLimit = 200
 
 func newProposalApprove(program *cobracli.Program, state *notRunning, secrets *redact.Redactor) *cobra.Command {
-	var url string
+	var o approveOptions
+	var gate *cobracli.Gate
 	c := &cobra.Command{
-		Use:   "approve <id> [--url <ssh-url>]",
+		Use:   "approve <id> [--url <ssh-url>] [--fingerprint <fingerprint> [--confirm]]",
 		Short: "Review an open proposal with its effect and apply it after you confirm",
 		Long: "approve shows the proposal and, below it, what applying it would change. For a source-add proposal it is\n" +
 			"worked out with the same check as 'qhost source add'; for a stack-settings proposal it is the difference to\n" +
@@ -47,13 +47,37 @@ func newProposalApprove(program *cobracli.Program, state *notRunning, secrets *r
 			"the new effect is shown. The change is then made the way 'qhost source add' makes it, and the result is\n" +
 			"kept on the proposal. --url replaces the proposed address. Only a person at a terminal may approve:\n" +
 			"there is no --yes, and --agent and input that is no terminal are refused. Run it with sudo. A proposal of\n" +
-			"the host (kind host-change) is applied with 'sudo qhost host apply --proposal <id>' instead.",
+			"the host (kind host-change) is applied with 'sudo qhost host apply --proposal <id>' instead.\n\n" +
+			"--fingerprint approves without a question instead, bound to the proposal as you reviewed it with 'qhost\n" +
+			"proposal show': a proposal with another fingerprint is refused. Without --confirm the command shows the\n" +
+			"proposal and its effect and stops with exit code 2, without asking, without reading standard input and\n" +
+			"without taking the approval; with --confirm it applies the proposal after the same last look. The secret\n" +
+			"parts of a notify-channel proposal then come on standard input only, as {\"secret\": \"...\", \"key\": \"...\"}\n" +
+			"in the order 'qhost notify add' asks for them (key only for the signing key of a webhook). For a source-add\n" +
+			"proposal no question is asked either: --host-key-fingerprint confirms the server's host key unless it is\n" +
+			"pinned already, --expect-effect binds the run to the effect 'qhost source inspect' shows, and\n" +
+			"--expect-state with --expect-commit to the comparison 'qhost source compare' shows, as for 'qhost source\n" +
+			"add'; when the folder or the remote changed, nothing is applied and the command fails with state-changed.\n" +
+			"A folder without deploy key is refused; create the key with 'qhost key generate' first. --agent is refused\n" +
+			"here as well; a process without a terminal on standard input is accepted when it has a terminal of its own,\n" +
+			"as when the terminal interface runs the command. The result is printed as an object: the fields of 'qhost\n" +
+			"source add' for source-add, proposal, stack, changed and commit for stack-settings, proposal and the fields\n" +
+			"of 'qhost window show' for window, and proposal, name, type, events and settings for notify-channel.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			return runProposalApprove(c, program, state, secrets, args[0], url)
+			// Without --confirm a run with --fingerprint shows the proposal and this error then ends it.
+			o.unconfirmed = gate.Run(cobracli.Request{Changes: true}, func() error { return nil })
+			return runProposalApprove(c, program, state, secrets, args[0], o)
 		},
 	}
-	c.Flags().StringVar(&url, "url", "", "SSH address of the repository, replacing the proposed one")
+	c.Flags().StringVar(&o.url, "url", "", "SSH address of the repository, replacing the proposed one")
+	c.Flags().StringVar(&o.reviewed, "fingerprint", "", "fingerprint of the proposal as you reviewed it; approves without a question")
+	c.Flags().StringVar(&o.hostKey, "host-key-fingerprint", "",
+		"source-add with --fingerprint: expected SHA256 fingerprint of the server's host key")
+	c.Flags().StringVar(&o.expectEffect, "expect-effect", "",
+		"source-add with --fingerprint: effect fingerprint from 'source inspect'; refuses with state-changed when it differs now")
+	remoteFlags(c, &o.expectState, &o.expectCommit)
+	gate = program.AddGate(c, cobracli.Gates{Change: true})
 	return c
 }
 
@@ -64,11 +88,13 @@ func newProposalReject(program *cobracli.Program, state *notRunning) *cobra.Comm
 		Short: "Reject an open proposal, with an optional reason the submitter can read",
 		Long: "reject closes an open proposal as rejected, at the host service for a proposal of the host and at the deploy\n" +
 			"service otherwise. The reason is kept at most 300 characters long and shows in 'qhost proposal show' for the\n" +
-			"submitter. Nothing on the host changes. Only a person at a terminal may reject: --agent and input that is\n" +
-			"no terminal are refused. Run it with sudo.",
+			"submitter. Nothing on the host changes. Only a person at a terminal may reject: --agent and a process\n" +
+			"without a terminal are refused; a terminal of the process itself is enough, so the terminal interface may\n" +
+			"run it with standard input that is no terminal. Run it with sudo. The result is the proposal as\n" +
+			"'qhost proposal show' prints its fields, as JSON with --output json.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := requirePerson(program, "rejecting a proposal"); err != nil {
+			if err := requirePerson(program, "rejecting a proposal", true); err != nil {
 				return err
 			}
 			var res control.ProposalInfo
@@ -84,13 +110,14 @@ func newProposalReject(program *cobracli.Program, state *notRunning) *cobra.Comm
 }
 
 // requirePerson refuses everything but root at a terminal that is not driven as an agent. It runs before the
-// service is asked anything.
-func requirePerson(program *cobracli.Program, what string) error {
+// service is asked anything. Standard input must be the terminal, unless controlling allows a terminal of the
+// process itself, for a command that asks nothing at it.
+func requirePerson(program *cobracli.Program, what string, controlling bool) error {
 	if program.Agent() {
 		return &cli.Failure{Code: output.CodePermission, Message: what + " is for a person at a terminal, not for an agent",
 			NextStep: "Ask the person who runs the host to run 'sudo qhost proposal' with approve or reject."}
 	}
-	if f, ok := stdinStream().(*os.File); !ok || !isTerminal(f) {
+	if !stdinIsTerminal() && (!controlling || !controllingTerminal()) {
 		return &cli.Failure{Code: output.CodePermission, Message: what + " needs a terminal; there is no way around it",
 			NextStep: "Run the command at a terminal with sudo."}
 	}
@@ -103,15 +130,18 @@ func requirePerson(program *cobracli.Program, what string) error {
 
 // proposalApprovers has one function per kind of proposal that can be approved. It gets the proposal as it was
 // first read, open and of its kind, and does the review and the change of that kind.
-var proposalApprovers = map[string]func(c *cobra.Command, program *cobracli.Program, state *notRunning, secrets *redact.Redactor, shown control.ProposalShowResult, url string) error{
+var proposalApprovers = map[string]func(c *cobra.Command, program *cobracli.Program, state *notRunning, secrets *redact.Redactor, shown control.ProposalShowResult, o approveOptions) error{
 	control.ProposalKindSourceAdd:     approveSourceAdd,
 	control.ProposalKindStackSettings: approveStackSettings,
 	control.ProposalKindWindow:        approveWindow,
 	control.ProposalKindNotifyChannel: approveNotifyChannel,
 }
 
-func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notRunning, secrets *redact.Redactor, id, url string) error {
-	if err := requirePerson(program, "approving a proposal"); err != nil {
+func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notRunning, secrets *redact.Redactor, id string, o approveOptions) error {
+	if err := o.check(); err != nil {
+		return err
+	}
+	if err := requirePerson(program, "approving a proposal", !o.asks()); err != nil {
 		return err
 	}
 	if hostProposalID(id) {
@@ -122,12 +152,15 @@ func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notR
 	if err != nil {
 		return err
 	}
+	if !o.asks() && o.reviewed != shown.Fingerprint {
+		return notReviewed(id)
+	}
 	approve, ok := proposalApprovers[shown.Kind]
 	if !ok {
 		return usageFailure("this version cannot apply a proposal of the kind "+shortText(shown.Kind),
 			"Reject it with 'sudo qhost proposal reject "+id+"'.")
 	}
-	return approve(c, program, state, secrets, shown, url)
+	return approve(c, program, state, secrets, shown, o)
 }
 
 // loadOpenProposal reads a proposal and refuses one that is not open.
@@ -143,8 +176,8 @@ func loadOpenProposal(c *cobra.Command, state *notRunning, id string) (control.P
 	return res, nil
 }
 
-func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRunning, _ *redact.Redactor, first control.ProposalShowResult, url string) error {
-	id := first.ID
+func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRunning, _ *redact.Redactor, first control.ProposalShowResult, o approveOptions) error {
+	id, url := first.ID, o.url
 	shown, content, err := decodeSourceProposal(first)
 	if err != nil {
 		return err
@@ -157,6 +190,9 @@ func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 	notice := c.ErrOrStderr()
 	showProposal(notice, shown.ProposalInfo, content, url)
 	rerun := "Run 'sudo qhost proposal approve " + id + " --url <ssh-url>'."
+	if !o.asks() {
+		return approveSourceAddReviewed(c, program, state, shown, content, url, rerun, o)
+	}
 
 	var seen bytes.Buffer
 	sa, err := prepareSourceAdd(c, program, state, io.MultiWriter(notice, &seen), content.Path, url, "", rerun, nil)
@@ -215,13 +251,18 @@ func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 		return err
 	}
 
-	// The service takes the approval before anything is applied, and only for the fingerprint that was shown.
+	return applySourceProposal(c, program, state, id, shown.Fingerprint, sa, fingerprint)
+}
+
+// applySourceProposal takes the approval at the service, only for the fingerprint that was shown, adds the
+// folder the way 'qhost source add' does and keeps the result on the proposal.
+func applySourceProposal(c *cobra.Command, program *cobracli.Program, state *notRunning, id, proposal string, sa *sourceAdd, hostKey string) error {
 	if err := proposalCall(c, state, control.ProposalApproveCommand,
-		control.ProposalApproveArgs{ID: id, Fingerprint: shown.Fingerprint}, &control.ProposalInfo{}); err != nil {
+		control.ProposalApproveArgs{ID: id, Fingerprint: proposal}, &control.ProposalInfo{}); err != nil {
 		return err
 	}
-	applyErr := executeSourceAdd(c, program, state, sa.res, sa.repoURL, fingerprint, sa.perms, sa.remote)
-	result := control.ProposalResultArgs{ID: id, Fingerprint: shown.Fingerprint, Applied: applyErr == nil}
+	applyErr := executeSourceAdd(c, program, state, sa.res, sa.repoURL, hostKey, sa.perms, sa.remote)
+	result := control.ProposalResultArgs{ID: id, Fingerprint: proposal, Applied: applyErr == nil}
 	if applyErr != nil {
 		result.Message = failureText(applyErr)
 	}
@@ -304,16 +345,13 @@ func effectOf(sa *sourceAdd, text string) (string, error) {
 // entered it in the git platform.
 func ensureDeployKey(c *cobra.Command, state *notRunning, dir string) error {
 	w := c.ErrOrStderr()
-	var key control.KeyResult
-	err := credentialCall(c, state, control.KeyShowCommand, control.KeyShowArgs{Dir: dir}, &key)
-	var f *cli.Failure
-	var remote *control.Error
+	key, found, err := findDeployKey(c, state, dir)
 	switch {
-	case err == nil:
+	case err != nil:
+		return err
+	case found:
 		_, _ = fmt.Fprintf(w, "Deploy key of the folder: %s\n", key.Fingerprint)
 		return nil
-	case !errors.As(err, &f) || !errors.As(f.Cause, &remote) || remote.Code != control.CodeNoSuchKey:
-		return err
 	}
 	if !askYes(c, "The folder has no deploy key yet. Generate one now?") {
 		return &cli.Failure{Code: output.CodeConfirmationDeclined, Message: "no deploy key was made; nothing was applied",
@@ -325,6 +363,20 @@ func ensureDeployKey(c *cobra.Command, state *notRunning, dir string) error {
 	_, _ = fmt.Fprintf(w, "Deploy key %s:\n%s\nEnter this public key in the git platform for the repository first.\n",
 		key.Fingerprint, strings.TrimSpace(key.PublicKey))
 	return nil
+}
+
+// findDeployKey reads the deploy key of the folder; found is false when the folder has none.
+func findDeployKey(c *cobra.Command, state *notRunning, dir string) (key control.KeyResult, found bool, err error) {
+	err = credentialCall(c, state, control.KeyShowCommand, control.KeyShowArgs{Dir: dir}, &key)
+	var f *cli.Failure
+	var remote *control.Error
+	switch {
+	case err == nil:
+		return key, true, nil
+	case errors.As(err, &f) && errors.As(f.Cause, &remote) && remote.Code == control.CodeNoSuchKey:
+		return key, false, nil
+	}
+	return key, false, err
 }
 
 func askApproval(c *cobra.Command, question string) error {

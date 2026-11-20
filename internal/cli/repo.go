@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -258,15 +259,29 @@ func bindRepo(c *cobra.Command, state *notRunning, url, dir string, probe contro
 	return res, err
 }
 
-// confirmHostKey shows the key and asks at a terminal; without a terminal it refuses and names the flag.
+// hostKeyFlagKey marks a command context in which no host key is asked for at the terminal; its value is the
+// flag that confirms one instead.
+type hostKeyFlagKey struct{}
+
+// withoutHostKeyQuestion makes confirmHostKey refuse instead of asking and name flag in its advice.
+func withoutHostKeyQuestion(ctx context.Context, flag string) context.Context {
+	return context.WithValue(ctx, hostKeyFlagKey{}, flag)
+}
+
+// confirmHostKey shows the key and asks at a terminal; without a terminal, or where the command asks nothing,
+// it refuses and names the flag.
 func confirmHostKey(c *cobra.Command, target string, probe control.RepoProbeResult) error {
 	in := stdinStream()
 	f, ok := in.(*os.File)
-	if !ok || !isTerminal(f) {
+	flag, noQuestion := c.Context().Value(hostKeyFlagKey{}).(string)
+	if !noQuestion {
+		flag = "--fingerprint"
+	}
+	if noQuestion || !ok || !isTerminal(f) {
 		return &cli.Failure{Code: output.CodeConfirmationRequired, Usage: true,
 			Message: fmt.Sprintf("the host key of %s (%s) has fingerprint %s and is not trusted yet",
 				target, probe.KeyType, probe.Fingerprint),
-			NextStep: "Compare the fingerprint with the git platform, then run the command again with --fingerprint " +
+			NextStep: "Compare the fingerprint with the git platform, then run the command again with " + flag + " " +
 				probe.Fingerprint + "."}
 	}
 	w := c.ErrOrStderr()
