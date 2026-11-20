@@ -116,11 +116,11 @@ func newCredentialCommand(program *cobracli.Program, state *notRunning, secrets 
 }
 
 func credentialCall(c *cobra.Command, state *notRunning, command string, args, result any) error {
-	if err := call(c.Context(), serviceEndpoint(), command, args, result); err != nil {
+	if err := call(c.Context(), targetOf(c.Context()).endpoint(), command, args, result); err != nil {
 		if errors.Is(err, client.ErrNotRunning) {
 			state.seen = true
 		}
-		return failureOf(err)
+		return targetFailure(c.Context(), err)
 	}
 	return nil
 }

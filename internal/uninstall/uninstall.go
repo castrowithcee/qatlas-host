@@ -291,6 +291,9 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 		if err := h.dir(&plan, i.ChannelDir(), "rm -r "+i.ChannelDir(), exists); err != nil {
 			return Plan{}, err
 		}
+		if err := file(i.StackFoldersDropIn()); err != nil {
+			return Plan{}, err
+		}
 		dropIn := i.DropInDir()
 		if ok, err := exists(dropIn); err != nil {
 			return Plan{}, err

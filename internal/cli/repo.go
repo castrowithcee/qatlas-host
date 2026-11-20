@@ -31,8 +31,9 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 			"folder, and keeps the servers' host keys in its own known_hosts file. These commands change the host, so run them\n" +
 			"with sudo.",
 	}
-	var dir, fingerprint string
+	var dir, fingerprint, engine string
 	var create bool
+	var gate *cobracli.Gate
 	set := &cobra.Command{
 		Use:   "set <ssh-url>",
 		Short: "Bind a stacks repository to a stack folder, confirm its host key and clone it",
@@ -42,9 +43,17 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 			"folder --dir, which is required and can be any absolute path, also under /mnt or /srv. The URL is\n" +
 			"user@host:path or ssh://[user@]host[:port]/path. The folder must be empty or already a clone of this\n" +
 			"URL. A folder that does not exist is created only after you confirmed its exact path: by answering\n" +
-			"the question at a terminal or by passing --create; it gets the owner qhost-deploy:qhost-deploy and mode 0755.\n" +
+			"the question at a terminal or by passing --create; it gets the mode 0755 and the owner and group of the\n" +
+			"service account (qhost-deploy, or the user of the instance with --engine).\n" +
+			"--engine names the Docker engine the folder belongs to: system (the default) or rootless:<user>, for a\n" +
+			"user whose deploy service instance is set up ('qhost deploy-service setup --rootless <user>'). The\n" +
+			"instance of that engine clones, deploys and runs the stacks; the system engine does not start them. Before\n" +
+			"the clone, set refuses a folder that overlaps a stack folder of another engine. A deploy service that\n" +
+			"cannot be asked is named, and set then asks for confirmation: at a terminal by answering, without a\n" +
+			"terminal with --yes. The engine of a folder never changes silently.\n" +
 			"The service runs sandboxed, so the folder is added to the systemd drop-in\n" +
-			"/etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf (entries are only ever added) and the\n" +
+			"10-stack-folders.conf of its unit (entries are only ever added; for the system engine\n" +
+			"/etc/systemd/system/qhost-deploy.service.d/, for an instance the .d directory of its unit) and the\n" +
 			"service restarts once. A host that is pinned with another key is refused and the pinned key is never\n" +
 			"replaced. Each further folder becomes a further source next to those bound earlier; a folder bound\n" +
 			"earlier is never rebound to another URL. The first folder uses the deploy key of 'qhost key\n" +
@@ -57,7 +66,7 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runRepoSet(c, program, state, args[0], dir, fingerprint, create)
+			return runRepoSet(c, program, gate, state, args[0], dir, fingerprint, engine, create)
 		},
 	}
 	set.Flags().StringVar(&dir, "dir", "", "stack folder, the directory of the working copy (absolute path; required)")
@@ -65,6 +74,8 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 		"create the stack folder if it does not exist, confirming exactly the path given with --dir")
 	set.Flags().StringVar(&fingerprint, "fingerprint", "",
 		"expected SHA256 fingerprint of the server's host key; required without a terminal")
+	set.Flags().StringVar(&engine, "engine", "", "Docker engine of the stack folder: system (default) or rootless:<user>")
+	gate = program.AddGate(set, cobracli.Gates{Question: true})
 	var fetchDir string
 	fetch := &cobra.Command{
 		Use:   "fetch [--dir <path>]",
@@ -107,7 +118,7 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 	return group
 }
 
-func runRepoSet(c *cobra.Command, program *cobracli.Program, state *notRunning, url, dir, fingerprint string, create bool) error {
+func runRepoSet(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, url, dir, fingerprint, engine string, create bool) error {
 	if err := gitrepo.ValidateURL(url); err != nil {
 		return usageFailure(err.Error(), "Pass the SSH URL of the stacks repository.")
 	}
@@ -122,15 +133,38 @@ func runRepoSet(c *cobra.Command, program *cobracli.Program, state *notRunning, 
 			"Copy the fingerprint of the server's host key.")
 	}
 
-	probe, err := trustHostKey(c, state, url, fingerprint)
-	if err != nil {
-		return err
+	question := ""
+	// Without --engine and without an instance there is no other engine to ask.
+	if others, _ := folders.instances(); engine != "" || len(others) > 0 {
+		if err := folders.requireRoot(); err != nil {
+			return err
+		}
+		target, err := folders.selectEngine(c, engine)
+		if err != nil {
+			return err
+		}
+		peers, err := folders.askPeers(c.Context(), target)
+		if err != nil {
+			return err
+		}
+		if err := checkPath(peers, dir); err != nil {
+			return err
+		}
+		if unchecked := uncheckedPeers(peers); len(unchecked) > 0 {
+			question = showUnchecked(c.ErrOrStderr(), unchecked) + "Bind the repository to " + dir + " in the " + target.id() + " engine?"
+		}
 	}
-	res, err := bindRepo(c, state, url, dir, probe, create)
-	if err != nil {
-		return err
-	}
-	return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: repoSetFields(res)})
+	return gate.Run(cobracli.Request{Question: question}, func() error {
+		probe, err := trustHostKey(c, state, url, fingerprint)
+		if err != nil {
+			return err
+		}
+		res, err := bindRepo(c, state, url, dir, probe, create)
+		if err != nil {
+			return err
+		}
+		return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: repoSetFields(res)})
+	})
 }
 
 func repoSetFields(res control.RepoSetResult) []output.Field {
@@ -215,11 +249,11 @@ func repoCall(c *cobra.Command, state *notRunning, command string, args, result 
 }
 
 func remoteCall(c *cobra.Command, state *notRunning, limit time.Duration, command string, args, result any) error {
-	if err := callFor(c.Context(), limit, serviceEndpoint(), command, args, result); err != nil {
+	if err := callFor(c.Context(), limit, targetOf(c.Context()).endpoint(), command, args, result); err != nil {
 		if errors.Is(err, client.ErrNotRunning) {
 			state.seen = true
 		}
-		return failureOf(err)
+		return targetFailure(c.Context(), err)
 	}
 	return nil
 }

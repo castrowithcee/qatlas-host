@@ -2341,6 +2341,8 @@ scenario_stacks_repo() {
 
 	scenario_source_inspect_engines
 
+	scenario_source_rootless
+
 	scenario_key_set
 
 	scenario_observe_end
@@ -2616,6 +2618,69 @@ scenario_source_inspect_engines() {
 	[ -z "$(as_rootless 'docker ps -aq')" ] || fail 'the rootless engine still has containers'
 	docker exec "$host" rm -rf "$dir" || fail 'cannot remove the folder of the rootless engine'
 	log 'scenario: source inspect found the folder containers in the rootless engine and listed it as not checked while stopped'
+}
+
+# sr_stack_runs succeeds when the stack demo-rootless runs in the rootless engine of $rootless_user.
+sr_stack_runs() {
+	as_rootless "docker ps --filter label=com.docker.compose.project=demo-rootless --format '{{.Image}}'" | grep -qx 'demo/app:1.0.0'
+}
+
+# scenario_source_rootless proves source add --engine for the rootless engine of $rootless_user, whose instance
+# scenario_rootless_instance set up: an engine without an instance, a folder that is a stack folder of the system
+# engine and a stack name that the system engine has are refused and change nothing; a folder with a stack is then
+# taken over into the instance, which gets the drop-in with that folder only and the group of its user on the folder,
+# deploys the stack in the rootless engine, while the system engine neither lists the folder nor runs the stack. The
+# stack stays; scenario_uninstall checks that the uninstall removes the drop-in.
+scenario_source_rootless() {
+	sr_base=/srv/qd-rootless
+	sr_dup=/srv/qd-rootless-dup
+	sr_engine=rootless:$rootless_user
+	sr_unit=qhost-deploy@$rootless_user.service
+	sr_dropin=/etc/systemd/system/$sr_unit.d/10-stack-folders.conf
+	sr_sysdropin=/etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf
+
+	step 'two folders with a stack each are prepared as root'
+	docker exec "$host" sh -ec "rm -rf '$sr_base' '$sr_dup' && mkdir -p '$sr_base/demo-rootless' '$sr_dup/demo-stack' &&
+		chmod 0755 '$sr_base' '$sr_dup'" || fail 'cannot create the folders for the rootless engine'
+	printf 'name: demo-rootless\nservices:\n  app:\n    image: demo/app:1.0.0\n    restart: unless-stopped\n' |
+		docker exec -i "$host" sh -ec "cat >'$sr_base/demo-rootless/compose.yaml'" || fail 'cannot write the compose file of demo-rootless'
+	printf 'name: demo-stack\nservices:\n  app:\n    image: demo/app:1.0.0\n' |
+		docker exec -i "$host" sh -ec "cat >'$sr_dup/demo-stack/compose.yaml'" || fail 'cannot write the compose file of the duplicate'
+	sr_group=$(docker exec "$host" id -gn "$rootless_user") || fail "cannot read the group of $rootless_user"
+	sr_dir_before=$(docker exec "$host" stat -c '%U:%G %a' "$sr_base")
+
+	step 'an engine without an instance is refused with its reason and changes nothing'
+	out=$(qd_fails source add "$sr_base" --engine rootless:e2e-noinstance --yes) || fail "source add into an engine without an instance succeeded: $out"
+	printf '%s' "$out" | grep -q 'no deploy service is set up for the rootless engine of' || fail "the refusal does not give the reason: $out"
+	if docker exec "$host" test -e "$sr_dropin"; then fail 'a refused engine wrote the drop-in of the instance'; fi
+
+	step 'a folder that is a stack folder of the system engine is refused'
+	out=$(qd_fails source add /opt/stacks --engine "$sr_engine" --yes) || fail "source add of a folder of the system engine succeeded: $out"
+	printf '%s' "$out" | grep -q 'overlaps the stack folder /opt/stacks of the system engine' || fail "the refusal does not name the overlap: $out"
+	if docker exec "$host" test -e "$sr_dropin"; then fail 'a refused overlap wrote the drop-in of the instance'; fi
+
+	step 'a stack name that the system engine has is refused'
+	out=$(qd_fails source add "$sr_dup" --engine "$sr_engine" --yes) || fail "source add of a duplicate stack name succeeded: $out"
+	printf '%s' "$out" | grep -q 'engine already has a stack named demo-stack' || fail "the refusal does not name the stack: $out"
+	if docker exec "$host" test -e "$sr_dropin"; then fail 'a refused name wrote the drop-in of the instance'; fi
+	[ "$(docker exec "$host" stat -c '%U:%G %a' "$sr_dup")" = "root:root 755" ] || fail 'a refused name changed the folder'
+
+	step "source add --engine $sr_engine takes the folder over into the instance"
+	out=$(qd --output json source add "$sr_base" --engine "$sr_engine" --yes) || fail "source add into the instance failed: $out"
+	printf '%s\n' "$out" | tail -n 1 | jq -e --arg p "$sr_base" '.kind == "local" and .path == $p' >/dev/null || fail "unexpected source add result: $out"
+	[ "$(docker exec "$host" cat "$sr_dropin")" = "$(printf '[Service]\nReadWritePaths=-%s' "$sr_base")" ] ||
+		fail "the drop-in of the instance is not exactly the folder: $(docker exec "$host" cat "$sr_dropin")"
+	[ "$(docker exec "$host" stat -c '%U:%G' "$sr_base")" = "root:$sr_group" ] ||
+		fail "the folder has the wrong owner or group: $(docker exec "$host" stat -c '%U:%G' "$sr_base")"
+	[ "$(docker exec "$host" systemctl is-active "$sr_unit")" = active ] || fail "$sr_unit does not run after the takeover"
+	wait_for 'the stack to run in the rootless engine' 180 sr_stack_runs
+
+	step 'the system engine neither lists the folder nor runs the stack'
+	if list_has_path "$sr_base"; then fail 'the system service lists the folder of the instance'; fi
+	if docker exec "$host" grep -qF "$sr_base" "$sr_sysdropin"; then fail 'the drop-in of the system service names the folder of the instance'; fi
+	[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=demo-rootless)" ] ||
+		fail 'the system engine runs the stack of the instance'
+	log "scenario: the folder $sr_base belongs to $sr_unit; demo-rootless runs in the rootless engine only"
 }
 
 # local_tree prints mode, owner, group and size of every path below /srv/qd-local except .git, which the service
@@ -4125,6 +4190,7 @@ scenario_uninstall() {
 	un_channel=/run/$instance_service-$rootless_user
 	un_state=/var/lib/$instance_service-$rootless_user
 	un_config=/etc/$instance_service-$rootless_user
+	un_dropin=/etc/systemd/system/$un_unit.d/10-stack-folders.conf
 	un_ct=$prefix-uninstall-rootless-probe
 	un_probe=/home/$rootless_user/stacks/probe/compose.yaml
 	step 'the deploy service is put back and both services run, with a container beside them'
@@ -4140,7 +4206,7 @@ scenario_uninstall() {
 	containers=$(all_running_containers)
 	[ -n "$containers" ] || fail 'no container runs before the uninstall'
 	[ "$(docker exec "$host" systemctl is-active "$un_unit")" = active ] || fail "the instance $un_unit does not run before the uninstall"
-	for p in "$un_template" "$un_rule" "$un_channel" "$un_state" "$un_config"; do
+	for p in "$un_template" "$un_rule" "$un_channel" "$un_state" "$un_config" "$un_dropin"; do
 		docker exec "$host" test -e "$p" || fail "$p is missing before the uninstall"
 	done
 	as_rootless "docker rm -f $un_ct >/dev/null 2>&1; docker run -d --quiet --name $un_ct demo/app:1.0.0" >/dev/null ||
@@ -4171,7 +4237,7 @@ scenario_uninstall() {
 	for want in "systemctl disable --now $un_unit" "rm $un_rule" "rm $un_template"; do
 		printf '%s' "$out" | grep -qF -- "$want" || fail "the steps of the uninstall do not show '$want': $out"
 	done
-	for p in "$un_template" "$un_rule" "$un_channel"; do
+	for p in "$un_template" "$un_rule" "$un_channel" "$un_dropin" "${un_dropin%/*}"; do
 		if docker exec "$host" test -e "$p" || docker exec "$host" test -L "$p"; then fail "uninstall left $p: $out"; fi
 	done
 	[ "$(docker exec "$host" systemctl is-active "$un_unit" || true)" != active ] || fail "$un_unit still runs after the uninstall"
