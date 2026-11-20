@@ -3798,9 +3798,16 @@ scenario_tui_sudo() {
 	window_far_away >/dev/null || fail 'cannot move the maintenance window out of the way again'
 }
 
-# ts_watch_start starts a watcher on the host that records every process whose command line holds a line of the
-# pattern file /tmp/qd-ts-pattern in /tmp/qd-ts-hits, until /tmp/qd-ts-stop appears or a minute passed. grep reads
-# the pattern from the file, so the watcher itself never has the value in a command line.
+# ts_watch_start starts two watchers on the host. The first records every process whose command line holds a line of
+# the pattern file /tmp/qd-ts-pattern in /tmp/qd-ts-hits, until /tmp/qd-ts-stop appears or a minute passed. grep
+# reads the pattern from the file, so the watcher itself never has the value in a command line. The second watches
+# the state folders of qhost until /tmp/qd-ts-stop appears and records in /tmp/qd-ts-fs-hits the path of every file
+# outside the credential store that held a value at any moment, even one deleted right after the write: it links
+# each new or changed file to a private folder of root on the same file system at the first event, so the content
+# survives the delete, and reads that link. Its state stands in /tmp/qd-ts-fs-status (ready, then done). inotify is
+# used directly because inotifywait hands the event over too late for a file that lives a fraction of a
+# millisecond. A folder created while the watcher runs is swept right after its watch is added, so a file that is
+# written and deleted in the first instants of a new folder can still escape it.
 ts_watch_start() {
 	docker exec -i "$host" sh -c 'cat >/tmp/qd-ts-watch.sh' <<'EOF' || fail 'cannot write the watcher of the command lines'
 end=$(( $(date +%s) + 60 ))
@@ -3809,9 +3816,134 @@ while [ "$(date +%s)" -lt "$end" ] && [ ! -e /tmp/qd-ts-stop ]; do
 	sleep 0.02
 done
 EOF
-	printf '%s\n' "$@" | docker exec -i "$host" sh -c 'cat >/tmp/qd-ts-pattern; rm -f /tmp/qd-ts-stop; : >/tmp/qd-ts-hits' ||
+	docker exec -i "$host" sh -c 'cat >/tmp/qd-ts-fswatch.pl' <<'EOF' || fail 'cannot write the watcher of the state folders'
+use strict;
+use warnings;
+my @watched = ('/var/lib/qhost-deploy', '/var/lib/qhost', '/var/lib/qhost-host');
+my $allowed = '/var/lib/qhost-deploy/credentials';
+my $keep = '/var/lib/qd-ts-keep';
+my $status = '/tmp/qd-ts-fs-status';
+my $hits = '/tmp/qd-ts-fs-hits';
+sub setstatus { open(my $s, '>', $status) or exit 1; print $s "$_[0]\n"; close $s; }
+sub under { my ($p, $d) = @_; return $p eq $d || index($p, "$d/") == 0; }
+sub fatal { setstatus('failed'); exit 1; }
+
+open(my $pf, '<', '/tmp/qd-ts-pattern') or fatal();
+my @pat = grep { length } map { chomp; $_ } <$pf>;
+close $pf;
+my $maxlen = 0;
+for (@pat) { $maxlen = length if length > $maxlen; }
+
+mkdir($keep, 0700) or fatal();
+chmod(0700, $keep);
+my ($sys_init, $sys_watch) = (`uname -m` =~ /aarch64|arm64/) ? (26, 27) : (294, 254);
+my $ifd = syscall($sys_init, 0);
+fatal() if $ifd < 0;
+open(my $in, '<&=', $ifd) or fatal();
+my %dirs;
+
+my (%held, %paths, %hit, $n);
+sub note { return if $hit{$_[0]}++; open(my $h, '>>', $hits) or return; print $h "$_[0]\n"; close $h; }
+sub check {
+	my ($ino) = @_;
+	open(my $fh, '<', "$keep/$held{$ino}") or return;
+	my ($carry, $buf, $found) = ('', '', 0);
+	while (!$found && sysread($fh, $buf, 1 << 20)) {
+		my $data = $carry . $buf;
+		for my $p (@pat) { if (index($data, $p) >= 0) { $found = 1; last; } }
+		$carry = $maxlen > 1 ? substr($data, -($maxlen - 1)) : '';
+	}
+	close $fh;
+	note($_) for $found ? keys %{ $paths{$ino} } : ();
+}
+# hold links the file to a private name before anything else, so that a delete right after the write cannot take
+# the content away.
+sub hold {
+	my ($path, $verify, $fresh) = @_;
+	return if under($path, $allowed);
+	my $ino = $fresh ? undef : (stat($path))[1];
+	if (!defined $ino || !defined $held{$ino}) {
+		my $name = ++$n;
+		if (!link($path, "$keep/$name")) { note("$path (could not be held)") if -e $path; return; }
+		$ino = (stat("$keep/$name"))[1];
+		if (defined $held{$ino}) { unlink("$keep/$name"); } else { $held{$ino} = $name; }
+	}
+	$paths{$ino}{$path} = 1;
+	check($ino) if $verify;
+}
+sub sweep {
+	my ($dir) = @_;
+	return if under($dir, $allowed);
+	opendir(my $dh, $dir) or return;
+	for my $e (grep { $_ ne '.' && $_ ne '..' } readdir $dh) {
+		my $p = "$dir/$e";
+		if (-l $p) { next; } elsif (-d $p) { sweep($p); } else { hold($p, 1); }
+	}
+	closedir $dh;
+}
+# IN_MODIFY | IN_CLOSE_WRITE | IN_MOVED_TO | IN_CREATE
+sub watch {
+	my ($dir) = @_;
+	return if under($dir, $allowed);
+	my $p = $dir;
+	my $wd = syscall($sys_watch, $ifd, $p, 0x2 | 0x8 | 0x80 | 0x100);
+	fatal() if $wd < 0;
+	$dirs{$wd} = $dir;
+	opendir(my $dh, $dir) or return;
+	for my $e (grep { $_ ne '.' && $_ ne '..' } readdir $dh) {
+		my $q = "$dir/$e";
+		watch($q) if !-l $q && -d $q;
+	}
+	closedir $dh;
+}
+my $overflow = 0;
+sub handle {
+	my ($wd, $mask, $name) = @_;
+	if ($wd < 0) { $overflow = 1 if $mask & 0x4000; return; }
+	return unless defined $dirs{$wd} && length $name;
+	my $path = "$dirs{$wd}/$name";
+	if ($mask & 0x40000000) {
+		if ($mask & (0x100 | 0x80)) { watch($path); sweep($path); }
+		return;
+	}
+	hold($path, $mask & (0x8 | 0x80), $mask & (0x100 | 0x80));
+}
+
+my ($rbuf, $deadline) = ('', time + 1200);
+sub pump {
+	my ($wait) = @_;
+	my $rin = '';
+	vec($rin, $ifd, 1) = 1;
+	return unless select($rin, undef, undef, $wait) > 0;
+	my $got = sysread($in, my $chunk, 65536);
+	fatal() unless $got;
+	$rbuf .= $chunk;
+	while (length($rbuf) >= 16) {
+		my ($wd, $mask, undef, $len) = unpack('lLLL', $rbuf);
+		last if length($rbuf) < 16 + $len;
+		handle($wd, $mask, unpack('Z*', substr($rbuf, 16, $len)));
+		substr($rbuf, 0, 16 + $len) = '';
+	}
+}
+watch($_) for grep { -d } @watched;
+setstatus('ready');
+until (-e '/tmp/qd-ts-stop' || time > $deadline) { pump(0.05); }
+my $early = !-e '/tmp/qd-ts-stop';
+select(undef, undef, undef, 0.5);
+pump(0) for 1 .. 20;
+check($_) for keys %held;
+setstatus($early ? 'early' : $overflow ? 'overflow' : 'done');
+EOF
+	printf '%s\n' "$@" | docker exec -i "$host" sh -c 'cat >/tmp/qd-ts-pattern; rm -rf /tmp/qd-ts-stop /tmp/qd-ts-fs-status /tmp/qd-ts-fs-hits /var/lib/qd-ts-keep; : >/tmp/qd-ts-hits; : >/tmp/qd-ts-fs-hits' ||
 		fail 'cannot write the pattern of the watcher'
 	docker exec -d "$host" sh /tmp/qd-ts-watch.sh || fail 'cannot start the watcher of the command lines'
+	docker exec -d "$host" perl /tmp/qd-ts-fswatch.pl || fail 'cannot start the watcher of the state folders'
+	i=0
+	until [ "$(docker exec "$host" cat /tmp/qd-ts-fs-status 2>/dev/null)" = ready ]; do
+		i=$((i + 1))
+		[ "$i" -lt 100 ] || fail "the watcher of the state folders is not ready: $(docker exec "$host" cat /tmp/qd-ts-fs-status 2>&1)"
+		sleep 0.1
+	done
 }
 
 # ts_paste types $1 into the interface through a tmux buffer filled on standard input, so the value stands in no
@@ -3821,9 +3953,18 @@ ts_paste() {
 	tui_tmux paste-buffer -p -t qdtui || fail 'cannot paste a value'
 }
 
-# ts_watch_stop ends the watcher and removes its files.
+# ts_watch_stop ends both watchers, waits until the one of the state folders has read its last event and removes the
+# files of both except /tmp/qd-ts-hits, /tmp/qd-ts-fs-hits and /tmp/qd-ts-fs-status, which the step reads and removes.
 ts_watch_stop() {
-	docker exec "$host" sh -c 'touch /tmp/qd-ts-stop; sleep 1; rm -f /tmp/qd-ts-pattern /tmp/qd-ts-watch.sh /tmp/qd-ts-stop'
+	docker exec "$host" sh -c 'touch /tmp/qd-ts-stop' || fail 'cannot stop the watchers'
+	i=0
+	while [ "$(docker exec "$host" cat /tmp/qd-ts-fs-status 2>/dev/null)" = ready ]; do
+		i=$((i + 1))
+		[ "$i" -lt 300 ] || fail 'the watcher of the state folders does not end'
+		sleep 0.1
+	done
+	sleep 1
+	docker exec "$host" sh -c 'rm -rf /var/lib/qd-ts-keep /tmp/qd-ts-pattern /tmp/qd-ts-watch.sh /tmp/qd-ts-fswatch.pl /tmp/qd-ts-stop'
 }
 
 # scenario_tui_secrets proves the forms with a secret of the interface started without sudo: the stack detail sets a
@@ -3933,6 +4074,10 @@ scenario_tui_secrets() {
 	ts_watch_stop
 	[ -z "$(docker exec "$host" cat /tmp/qd-ts-hits)" ] || fail "a value was in a command line: $(docker exec "$host" cat /tmp/qd-ts-hits | sed "s/$ts_secret/<value>/; s/$ts_reg_token/<token>/")"
 	docker exec "$host" rm -f /tmp/qd-ts-hits
+	[ "$(docker exec "$host" cat /tmp/qd-ts-fs-status)" = done ] ||
+		fail "the watcher of the state folders did not cover the whole window: $(docker exec "$host" cat /tmp/qd-ts-fs-status 2>&1)"
+	[ -z "$(docker exec "$host" cat /tmp/qd-ts-fs-hits)" ] || fail "a value was written to a file outside the credential store: $(docker exec "$host" cat /tmp/qd-ts-fs-hits | sed "s/$ts_secret/<value>/g; s/$ts_reg_token/<token>/g")"
+	docker exec "$host" rm -f /tmp/qd-ts-fs-hits /tmp/qd-ts-fs-status
 	[ "$(wc -l <"$tui_log")" -gt 40 ] || fail 'too few screens were captured to check'
 	for v in "$ts_secret" "$ts_reg_token" "$ts_login"; do
 		if grep -qF -- "$v" "$tui_log"; then fail 'a value or the password shows on a captured screen'; fi
