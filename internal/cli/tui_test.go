@@ -171,7 +171,7 @@ func fakeSudo(t *testing.T, euid int) {
 func TestHostRunnerKeepsTheSecretOutOfTheCommandLine(t *testing.T) {
 	fakeSudo(t, 1000)
 	marker := "demo-initial-4711"
-	cmd, err := hostRunner(tui.HostRequest{Args: []string{"apply", "--confirm", "--", "user.create", "dora"}, Secret: []byte(marker)})
+	cmd, err := hostRunner(tui.HostRequest{Args: []string{"host", "apply", "--confirm", "--", "user.create", "dora"}, Secret: []byte(marker)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestHostRunnerKeepsTheSecretOutOfTheCommandLine(t *testing.T) {
 	if err != nil || !slices.Equal(check.Args, []string{"/invented/bin/sudo", "-v"}) {
 		t.Fatalf("password check %v, %v", check, err)
 	}
-	plain, err := hostRunner(tui.HostRequest{Args: []string{"apply", "--", "user.lock", "cleo"}})
+	plain, err := hostRunner(tui.HostRequest{Args: []string{"host", "apply", "--", "user.lock", "cleo"}})
 	if err != nil || !slices.Equal(plain.Args, []string{"/invented/bin/sudo", "/invented/bin/qhost", "host", "apply", "--", "user.lock", "cleo"}) || plain.Stdin != nil {
 		t.Fatalf("plain %v, %v", plain, err)
 	}
@@ -203,14 +203,39 @@ func TestHostRunnerKeepsTheSecretOutOfTheCommandLine(t *testing.T) {
 // A request about a proposal runs `qhost proposal`, under sudo or, as root, itself.
 func TestHostRunnerRunsProposalCommandsOfTheProposalGroup(t *testing.T) {
 	fakeSudo(t, 1000)
-	cmd, err := hostRunner(tui.HostRequest{Proposal: true, Args: []string{"reject", "h-0001"}})
+	cmd, err := hostRunner(tui.HostRequest{Args: []string{"proposal", "reject", "h-0001"}, Terminal: true})
 	if err != nil || !slices.Equal(cmd.Args, []string{"/invented/bin/sudo", "/invented/bin/qhost", "proposal", "reject", "h-0001"}) {
 		t.Fatalf("under sudo %v, %v", cmd, err)
 	}
 	fakeSudo(t, 0)
-	cmd, err = hostRunner(tui.HostRequest{Proposal: true, Args: []string{"reject", "h-0001"}})
+	cmd, err = hostRunner(tui.HostRequest{Args: []string{"proposal", "reject", "h-0001"}, Terminal: true})
 	if err != nil || !slices.Equal(cmd.Args, []string{"/invented/bin/qhost", "proposal", "reject", "h-0001"}) || cmd.Stdin != os.Stdin {
 		t.Fatalf("as root %v, %v", cmd, err)
+	}
+}
+
+// Any public command, not only those of the host, runs under sudo with the C locale; the password check too.
+func TestHostRunnerRunsEveryCommandUnderSudoWithTheCLocale(t *testing.T) {
+	fakeSudo(t, 1000)
+	args := []string{"container", "restart", "--yes", "--output", "json", "--", "0123456789ab"}
+	cmd, err := hostRunner(tui.HostRequest{Args: args})
+	if err != nil || !slices.Equal(cmd.Args, append([]string{"/invented/bin/sudo", "/invented/bin/qhost"}, args...)) || cmd.Stdin != nil {
+		t.Fatalf("container restart %v, %v", cmd, err)
+	}
+	check, err := hostRunner(tui.HostRequest{Validate: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []*exec.Cmd{cmd, check} {
+		// The runner adds the locale and nothing else to the environment it was started with.
+		if !slices.Equal(c.Env, append(os.Environ(), "LC_ALL=C")) {
+			t.Fatalf("%q runs with the environment %q", c.Args, c.Env)
+		}
+	}
+	for _, bad := range []tui.HostRequest{{}, {Args: []string{"-n", "host", "journal"}}} {
+		if cmd, err := hostRunner(bad); err == nil || cmd != nil {
+			t.Fatalf("%+v built %v", bad, cmd)
+		}
 	}
 }
 
@@ -219,7 +244,7 @@ func TestHostRunnerAsRootRunsWithoutSudo(t *testing.T) {
 	if cmd, err := hostRunner(tui.HostRequest{Validate: true}); cmd != nil || err != nil {
 		t.Fatalf("as root the password check is %v, %v", cmd, err)
 	}
-	cmd, err := hostRunner(tui.HostRequest{Args: []string{"apply", "--", "user.set-password", "cleo"}, Secret: []byte("demo-initial-4711")})
+	cmd, err := hostRunner(tui.HostRequest{Args: []string{"host", "apply", "--", "user.set-password", "cleo"}, Secret: []byte("demo-initial-4711")})
 	if err != nil || !slices.Equal(cmd.Args, []string{"/invented/bin/qhost", "host", "apply", "--", "user.set-password", "cleo"}) {
 		t.Fatalf("as root %v, %v", cmd, err)
 	}

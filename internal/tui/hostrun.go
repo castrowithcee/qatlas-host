@@ -13,15 +13,17 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// Changes to the host run as root: the interface hands the terminal to `sudo qhost host …` and reads the report
-// that command prints. sudo asks for the password on the terminal; the interface never sees it. Started as root,
-// the interface runs the same command without sudo.
+// What needs root runs as a public qhost command: the interface hands the terminal to `sudo qhost …` and reads the
+// answer that command prints. sudo asks for the password on the terminal; the interface never sees it. Started as
+// root, the interface runs the same command without sudo.
 
-// HostRequest is one call of the root hook: the arguments after "qhost host".
+// HostRequest is one call of the root hook.
 type HostRequest struct {
+	// Args are the arguments after "qhost", the command group first, as in "host apply …" or "container restart …".
 	Args []string
-	// Proposal runs `qhost proposal` with Args instead of `qhost host`.
-	Proposal bool
+	// Terminal gives a command that runs without sudo the terminal of the interface on standard input, as rejecting
+	// a proposal checks for one.
+	Terminal bool
 	// Validate asks for the command that makes sudo ask for the password on the terminal and remember it
 	// (sudo -v); Args and Secret are empty then. A hook that needs no password returns no command for it.
 	Validate bool

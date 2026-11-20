@@ -66,6 +66,25 @@ func TestUpdatePreviewWithoutRootEndsWithTheMessage(t *testing.T) {
 	}
 }
 
+// A container action, which the service refuses without root, is handed to sudo instead of the message.
+func TestContainerActionWithoutRootIsHandedToSudo(t *testing.T) {
+	b := containersBackend()
+	b.errs["ctrestart:0123456789ab"] = control.ErrNotRoot()
+	m, f := sudoCtModel(t, b, ctReport("demo-stack-app-1"))
+	selectContainer(t, m, "demo-stack-app-1")
+	send(m, "Z", "y")
+	screen := m.render()
+	if strings.Contains(screen, "this needs root; quit and run sudo qhost") || len(b.actions()) != 0 {
+		t.Fatalf("the action was refused instead of handed to sudo:\n%s", screen)
+	}
+	if len(f.execs) != 1 || !strings.Contains(strings.Join(f.execs[0].Args, " "), "sudo-fake qhost-fake container restart") {
+		t.Fatalf("sudo was not handed the command: %v", f.execs)
+	}
+	if !strings.Contains(screen, "1 ok, 0 failed") {
+		t.Errorf("no result:\n%s", screen)
+	}
+}
+
 func TestAccessErrorsAreSaidApart(t *testing.T) {
 	m := newTestModel(t, i18n.English, demoBackend(), wideWidth, 20)
 	if got := m.serviceText(control.ErrNoAccess()); !strings.Contains(got, "reserved for administrators (sudo)") {
