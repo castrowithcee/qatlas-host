@@ -70,6 +70,12 @@ func (d redactingDeployer) MissingDataDirs(ctx context.Context, st stacks.Stack,
 	return c.MissingDataDirs(ctx, st, versioned, log)
 }
 
+// WillBackup implements engine.BackupPlanner; a deployer that cannot tell is assumed to back up.
+func (d redactingDeployer) WillBackup(st stacks.Stack) bool {
+	p, ok := d.next.(engine.BackupPlanner)
+	return !ok || p.WillBackup(st)
+}
+
 func (d redactingDeployer) Start(ctx context.Context, st stacks.Stack, log *engine.Log) error {
 	registerStackSecrets(d.r, st)
 	return d.next.Start(ctx, st, log)

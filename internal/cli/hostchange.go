@@ -23,7 +23,8 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
 )
 
-// maxSecretInput bounds what apply reads from standard input.
+// maxSecretInput bounds the secret input apply reads from standard input; file.write reads its content up to
+// hostchange.MaxFileContent instead.
 const maxSecretInput = 64 << 10
 
 // codeChangeRefused marks a change that a protection rule or the state of the host refused before anything ran.
@@ -110,10 +111,10 @@ func newHostApplyCommand(program *cobracli.Program, state *notRunning, secrets *
 		Long: "Runs one registered action as root: records the previous state in the journal, runs the commands,\n" +
 			"checks the result and restores the previous state when the change or its check fails, then reports it\n" +
 			"to the action log of the host service. A secret input (a password, an SSH key) is read from standard\n" +
-			"input only, never from an argument. A protection rule refuses a change before anything runs. It first\n" +
-			"shows the sentence and the commands on standard error; without --confirm it stops there with exit code\n" +
-			"2 and changes nothing, and a secret input is not read. With --confirm there is no question. See 'qhost\n" +
-			"help host-admin' for the actions.\n\n" +
+			"input only, never from an argument; file.write takes its content, up to 1 MiB, the same way. A protection\n" +
+			"rule refuses a change before anything runs. It first shows the sentence and the commands on standard\n" +
+			"error; without --confirm it stops there with exit code 2 and changes nothing, and a secret input is not\n" +
+			"read. With --confirm there is no question. See 'qhost help host-admin' for the actions.\n\n" +
 			"With --proposal it applies an open proposal of the host service instead (kind host-change): it reads the\n" +
 			"proposal, checks it again with the rules of proposals, shows the sentence and the commands on standard\n" +
 			"error, reads the proposal once more right before the change and applies nothing if it differs from what\n" +
@@ -196,8 +197,12 @@ func applyChange(c *cobra.Command, program *cobracli.Program, secrets *redact.Re
 	}
 	var secret []byte
 	if def.WantsSecret {
+		read := readChangeSecret
+		if def.ID == hostchange.ActionFileWrite {
+			read = readFileContent
+		}
 		var err error
-		if secret, err = readChangeSecret(stdinStream()); err != nil {
+		if secret, err = read(stdinStream()); err != nil {
 			return err
 		}
 		secrets.Add(string(secret))
@@ -404,6 +409,20 @@ func readChangeSecret(in io.Reader) ([]byte, error) {
 	data = bytes.TrimSuffix(data, []byte("\n"))
 	if len(data) == 0 {
 		return nil, usageFailure("this action reads its secret from standard input, which is empty", "Provide the secret on standard input.")
+	}
+	return data, nil
+}
+
+// readFileContent reads the content of file.write exactly as given: no newline is trimmed, and an empty input
+// writes an empty file.
+func readFileContent(in io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(in, hostchange.MaxFileContent+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > hostchange.MaxFileContent {
+		return nil, usageFailure(fmt.Sprintf("the content on standard input is larger than %d bytes", hostchange.MaxFileContent),
+			"Write a text file of at most 1 MiB.")
 	}
 	return data, nil
 }

@@ -269,8 +269,8 @@ func TestNameCollisionKeepsTheDeployedStack(t *testing.T) {
 	if got, ok := list.StackDir("web-stack"); !ok || got != filepath.Join(dir, "web-stack") {
 		t.Fatalf("StackDir(web-stack) = %q, %v", got, ok)
 	}
-	if calls := d.callsOf("demo-stack"); len(calls) != 1 {
-		t.Fatalf("demo-stack runs: %v", calls)
+	if n := d.pullsOf("demo-stack"); n != 1 {
+		t.Fatalf("demo-stack runs: %d", n)
 	}
 
 	// A command on the name reaches the stack that owns it.

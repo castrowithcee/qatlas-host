@@ -1,7 +1,8 @@
 // Package hostchange is the framework for changes to the host that run as root: an action describes itself
 // in plain words and exact commands, the runner records the previous state in a root-only journal before it
 // changes anything, checks the result, and restores the previous state when the change or its check fails.
-// Default registers the production actions: the user actions of users.go and the folder action of folder.go.
+// Default registers the production actions: the user actions of users.go, the folder action of folder.go and
+// the file actions of file.go.
 package hostchange
 
 import (
@@ -218,6 +219,9 @@ func Default() *Registry {
 		panic(err)
 	}
 	if err := RegisterFolderActions(r, DefaultFolderHost()); err != nil {
+		panic(err)
+	}
+	if err := RegisterFileActions(r); err != nil {
 		panic(err)
 	}
 	return r
