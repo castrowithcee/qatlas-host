@@ -23,7 +23,8 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
 )
 
-// maxSecretInput bounds what apply reads from standard input.
+// maxSecretInput bounds the secret input apply reads from standard input; file.write reads its content up to
+// hostchange.MaxFileContent instead.
 const maxSecretInput = 64 << 10
 
 // codeChangeRefused marks a change that a protection rule or the state of the host refused before anything ran.
@@ -158,8 +159,12 @@ func applyChange(c *cobra.Command, program *cobracli.Program, secrets *redact.Re
 	}
 	var secret []byte
 	if def.WantsSecret {
+		read := readChangeSecret
+		if def.ID == hostchange.ActionFileWrite {
+			read = readFileContent
+		}
 		var err error
-		if secret, err = readChangeSecret(stdinStream()); err != nil {
+		if secret, err = read(stdinStream()); err != nil {
 			return err
 		}
 		secrets.Add(string(secret))
@@ -343,6 +348,20 @@ func readChangeSecret(in io.Reader) ([]byte, error) {
 	data = bytes.TrimSuffix(data, []byte("\n"))
 	if len(data) == 0 {
 		return nil, usageFailure("this action reads its secret from standard input, which is empty", "Provide the secret on standard input.")
+	}
+	return data, nil
+}
+
+// readFileContent reads the content of file.write exactly as given: no newline is trimmed, and an empty input
+// writes an empty file.
+func readFileContent(in io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(in, hostchange.MaxFileContent+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > hostchange.MaxFileContent {
+		return nil, usageFailure(fmt.Sprintf("the content on standard input is larger than %d bytes", hostchange.MaxFileContent),
+			"Write a text file of at most 1 MiB.")
 	}
 	return data, nil
 }
