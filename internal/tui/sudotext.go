@@ -16,6 +16,8 @@ const (
 	textWhatChangelog      kittui.TextID = "sudo.what.changelog"
 	textAskKeyGenerate     kittui.TextID = "sudo.ask.keygenerate"
 	textWhatKeyGenerate    kittui.TextID = "sudo.what.keygenerate"
+	textAskKeySet          kittui.TextID = "sudo.ask.keyset"
+	textWhatKeySet         kittui.TextID = "sudo.what.keyset"
 )
 
 func sudoEnglish() map[kittui.TextID]string {
@@ -31,6 +33,8 @@ func sudoEnglish() map[kittui.TextID]string {
 		textWhatChangelog:      "Nothing is changed. The update itself is asked for separately afterwards.",
 		textAskKeyGenerate:     "Generate the deploy key for %s?",
 		textWhatKeyGenerate:    "A new Ed25519 key is created in the service. Its public part is shown afterwards and is entered in the git platform.",
+		textAskKeySet:          "Store the private key as the deploy key for %s?",
+		textWhatKeySet:         "The key is handed to the service on standard input and never shown. Its public part is shown afterwards and is entered in the git platform.",
 	}
 }
 
@@ -47,5 +51,7 @@ func sudoGerman() map[kittui.TextID]string {
 		textWhatChangelog:      "Es wird nichts geändert. Das Update selbst wird danach gesondert bestätigt.",
 		textAskKeyGenerate:     "Den Deploy-Schlüssel für %s erzeugen?",
 		textWhatKeyGenerate:    "Im Dienst entsteht ein neuer Ed25519-Schlüssel. Sein öffentlicher Teil wird danach angezeigt und in der Git-Plattform eingetragen.",
+		textAskKeySet:          "Den privaten Schlüssel als Deploy-Schlüssel für %s hinterlegen?",
+		textWhatKeySet:         "Der Schlüssel geht über die Standardeingabe an den Dienst und wird nie angezeigt. Sein öffentlicher Teil wird danach angezeigt und in der Git-Plattform eingetragen.",
 	}
 }

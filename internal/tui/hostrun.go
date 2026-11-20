@@ -74,7 +74,7 @@ func (r hostRoot) build(req HostRequest) (*exec.Cmd, error) {
 // of the run. A request with a secret runs through runHostSecret.
 func (m *Model) runHost(req HostRequest, after func(out []byte, err error) tea.Cmd) tea.Cmd {
 	if len(req.Secret) > 0 {
-		return m.runHostSecret(req, nil, after)
+		return m.runHostSecret(req, secretLines(req.Secret), after)
 	}
 	cmd, err := m.root.build(req)
 	if err != nil {
@@ -138,6 +138,25 @@ func scrub(text string, secrets ...[]byte) string {
 	}
 	return text
 }
+
+// secretLines are the single lines of a secret of several lines, as a key or the parts of a channel, that a
+// message may quote without the rest; they are masked and overwritten like the secret itself. A line of fewer
+// than minMaskedLine bytes or one of a PEM frame holds nothing to protect.
+func secretLines(secret []byte) [][]byte {
+	if !bytes.Contains(bytes.TrimSpace(secret), []byte("\n")) {
+		return nil
+	}
+	var lines [][]byte
+	for _, l := range bytes.Split(secret, []byte("\n")) {
+		if l = bytes.TrimSpace(l); len(l) >= minMaskedLine && !bytes.HasPrefix(l, []byte("-----")) {
+			lines = append(lines, l)
+		}
+	}
+	return lines
+}
+
+// minMaskedLine is the shortest line of a secret that is masked on its own, the shortest value the service stores.
+const minMaskedLine = 4
 
 // runHostSecret runs a request that carries a secret in two steps. sudo asks for the password on the real
 // terminal in the first (sudo -v), which qhost never sees; the second runs without a prompt, the secret on the

@@ -493,6 +493,9 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 	case keyGenerateAsk:
 		m.askKeyGenerate(res)
 		return nil
+	case keySetAsk:
+		m.askKeySet(res)
+		return nil
 	case keyExists:
 		m.ask(textTitleKey, t.Lookup(textAskKeyReplace), t.Lookup(textWhatKeyReplace), res.details, true, res.replace)
 		return nil

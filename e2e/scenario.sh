@@ -2275,6 +2275,8 @@ scenario_stacks_repo() {
 
 	scenario_tui_sudo
 
+	scenario_tui_secrets
+
 	scenario_repair_start
 
 	scenario_container_monitor
@@ -3674,6 +3676,160 @@ scenario_tui_sudo() {
 	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
 	docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1 || fail "sudo of $admin asks for a password again after the rule is put back"
 	window_far_away >/dev/null || fail 'cannot move the maintenance window out of the way again'
+}
+
+# ts_watch_start starts a watcher on the host that records every process whose command line holds a line of the
+# pattern file /tmp/qd-ts-pattern in /tmp/qd-ts-hits, until /tmp/qd-ts-stop appears or a minute passed. grep reads
+# the pattern from the file, so the watcher itself never has the value in a command line.
+ts_watch_start() {
+	docker exec -i "$host" sh -c 'cat >/tmp/qd-ts-watch.sh' <<'EOF' || fail 'cannot write the watcher of the command lines'
+end=$(( $(date +%s) + 60 ))
+while [ "$(date +%s)" -lt "$end" ] && [ ! -e /tmp/qd-ts-stop ]; do
+	for f in /proc/[0-9]*/cmdline; do tr "\000" " " <"$f" 2>/dev/null; echo; done | grep -F -f /tmp/qd-ts-pattern >>/tmp/qd-ts-hits
+	sleep 0.02
+done
+EOF
+	printf '%s\n' "$@" | docker exec -i "$host" sh -c 'cat >/tmp/qd-ts-pattern; rm -f /tmp/qd-ts-stop; : >/tmp/qd-ts-hits' ||
+		fail 'cannot write the pattern of the watcher'
+	docker exec -d "$host" sh /tmp/qd-ts-watch.sh || fail 'cannot start the watcher of the command lines'
+}
+
+# ts_paste types $1 into the interface through a tmux buffer filled on standard input, so the value stands in no
+# command line, unlike tui_type.
+ts_paste() {
+	printf '%s' "$1" | docker exec -i -u "$admin" "$host" tmux -L qdtui load-buffer - || fail 'cannot load a value into tmux'
+	tui_tmux paste-buffer -p -t qdtui || fail 'cannot paste a value'
+}
+
+# ts_watch_stop ends the watcher and removes its files.
+ts_watch_stop() {
+	docker exec "$host" sh -c 'touch /tmp/qd-ts-stop; sleep 1; rm -f /tmp/qd-ts-pattern /tmp/qd-ts-watch.sh /tmp/qd-ts-stop'
+}
+
+# scenario_tui_secrets proves the forms with a secret of the interface started without sudo: the stack detail sets a
+# stack secret and Settings stores a registry login. Each asks with the exact command without the value, hands the
+# terminal to the real sudo for the password (sudo -v) and runs the command without a prompt (sudo -n) with the value
+# on standard input. The scenario sets it up like scenario_tui_system and unlike scenario_tui_sudo: the rule of
+# $admin stays, so sudo -v asks (the account is also in the group sudo) and sudo -n runs after it; the timestamp of
+# sudo is removed before each change so that sudo asks again. The password is set for the scenario and locked again
+# at the end. The values must show in no command line, in no captured screen, in no log of the host and no state of
+# the host service; the secret stands in secrets.env and the login is listed. Both are removed afterwards.
+scenario_tui_secrets() {
+	tui_log=$work/tui-secrets-screens.log
+	: >"$tui_log"
+	ts_login=E2e-admin-Login-5581
+	ts_key=E2E_TUI_SECRET
+	ts_secret=tui-secret-e2e-7731
+	ts_reg_host=e2e-secret.example.test
+	ts_reg_user=e2e-secret-user
+	ts_reg_token=tui-regtoken-e2e-5528
+	ts_env=/opt/stacks/demo-stack/secrets.env
+	printf '%s:%s\n' "$admin" "$ts_login" | docker exec -i "$host" chpasswd || fail "cannot give $admin a password"
+	docker exec "$host" test -e "$ts_env" && ts_had_env=yes || ts_had_env=no
+	wait_for 'demo-stack idle' 120 stack_idle demo-stack
+	ts_watch_start "$ts_secret" "$ts_reg_token"
+	# The watcher must see a value in a command line at all.
+	docker exec -d "$host" sh -c 'sleep 3' "$ts_secret" || fail 'cannot start the control process of the watcher'
+	i=0
+	until [ -n "$(docker exec "$host" cat /tmp/qd-ts-hits)" ]; do
+		i=$((i + 1))
+		[ "$i" -lt 100 ] || fail 'the watcher does not see the value in the command line of a control process'
+		sleep 0.1
+	done
+	# The control process lives three seconds; the hits are cleared only after it ended.
+	sleep 4
+	docker exec "$host" sh -c ': >/tmp/qd-ts-hits'
+
+	step 'the stack detail sets a secret without sudo: the question shows the command without the value, sudo -v asks, sudo -n runs it'
+	docker exec -u "$admin" "$host" sudo -K || fail "cannot remove the sudo timestamp of $admin"
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'trap : INT; qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_wait '[ ] demo-stack' 30
+	tui_send Home
+	tui_cursor_to demo-stack
+	tui_send Enter
+	tui_wait 'Secrets' 15
+	tui_send a
+	tui_wait 'Set a secret' 10
+	tui_type "$ts_key"
+	tui_send Tab
+	ts_paste "$ts_secret"
+	sleep 0.5
+	tui_send F2
+	tui_wait "Set the secret $ts_key of the stack demo-stack?" 10
+	tui_has 'sudo qhost stack secret set' || fail "the question does not show the command: $(tui_screen)"
+	tui_has "$ts_secret" && fail "the question shows the value: $(tui_screen)"
+	tui_excerpt "Set the secret $ts_key" 12
+	tui_send y
+	tui_wait "[sudo] password for $admin" 30
+	tui_type "$ts_login"
+	tui_send Enter
+	tui_wait "set for the stack demo-stack" 60
+	tui_send Enter
+	docker exec "$host" grep -qxF "$ts_key='$ts_secret'" "$ts_env" || fail "secrets.env does not hold the secret: $(docker exec "$host" cat "$ts_env")"
+	[ "$(docker exec "$host" stat -c %U:%a "$ts_env")" = qhost-deploy:600 ] || fail 'secrets.env has the wrong owner or mode'
+	qd stack secret list demo-stack | grep -q "$ts_key" || fail "the key is not listed: $(qd stack secret list demo-stack)"
+	log "scenario: the interface set $ts_key of demo-stack through sudo"
+
+	step 'Settings stores a registry login without sudo the same way and qhost credential list shows it'
+	docker exec -u "$admin" "$host" sudo -K || fail "cannot remove the sudo timestamp of $admin"
+	tui_send Escape
+	tui_wait 'CURRENT' 10
+	tui_subtab Credentials
+	tui_wait 'x remove' 10
+	tui_send a
+	tui_wait 'Set a credential' 10
+	tui_send Tab
+	tui_type "$ts_reg_host"
+	tui_send Tab
+	tui_type "$ts_reg_user"
+	tui_send Tab
+	ts_paste "$ts_reg_token"
+	sleep 0.5
+	tui_send F2
+	tui_wait "Store the credential registry.$ts_reg_host?" 10
+	tui_has 'sudo qhost credential set' || fail "the question does not show the command: $(tui_screen)"
+	tui_has "$ts_reg_token" && fail "the question shows the token: $(tui_screen)"
+	tui_excerpt 'Store the credential' 12
+	tui_send y
+	tui_wait "[sudo] password for $admin" 30
+	tui_type "$ts_login"
+	tui_send Enter
+	tui_wait 'is stored' 60
+	tui_send Enter
+	tui_wait "registry.$ts_reg_host" 10
+	qd credential list | grep -q "registry.$ts_reg_host" || fail "qhost credential list does not show the login: $(qd credential list)"
+	[ "$(docker exec "$host" cat "/var/lib/qhost-deploy/credentials/registry.$ts_reg_host")" = "$ts_reg_user:$ts_reg_token" ] ||
+		fail 'the stored login is not <user>:<token>'
+	tui_send Escape
+	tui_send q
+	tui_wait 'qhost-exit=0' 10
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	log "scenario: the interface stored registry.$ts_reg_host through sudo"
+
+	step 'the values show in no command line, no captured screen, no log of the host and no state of qhost'
+	ts_watch_stop
+	[ -z "$(docker exec "$host" cat /tmp/qd-ts-hits)" ] || fail "a value was in a command line: $(docker exec "$host" cat /tmp/qd-ts-hits | sed "s/$ts_secret/<value>/; s/$ts_reg_token/<token>/")"
+	docker exec "$host" rm -f /tmp/qd-ts-hits
+	[ "$(wc -l <"$tui_log")" -gt 40 ] || fail 'too few screens were captured to check'
+	for v in "$ts_secret" "$ts_reg_token" "$ts_login"; do
+		if grep -qF -- "$v" "$tui_log"; then fail 'a value or the password shows on a captured screen'; fi
+		if docker exec "$host" sh -c 'journalctl --no-pager -q 2>/dev/null' | grep -qF -- "$v"; then fail 'a value or the password reached the journal of the host, including that of sudo'; fi
+		if docker exec "$host" grep -rqF -- "$v" /var/log /var/lib/qhost-host /var/lib/qhost; then fail 'a value or the password reached a log or the state of qhost'; fi
+		if qd service log --tail 0 | grep -qF -- "$v"; then fail 'a value or the password reached the service log'; fi
+	done
+	if docker exec "$host" grep -rqF -- "$ts_reg_token" /var/lib/qhost-deploy --exclude-dir=credentials; then fail 'the token reached the state of the deploy service outside the credential store'; fi
+	log 'scenario: no value in a command line, a captured screen, the system journal, a log or the state'
+
+	step 'the secret, the login, the password and the sudo timestamp are put back'
+	out=$(qd stack secret delete demo-stack "$ts_key") || fail "secret delete failed: $out"
+	[ "$ts_had_env" = yes ] || docker exec "$host" rm -f "$ts_env"
+	out=$(qd credential delete "registry.$ts_reg_host") || fail "credential delete failed: $out"
+	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
+	docker exec -u "$admin" "$host" sudo -K || fail "cannot remove the sudo timestamp of $admin"
+	docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1 || fail "sudo of $admin asks for a password after the scenario"
 }
 
 # has_finding succeeds when the stack shows the finding $2 in qhost status.
