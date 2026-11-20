@@ -3,6 +3,8 @@ package tui
 import (
 	"context"
 	"encoding/json"
+	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -115,4 +117,36 @@ func decodeRestore(r sudoRun) (any, bool) {
 		return nil, false
 	}
 	return control.BackupRestoreResult{Backup: control.BackupInfo{ID: v.Backup, Stack: v.Stack}}, true
+}
+
+// decodeFlag reads the answer of a command that prints a name and one flag, as `credential delete`; the change has
+// no result of its own, so the answer holds none.
+func decodeFlag(flag string) func(sudoRun) (any, bool) {
+	return func(r sudoRun) (any, bool) {
+		var v map[string]any
+		if !r.decode(&v) || v[flag] != true {
+			return nil, false
+		}
+		return nil, true
+	}
+}
+
+// decodeWindow reads what `window set` prints: the window as scalar fields, the weekdays as one comma list.
+func decodeWindow(r sudoRun) (any, bool) {
+	var v struct {
+		Days        string    `json:"days"`
+		Start       string    `json:"start"`
+		Duration    string    `json:"duration"`
+		Zone        string    `json:"zone"`
+		Open        bool      `json:"open"`
+		OpenUntil   time.Time `json:"open_until"`
+		NextOpening time.Time `json:"next_opening"`
+		LastRun     time.Time `json:"last_run"`
+		Running     bool      `json:"running"`
+	}
+	if !r.decode(&v) || v.Start == "" {
+		return nil, false
+	}
+	return control.WindowResult{Days: strings.Split(v.Days, ","), Start: v.Start, Duration: v.Duration, Zone: v.Zone,
+		Open: v.Open, OpenUntil: v.OpenUntil, NextOpening: v.NextOpening, LastRun: v.LastRun, Running: v.Running}, true
 }

@@ -14,6 +14,8 @@ const (
 	textSudoMoreCommands   kittui.TextID = "sudo.more"
 	textAskChangelog       kittui.TextID = "sudo.ask.changelog"
 	textWhatChangelog      kittui.TextID = "sudo.what.changelog"
+	textAskKeyGenerate     kittui.TextID = "sudo.ask.keygenerate"
+	textWhatKeyGenerate    kittui.TextID = "sudo.what.keygenerate"
 )
 
 func sudoEnglish() map[kittui.TextID]string {
@@ -27,6 +29,8 @@ func sudoEnglish() map[kittui.TextID]string {
 		textSudoMoreCommands:   "%d more commands of the same form follow, one after another.",
 		textAskChangelog:       "Read the release notes before updating %s?",
 		textWhatChangelog:      "Nothing is changed. The update itself is asked for separately afterwards.",
+		textAskKeyGenerate:     "Generate the deploy key for %s?",
+		textWhatKeyGenerate:    "A new Ed25519 key is created in the service. Its public part is shown afterwards and is entered in the git platform.",
 	}
 }
 
@@ -41,5 +45,7 @@ func sudoGerman() map[kittui.TextID]string {
 		textSudoMoreCommands:   "%d weitere Befehle derselben Form folgen nacheinander.",
 		textAskChangelog:       "Die Release Notes lesen, bevor %s aktualisiert wird?",
 		textWhatChangelog:      "Es wird nichts geändert. Das Update selbst wird danach gesondert bestätigt.",
+		textAskKeyGenerate:     "Den Deploy-Schlüssel für %s erzeugen?",
+		textWhatKeyGenerate:    "Im Dienst entsteht ein neuer Ed25519-Schlüssel. Sein öffentlicher Teil wird danach angezeigt und in der Git-Plattform eingetragen.",
 	}
 }

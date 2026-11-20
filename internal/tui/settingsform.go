@@ -357,9 +357,20 @@ func (m *Model) submitWindow(f *settingsForm, days, start, duration, zone string
 		f.problem(m.text.Lookup(textProblemNoChange), m.text.Lookup(textFormFix))
 		return nil
 	}
-	m.ask(textTitleWindow, m.text.Lookup(textAskWindow), m.text.Lookup(textWhatWindow), details, false, func() tea.Cmd {
-		return m.writeCall(opWindowSet, "", func(b Backend) (any, error) { return b.WindowSet(m.ctx, args) })
-	})
+	argv := []string{"window", "set"}
+	if len(args.Days) > 0 {
+		argv = append(argv, "--days", strings.Join(args.Days, ","))
+	}
+	for _, flag := range []struct{ name, value string }{{"--start", args.Start}, {"--duration", args.Duration}, {"--zone", args.Zone}} {
+		if flag.value != "" {
+			argv = append(argv, flag.name, flag.value)
+		}
+	}
+	m.askSetting(settingChange{title: textTitleWindow, question: m.text.Lookup(textAskWindow),
+		consequence: m.text.Lookup(textWhatWindow), details: details, op: opWindowSet,
+		direct: func(b Backend) (any, error) { return b.WindowSet(m.ctx, args) },
+		args:   append(argv, "--output", "json"),
+		decode: decodeWindow})
 	return nil
 }
 

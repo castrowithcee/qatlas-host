@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                                                              [?] help
+  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+        STACK                      CURRENT      AVAILABLE      MODE       STATE     FINDINGS                            
+> ▾ [ ] ■ /srv/stacks-example (6)  clone                                            polled 2026-10-30 14:30             
+    [ ] demo-stack                 1.4.2        1.5.0          automatic  deployed  1 warning                           
+    [ ] mail-relay                 3.1          up to date     manual     pending   none                                
+    [ ] old-tool            ╔═ Stack folders ══════════════════════════════════════════════╗                            
+    [ ] photo-album         ║ ⚠ Fetch the stack folder /srv/stacks-example now?            ║                            
+    [ ] web-shop            ║                                                              ║                            
+    [ ] wiki                ║ Updates the remote-tracking branch; the working copy stays   ║gs                          
+                            ║ as it is.                                                    ║                            
+                            ║ $ sudo qhost repo fetch --dir /srv/stacks-example --output   ║                            
+                            ║   json                                                       ║                            
+                            ║                                                              ║                            
+                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ y yes, with sudo  n/esc/enter cancel                         ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+╭─ /srv/stacks-example ────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ address: ssh://git.example.test/ops/stacks.git                                                                       │
+│ last poll: Fri 2026-10-30 14:30                                                                                      │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                     1/6

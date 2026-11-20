@@ -100,3 +100,37 @@ func TestAccessErrorsAreSaidApart(t *testing.T) {
 		t.Errorf("not-root: %q", got)
 	}
 }
+
+// A change of the stack folder row or of the Settings area, which the service refuses without root, is handed to
+// sudo instead of the message.
+func TestFolderAndSettingsChangesWithoutRootAreHandedToSudo(t *testing.T) {
+	for _, tt := range []struct {
+		name, refused string
+		backend       func() *fakeBackend
+		to            func(t *testing.T) func(*Model)
+		keys          []string
+		command       string
+	}{
+		{"fetch", "fetch:" + stackDir, foldersBackend, onStackFolder, keys("F", "y"), "sudo-fake qhost-fake repo fetch"},
+		{"release", "sourceremove:" + stackDir, foldersBackend, onStackFolder, keys("x", "y"), "sudo-fake qhost-fake source remove"},
+		{"notify test", "notifytest:ops-hook", settingsBackend, nil, seq(toNotify, keys("s", "y")), "sudo-fake qhost-fake notify test"},
+		{"credential delete", "creddel:registry.docker.io", settingsBackend, nil, seq(toCreds, keys("x", "y")), "sudo-fake qhost-fake credential delete"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			b := tt.backend()
+			b.errs[tt.refused] = control.ErrNotRoot()
+			m, f := sudoDetailModel(t, i18n.English, b, wideWidth, 40)
+			f.report = `{}`
+			if tt.to != nil {
+				tt.to(t)(m)
+			}
+			send(m, tt.keys...)
+			if strings.Contains(m.render(), "this needs root; quit and run sudo qhost") || len(b.actions()) != 0 {
+				t.Fatalf("the change was refused instead of handed to sudo:\n%s", m.render())
+			}
+			if len(f.execs) != 1 || !strings.Contains(strings.Join(f.execs[0].Args, " "), tt.command) {
+				t.Fatalf("sudo was not handed the command: %v", f.execs)
+			}
+		})
+	}
+}

@@ -183,9 +183,11 @@ func (m *Model) askFolderFetch() tea.Cmd {
 		m.warn(m.text.Lookup(textFolderLocalFetch))
 		return nil
 	}
-	m.ask(textTitleFolders, m.text.Lookup(textAskFetch, f.Path), m.text.Lookup(textWhatFetch), nil, false, func() tea.Cmd {
-		return m.writeCall(opFetch, f.Path, func(b Backend) (any, error) { return b.RepoFetch(m.ctx, f.Path) })
-	})
+	m.askSetting(settingChange{title: textTitleFolders, question: m.text.Lookup(textAskFetch, f.Path),
+		consequence: m.text.Lookup(textWhatFetch), op: opFetch, name: f.Path,
+		direct: func(b Backend) (any, error) { return b.RepoFetch(m.ctx, f.Path) },
+		args:   []string{"repo", "fetch", "--dir", f.Path, "--output", "json"},
+		decode: decodeSudo[control.RepoFetchResult](func(r control.RepoFetchResult) bool { return r.Dir != "" })})
 	return nil
 }
 
@@ -214,9 +216,11 @@ func (m *Model) askFolderRemove() tea.Cmd {
 		m.warn(m.text.Lookup(textChooseOne))
 		return nil
 	}
-	m.ask(textTitleFolders, m.text.Lookup(textAskRelease, f.Path), m.text.Lookup(textWhatRelease), nil, false, func() tea.Cmd {
-		return m.writeCall(opSourceRemove, f.Path, func(b Backend) (any, error) { return b.SourceRemove(m.ctx, f.Path) })
-	})
+	m.askSetting(settingChange{title: textTitleFolders, question: m.text.Lookup(textAskRelease, f.Path),
+		consequence: m.text.Lookup(textWhatRelease), op: opSourceRemove, name: f.Path,
+		direct: func(b Backend) (any, error) { return b.SourceRemove(m.ctx, f.Path) },
+		args:   []string{"source", "remove", "--yes", "--output", "json", "--", f.Path},
+		decode: decodeSudo[control.SourceRemoveResult](func(r control.SourceRemoveResult) bool { return r.Path != "" })})
 	return nil
 }
 
