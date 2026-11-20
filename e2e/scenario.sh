@@ -3820,8 +3820,11 @@ scenario_tui_secrets() {
 		if docker exec "$host" grep -rqF -- "$v" /var/log /var/lib/qhost-host /var/lib/qhost; then fail 'a value or the password reached a log or the state of qhost'; fi
 		if qd service log --tail 0 | grep -qF -- "$v"; then fail 'a value or the password reached the service log'; fi
 	done
-	if docker exec "$host" grep -rqF -- "$ts_reg_token" /var/lib/qhost-deploy --exclude-dir=credentials; then fail 'the token reached the state of the deploy service outside the credential store'; fi
-	log 'scenario: no value in a command line, a captured screen, the system journal, a log or the state'
+	holders=$(docker exec "$host" grep -rlF -- "$ts_reg_token" /var/lib/qhost-deploy 2>/dev/null || true)
+	[ "$holders" = "/var/lib/qhost-deploy/credentials/registry.$ts_reg_host" ] || fail "the token stands in: $holders"
+	holders=$(docker exec "$host" grep -rlF -- "$ts_secret" /var/lib/qhost-deploy /opt/stacks 2>/dev/null || true)
+	[ "$holders" = "$ts_env" ] || fail "the value of the stack secret stands in: $holders"
+	log 'scenario: no value in a command line, a captured screen, the system journal, a log or the state; the token only in the credential store, the secret only in secrets.env'
 
 	step 'the secret, the login, the password and the sudo timestamp are put back'
 	out=$(qd stack secret delete demo-stack "$ts_key") || fail "secret delete failed: $out"
