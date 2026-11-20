@@ -65,17 +65,21 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 		"create the stack folder if it does not exist, confirming exactly the path given with --dir")
 	set.Flags().StringVar(&fingerprint, "fingerprint", "",
 		"expected SHA256 fingerprint of the server's host key; required without a terminal")
+	var fetchDir string
 	fetch := &cobra.Command{
-		Use:   "fetch",
+		Use:   "fetch [--dir <path>]",
 		Short: "Fetch new commits of the stacks repositories",
 		Long: "fetch updates the remote-tracking branch of every bound repository and reports per stack folder\n" +
 			"whether it differs from the working copy. The working copies themselves are not changed. A host key\n" +
 			"that differs from the pinned one aborts the fetch of that folder; the command fails only when no\n" +
-			"folder could be fetched.",
+			"folder could be fetched. --dir fetches only that bound stack folder.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
+			if fetchDir != "" && (!filepath.IsAbs(fetchDir) || filepath.Clean(fetchDir) != fetchDir) {
+				return usageFailure("--dir must be an absolute, clean path", "Pass the absolute path of the stack folder.")
+			}
 			var res control.RepoFetchResult
-			if err := repoCall(c, state, control.RepoFetchCommand, nil, &res); err != nil {
+			if err := repoCall(c, state, control.RepoFetchCommand, control.RepoFetchArgs{Dir: fetchDir}, &res); err != nil {
 				return err
 			}
 			fields := []output.Field{
@@ -98,6 +102,7 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: fields})
 		},
 	}
+	fetch.Flags().StringVar(&fetchDir, "dir", "", "fetch only this bound stack folder (absolute path)")
 	group.AddCommand(set, fetch)
 	return group
 }

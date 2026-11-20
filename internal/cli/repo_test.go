@@ -108,6 +108,14 @@ func TestRepoSetWithFingerprintBindsAndStacksLists(t *testing.T) {
 	if code != 0 || !strings.Contains(stdout, `"updates_available":false`) {
 		t.Fatalf("fetch: code %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
+
+	code, stdout, stderr = run(t, "repo", "fetch", "--dir", e.dir, "--output", "json")
+	if code != 0 || !strings.Contains(stdout, `"updates_available":false`) || !strings.Contains(stdout, e.dir) {
+		t.Fatalf("fetch --dir: code %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+	if code, _, _ := run(t, "repo", "fetch", "--dir", "relative/path"); code != 2 {
+		t.Fatalf("fetch with a relative --dir: code %d, want 2", code)
+	}
 }
 
 func TestRepoSetRefusesAWrongFingerprint(t *testing.T) {
