@@ -622,10 +622,18 @@ scenario_host_changes() {
 	printf '%s' "$out" | grep -q 'must run as root' || fail "host apply without root does not say that it needs root: $out"
 	if out=$(as_admin 'qhost host journal 2>&1'); then fail "host journal without root succeeded: $out"; fi
 	printf '%s' "$out" | grep -q 'must run as root' || fail "host journal without root does not say that it needs root: $out"
+	entries_before=$(docker exec "$host" sh -c 'ls /var/lib/qhost-host/journal 2>/dev/null | wc -l')
 	if out=$(as_admin "sudo qhost host apply folder.set-permissions '$dir' $admin $grp read-write read nothing 2>&1"); then
 		fail "host apply without --confirm succeeded: $out"
+	else
+		rc=$?
+		[ "$rc" -eq 2 ] || fail "host apply without --confirm ended with the code $rc, want 2: $out"
 	fi
 	printf '%s' "$out" | grep -q -- '--confirm' || fail "host apply without --confirm does not name the flag: $out"
+	printf '%s' "$out" | grep -q -- 'chmod' || fail "host apply without --confirm does not show its commands: $out"
+	printf '%s' "$out" | grep -q -- 'These commands run as root' || fail "host apply without --confirm does not show its plan: $out"
+	[ "$(docker exec "$host" sh -c 'ls /var/lib/qhost-host/journal 2>/dev/null | wc -l')" = "$entries_before" ] ||
+		fail 'host apply without --confirm wrote a journal entry'
 	[ "$(as_admin "stat -c %a '$dir'")" = 755 ] || fail 'a refused change touched the folder'
 	reader=$(as_user e2e-hostreader 'qhost host users 2>&1 || true')
 	printf '%s' "$reader" | grep -q 'qhost is reserved for administrators (sudo)' || fail "e2e-hostreader reads the users of the host: $reader"
@@ -4050,7 +4058,15 @@ scenario_selfupdate() {
 	step 'update without root and without --confirm changes nothing'
 	before=$(installed_sum)
 	if out=$(as_admin 'qhost update --yes --confirm 2>&1'); then fail "update without root succeeded: $out"; fi
-	if out=$(as_admin 'sudo qhost update --yes 2>&1'); then fail "update without --confirm succeeded: $out"; fi
+	if out=$(as_admin 'sudo qhost update --yes 2>&1'); then
+		fail "update without --confirm succeeded: $out"
+	else
+		rc=$?
+		[ "$rc" -eq 2 ] || fail "update without --confirm ended with the code $rc, want 2: $out"
+	fi
+	printf '%s' "$out" | grep -q 'Update qhost from v0.1.0' || fail "update without --confirm does not show its plan: $out"
+	printf '%s' "$out" | grep -q 'qhost, qhost-deploy' || fail "update without --confirm does not name the services it restarts: $out"
+	printf '%s' "$out" | grep -q -- '--confirm' || fail "update without --confirm does not name the flag: $out"
 	[ "$(installed_sum)" = "$before" ] || fail 'a refused update changed the installation'
 
 	step 'sudo qhost update installs the newer release, replaces both units, restarts both services, renews the template of the instance, restarts the instance and warns about its overriding unit'
