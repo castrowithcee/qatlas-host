@@ -19,6 +19,13 @@ import (
 
 var update = flag.Bool("update", false, "rewrite the golden files")
 
+// TestMain makes every test model run as root unless the test says otherwise, so the actions call the service
+// directly whoever runs the tests; a test of the way without root sets its own user.
+func TestMain(m *testing.M) {
+	defaultEuid = func() int { return 0 }
+	os.Exit(m.Run())
+}
+
 // The sizes of the goldens.
 const (
 	narrowWidth = 56

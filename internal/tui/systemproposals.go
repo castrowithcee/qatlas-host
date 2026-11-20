@@ -550,7 +550,7 @@ func (m *Model) askHostProposalReject() tea.Cmd {
 }
 
 func (m *Model) runHostProposalReject(id string) tea.Cmd {
-	return m.runHost(HostRequest{Proposal: true, Args: []string{"reject", id}}, func(out []byte, err error) tea.Cmd {
+	return m.runHost(HostRequest{Args: []string{"proposal", "reject", id}, Terminal: true}, func(out []byte, err error) tea.Cmd {
 		if err != nil {
 			m.hostFailed(out, err, true)
 		} else {

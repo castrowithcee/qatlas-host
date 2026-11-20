@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                      [?] help
+  [1 Stacks] 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+      STACK        CURRENT      AVAILABLE      MODE       STATE     FINDINGS    
+> [ ] demo-stack   1.4.2        1.5.0          automatic  deployed  1 warning   
+  [ ] mail-relay   3.1          up to date     manual     pending   none        
+  [ ] old-tool     -            unchecked      -          removed   none        
+  [ ] ph╔═ update ═════════════════════════════════════════════════════╗ror     
+  [ ] we║ ⚠ Read the release notes before updating demo-stack?         ║        
+  [ ] wi║                                                              ║rnings  
+        ║ This asks GitHub, so the request leaves the host. Nothing is ║        
+        ║ changed. The update itself is asked for separately           ║        
+        ║ afterwards.                                                  ║        
+        ║ $ sudo qhost stack updates --changelog --output json --      ║        
+        ║   demo-stack                                                 ║        
+        ║                                                              ║        
+        ║ [ yes, with sudo ]  > cancel <                               ║        
+        ║ y yes, with sudo  n/esc/enter cancel                         ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                             1/6

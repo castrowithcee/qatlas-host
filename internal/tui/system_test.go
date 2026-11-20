@@ -49,10 +49,12 @@ func demoKey(t *testing.T, seed byte) string {
 // answers with report. root makes it a hook of an interface that runs as root, which needs no password check.
 type fakeRoot struct {
 	root bool
-	// report is what a run prints; runErr the error it ends with.
-	report string
-	runErr error
-	// stderr is what a background run writes to standard error.
+	// report is what a run prints; runErr the error it ends with. reports, where set, gives the report of a
+	// command by its argument vector and takes the place of report.
+	report  string
+	reports func(argv []string) string
+	runErr  error
+	// stderr is what a run of the command writes to standard error.
 	stderr string
 	// reqs are the requests asked for, built the commands built, execs the commands handed the terminal and bgs
 	// those run in the background with what they read on standard input.
@@ -76,18 +78,16 @@ func (f *fakeRoot) run(req HostRequest) (*exec.Cmd, error) {
 		return exec.Command("sudo-fake", "-v"), nil
 	}
 	var cmd *exec.Cmd
-	group := "host"
-	if req.Proposal {
-		group = "proposal"
-	}
 	switch {
 	case f.root:
-		cmd = exec.Command("qhost-fake", append([]string{group}, req.Args...)...)
+		cmd = exec.Command("qhost-fake", req.Args...)
 	case len(req.Secret) > 0:
-		cmd = exec.Command("sudo-fake", append([]string{"-n", "qhost-fake", group}, req.Args...)...)
-		cmd.Env = []string{"LC_ALL=C"}
+		cmd = exec.Command("sudo-fake", append([]string{"-n", "qhost-fake"}, req.Args...)...)
 	default:
-		cmd = exec.Command("sudo-fake", append([]string{"qhost-fake", group}, req.Args...)...)
+		cmd = exec.Command("sudo-fake", append([]string{"qhost-fake"}, req.Args...)...)
+	}
+	if !f.root {
+		cmd.Env = []string{"LC_ALL=C"}
 	}
 	if len(req.Secret) > 0 {
 		cmd.Stdin = bytes.NewReader(req.Secret)
@@ -102,7 +102,8 @@ func (f *fakeRoot) exec(cmd *exec.Cmd, fn tea.ExecCallback) tea.Cmd {
 		// The password check succeeds; only the command itself ends as the test says.
 		return func() tea.Msg { return fn(nil) }
 	}
-	_, _ = io.WriteString(cmd.Stdout, f.report)
+	_, _ = io.WriteString(cmd.Stdout, f.reportOf(cmd))
+	_, _ = io.WriteString(cmd.Stderr, f.stderr)
 	return func() tea.Msg { return fn(f.runErr) }
 }
 
@@ -113,17 +114,25 @@ func (f *fakeRoot) bg(cmd *exec.Cmd) error {
 		in, _ = io.ReadAll(cmd.Stdin)
 	}
 	f.stdins = append(f.stdins, in)
-	_, _ = io.WriteString(cmd.Stdout, f.report)
+	_, _ = io.WriteString(cmd.Stdout, f.reportOf(cmd))
 	_, _ = io.WriteString(cmd.Stderr, f.stderr)
 	return f.runErr
 }
 
-// lastArgs are the arguments of the last command asked for after "host".
+// reportOf is what the command prints.
+func (f *fakeRoot) reportOf(cmd *exec.Cmd) string {
+	if f.reports != nil {
+		return f.reports(cmd.Args)
+	}
+	return f.report
+}
+
+// lastArgs are the arguments of the last command asked for after its command group, such as "host".
 func (f *fakeRoot) lastArgs(t *testing.T) []string {
 	t.Helper()
 	for i := len(f.reqs) - 1; i >= 0; i-- {
 		if !f.reqs[i].Validate {
-			return f.reqs[i].Args
+			return f.reqs[i].Args[1:]
 		}
 	}
 	t.Fatal("no command was asked for")
