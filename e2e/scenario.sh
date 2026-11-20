@@ -758,6 +758,16 @@ scenario_host_changes() {
 	docker exec "$host" rm -rf "$tree" "$copy" "$moved"
 	log "scenario: file.copy $copy_id copied a folder tree, file.remove $remove_id removed it, the undo restored it, file.rename $rename_id moved it and the undo moved it back"
 
+	step 'sudo qhost host apply file.remove refuses a file of the journal as locked, the file and the entries stay'
+	entry="/var/lib/qhost-host/journal/$rename_id.json"
+	docker exec "$host" test -f "$entry" || fail "the journal has no file $entry"
+	before=$(docker exec "$host" sh -c 'ls /var/lib/qhost-host/journal | wc -l')
+	sum=$(docker exec "$host" sha256sum "$entry")
+	if out=$(as_admin "sudo qhost --output json host apply file.remove '$entry' --confirm 2>&1"); then fail "file.remove of a journal file succeeded: $out"; fi
+	printf '%s' "$out" | grep -q locked || fail "file.remove of a journal file does not say locked: $out"
+	[ "$(docker exec "$host" sha256sum "$entry")" = "$sum" ] || fail 'the refused file.remove changed the journal file'
+	[ "$(docker exec "$host" sh -c 'ls /var/lib/qhost-host/journal | wc -l')" = "$before" ] || fail 'the refused file.remove changed the number of journal entries'
+
 	step 'the protection rules refuse changing the own account, the group sudo and a system path, and leave no journal entry'
 	before=$(docker exec "$host" sh -c 'ls /var/lib/qhost-host/journal | wc -l')
 	for refused in "user.lock $admin|you cannot lock yourself" "user.delete $admin|you cannot delete your own account" \
