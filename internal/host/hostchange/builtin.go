@@ -34,6 +34,7 @@ const (
 var builtinSteps = map[string]bool{
 	stepKeysAdd: true, stepKeysRemove: true,
 	stepFileWrite: true, stepFileRestore: true, stepFolderCreate: true, stepFolderRemove: true,
+	stepFileRename: true, stepFileCopy: true, stepFileRemove: true, stepFileRemoveCopy: true, stepFileRestoreTree: true,
 }
 
 // accountLookup resolves the user a built-in step works for.

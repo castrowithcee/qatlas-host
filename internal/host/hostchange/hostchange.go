@@ -2,7 +2,7 @@
 // in plain words and exact commands, the runner records the previous state in a root-only journal before it
 // changes anything, checks the result, and restores the previous state when the change or its check fails.
 // Default registers the production actions: the user actions of users.go, the folder action of folder.go and
-// the file actions of file.go.
+// the file actions of file.go and filemove.go.
 package hostchange
 
 import (
