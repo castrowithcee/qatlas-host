@@ -281,6 +281,8 @@ type fakeDeployer struct {
 	hook func(ctx context.Context, step string, st stacks.Stack) error
 	// noRules makes Backup answer ErrNoBackup.
 	noRules bool
+	// lateNoRules makes Backup answer ErrNoBackup although WillBackup predicted a backup.
+	lateNoRules bool
 	// trace, when set, gets every step as it starts.
 	trace func(string)
 	// backedUp lists the deployed commit of every backup.
@@ -329,11 +331,13 @@ func (d *fakeDeployer) Backup(ctx context.Context, st stacks.Stack, deployed str
 	d.mu.Lock()
 	d.backedUp = append(d.backedUp, deployed)
 	d.mu.Unlock()
-	if d.noRules {
+	if d.noRules || d.lateNoRules {
 		return "", ErrNoBackup
 	}
 	return "backup-of-" + deployed[:8], nil
 }
+
+func (d *fakeDeployer) WillBackup(stacks.Stack) bool { return !d.noRules }
 
 func (d *fakeDeployer) Pull(ctx context.Context, st stacks.Stack, log *Log) error {
 	d.mu.Lock()
@@ -828,7 +832,7 @@ func TestFailedFirstDeployStopsAndIsNotRetriedAutomatically(t *testing.T) {
 		t.Fatalf("web = %+v / %+v", st, st.LastRun)
 	}
 	// no backup of a stack that was never deployed, no revert, and the new stack is left stopped
-	if got := r.dep.stepsOf("web"); !slices.Equal(got, []string{"stop", "pull", "up", "stop"}) {
+	if got := r.dep.stepsOf("web"); !slices.Equal(got, []string{"pull", "up", "stop"}) {
 		t.Fatalf("steps = %v", got)
 	}
 	if r.copy.called("revert")+r.copy.called("push") != 0 {
