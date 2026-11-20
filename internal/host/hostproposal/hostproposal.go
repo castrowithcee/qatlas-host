@@ -18,10 +18,12 @@ import (
 // proposal; it never reaches a command that runs.
 const viewPassword = "proposal-view-only"
 
-// notProposable are the actions a proposal may not name, with the reason. Both are what the person decides alone.
+// notProposable are the actions a proposal may not name, with the reason. All are what the person decides alone.
 var notProposable = map[string]string{
-	hostchange.ActionUserSetPassword: "a password is never part of a proposal",
-	hostchange.ActionUserSetAdmin:    "administrator rights are given by a person, not proposed",
+	hostchange.ActionUserSetPassword:  "a password is never part of a proposal",
+	hostchange.ActionUserSetAdmin:     "administrator rights are given by a person, not proposed",
+	hostchange.ActionFileWrite:        "file contents are never part of a proposal; agents get no access to files",
+	hostchange.ActionFileCreateFolder: "files and folders are changed by a person; agents get no access to files",
 }
 
 // accessGroups are the groups whose members a proposal may not change: being in both is administrator access to
