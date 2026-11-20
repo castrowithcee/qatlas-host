@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 [2 Stack-Details] 3 4 5 6 7                                                 
+────────────────────────────────────────────────────────────────────────────────
+  demo-stack                                                                    
+                                                                                
+  Modus ╔═ Backup einspielen ══════════════════════════════════════════╗        
+  Zustan║ ⚠ Das Backup 20261023T031000Z-4567cdef des Stacks demo-stack ║        
+  Befund║   einspielen?                                                ║        
+        ║                                                              ║        
+╭─ Image║ Der Stack wird gestoppt und seine aktuellen Daten werden mit ║───────╮
+│ APP_VE║ dem Backup überschrieben. Danach wird der Stack wieder       ║       │
+│   1.4.║ gestartet. Das lässt sich nicht rückgängig machen.           ║       │
+╰───────║ 10-23 03:10                                                  ║───────╯
+╭─ Conta║ 11.0 MiB                                                     ║───────╮
+│ Keine ║ $ sudo qhost stack backup restore --yes --output json --     ║       │
+╰───────║   demo-stack 20261023T031000Z-4567cdef                       ║───────╯
+╭─ Chang║                                                              ║───────╮
+│ APP_VE║ [ ja, mit sudo ]  > abbrechen <                              ║       │
+│   Quel║ y ja, mit sudo  n/esc/enter abbrechen                        ║       │
+│   1.5.╚══════════════════════════════════════════════════════════════╝       │
+│     Adds a dark theme.                                                       │
+│                                                                              │
+│     - faster start                                                           │
+                                                                           20/60

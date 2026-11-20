@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks  [2 ▣ Stack-Details]  3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  demo-stack                                                                                                            
+                                                                                                                        
+  Modus    automatisch                                                                                                  
+  Zustand  deployt                                                                                                      
+  Befunde  1 Warnung                                                                                                    
+                                                                                                                        
+╭─ Image-Versionen ────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ APP_VERSION  example/app                                                                                             │
+│   1.4.2 -> 1.5.0  Update verfügbar                                                                                   │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Container ───────────────╔═ Backup einspielen ══════════════════════════════════════════╗───────────────────────────╮
+│ Keine Container dieses Sta║ ⚠ Das Backup 20261023T031000Z-4567cdef des Stacks demo-stack ║                           │
+╰───────────────────────────║   einspielen?                                                ║───────────────────────────╯
+╭─ Changelog ───────────────║                                                              ║───────────────────────────╮
+│ APP_VERSION  1.4.2 -> 1.5.║ Der Stack wird gestoppt und seine aktuellen Daten werden mit ║                           │
+│   Quelle example/app      ║ dem Backup überschrieben. Danach wird der Stack wieder       ║                           │
+│   1.5.0  Spring release  2║ gestartet. Das lässt sich nicht rückgängig machen.           ║                           │
+│     Adds a dark theme.    ║ 10-23 03:10                                                  ║                           │
+│                           ║ 11.0 MiB                                                     ║                           │
+│     - faster start        ║ $ sudo qhost stack backup restore --yes --output json --     ║                           │
+│     - fixes the upload lim║   demo-stack 20261023T031000Z-4567cdef                       ║                           │
+│   1.4.3  2026-10-20       ║                                                              ║                           │
+│     Fixes a crash on empty║ [ ja, mit sudo ]  > abbrechen <                              ║                           │
+│   mehr unter https://examp║ y ja, mit sudo  n/esc/enter abbrechen                        ║                           │
+╰───────────────────────────╚══════════════════════════════════════════════════════════════╝───────────────────────────╯
+╭─ Geheimnisse ────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ API_SIGNING_KEY                                                                                                      │
+│ DB_PASSWORD                                                                                                          │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ 20261030T140100Z-0123abcd                                                                                            │
+│   10-30 14:01  12.0 MiB                                                                                              │
+│ 20261023T031000Z-4567cdef                                                                                            │
+│   10-23 03:10  11.0 MiB                                                                                              │
+│ 20261016T031000Z-89abcdef                                                                                            │
+│   0 B  unvollständig                                                                                                 │
+                                                                                                                   36/59

@@ -37,6 +37,31 @@ type keyExists struct {
 	replace func() tea.Cmd
 }
 
+// keyGenerateAsk is the answer of reading the key of a folder before generating one without root: exists says
+// whether the command has to replace a key.
+type keyGenerateAsk struct {
+	dir     string
+	details []string
+	exists  bool
+}
+
+// askKeyGenerate asks for the generation of a key through sudo; an existing key is replaced only with --replace,
+// which the question names.
+func (m *Model) askKeyGenerate(k keyGenerateAsk) {
+	t := m.text
+	args := []string{"key", "generate", "--dir", k.dir}
+	c := settingChange{title: textTitleKey, question: t.Lookup(textAskKeyGenerate, k.dir), consequence: t.Lookup(textWhatKeyGenerate),
+		details: k.details, op: opKeyGenerate, name: k.dir,
+		direct: func(b Backend) (any, error) { return b.KeyGenerate(m.ctx, k.dir, k.exists) },
+		decode: decodeSudo[control.KeyResult](func(r control.KeyResult) bool { return r.Fingerprint != "" })}
+	if k.exists {
+		args = append(args, "--replace")
+		c.question, c.consequence, c.danger = t.Lookup(textAskKeyReplace), t.Lookup(textWhatKeyReplace), true
+	}
+	c.args = append(args, "--output", "json")
+	m.askSetting(c)
+}
+
 // openKeyForm asks how to set the key of the folder the key view shows.
 func (m *Model) openKeyForm() tea.Cmd {
 	fields := []kittui.FormField{{ID: "mode", Kind: kittui.FieldChoice, Label: textFieldKeyMode, Hint: textHintKeyMode,
@@ -123,6 +148,13 @@ func (m *Model) keyWrite(f *settingsForm, dir, label, key string, generate bool)
 	return m.writeCall(op, dir, func(b Backend) (any, error) {
 		_, err := b.KeyShow(m.ctx, dir)
 		var remote *control.Error
+		if generate && m.euid() != 0 {
+			// Without root the command asks, and says whether it replaces a key; reading the key needs no root.
+			if err != nil && (!errors.As(err, &remote) || remote.Code != control.CodeNoSuchKey) {
+				return nil, err
+			}
+			return keyGenerateAsk{dir: dir, details: details, exists: err == nil}, nil
+		}
 		switch {
 		case err == nil:
 			return keyExists{details: details, replace: func() tea.Cmd {

@@ -74,7 +74,7 @@ func (m *Model) readJournal() tea.Cmd {
 		return nil
 	}
 	j.reading = true
-	return m.runHost(HostRequest{Args: []string{"journal", "--output", "json"}}, func(out []byte, err error) tea.Cmd {
+	return m.runHost(HostRequest{Args: []string{"host", "journal", "--output", "json"}}, func(out []byte, err error) tea.Cmd {
 		j.reading = false
 		var list []journalEntry
 		if err != nil || json.Unmarshal(bytes.TrimSpace(out), &list) != nil {
@@ -190,7 +190,7 @@ func (m *Model) askUndo() tea.Cmd {
 // runUndo runs host undo and shows what it reported. The entry is marked undone at once, so it is not offered
 // twice before the journal is read again.
 func (m *Model) runUndo(id string, a hostAsk) tea.Cmd {
-	return m.runHost(HostRequest{Args: []string{"undo", "--confirm", "--output", "json", "--", id}}, func(out []byte, err error) tea.Cmd {
+	return m.runHost(HostRequest{Args: []string{"host", "undo", "--confirm", "--output", "json", "--", id}}, func(out []byte, err error) tea.Cmd {
 		report, ok := parseReport(out)
 		if !ok {
 			m.hostFailed(out, err, true)

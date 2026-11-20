@@ -89,6 +89,8 @@ type running struct {
 	gen      int
 	plan     plan
 	outcomes []outcome
+	// sudo marks a sequence of public commands run through sudo instead of calls of the service.
+	sudo bool
 }
 
 // modalKind tells which question or result the modal shows.
@@ -220,6 +222,10 @@ func (m *Model) beginAction(kind actionKind) tea.Cmd {
 	if kind == kindUpdate {
 		return m.openPreview(p)
 	}
+	if m.euid() != 0 {
+		m.askSudoPlan(p)
+		return nil
+	}
 	dialog, err := m.confirmDialog(p, nil)
 	if err != nil {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
@@ -263,22 +269,28 @@ func (m *Model) subject(p plan) string {
 func (m *Model) confirmDialog(p plan, answers []kittui.Answer) (*kittui.Dialog, error) {
 	t := m.text
 	info := kindTexts[p.kind]
-	var details []string
-	if len(p.stacks) > 1 {
-		for i, name := range p.stacks {
-			if i == maxListedTargets {
-				details = append(details, t.Lookup(textTargetsMore, len(p.stacks)-i))
-				break
-			}
-			details = append(details, name)
-		}
-	}
+	details := m.targetDetails(p.stacks)
 	if answers == nil {
 		answers = []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}}
 	}
 	return kittui.NewDialog(kittui.DialogSpec{Title: info.word, Question: t.Lookup(info.ask, m.subject(p)),
 		Consequence: t.Lookup(info.consequence), Details: dialogLines(details), Answers: answers, Default: actNo,
 		Keys: kittui.DialogKeys{Enter: actEnter}}, m.keys, t)
+}
+
+// targetDetails lists the stacks of an action that has several, up to maxListedTargets.
+func (m *Model) targetDetails(stacks []string) []string {
+	var details []string
+	if len(stacks) > 1 {
+		for i, name := range stacks {
+			if i == maxListedTargets {
+				details = append(details, m.text.Lookup(textTargetsMore, len(stacks)-i))
+				break
+			}
+			details = append(details, name)
+		}
+	}
+	return details
 }
 
 // openPreview shows what an update would change and reads the changelog of the stacks that have an update.
@@ -293,6 +305,11 @@ func (m *Model) openPreview(p plan) tea.Cmd {
 			md.changelogs[name] = &changelogEntry{}
 			wanted = append(wanted, name)
 		}
+	}
+	if m.euid() != 0 && len(wanted) > 0 {
+		// The release notes come from GitHub, which the service asks only for root: the question names the command.
+		m.askSudoChangelog(md, wanted)
+		return nil
 	}
 	if !m.setPreviewDialog(md) {
 		return nil
@@ -428,6 +445,10 @@ func (m *Model) answer(answer kittui.ActionID) tea.Cmd {
 		if md.yes != nil {
 			return md.yes()
 		}
+		if m.euid() != 0 {
+			m.askSudoPlan(md.plan)
+			return nil
+		}
 		return m.start(md.plan)
 	case actWithRemote, actRootless:
 		if md.alt != nil {
@@ -468,6 +489,9 @@ func (m *Model) step() tea.Cmd {
 		stack = r.plan.stacks[index]
 	}
 	ctx, b, kind, gen := m.ctx, m.backend, r.plan.kind, r.gen
+	if r.sudo {
+		return m.runSudo(sudoPlanArgs(kind, stack), m.sudoStepDone(gen, index, kind, stack))
+	}
 	return func() tea.Msg {
 		res, err := callService(ctx, b, kind, stack)
 		return stepMsg{gen: gen, index: index, result: res, err: err}
@@ -519,6 +543,10 @@ func (m *Model) applyStep(msg stepMsg) tea.Cmd {
 		}
 	}
 	if len(r.outcomes) < r.plan.steps() {
+		if r.sudo {
+			// The terminal belongs to sudo for the next command; the service is read again at the end.
+			return m.step()
+		}
 		return tea.Batch(m.step(), m.reloadNow())
 	}
 	return m.finish()

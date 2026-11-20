@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                            [?] Hilfe
+  [1 Stacks] 2 3 4 5 6 7                                                        
+────────────────────────────────────────────────────────────────────────────────
+      STACK        VERSION      VERFÜGBAR      ZUSTAND   BEFUNDE                
+> [ ] demo-stack   1.4.2        1.5.0          deployt   1 Warnung              
+  [ ] mail-relay   3.1          aktuell        offen     keine                  
+  [ ] ol╔═ deploy ═════════════════════════════════════════════════════╗        
+  [ ] ph║ ⚠ Deploy von demo-stack starten?                             ║        
+  [ ] we║                                                              ║        
+  [ ] wi║ Startet sofort einen Lauf: ein Stack mit Backup-Regeln wird  ║        
+        ║ zuerst gestoppt und gesichert, dann lädt, startet und prüft  ║        
+        ║ der Lauf den Stack und macht bei einem fehlgeschlagenen      ║        
+        ║ Schritt einen Rollback. Ohne Backup-Regeln läuft der Stack   ║        
+        ║ weiter und nur geänderte Container werden neu erzeugt.       ║        
+        ║ $ sudo qhost stack deploy --output json -- demo-stack        ║        
+        ║                                                              ║        
+        ║ [ ja, mit sudo ]  > abbrechen <                              ║        
+        ║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                             1/6

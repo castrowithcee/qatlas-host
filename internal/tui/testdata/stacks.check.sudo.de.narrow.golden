@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                            [?] Hilfe
+  [1 Stacks] 2 3 4 5 6 7                                                        
+────────────────────────────────────────────────────────────────────────────────
+      STACK        VERSION      VERFÜGBAR      ZUSTAND   BEFUNDE                
+> [ ] demo-stack   1.4.2        1.5.0          deployt   1 Warnung              
+  [ ] mail-relay   3.1          aktuell        offen     keine                  
+  [ ] old-tool     -            ungeprüft      entfernt  keine                  
+  [ ] ph╔═ Registries prüfen ══════════════════════════════════════════╗        
+  [ ] we║ ⚠ Die Registries jetzt für alle Stacks abfragen?             ║        
+  [ ] wi║                                                              ║        
+        ║ Dafür werden die Registries der Images angefragt, die        ║        
+        ║ Anfragen verlassen also den Host. Fragt die Registries jetzt ║        
+        ║ nach neueren Image-Versionen. Das kann Minuten dauern und    ║        
+        ║ ändert nichts an den Stacks.                                 ║        
+        ║ $ sudo qhost stack updates --refresh --output json           ║        
+        ║                                                              ║        
+        ║ [ ja, mit sudo ]  > abbrechen <                              ║        
+        ║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                             1/6

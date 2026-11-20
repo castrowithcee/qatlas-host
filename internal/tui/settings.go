@@ -490,6 +490,9 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		}
 		done(t.Lookup(text), t.Lookup(textDetailFingerprint, res.Fingerprint),
 			t.Lookup(textDetailPublicKey, kittui.Escape(strings.TrimSpace(res.PublicKey))))
+	case keyGenerateAsk:
+		m.askKeyGenerate(res)
+		return nil
 	case keyExists:
 		m.ask(textTitleKey, t.Lookup(textAskKeyReplace), t.Lookup(textWhatKeyReplace), res.details, true, res.replace)
 		return nil
@@ -669,9 +672,11 @@ func (m *Model) askCredentialDelete() tea.Cmd {
 		m.warn(m.text.Lookup(textChooseOne))
 		return nil
 	}
-	m.ask(textPageCreds, m.text.Lookup(textAskCredDelete, c.Name), m.text.Lookup(textWhatCredDelete), nil, true, func() tea.Cmd {
-		return m.writeCall(opCredDelete, c.Name, func(b Backend) (any, error) { return nil, b.CredentialDelete(m.ctx, c.Name) })
-	})
+	m.askSetting(settingChange{title: textPageCreds, question: m.text.Lookup(textAskCredDelete, c.Name),
+		consequence: m.text.Lookup(textWhatCredDelete), danger: true, op: opCredDelete, name: c.Name,
+		direct: func(b Backend) (any, error) { return nil, b.CredentialDelete(m.ctx, c.Name) },
+		args:   []string{"credential", "delete", "--output", "json", "--", c.Name},
+		decode: decodeFlag("deleted")})
 	return nil
 }
 
@@ -681,9 +686,11 @@ func (m *Model) askNotifyRemove() tea.Cmd {
 		m.warn(m.text.Lookup(textChooseOne))
 		return nil
 	}
-	m.ask(textPageNotify, m.text.Lookup(textAskNotifyRemove, c.Name), m.text.Lookup(textWhatNotifyRemove), nil, true, func() tea.Cmd {
-		return m.writeCall(opNotifyRemove, c.Name, func(b Backend) (any, error) { return nil, b.NotifyRemove(m.ctx, c.Name) })
-	})
+	m.askSetting(settingChange{title: textPageNotify, question: m.text.Lookup(textAskNotifyRemove, c.Name),
+		consequence: m.text.Lookup(textWhatNotifyRemove), danger: true, op: opNotifyRemove, name: c.Name,
+		direct: func(b Backend) (any, error) { return nil, b.NotifyRemove(m.ctx, c.Name) },
+		args:   []string{"notify", "remove", "--output", "json", "--", c.Name},
+		decode: decodeFlag("removed")})
 	return nil
 }
 
@@ -693,9 +700,11 @@ func (m *Model) askNotifyTest() tea.Cmd {
 		m.warn(m.text.Lookup(textChooseOne))
 		return nil
 	}
-	m.ask(textPageNotify, m.text.Lookup(textAskNotifyTest, c.Name), m.text.Lookup(textWhatNotifyTest), nil, false, func() tea.Cmd {
-		return m.writeCall(opNotifyTest, c.Name, func(b Backend) (any, error) { return b.NotifyTest(m.ctx, c.Name) })
-	})
+	m.askSetting(settingChange{title: textPageNotify, question: m.text.Lookup(textAskNotifyTest, c.Name),
+		consequence: m.text.Lookup(textWhatNotifyTest), op: opNotifyTest, name: c.Name,
+		direct: func(b Backend) (any, error) { return b.NotifyTest(m.ctx, c.Name) },
+		args:   []string{"notify", "test", "--output", "json", "--", c.Name},
+		decode: decodeSudo[control.NotifyTestResult](func(r control.NotifyTestResult) bool { return r.Name != "" })})
 	return nil
 }
 

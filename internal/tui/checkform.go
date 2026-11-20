@@ -139,9 +139,7 @@ func (m *Model) submitCheck(f *settingsForm, v map[kittui.FieldID]kittui.FormVal
 		details = append(details, t.Lookup(textDetailCheckNoHTTP))
 	}
 	stack := f.stack
-	m.ask(textTitleCheckForm, t.Lookup(textAskCheckForm, stack), m.whatSettings(stack, textWhatCheckAfter), details, false, func() tea.Cmd {
-		return m.writeCall(opStackSettingsSet, stack, func(b Backend) (any, error) { return saveCheck(m, b, stack, r) })
-	})
+	m.askSettingsSet(textTitleCheckForm, t.Lookup(textAskCheckForm, stack), m.whatSettings(stack, textWhatCheckAfter), details, stack, checkEdit(r))
 	return nil
 }
 
@@ -152,14 +150,14 @@ func onOffText(on bool) kittui.TextID {
 	return textCheckOff
 }
 
-// saveCheck sets the check on the settings the service holds now, so that what the form does not show stays
+// checkEdit sets the check on the settings the service holds now, so that what the form does not show stays
 // as it is. A value the form shows as its default stays out of the file unless the file already had it, so
 // saving what was shown commits nothing.
-func saveCheck(m *Model, b Backend, stack string, r checkValues) (control.StackSettingsSetResult, error) {
-	s, err := currentSettings(m, b, stack)
-	if err != nil {
-		return control.StackSettingsSetResult{}, err
-	}
+func checkEdit(r checkValues) settingsEdit {
+	return func(s *control.StackSettings) { editCheck(s, r) }
+}
+
+func editCheck(s *control.StackSettings, r checkValues) {
 	old := control.StackCheckSettings{}
 	if s.Check != nil {
 		old = *s.Check
@@ -189,7 +187,6 @@ func saveCheck(m *Model, b Backend, stack string, r checkValues) (control.StackS
 	if c.Containers == nil && c.HTTP == nil {
 		s.Check = nil
 	}
-	return b.StackSettingsSet(m.ctx, stack, s)
 }
 
 func mustDuration(s string) time.Duration {
@@ -229,8 +226,10 @@ func (m *Model) openRemoveSettings() tea.Cmd {
 	case control.SourceKindLocal:
 		what = textWhatRemoveLocal
 	}
-	m.ask(textTitleSettingsRemove, m.text.Lookup(textAskSettingsRemove, stack), m.text.Lookup(what), nil, true, func() tea.Cmd {
-		return m.writeCall(opStackSettingsRemove, stack, func(b Backend) (any, error) { return b.StackSettingsRemove(m.ctx, stack) })
-	})
+	m.askSetting(settingChange{title: textTitleSettingsRemove, question: m.text.Lookup(textAskSettingsRemove, stack),
+		consequence: m.text.Lookup(what), danger: true, op: opStackSettingsRemove, name: stack,
+		direct: func(b Backend) (any, error) { return b.StackSettingsRemove(m.ctx, stack) },
+		args:   []string{"stack", "settings", "remove", "--output", "json", "--", stack},
+		decode: decodeSudo[control.StackSettingsRemoveResult](func(r control.StackSettingsRemoveResult) bool { return r.Stack != "" })})
 	return nil
 }
