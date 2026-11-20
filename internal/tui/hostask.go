@@ -233,8 +233,12 @@ func (m *Model) hostFailed(out []byte, err error, change bool) {
 	}
 	var text string
 	switch {
-	case noCredential(reason):
+	case noCredential(reason) && ranWithoutPrompt(err):
 		text = t.Lookup(textHostErrNoCredential)
+	case noCredential(reason):
+		// With the terminal sudo asked itself, so the words mean that the prompt was given up before the command
+		// started: nothing was changed, whatever was asked for.
+		text = t.Lookup(textHostErrAbortedRead)
 	case change && reason != "" && !strings.HasPrefix(reason, "sudo:") && (kind == failDenied || kind == failExit):
 		// A line of sudo itself ("sudo: 3 incorrect password attempts") keeps the message about sudo; anything else
 		// is the reason qhost gave.
