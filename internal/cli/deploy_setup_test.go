@@ -69,9 +69,16 @@ func TestSetupNeedsRoot(t *testing.T) {
 
 func TestSetupWithoutConfirmChangesNothing(t *testing.T) {
 	root, ran := useHostRoot(t, 0)
-	code, _, stderr := run(t, "deploy-service", "setup", "--yes")
-	if code == 0 || !strings.Contains(stderr, "--confirm") || len(*ran) != 0 || deploysetup.Installed(root) {
-		t.Fatalf("code %d, stderr %q, ran %v", code, stderr, *ran)
+	for _, args := range [][]string{{"deploy-service", "setup"}, {"deploy-service", "setup", "--yes"}} {
+		code, stdout, stderr := run(t, args...)
+		if code != 2 || stdout != "" || !strings.Contains(stderr, "--confirm") || len(*ran) != 0 || deploysetup.Installed(root) {
+			t.Fatalf("%v: code %d, stdout %q, stderr %q, ran %v", args, code, stdout, stderr, *ran)
+		}
+		for _, want := range []string{"Set up the deploy service", "systemctl enable --now qhost-deploy"} {
+			if strings.Count(stderr, want) != 1 {
+				t.Errorf("%v: stderr should show %q once: %q", args, want, stderr)
+			}
+		}
 	}
 }
 
@@ -82,8 +89,8 @@ func TestSetupShowsStepsRunsThemAndRepeatsWithoutChange(t *testing.T) {
 		t.Fatalf("code %d, stderr %q", code, stderr)
 	}
 	for _, want := range []string{"Set up the deploy service", "write /etc/tmpfiles.d/qhost-deploy.conf", "systemctl enable --now qhost-deploy"} {
-		if !strings.Contains(stderr, want) {
-			t.Errorf("stderr lacks %q: %q", want, stderr)
+		if strings.Count(stderr, want) != 1 {
+			t.Errorf("stderr should show %q once: %q", want, stderr)
 		}
 	}
 	var got map[string]any
