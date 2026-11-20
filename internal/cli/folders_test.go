@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/channeltest"
+	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/rootless"
 )
 
@@ -27,6 +28,9 @@ type hostDouble struct {
 	checked    []string
 	// lchowns records every group change; the real call follows it.
 	lchowns []lchownCall
+	// owners are the accounts asked for their ids; instanceList is what the host lists as set up.
+	owners       []string
+	instanceList []deploysetup.Instance
 }
 
 type lchownCall struct {
@@ -48,7 +52,12 @@ func useFolderHost(t *testing.T) *hostDouble {
 			}
 			return nil
 		},
-		owner: func() (int, int, error) { d.chowned = true; return os.Getuid(), os.Getgid(), nil },
+		owner: func(name string) (int, int, error) {
+			d.chowned = true
+			d.owners = append(d.owners, name)
+			return os.Getuid(), os.Getgid(), nil
+		},
+		instances: func() ([]deploysetup.Instance, error) { return d.instanceList, nil },
 		waitService: func(context.Context) error {
 			d.waited++
 			return nil

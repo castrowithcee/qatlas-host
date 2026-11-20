@@ -30,9 +30,7 @@ func addInstances(t *testing.T, root string, users ...string) {
 		file(inst.ChannelDir() + "/control.sock")
 		file(inst.StateDir() + "/credentials")
 		file(inst.ConfigDir() + "/settings")
-		if err := os.MkdirAll(filepath.Join(root, inst.DropInDir()), 0o755); err != nil {
-			t.Fatal(err)
-		}
+		file(inst.StackFoldersDropIn())
 		file("home/" + u + "/.config/systemd/user/docker.service")
 		file("home/" + u + "/data/keep.txt")
 	}
@@ -47,12 +45,12 @@ func TestUninstallRemovesEveryInstanceAndKeepsUsersAndHomes(t *testing.T) {
 	}
 	for _, u := range []string{"alice", "bob"} {
 		inst := instanceOf(t, u)
-		for _, want := range []string{"systemctl disable --now " + inst.Unit(), "rm -r " + inst.ChannelDir(), "rm " + inst.TmpfilesConf(), inst.Unit()} {
+		for _, want := range []string{"systemctl disable --now " + inst.Unit(), "rm -r " + inst.ChannelDir(), "rm " + inst.TmpfilesConf(), "rm " + inst.StackFoldersDropIn(), inst.Unit()} {
 			if !strings.Contains(stderr, want) {
 				t.Errorf("stderr lacks %q: %q", want, stderr)
 			}
 		}
-		for _, p := range []string{inst.TmpfilesConf(), inst.ChannelDir(), inst.DropInDir()} {
+		for _, p := range []string{inst.TmpfilesConf(), inst.ChannelDir(), inst.StackFoldersDropIn(), inst.DropInDir()} {
 			if present(root, p) {
 				t.Errorf("%s stays", p)
 			}

@@ -163,6 +163,9 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 		if len(res.EnginesNotChecked) > 0 {
 			add("engines_not_checked", structured(format, res.EnginesNotChecked))
 		}
+		if e := suggestedEngines(res); len(e) > 0 {
+			add("suggested_engines", e)
+		}
 		return output.Object{Fields: fields}
 	}
 	f := []output.Field{{Name: "path", Value: res.Path}, {Name: "case", Value: res.Case}}
@@ -226,6 +229,9 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 	}
 	for _, nc := range res.EnginesNotChecked {
 		add("engine_not_checked", notCheckedText(nc))
+	}
+	if e := suggestedEngines(res); len(e) > 0 {
+		add("suggested_engine", suggestionText(res.Path, e))
 	}
 	if res.StacksError != "" {
 		add("stacks_error", res.StacksError)

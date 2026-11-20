@@ -32,12 +32,17 @@ func addEngines(ctx context.Context, res control.SourceInspectResult) control.So
 		return res
 	}
 	scan := folders.scanEngines(ctx)
+	own := targetOf(ctx).id()
 	stacks := make([]control.SourceStack, len(res.Stacks))
 	copy(stacks, res.Stacks)
 	for i, st := range stacks {
 		var list []control.SourceConflict
 		list = append(list, st.Conflicts...)
 		for _, cf := range scan.Conflicts(filepath.Join(res.Path, st.Folder)) {
+			// The engine the folder is taken over into is where its containers belong.
+			if cf.Engine == own {
+				continue
+			}
 			list = append(list, control.SourceConflict{Container: cf.Container, Project: cf.Project, Engine: cf.Engine})
 		}
 		stacks[i].Conflicts = list
