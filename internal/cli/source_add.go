@@ -476,6 +476,7 @@ func previewSourceAdd(w io.Writer, t engineTarget, res control.SourceInspectResu
 	if plan != nil {
 		lines = append(lines, plan.summary()...)
 	}
+	lines = append(lines, "The first run deploys every stack: containers whose configuration and image are unchanged keep running, and a stack stopped by hand is started.")
 	lines = append(lines, fmt.Sprintf("The folder belongs to the %s engine, is added to %s and the %s service restarts.",
 		t.id(), folders.dropIn(t), t.unit()))
 	_, _ = fmt.Fprintf(w, "Case %s, folder %s:\n", res.Case, res.Path)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/host/hostadmin"
 	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 type changeWorld struct {
@@ -336,5 +337,63 @@ func TestHostReportsReadInEveryFormat(t *testing.T) {
 		if code, out, errOut = run(t, "host", "groups", "--output", format); code != 0 || !strings.Contains(out, "demo-admin") {
 			t.Fatalf("%s groups: code %d out %q err %q", format, code, out, errOut)
 		}
+	}
+}
+
+func TestHostApplyFileWriteTakesItsContentExactlyFromStdin(t *testing.T) {
+	f := newChangeFixture(t, 0)
+	if err := hostchange.RegisterFileActions(changeEnv.registry()); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(dir, "demo.conf")
+	stepContent := func(i int) string {
+		t.Helper()
+		var in struct {
+			Content []byte `json:"content"`
+		}
+		if err := json.Unmarshal([]byte(f.w.stdins[i]), &in); err != nil {
+			t.Fatal(err)
+		}
+		return string(in.Content)
+	}
+	apply := []string{"host", "apply", "--confirm", "--output", "json", "--", hostchange.ActionFileWrite, target}
+
+	const content = "DEMO_KEY=demo-file-content-1234\n\n"
+	_, out, errOut := runWithStdin(t, content, apply...)
+	if len(f.w.stdins) == 0 || stepContent(0) != content {
+		t.Fatalf("the step got %q, want the content unchanged; %q", f.w.stdins, errOut)
+	}
+	all := out + errOut + strings.Join(f.w.calls, "")
+	files, _ := os.ReadDir(f.dir)
+	for _, de := range files {
+		b, _ := os.ReadFile(filepath.Join(f.dir, de.Name()))
+		all += string(b)
+	}
+	if strings.Contains(all, "demo-file-content-1234") {
+		t.Error("the content leaked into output, commands or journal")
+	}
+	if m := decode(t, out); m["commands"].([]any)[0] != "[builtin] file-write "+target+" < <content>" {
+		t.Errorf("report %v", m)
+	}
+
+	calls := len(f.w.stdins)
+	runWithStdin(t, "", apply...)
+	if len(f.w.stdins) == calls || stepContent(calls) != "" {
+		t.Errorf("an empty input must write an empty file: %q", f.w.stdins[calls:])
+	}
+
+	calls = len(f.w.calls)
+	if code, _, _ := runWithStdin(t, strings.Repeat("x", hostchange.MaxFileContent+1), apply...); code != 2 || len(f.w.calls) != calls {
+		t.Errorf("content over the limit: code %d, calls %q", code, f.w.calls[calls:])
+	}
+}
+
+func TestFileContentLimitMatchesTheStackFiles(t *testing.T) {
+	if hostchange.MaxFileContent != stacks.MaxFileSize {
+		t.Fatalf("file.write takes %d bytes, the stack files %d", hostchange.MaxFileContent, stacks.MaxFileSize)
 	}
 }

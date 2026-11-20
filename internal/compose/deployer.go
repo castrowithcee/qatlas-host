@@ -30,6 +30,7 @@ type Deployer struct {
 var (
 	_ engine.Deployer      = (*Deployer)(nil)
 	_ engine.BackupChecker = (*Deployer)(nil)
+	_ engine.BackupPlanner = (*Deployer)(nil)
 )
 
 // New returns the production deployer: docker through os/exec with ProductionEnv for the engine at socket
@@ -50,6 +51,11 @@ func (d *Deployer) Backup(ctx context.Context, st stacks.Stack, deployed string,
 		return "", engine.ErrNoBackup
 	}
 	return d.Backups.Create(ctx, st, deployed, log)
+}
+
+// WillBackup implements engine.BackupPlanner.
+func (d *Deployer) WillBackup(st stacks.Stack) bool {
+	return d.Backups != nil && st.Rules != nil && st.Rules.Backup != nil
 }
 
 // Pull implements engine.Deployer.

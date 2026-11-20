@@ -23,9 +23,11 @@ func newDeployCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 		Long: "deploy starts a run of the stack at the commit the working copy has now; it does not fetch. It returns as\n" +
 			"soon as the run is started and prints its id; follow it with 'qhost stack runs' and 'qhost stack log <run>'. A\n" +
 			"stack with a run in progress, with local changes, that cannot be read or that is paused is refused.\n\n" +
-			"A run stops the stack, backs up its data, pulls, starts and checks the new version. When a step after the\n" +
-			"stop fails, the run is rolled back: the data is restored from the run's backup, a commit that puts the\n" +
-			"stack folder back to its deployed state is pushed to the branch, and that state is started and checked.\n" +
+			"A run of a stack that is deployed and has backup rules stops the stack and backs up its data first; any\n" +
+			"other run leaves it running. Then it pulls, starts and checks the new version, and starting recreates\n" +
+			"only the containers whose configuration or image changed. When a later step fails, the run is rolled\n" +
+			"back: the data is restored from the run's backup if there is one, a commit that puts the stack folder back\n" +
+			"to its deployed state is pushed to the branch, and that state is started and checked.\n" +
 			"A stack whose rollback fails is left stopped and paused until 'qhost stack resume' is run.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {

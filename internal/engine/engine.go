@@ -115,9 +115,10 @@ func (b Binding) blocked(name string) error {
 	return nil
 }
 
-// Deployer carries out the steps of a run on one stack. A run calls Stop, Backup, Pull, Up and Check in this
-// order and stops at the first error; its rollback calls Stop, Restore, Up and Check. While a step runs, the
-// working copy is not moved, so the stack folder is the one the step was given.
+// Deployer carries out the steps of a run on one stack. A run calls Stop and Backup only when a backup follows
+// (see BackupPlanner), then Pull, Up and Check in this order and stops at the first error; its rollback calls
+// Stop, Restore, Up and Check. While a step runs, the working copy is not moved, so the stack folder is the one
+// the step was given.
 type Deployer interface {
 	// Stop stops the containers of the stack; a stack that does not run is no error.
 	Stop(ctx context.Context, stack stacks.Stack, log *Log) error
@@ -146,6 +147,13 @@ type DataDirChecker interface {
 	// relative to the stack folder is tracked in the working copy; such a path is never a candidate. It
 	// creates nothing.
 	MissingDataDirs(ctx context.Context, stack stacks.Stack, versioned func(ctx context.Context, rel string) (bool, error), log *Log) ([]MissingDir, error)
+}
+
+// BackupPlanner is implemented by a Deployer that can tell before a run whether Backup will save data. A run
+// stops the stack only when a backup follows; a Deployer without it makes every run of a deployed stack stop.
+type BackupPlanner interface {
+	// WillBackup reports whether Backup would save the data of the stack rather than return ErrNoBackup.
+	WillBackup(stack stacks.Stack) bool
 }
 
 // Clock is the time source of the poll loop.

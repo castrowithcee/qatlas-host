@@ -210,15 +210,23 @@ func (r *run) step(name string, fn func() error) (err error) {
 	return fn()
 }
 
-// secured is the run itself: stop, backup, pull, up, check, and the rollback when a step after the stop fails.
+// secured is the run itself: stop and backup when a backup is planned, pull, up, check, and the rollback when
+// a later step fails.
 // An update step commits and pushes its version change after the backup; see advance.
 func (r *run) secured(ctx context.Context) outcome {
 	d, st, log := r.e.cfg.Deployer, r.st, r.log
 	if out, stop := r.checkDataDirs(ctx); stop {
 		return out
 	}
-	if err := r.step("stop", func() error { return d.Stop(ctx, st, log) }); err != nil {
-		return outcome{result: ResultFailed, cause: fmt.Errorf("stop: %w", err)}
+	// The stack is stopped only for a backup of its data; otherwise Up recreates just what changed.
+	planned := r.deployed != ""
+	if p, ok := d.(BackupPlanner); ok && planned {
+		planned = p.WillBackup(st)
+	}
+	if planned {
+		if err := r.step("stop", func() error { return d.Stop(ctx, st, log) }); err != nil {
+			return outcome{result: ResultFailed, cause: fmt.Errorf("stop: %w", err)}
+		}
 	}
 
 	var (
@@ -231,6 +239,11 @@ func (r *run) secured(ctx context.Context) outcome {
 	err := r.step("backup", func() error {
 		if r.deployed == "" {
 			noData = "the stack was never deployed"
+			log.Printf("none: %s", noData)
+			return nil
+		}
+		if !planned {
+			noData = "the stack has no backup rules"
 			log.Printf("none: %s", noData)
 			return nil
 		}
