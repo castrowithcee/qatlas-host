@@ -17,7 +17,7 @@ import (
 )
 
 func newSourceRemoteCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	var fingerprint string
+	var fingerprint, engine string
 	var gate *cobracli.Gate
 	remote := &cobra.Command{
 		Use:   "remote <path> <ssh-url>",
@@ -40,16 +40,17 @@ func newSourceRemoteCommand(program *cobracli.Program, state *notRunning) *cobra
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSourceRemote(c, program, gate, state, args[0], args[1], fingerprint)
+			return runSourceRemote(c, program, gate, state, args[0], args[1], fingerprint, engine)
 		},
 	}
 	remote.Flags().StringVar(&fingerprint, "fingerprint", "",
 		"expected SHA256 fingerprint of the server's host key; required without a terminal")
+	addEngineFlag(remote, &engine, folderEngineUsage, folderEngineNote)
 	gate = program.AddGate(remote, cobracli.Gates{Question: true})
 	return remote
 }
 
-func runSourceRemote(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, path, url, fingerprint string) error {
+func runSourceRemote(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, path, url, fingerprint, engine string) error {
 	if err := folders.requireRoot(); err != nil {
 		return err
 	}
@@ -62,6 +63,9 @@ func runSourceRemote(c *cobra.Command, program *cobracli.Program, gate *cobracli
 	if fingerprint != "" && !strings.HasPrefix(fingerprint, "SHA256:") {
 		return usageFailure("--fingerprint must look like SHA256:..., as ssh-keygen -l prints it",
 			"Copy the fingerprint of the server's host key.")
+	}
+	if err := routeFolder(c, state, engine, path); err != nil {
+		return err
 	}
 	probe, err := trustHostKey(c, state, url, fingerprint)
 	if err != nil {

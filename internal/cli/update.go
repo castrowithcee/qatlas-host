@@ -28,7 +28,7 @@ const (
 var updateRunColumns = []string{"stack", "variable", "from", "to", "run", "commit", "result", "error"}
 
 func newUpdateCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	var target, variable string
+	var target, variable, engine string
 	cmd := &cobra.Command{
 		Use:   "update <stack>... [--version <v> [--var <NAME>]]",
 		Short: "Update the image versions of stacks with a commit and a secured run per version step",
@@ -60,6 +60,9 @@ func newUpdateCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, engine, args...); err != nil {
+				return err
+			}
 			var res control.UpdateRunResult
 			a := control.UpdateRunArgs{Stacks: args, Version: target, Variable: variable}
 			if err := remoteCall(c, state, updateCallLimit, control.UpdateRunCommand, a, &res); err != nil {
@@ -79,6 +82,7 @@ func newUpdateCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 	}
 	cmd.Flags().StringVar(&target, "version", "", "the version to move to instead of the one the rules allow")
 	cmd.Flags().StringVar(&variable, "var", "", "the image version variable --version raises, for a stack with several")
+	addEngineFlag(cmd, &engine, stackEngineUsage, stackEngineNote+" Every stack of one call must be in the same engine.")
 	return cmd
 }
 

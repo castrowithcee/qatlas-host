@@ -32,12 +32,16 @@ func newNotifyCommand(program *cobracli.Program, state *notRunning, secrets *red
 }
 
 func newNotifyList(program *cobracli.Program, state *notRunning) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List the notification channels",
 		Long:  "list shows each channel with its type, its events and its settings, never its secret parts.",
 		Args:  cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
+			if err := routeInstance(c, engine); err != nil {
+				return err
+			}
 			var res control.NotifyListResult
 			if err := notifyCall(c, state, control.NotifyListCommand, nil, &res); err != nil {
 				return err
@@ -51,10 +55,13 @@ func newNotifyList(program *cobracli.Program, state *notRunning) *cobra.Command 
 				output.Collection{Columns: []string{"name", "type", "events", "settings"}, Rows: rows})
 		},
 	}
+	addEngineFlag(cmd, &engine, instanceEngineUsage, notifyEngineNote)
+	return cmd
 }
 
 func newNotifyAdd(program *cobracli.Program, state *notRunning, secrets *redact.Redactor) *cobra.Command {
 	var a control.NotifyAddArgs
+	var engine string
 	add := &cobra.Command{
 		Use:   "add <name> --type webhook|slack|telegram|smtp [--events <list>] [type settings]",
 		Short: "Add a notification channel; its secret parts are read from the terminal or stdin",
@@ -80,6 +87,9 @@ func newNotifyAdd(program *cobracli.Program, state *notRunning, secrets *redact.
 		},
 		RunE: func(c *cobra.Command, args []string) error {
 			a.Name = args[0]
+			if err := routeInstance(c, engine); err != nil {
+				return err
+			}
 			prompts := secretPrompts(a)
 			values, err := readSecrets(c, a.Name, prompts)
 			if err != nil {
@@ -112,15 +122,20 @@ func newNotifyAdd(program *cobracli.Program, state *notRunning, secrets *redact.
 	f.StringSliceVar(&a.To, "to", nil, "smtp: recipient addresses, comma separated or repeated")
 	f.StringVar(&a.ChatID, "chat-id", "", "telegram: chat to write to")
 	f.StringVar(&a.BaseURL, "base-url", "", "telegram: address of a Bot API server instead of the public one")
+	addEngineFlag(add, &engine, instanceEngineUsage, notifyEngineNote)
 	return add
 }
 
 func newNotifyRemove(program *cobracli.Program, state *notRunning) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	cmd := &cobra.Command{
 		Use:   "remove <name>",
 		Short: "Remove a notification channel and its stored secrets",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeInstance(c, engine); err != nil {
+				return err
+			}
 			if err := notifyCall(c, state, control.NotifyRemoveCommand, control.NotifyNameArgs{Name: args[0]}, nil); err != nil {
 				return err
 			}
@@ -129,16 +144,22 @@ func newNotifyRemove(program *cobracli.Program, state *notRunning) *cobra.Comman
 			}})
 		},
 	}
+	addEngineFlag(cmd, &engine, instanceEngineUsage, notifyEngineNote)
+	return cmd
 }
 
 func newNotifyTest(program *cobracli.Program, state *notRunning) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	cmd := &cobra.Command{
 		Use:   "test <name>",
 		Short: "Send one test message through a channel",
 		Long: "test sends a short message through the channel once, without retries, and reports the outcome. A failure\n" +
 			"carries the error class of the delivery, for example auth, unreachable, tls or timeout, as its exit code.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeInstance(c, engine); err != nil {
+				return err
+			}
 			var res control.NotifyTestResult
 			if err := notifyCall(c, state, control.NotifyTestCommand, control.NotifyNameArgs{Name: args[0]}, &res); err != nil {
 				return err
@@ -148,6 +169,8 @@ func newNotifyTest(program *cobracli.Program, state *notRunning) *cobra.Command 
 			}})
 		},
 	}
+	addEngineFlag(cmd, &engine, instanceEngineUsage, notifyEngineNote)
+	return cmd
 }
 
 // secretPrompts names the secret parts a channel needs, in the order they are read.

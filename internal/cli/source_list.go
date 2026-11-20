@@ -57,6 +57,7 @@ func sourceListResult(format output.Format, res control.SourceListResult) output
 
 func newSourceRemoveCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var gate *cobracli.Gate
+	var engine string
 	remove := &cobra.Command{
 		Use:   "remove <path>",
 		Short: "Release a bound stack folder; no file is deleted and no container is stopped",
@@ -76,6 +77,9 @@ func newSourceRemoveCommand(program *cobracli.Program, state *notRunning) *cobra
 			path := args[0]
 			if !filepath.IsAbs(path) || filepath.Clean(path) != path {
 				return usageFailure("the path must be absolute and clean", "Pass the absolute path of the folder.")
+			}
+			if err := routeFolder(c, state, engine, path); err != nil {
+				return err
 			}
 			w := c.ErrOrStderr()
 			_, _ = fmt.Fprintf(w, "Release the stack folder %s:\n", path)
@@ -98,6 +102,7 @@ func newSourceRemoveCommand(program *cobracli.Program, state *notRunning) *cobra
 			})
 		},
 	}
+	addEngineFlag(remove, &engine, folderEngineUsage, folderEngineNote)
 	gate = program.AddGate(remove, cobracli.Gates{Question: true})
 	return remove
 }

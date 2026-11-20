@@ -36,12 +36,16 @@ func newUnpinCommand(program *cobracli.Program, state *notRunning) *cobra.Comman
 }
 
 func newHoldCommand(program *cobracli.Program, state *notRunning, name, command, short, long string) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	cmd := &cobra.Command{
 		Use:   name + " <stack>",
 		Short: short,
 		Long:  long,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, engine, args[0]); err != nil {
+				return err
+			}
 			var res control.HoldResult
 			if err := credentialCall(c, state, command, control.HoldArgs{Stack: args[0]}, &res); err != nil {
 				return err
@@ -51,4 +55,6 @@ func newHoldCommand(program *cobracli.Program, state *notRunning, name, command,
 			}})
 		},
 	}
+	addEngineFlag(cmd, &engine, stackEngineUsage, stackEngineNote)
+	return cmd
 }

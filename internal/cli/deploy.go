@@ -17,7 +17,8 @@ import (
 var runIDShape = regexp.MustCompile(`^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$`)
 
 func newDeployCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	cmd := &cobra.Command{
 		Use:   "deploy <stack>",
 		Short: "Start a manual run of a stack",
 		Long: "deploy starts a run of the stack at the commit the working copy has now; it does not fetch. It returns as\n" +
@@ -31,6 +32,9 @@ func newDeployCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"A stack whose rollback fails is left stopped and paused until 'qhost stack resume' is run.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, engine, args[0]); err != nil {
+				return err
+			}
 			var res control.DeployResult
 			if err := credentialCall(c, state, control.DeployCommand, control.DeployArgs{Stack: args[0]}, &res); err != nil {
 				return err
@@ -40,10 +44,13 @@ func newDeployCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			}})
 		},
 	}
+	addEngineFlag(cmd, &engine, stackEngineUsage, stackEngineNote)
+	return cmd
 }
 
 func newResumeCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	cmd := &cobra.Command{
 		Use:   "resume <stack>",
 		Short: "Clear the pause after a failed rollback or the halt of the automatic repair",
 		Long: "resume releases a halted automatic repair of the stack, so it tries again on the next failure, and clears the\n" +
@@ -53,6 +60,9 @@ func newResumeCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"'qhost stack runs <stack>' and 'qhost stack log <run>'.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, engine, args[0]); err != nil {
+				return err
+			}
 			var res control.ResumeResult
 			if err := credentialCall(c, state, control.ResumeCommand, control.ResumeArgs{Stack: args[0]}, &res); err != nil {
 				return err
@@ -68,6 +78,8 @@ func newResumeCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			}})
 		},
 	}
+	addEngineFlag(cmd, &engine, stackEngineUsage, stackEngineNote)
+	return cmd
 }
 
 func newRunsCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
