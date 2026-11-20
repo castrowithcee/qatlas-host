@@ -3480,7 +3480,9 @@ scenario_tui_sudo() {
 	prev_run=$(newest_run demo-cache)
 	runs_before=$(stack_run_count demo-cache)
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+	# The Ctrl-C reaches the whole process group of the pane; without job control the wrapping shell would end
+	# with it once the interface quits, so it traps the signal instead (the trap is not inherited by its children).
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'trap : INT; qhost tui; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_wait '[ ] demo-cache' 30
