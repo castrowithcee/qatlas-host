@@ -123,10 +123,10 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"none. A terminal without Unicode shows no icons.\n\n" +
 			"It needs a terminal on both standard input and output and the running deploy service. Root and administrators in\n" +
 			"the group qhost may open it. Without sudo a change shows the command sudo qhost ... and runs it after y;\n" +
-			"sudo asks for the password itself. These still need sudo qhost, and the interface says so: data folders,\n" +
-			"setting up the deploy service and approving a proposal of the deploy service. A deploy\n" +
-			"service that is not set up is no failure: the areas that need it say so and, with y after a question, set it up\n" +
-			"(G; as root, otherwise it says that it needs sudo qhost). A set up deploy service that is not running ends with exit code 3 before it draws\n" +
+			"sudo asks for the password itself. This covers data folders, setting up the deploy service and deciding a proposal of the deploy\n" +
+			"service as well. A deploy service that is not set up is no failure: the areas that need it say so and, with y\n" +
+			"after a question, set it up\n" +
+			"(G; without sudo through sudo qhost deploy-service setup). A set up deploy service that is not running ends with exit code 3 before it draws\n" +
 			"anything. Device-local preferences are read from ~/.qatlas/qhost/tui.yaml; a missing file means\n" +
 			"the defaults. Change them in Settings under General (theme, start area, language, icons and mouse)\n" +
 			"instead of editing the file by hand.",
