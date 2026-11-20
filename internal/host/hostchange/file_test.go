@@ -27,13 +27,30 @@ type fileWorld struct {
 }
 
 func (w *fileWorld) Run(_ context.Context, c Command) ([]byte, error) {
-	if err := runFileStep(c, fileOps{chown: w.chown}); err != nil {
+	if err := runFileStep(c, w.ops()); err != nil {
 		return nil, err
 	}
 	if w.after != nil && c.Argv[0] == stepFileWrite {
 		return nil, w.after(c)
 	}
 	return nil, nil
+}
+
+func (w *fileWorld) ops() fileOps { return fileOps{chown: w.chown, chownLink: w.chownLink} }
+
+func (w *fileWorld) chownLink(dir int, name string, uid, gid int) error {
+	if w.chownErr != nil {
+		return w.chownErr
+	}
+	var st unix.Stat_t
+	if err := unix.Fstatat(dir, name, &st, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		return err
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFLNK {
+		return fmt.Errorf("%s is not a link", name)
+	}
+	w.chowns = append(w.chowns, fmt.Sprintf("%d %d:%d", st.Ino, uid, gid))
+	return nil
 }
 
 func (w *fileWorld) chown(fd, uid, gid int) error {

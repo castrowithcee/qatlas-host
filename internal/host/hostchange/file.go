@@ -15,8 +15,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// The file actions write one text file in place or create one folder. Their steps resolve the path one entry
-// at a time from the root and never follow a link (filestep.go).
+// The file actions write one text file in place or create one folder; the tree actions of filemove.go rename,
+// copy and remove. Their steps resolve the path one entry at a time from the root and never follow a link
+// (filestep.go, filetree.go).
 const (
 	// ActionFileWrite writes the content on standard input to a file: an existing file in place, a missing one
 	// new in an existing folder. Its arguments are the path and optionally optionSystemPath.
@@ -43,7 +44,10 @@ func RegisterFileActions(r *Registry) error {
 	if err := r.Register(Definition{ID: ActionFileWrite, WantsSecret: true, Plan: planFileWrite, Inverse: inverseFileWrite}); err != nil {
 		return err
 	}
-	return r.Register(Definition{ID: ActionFileCreateFolder, Plan: planCreateFolder, Inverse: inverseCreateFolder})
+	if err := r.Register(Definition{ID: ActionFileCreateFolder, Plan: planCreateFolder, Inverse: inverseCreateFolder}); err != nil {
+		return err
+	}
+	return registerTreeActions(r)
 }
 
 // isText accepts content without a NUL byte that is valid UTF-8.
@@ -68,8 +72,19 @@ func lockedReason(path string) string {
 	return ""
 }
 
-// checkFilePath is the lexical check of a path the file actions and their steps work on.
+// checkFilePath is the lexical check of a path the file actions and their steps write at.
 func checkFilePath(path string) error {
+	if err := checkCleanPath(path); err != nil {
+		return err
+	}
+	if reason := lockedReason(path); reason != "" {
+		return Refusef("%s is locked: %s", path, reason)
+	}
+	return nil
+}
+
+// checkCleanPath is the lexical check of every path of a file action, also one it only reads.
+func checkCleanPath(path string) error {
 	switch {
 	case !filepath.IsAbs(path) || strings.ContainsAny(path, "\x00\n\r"):
 		return Argf("the path must be absolute and without control characters")
@@ -77,9 +92,6 @@ func checkFilePath(path string) error {
 		return Argf("the path must be given clean, without \"..\", \"//\" or a trailing \"/\"")
 	case path == "/":
 		return Argf("the path must name an entry below /")
-	}
-	if reason := lockedReason(path); reason != "" {
-		return Refusef("%s is locked: %s", path, reason)
 	}
 	return nil
 }
