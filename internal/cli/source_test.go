@@ -124,6 +124,8 @@ func TestSourceInspectFilesText(t *testing.T) {
 
 func TestSourceInspectCasesText(t *testing.T) {
 	useFolderHost(t)
+	// Without root the output has no effect and no permission plan, so the folders need not exist.
+	folders.euid = func() int { return 1000 }
 	gw := true
 	results := map[string]control.SourceInspectResult{
 		"clone": {Case: control.SourceCaseClone, URL: inspectURL, Access: &control.SourceAccess{ModePath: "/srv", Mode: "0755",
@@ -174,6 +176,7 @@ func TestSourceInspectCasesText(t *testing.T) {
 
 func TestSourceInspectJSON(t *testing.T) {
 	useFolderHost(t)
+	folders.euid = func() int { return 1000 }
 	startFakeInspect(t, filesResult)
 	code, stdout, stderr := run(t, "source", "inspect", "/srv/demo", "--output", "json")
 	if code != 0 || stderr != "" {

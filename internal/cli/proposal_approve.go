@@ -159,7 +159,7 @@ func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 	rerun := "Run 'sudo qhost proposal approve " + id + " --url <ssh-url>'."
 
 	var seen bytes.Buffer
-	sa, err := prepareSourceAdd(c, program, state, io.MultiWriter(notice, &seen), content.Path, url, "", rerun)
+	sa, err := prepareSourceAdd(c, program, state, io.MultiWriter(notice, &seen), content.Path, url, "", rerun, nil)
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 			"Run 'sudo qhost proposal approve "+id+"' again and review it.")
 	}
 	var fresh bytes.Buffer
-	sa, err = prepareSourceAdd(c, program, state, &fresh, content.Path, url, fingerprint, rerun)
+	sa, err = prepareSourceAdd(c, program, state, &fresh, content.Path, url, fingerprint, rerun, nil)
 	if err == nil {
 		var again string
 		if again, err = effectOf(sa, fresh.String()); err == nil && again != effect {
