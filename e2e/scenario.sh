@@ -465,6 +465,8 @@ setup_service() {
 	if out=$(as_admin 'qhost deploy-service setup --confirm --yes 2>&1'); then fail "the setup without root succeeded: $out"; fi
 	printf '%s' "$out" | grep -qi 'needs root' || fail "the setup without root does not say that it needs root: $out"
 	if out=$(as_admin 'sudo qhost deploy-service setup --yes 2>&1'); then fail "the setup without --confirm succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'Set up the deploy service' || fail "the setup without --confirm does not show its plan: $out"
+	printf '%s' "$out" | grep -q 'systemctl enable --now qhost-deploy' || fail "the setup without --confirm does not show its commands: $out"
 	if docker exec "$host" test -e /usr/local/lib/systemd/system/qhost-deploy.service; then fail 'a refused setup installed the unit'; fi
 	out=$(as_admin 'sudo qhost --output json deploy-service setup --confirm --yes 2>&1') || fail "the setup failed: $out"
 	printf '%s' "$out" | grep -q '"changed": *true' || fail "the first setup did not report a change: $out"
@@ -3935,6 +3937,8 @@ scenario_uninstall() {
 	before=$(installed_sum)
 	if out=$(as_admin 'qhost uninstall --yes --confirm 2>&1'); then fail "uninstall without root succeeded: $out"; fi
 	if out=$(as_admin 'sudo qhost uninstall --yes 2>&1'); then fail "uninstall without --confirm succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'Remove qhost' || fail "uninstall without --confirm does not show its plan: $out"
+	printf '%s' "$out" | grep -q 'rm /usr/local/bin/qhost' || fail "uninstall without --confirm does not show its commands: $out"
 	if out=$(as_admin 'sudo qhost uninstall --confirm 2>&1 </dev/null'); then fail "uninstall without an answer succeeded: $out"; fi
 	[ "$(installed_sum)" = "$before" ] || fail 'a refused uninstall changed the installation'
 	service_serving || fail 'the services do not answer after a refused uninstall'
