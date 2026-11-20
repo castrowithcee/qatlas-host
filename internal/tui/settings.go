@@ -461,6 +461,10 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		s.add = nil
 		m.failure = t.Lookup(kittui.TextError, t.Lookup(textFolderListChanged, res.path))
 		return nil
+	case stateChanged:
+		s.add = nil
+		m.stateChangedDone(res)
+		return nil
 	case control.RepoSetResult:
 		s.add = nil
 		done(t.Lookup(textDoneBound, res.Dir), t.Lookup(textDetailHead, short(res.Head)), t.Lookup(textDetailCloned, yesNo(t, res.Cloned)))

@@ -19,7 +19,9 @@ import (
 type settingChange struct {
 	title                 kittui.TextID
 	question, consequence string
-	details               []string
+	// remote, when set, says that the command asks a server outside the host; it leads the consequence.
+	remote  string
+	details []string
 	// danger marks a change that cannot be undone.
 	danger bool
 	op     settingOp
@@ -48,7 +50,7 @@ func (m *Model) askSetting(c settingChange) {
 		return
 	}
 	var gen int
-	m.askSudo(sudoAsk{title: c.title, question: c.question, consequence: c.consequence, lead: dialogLines(c.details),
+	m.askSudo(sudoAsk{title: c.title, question: c.question, consequence: c.consequence, remote: c.remote, lead: dialogLines(c.details),
 		danger: c.danger, args: c.args, input: c.input,
 		begin: func() { gen = m.beginSetting() },
 		done: func(r sudoRun) tea.Cmd {

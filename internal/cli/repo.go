@@ -28,8 +28,8 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 		Use:   "repo",
 		Short: "Bind and update the stacks repositories",
 		Long: "The service clones each stacks repository over SSH into its own stack folder, with a deploy key per\n" +
-			"folder, and keeps the servers' host keys in its own known_hosts file. These commands change the host, so run them\n" +
-			"with sudo.",
+			"folder, and keeps the servers' host keys in its own known_hosts file. set and fetch change the host and\n" +
+			"probe asks a git server for its host key, so run all three with sudo.",
 	}
 	var dir, fingerprint, engine string
 	var create bool
@@ -114,8 +114,48 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 		},
 	}
 	fetch.Flags().StringVar(&fetchDir, "dir", "", "fetch only this bound stack folder (absolute path)")
-	group.AddCommand(set, fetch)
+	probe := &cobra.Command{
+		Use:   "probe <ssh-url>",
+		Short: "Show the host key a git server presents and whether it is pinned; stores nothing",
+		Long: "probe connects to the server of the SSH address, which leaves the host, and prints what it shows: host,\n" +
+			"port, key_type, public_key, the SHA256 fingerprint and whether that key is pinned already. Compare the\n" +
+			"fingerprint with the git platform before you pass it to --fingerprint of 'repo set', 'source add',\n" +
+			"'source remote' or 'source compare'. Nothing is stored: no key is pinned and no file is changed. The URL\n" +
+			"is user@host:path or ssh://[user@]host[:port]/path. Run it with sudo.",
+		Args: func(_ *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return usageFailure("repo probe takes exactly one argument, the SSH URL of the repository",
+					"Run 'qhost repo probe <ssh-url>'.")
+			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			return runRepoProbe(c, program, state, args[0])
+		},
+	}
+	group.AddCommand(set, fetch, probe)
 	return group
+}
+
+func runRepoProbe(c *cobra.Command, program *cobracli.Program, state *notRunning, url string) error {
+	if err := folders.requireRoot(); err != nil {
+		return err
+	}
+	if err := gitrepo.ValidateURL(url); err != nil {
+		return usageFailure(err.Error(), "Pass the SSH URL of the repository.")
+	}
+	var probe control.RepoProbeResult
+	if err := repoCall(c, state, control.RepoProbeCommand, control.RepoProbeArgs{URL: url}, &probe); err != nil {
+		return err
+	}
+	return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
+		{Name: "host", Value: probe.Host},
+		{Name: "port", Value: probe.Port},
+		{Name: "key_type", Value: probe.KeyType},
+		{Name: "public_key", Value: probe.PublicKey},
+		{Name: "fingerprint", Value: probe.Fingerprint},
+		{Name: "pinned", Value: probe.Pinned},
+	}})
 }
 
 func runRepoSet(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, url, dir, fingerprint, engine string, create bool) error {

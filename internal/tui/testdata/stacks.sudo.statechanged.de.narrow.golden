@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                    [?] Hilfe
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+        STACK                      VERSION  VERFÜGBAR  Z
+  ▾ [ ] ■ /srv/local-example (0)   lokal               …
+  ▾ [ ] ■ /srv/stacks-example (6)  Klon                …
+>   [ ] demo-stack                 1.4.2    1.5.0      …
+    [ ] mail-relay                 3.1      aktuell    …
+    [ ] old-tool                   -        ungeprüft  …
+    [ ] photo-album                2.0.1    Fehler     …
+    [ ] web-shop                   5.2.0,…  6.0.0 (M…  …
+    [ ] wiki                       1.41.0   ungeprüft  …
+                                                        
+                                                        
+                                                        
+                                                        
+  ╔═ Stack-Ordner hinzufügen ════════════════════════╗  
+  ║ Der Ordner /srv/repo-example hat sich seit der   ║  
+  ║ Anzeige geändert. Es wurde nichts geändert.      ║  
+  ║                                                  ║  
+  ║ Füge den Ordner erneut hinzu, um seinen          ║  
+  ║ aktuellen Stand zu sehen.                        ║  
+  ║                                                  ║  
+  ║ > schließen <                                    ║  
+  ║ n/esc/enter schließen                            ║  
+  ╚══════════════════════════════════════════════════╝  
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                     1/6

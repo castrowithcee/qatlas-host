@@ -520,14 +520,15 @@ func TestSourceAddAdoptCloneSetsPermissionsThenBinds(t *testing.T) {
 
 func TestSourceInspectWarnsWhenGitIsNotWritable(t *testing.T) {
 	useFolderHost(t)
+	tree := newPermTree(t)
 	startFakeService(t, fakeHandlers{control.SourceInspectCommand: inspectWith(localInspect(true))})
-	_, _, stderr := run(t, "source", "inspect", "/srv/demo")
+	_, _, stderr := run(t, "source", "inspect", tree.dir)
 	for _, want := range []string{"the service cannot write .git", "source add sets the group permissions", "sudo -u qhost-deploy git"} {
 		if !strings.Contains(stderr, want) {
 			t.Errorf("warning lacks %q: %q", want, stderr)
 		}
 	}
-	_, _, stderr = run(t, "source", "inspect", "/srv/demo", "--output", "json")
+	_, _, stderr = run(t, "source", "inspect", tree.dir, "--output", "json")
 	if stderr != "" {
 		t.Fatalf("structured output has a warning: %q", stderr)
 	}
