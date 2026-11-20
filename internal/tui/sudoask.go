@@ -146,7 +146,12 @@ func (m *Model) sudoProblem(out []byte, err error) string {
 		return t.Lookup(textSudoErrCommand, kittui.Escape(msg))
 	}
 	if noCredential(stderrLines(err)) {
-		return t.Lookup(textHostErrNoCredential)
+		// Without a terminal sudo -n holds no password. With one sudo asked itself, so the words mean that the
+		// prompt was given up.
+		if ranWithoutPrompt(err) {
+			return t.Lookup(textHostErrNoCredential)
+		}
+		return t.Lookup(textSudoErrAborted)
 	}
 	switch kind, exit := classifyRun(out, err); kind {
 	case failNoSudo:

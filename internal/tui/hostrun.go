@@ -111,10 +111,12 @@ func (m *Model) runHost(req HostRequest, after func(out []byte, err error) tea.C
 }
 
 // hostRunError is the error of a run: the failure, and what the command wrote to standard error with the
-// secrets taken out.
+// secrets taken out. noPrompt says the command ran without the terminal, as sudo -n does, so that sudo could not
+// ask for a password.
 type hostRunError struct {
-	err    error
-	stderr string
+	err      error
+	stderr   string
+	noPrompt bool
 }
 
 func (e *hostRunError) Error() string { return e.err.Error() }
@@ -174,7 +176,7 @@ func (m *Model) runHostBackground(cmd *exec.Cmd, secrets [][]byte, after func(ou
 	return func() tea.Msg {
 		err := run(cmd)
 		if err != nil {
-			err = &hostRunError{err: err, stderr: scrub(errOut.String(), secrets...)}
+			err = &hostRunError{err: err, stderr: scrub(errOut.String(), secrets...), noPrompt: true}
 		}
 		zeroAll(secrets...)
 		return hostRanMsg{after: after, out: out.Bytes(), err: err}
@@ -244,6 +246,12 @@ func classifyRun(out []byte, err error) (kind hostFailure, exit int) {
 // locale, so the words are those of sudo itself.
 func noCredential(stderr string) bool {
 	return strings.Contains(stderr, "a password is required") || strings.Contains(stderr, "a terminal is required")
+}
+
+// ranWithoutPrompt reports a run that had no terminal to ask for a password on.
+func ranWithoutPrompt(err error) bool {
+	var re *hostRunError
+	return errors.As(err, &re) && re.noPrompt
 }
 
 // stderrLines are the first lines of what a run wrote to standard error, cut to fit a dialog.

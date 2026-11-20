@@ -105,7 +105,7 @@ func TestContainerActionWithoutRootFailuresAreUnderstandable(t *testing.T) {
 		{name: "prompt cancelled", exit: "130", want: "The run was interrupted before qhost answered. If the password prompt was cancelled, nothing was changed."},
 		{name: "wrong password", exit: "1", stderr: "Sorry, try again.\nsudo: 3 incorrect password attempts",
 			want: "sudo did not run it: the password was wrong or this account may not use sudo. Nothing was changed."},
-		{name: "no held password", exit: "1", stderr: "sudo: a password is required", want: "sudo no longer holds your password"},
+		{name: "prompt interrupted", exit: "1", stderr: "sudo: a password is required", want: "The run was interrupted before qhost answered."},
 		{name: "command failed", exit: "1", stderr: "qhost: not-found: no such container\nList the containers with 'qhost container list'.",
 			want: "qhost reported: no such container"},
 		{name: "run active", exit: "1", stderr: "qhost: conflict: a run of stack demo-stack is active",
@@ -244,4 +244,33 @@ func TestGoldenContainerRestartWithoutRoot(t *testing.T) {
 
 func TestGoldenContainerStopWithoutRoot(t *testing.T) {
 	goldenContainerActionAs(t, 1000, "containers.stop.sudo", containersBackend, "demo-stack-app-1", "X")
+}
+
+// With the settings on standard input the run has two steps. The one without a prompt (sudo -n) that finds no held
+// password says so, while an interrupted prompt of the password check is an interruption.
+func TestSudoWithInputTellsHeldPasswordFromInterruptedPrompt(t *testing.T) {
+	const stderr = "sudo: a password is required\n"
+	t.Run("no prompt step", func(t *testing.T) {
+		m, f := sudoDetailModel(t, i18n.English, updateBackend(), wideWidth, 40)
+		f.stderr, f.runErr = stderr, exitCode(t, "1")
+		send(m, seq(toUpdateForm, keys("f2", "y"))...)
+		contains(t, m, "sudo no longer holds your password")
+		if strings.Contains(flat(m.render()), "was interrupted") {
+			t.Fatalf("the held password reads as an interruption:\n%s", m.render())
+		}
+	})
+	t.Run("password check", func(t *testing.T) {
+		m, f := sudoDetailModel(t, i18n.English, updateBackend(), wideWidth, 40)
+		abort := exitCode(t, "1")
+		m.root.exec = func(cmd *exec.Cmd, fn tea.ExecCallback) tea.Cmd {
+			f.execs = append(f.execs, cmd)
+			_, _ = cmd.Stderr.Write([]byte(stderr))
+			return func() tea.Msg { return fn(abort) }
+		}
+		send(m, seq(toUpdateForm, keys("f2", "y"))...)
+		contains(t, m, "The run was interrupted before qhost answered.")
+		if len(f.bgs) != 0 {
+			t.Fatalf("the command ran after the password check failed: %v", f.bgs)
+		}
+	})
 }
