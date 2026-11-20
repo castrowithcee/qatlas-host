@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+  [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Adresse des zu klonenden Repositorys                                                                                  
+                                                                                                                        
+          ╔════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+> SSH-URL ║ ssh://git.example.test/ops/stacks.git_                                                                     ║
+          ╚════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+          user@host:pfad oder ssh://[user@]host[:port]/pfad                                                             
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Stack-Ordner hinzufügen ════════════════════════════════════╗                            
+                            ║ ⚠ Den Hostschlüssel des Servers von                          ║                            
+                            ║   ssh://git.example.test/ops/stacks.git lesen?               ║                            
+                            ║                                                              ║                            
+                            ║ Dafür wird der Git-Server der Adresse angefragt, die Anfrage ║                            
+                            ║ verlässt also den Host. Es wird nichts gespeichert. Der      ║                            
+                            ║ Hostschlüssel wird danach zum Vergleichen und Bestätigen     ║                            
+                            ║ angezeigt.                                                   ║                            
+                            ║ $ sudo qhost repo probe --output json --                     ║                            
+                            ║   ssh://git.example.test/ops/stacks.git                      ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+[ F2 speichern ]  [ esc Verwerfen ]                                                                                     
+                                                                                                                        

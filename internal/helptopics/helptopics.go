@@ -180,7 +180,7 @@ Binding:
 - A folder that does not exist is created only after you confirmed its exact path: answer the question at a terminal, or pass --create without one. It gets the mode 0755 and the owner and group of the service account: qhost-deploy:qhost-deploy, or with --engine rootless:<user> that user. Neither the installer, the service nor an update creates a stack folder.
 - --engine <engine> names the Docker engine of the stack folder: system (the default) or rootless:<user> for a user whose deploy service instance is set up. That instance clones and deploys the folder (with its own deploy key and known hosts), and the drop-in below is the one of its unit qhost-deploy@<user>.service.d.
 - The service runs sandboxed and may write only where the systemd drop-in /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf allows it. repo set adds the folder there as ReadWritePaths=-<path> (entries are only ever added), reloads systemd and restarts the service once. A bound folder without that entry, as after an update from an older release, is added when you next run qhost as root.
-- The same steps are offered by sudo qhost in the Settings area.
+- The terminal interface offers the same steps in the Stacks area, also without sudo: there each step that needs root runs as sudo qhost after a question that shows the command.
 - qhost repo set is the short form of qhost source add for cloning into an empty or missing folder and for taking over an existing clone; source add also binds a repository without a remote (see qhost help sources).
 
 Afterwards:

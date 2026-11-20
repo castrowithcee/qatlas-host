@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed              [?] help
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+  ⚠ Take over the repository /srv/repo-example as a     
+    local stack folder?                                 
+                                                        
+  Yes makes the changes listed below.                   
+                                                        
+    folder: /srv/repo-example                           
+    case: local (a repository without a remote, deployed
+    as it is)                                           
+    owner: qhost, group: qhost, mode: 0755              
+    the service can write it: yes                       
+    permissions are set: no                             
+                                                        
+  Changes after yes                                     
+    The repository is taken over as a local stack       
+    folder.                                             
+    No permission changes: the service can write        
+    already.                                            
+    The folder is added to the systemd drop-in of the   
+    service, which restarts once.                       
+                                                        
+    $ sudo qhost source add --expect-effect             
+      sha256:example-effect-for-tests-only-0000000000000
+      000000000000000 --yes --output json --            
+      /srv/repo-example                                 
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+y yes, do it  n/esc/enter cancel              ↑/↓ scroll

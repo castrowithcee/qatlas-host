@@ -18,6 +18,16 @@ const (
 	textWhatKeyGenerate    kittui.TextID = "sudo.what.keygenerate"
 	textAskKeySet          kittui.TextID = "sudo.ask.keyset"
 	textWhatKeySet         kittui.TextID = "sudo.what.keyset"
+	textSudoRemoteGit      kittui.TextID = "sudo.remote.git"
+	textAskProbe           kittui.TextID = "sudo.ask.probe"
+	textWhatProbe          kittui.TextID = "sudo.what.probe"
+	textAskCompare         kittui.TextID = "sudo.ask.compare"
+	textWhatCompare        kittui.TextID = "sudo.what.compare"
+	textStateChangedFolder kittui.TextID = "sudo.statechanged.folder"
+	textStateChangedRemote kittui.TextID = "sudo.statechanged.remote"
+	textAgainAdd           kittui.TextID = "sudo.again.add"
+	textAgainAdopt         kittui.TextID = "sudo.again.adopt"
+	textAgainRemote        kittui.TextID = "sudo.again.remote"
 )
 
 func sudoEnglish() map[kittui.TextID]string {
@@ -35,6 +45,16 @@ func sudoEnglish() map[kittui.TextID]string {
 		textWhatKeyGenerate:    "A new Ed25519 key is created in the service. Its public part is shown afterwards and is entered in the git platform.",
 		textAskKeySet:          "Store the private key as the deploy key for %s?",
 		textWhatKeySet:         "The key is handed to the service on standard input and never shown. Its public part is shown afterwards and is entered in the git platform.",
+		textSudoRemoteGit:      "This asks the git server of the address, so the request leaves the host.",
+		textAskProbe:           "Read the host key of the server of %s?",
+		textWhatProbe:          "Nothing is stored. The host key is shown afterwards to compare and confirm.",
+		textAskCompare:         "Compare %s with the repository at %s?",
+		textWhatCompare:        "Nothing in the folder or the repository changes. Only the host key confirmed before is stored, and the comparison is shown afterwards.",
+		textStateChangedFolder: "The folder %s changed since it was shown. Nothing was changed.",
+		textStateChangedRemote: "The folder %s or its remote changed since it was shown. Nothing was changed.",
+		textAgainAdd:           "Add the folder again to see its current state.",
+		textAgainAdopt:         "Take over the project again to see its current state.",
+		textAgainRemote:        "Add the remote again to see the current comparison.",
 	}
 }
 
@@ -53,5 +73,15 @@ func sudoGerman() map[kittui.TextID]string {
 		textWhatKeyGenerate:    "Im Dienst entsteht ein neuer Ed25519-Schlüssel. Sein öffentlicher Teil wird danach angezeigt und in der Git-Plattform eingetragen.",
 		textAskKeySet:          "Den privaten Schlüssel als Deploy-Schlüssel für %s hinterlegen?",
 		textWhatKeySet:         "Der Schlüssel geht über die Standardeingabe an den Dienst und wird nie angezeigt. Sein öffentlicher Teil wird danach angezeigt und in der Git-Plattform eingetragen.",
+		textSudoRemoteGit:      "Dafür wird der Git-Server der Adresse angefragt, die Anfrage verlässt also den Host.",
+		textAskProbe:           "Den Hostschlüssel des Servers von %s lesen?",
+		textWhatProbe:          "Es wird nichts gespeichert. Der Hostschlüssel wird danach zum Vergleichen und Bestätigen angezeigt.",
+		textAskCompare:         "%s mit dem Repository unter %s vergleichen?",
+		textWhatCompare:        "Am Ordner und am Repository ändert sich nichts. Nur der zuvor bestätigte Hostschlüssel wird gespeichert, und der Vergleich wird danach angezeigt.",
+		textStateChangedFolder: "Der Ordner %s hat sich seit der Anzeige geändert. Es wurde nichts geändert.",
+		textStateChangedRemote: "Der Ordner %s oder sein Remote hat sich seit der Anzeige geändert. Es wurde nichts geändert.",
+		textAgainAdd:           "Füge den Ordner erneut hinzu, um seinen aktuellen Stand zu sehen.",
+		textAgainAdopt:         "Übernimm das Projekt erneut, um seinen aktuellen Stand zu sehen.",
+		textAgainRemote:        "Füge das Remote erneut hinzu, um den aktuellen Vergleich zu sehen.",
 	}
 }

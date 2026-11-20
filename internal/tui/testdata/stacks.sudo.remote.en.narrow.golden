@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed              [?] help
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+                                                        
+  The files differ. Yes adds one commit with the files  
+  of the host on top of the remote history and pushes   
+  it; the remote history is kept and never overwritten. 
+                                                        
+    folder: /srv/local-example                          
+    address: ssh://git.example.test/ops/local-          
+    example.git                                         
+    branch: main                                        
+    commit: 111111111111                                
+                                                        
+  Paths that differ (12)                                
+    demo/compose.yaml                                   
+    demo/.env                                           
+    wiki/compose.yaml                                   
+    wiki/data                                           
+    a                                                   
+    b                                                   
+    c                                                   
+    d                                                   
+    e                                                   
+    f                                                   
+    ... and 2 more                                      
+                                                        
+    fingerprint:                                        
+    SHA256:ExampleFingerprintForTestsOnly0000000000     
+    The public key of the deploy key needs write access 
+    to the repository.                                  
+    ssh-ed25519 AAAAexamplekey qhost                    
+                                                        
+    $ sudo qhost source remote --fingerprint            
+      SHA256:ExampleFingerprintForTestsOnly0000000000   
+      --expect-state different --expect-commit          
+      1111111111111111111111111111111111111111 --yes    
+      --output json -- /srv/local-example               
+      ssh://git.example.test/ops/local-example.git      
+y put and push  n/esc/enter cancel     ↑/↓ scroll  40/40

@@ -163,13 +163,16 @@ func (m *Model) beginAdopt(src foreignSource) tea.Cmd {
 	case m.busy() || m.settingsBusy():
 		m.warn(m.text.Lookup(textActionBusy))
 		return nil
-	case m.folders == nil:
+	case m.folders == nil && m.euid() == 0:
 		m.warn(m.text.Lookup(textFoldersNone))
 		return nil
 	}
 	if p, bad := adoptRejection(src, nil); bad {
 		m.askAdoptRejection(src, p, nil)
 		return nil
+	}
+	if m.euid() != 0 {
+		return m.inspectSudo(src.dir, &src)
 	}
 	ctx, host := m.ctx, m.folders
 	return m.writeCall(opInspect, src.dir, func(b Backend) (any, error) {
