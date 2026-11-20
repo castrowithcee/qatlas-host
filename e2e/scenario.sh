@@ -25,6 +25,8 @@
 # stacks, deploy a new commit, show the available image versions per update ceiling without changing anything,
 # roll back a commit with a failing healthcheck (data restored from the run's backup, revert commit on the
 # remote), leave a stack whose rollback fails stopped and paused until resume, and refuse a changed host key of the git server.
+# After the container and stack actions, the terminal interface without sudo asks for a deploy, a container restart and a change
+# of the maintenance window and runs each through the real sudo, which asks for the password; a Ctrl-C there changes nothing.
 # A second section takes over an installation of the earlier single binding as the first source and binds a second
 # repository: its own stack is deployed, a stack named like one of the first source is reported and never deployed.
 # Version updates with qhost stack update follow: qhost stack settings set commits and pushes the settings of a
@@ -2230,6 +2232,8 @@ scenario_stacks_repo() {
 
 	scenario_stack_actions
 
+	scenario_tui_sudo
+
 	scenario_repair_start
 
 	scenario_container_monitor
@@ -3451,6 +3455,144 @@ scenario_stack_actions() {
 	out=$(qd stack stop nope --yes) && fail "stack stop of an unknown stack succeeded: $out"
 	printf '%s' "$out" | grep -q 'no such stack' || fail "the refusal of an unknown stack is unclear: $out"
 	log 'scenario: stack stop, start and restart passed'
+}
+
+# scenario_tui_sudo proves the actions of the interface started without sudo that need no secret: the interface asks
+# with the exact command and hands the terminal to the real sudo, which asks for the password itself. The rule of
+# $admin lets sudo run a command without the password, so for this scenario it is put aside, and sudo keeps no
+# password between two commands (timestamp_timeout=0); the rule that asks is the one of the group sudo. A Ctrl-C at
+# the password prompt of a deploy changes nothing and the interface says so. Then a deploy of demo-cache, the
+# restart of a single container and a change of the maintenance window each run with the password typed in the
+# terminal, with the effect read from the service. The rule and the password are put back at the end.
+scenario_tui_sudo() {
+	tui_log=$work/tui-sudo-screens.log
+	: >"$tui_log"
+	sa_login=E2e-admin-Login-6612
+	sa_single=$prefix-single-sudo
+	image=registry.$domain/demo/app:1.0.0
+	printf '%s:%s\n' "$admin" "$sa_login" | docker exec -i "$host" chpasswd || fail "cannot give $admin a password"
+	docker exec "$host" sh -ec "mv /etc/sudoers.d/e2e-admin /etc/sudoers.d/e2e-admin.off &&
+		printf 'Defaults:%s timestamp_timeout=0\n' '$admin' >/etc/sudoers.d/e2e-ask && chmod 0440 /etc/sudoers.d/e2e-ask && visudo -c >/dev/null" ||
+		fail 'cannot put the sudo rule of the administrator aside'
+	if docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1; then fail "sudo runs a command of $admin without a password although the rule is put aside"; fi
+
+	step 'the interface without sudo asks for the deploy; a Ctrl-C at the password prompt of sudo changes nothing'
+	prev_run=$(newest_run demo-cache)
+	runs_before=$(stack_run_count demo-cache)
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_wait '[ ] demo-cache' 30
+	tui_send Home
+	tui_cursor_to demo-cache
+	tui_send d
+	tui_wait 'Deploy demo-cache?' 15
+	tui_has 'sudo qhost stack deploy' || fail "the question does not show the command: $(tui_screen)"
+	tui_excerpt 'Deploy demo-cache' 12
+	tui_send y
+	tui_wait "[sudo] password for $admin" 30
+	tui_send C-c
+	tui_wait 'deploy finished: 0 ok, 1 failed' 30
+	tui_screen | tr -s ' \n' '  ' | grep -qiE 'interrupted|did not run it' ||
+		fail "the interface does not say that sudo was interrupted: $(tui_screen)"
+	tui_has 'qhost-exit' && fail "the interface ended with the Ctrl-C at the password prompt: $(tui_screen)"
+	sleep 2
+	[ "$(newest_run demo-cache)" = "$prev_run" ] && [ "$(stack_run_count demo-cache)" = "$runs_before" ] && [ -z "$(stack_field demo-cache active_run)" ] ||
+		fail "the aborted deploy started a run of demo-cache: $(qd stack runs demo-cache)"
+	tui_send Escape
+	tui_wait 'CURRENT' 10
+	log 'scenario: a Ctrl-C at the password prompt started no run and the interface reported the interruption'
+
+	step 'the interface without sudo deploys demo-cache after the password is typed in the terminal'
+	tui_send d
+	tui_wait 'Deploy demo-cache?' 15
+	tui_send y
+	tui_wait "[sudo] password for $admin" 30
+	tui_type "$sa_login"
+	tui_send Enter
+	tui_wait 'deploy finished: 1 ok, 0 failed' 240
+	tui_send Escape
+	sa_run=$(next_run demo-cache "$prev_run") || fail 'the deploy through sudo started no run of demo-cache'
+	wait_for "the run $sa_run" 240 run_finished demo-cache "$sa_run"
+	qd stack log "$sa_run" | grep -q ' result succeeded' || fail "the run $sa_run did not succeed: $(qd stack log "$sa_run")"
+	stack_healthy demo-cache || fail 'demo-cache is not healthy after the deploy through sudo'
+	log "scenario: the interface deployed demo-cache through sudo, run $sa_run"
+
+	step 'the Containers area restarts a single container after the password is typed in the terminal'
+	docker exec "$host" docker rm -f "$sa_single" >/dev/null 2>&1 || true
+	docker exec "$host" docker run -d --name "$sa_single" --label "$label" "$image" >/dev/null ||
+		fail 'cannot start the single container for the restart'
+	wait_for 'the single container' 30 health_is "$sa_single" healthy
+	sa_started=$(docker exec "$host" docker inspect -f '{{.State.StartedAt}}' "$sa_single")
+	tui_send 5
+	tui_wait "5 $tui_icon_containers Containers" 10
+	tui_wait "$sa_single" 15
+	tui_send Home
+	i=0
+	until tui_screen | grep -q "^> .*$sa_single "; do
+		i=$((i + 1))
+		[ "$i" -lt 40 ] || fail "the cursor of the Containers area does not reach $sa_single: $(tui_screen)"
+		tui_send Down
+		sleep 0.2
+	done
+	tui_send Z
+	tui_wait "Restart container $sa_single" 15
+	tui_has 'sudo qhost container restart' || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	tui_wait "[sudo] password for $admin" 30
+	tui_type "$sa_login"
+	tui_send Enter
+	tui_wait 'restart finished: 1 ok, 0 failed' 60
+	tui_send Escape
+	[ "$(docker exec "$host" docker inspect -f '{{.State.StartedAt}}' "$sa_single")" != "$sa_started" ] ||
+		fail "the restart through sudo did not restart $sa_single"
+	[ "$(docker exec "$host" docker inspect -f '{{.State.Status}}' "$sa_single")" = running ] || fail "$sa_single does not run after the restart"
+	docker exec "$host" docker rm -f "$sa_single" >/dev/null 2>&1
+	log "scenario: the interface restarted $sa_single through sudo"
+
+	step 'Settings changes the maintenance window after the password is typed in the terminal'
+	sa_start=$(date -u -d '+11 hours' +%H:%M)
+	[ "$sa_start" != "$(window_field start)" ] || sa_start=$(date -u -d '+10 hours' +%H:%M)
+	tui_subtab 'Maintenance window'
+	tui_wait 'e edit' 10
+	tui_send e
+	tui_wait 'Change the maintenance window' 10
+	tui_clear
+	tui_type daily
+	tui_send Tab
+	tui_clear
+	tui_type "$sa_start"
+	tui_send Tab
+	tui_clear
+	tui_type 1m
+	tui_send Tab
+	tui_clear
+	tui_type UTC
+	tui_send F2
+	tui_wait 'Change the maintenance window?' 10
+	tui_has 'sudo qhost window set' || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	tui_wait "[sudo] password for $admin" 30
+	tui_type "$sa_login"
+	tui_send Enter
+	tui_wait 'The maintenance window is changed' 30
+	tui_send Enter
+	[ "$(window_field start)" = "$sa_start" ] || fail "the window was not set through sudo: $(qd --output json window show)"
+	tui_send Escape
+	tui_send q
+	tui_wait 'qhost-exit=0' 10
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	log "scenario: the interface set the maintenance window to $sa_start through sudo"
+
+	step 'the password shows on no captured screen; the rule of the administrator is put back'
+	[ "$(wc -l <"$tui_log")" -gt 40 ] || fail 'too few screens were captured to check'
+	if grep -qF -- "$sa_login" "$tui_log"; then fail 'the password typed for sudo shows on a captured screen'; fi
+	docker exec "$host" sh -ec 'rm -f /etc/sudoers.d/e2e-ask && mv /etc/sudoers.d/e2e-admin.off /etc/sudoers.d/e2e-admin && visudo -c >/dev/null' ||
+		fail 'cannot put the sudo rule of the administrator back'
+	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
+	docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1 || fail "sudo of $admin asks for a password again after the rule is put back"
+	window_far_away >/dev/null || fail 'cannot move the maintenance window out of the way again'
 }
 
 # has_finding succeeds when the stack shows the finding $2 in qhost status.
