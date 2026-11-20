@@ -824,6 +824,15 @@ const (
 	SourceExcludedNotRegular = "not-regular"
 	SourceExcludedUnreadable = "unreadable"
 	SourceExcludedNestedRepo = "nested-repo"
+	// SourceExcludedNotReferenced: no stack of the folder refers to it, so a deploy does not need it.
+	SourceExcludedNotReferenced = "not-referenced"
+	// SourceExcludedWritableFile: a file a stack mounts writable, which may hold data.
+	SourceExcludedWritableFile = "writable-file"
+	// SourceExcludedSecretsFile: a file a stack names as the file of a secret.
+	SourceExcludedSecretsFile = "secrets-file"
+	// SourceExcludedUnreadableStack: the stack the file belongs to cannot be read, so it brings no file; the
+	// finding of the stack says why and what to change.
+	SourceExcludedUnreadableStack = "unreadable-stack"
 )
 
 // SourceInspectArgs are the arguments of SourceInspectCommand. Path is the folder; URL is the SSH address of the
@@ -876,7 +885,8 @@ const SourceAddCommand = "source.add"
 
 // SourceAddArgs are the arguments of SourceAddCommand. Files is the list of planned files the operator confirmed
 // for a folder without a repository (SourceCaseFiles); only then does the service start a repository with
-// exactly these files, and only if the list still matches what the folder holds.
+// exactly these files, and only if the list still matches what the folder holds. With URL it is the plan of
+// SourceCompareResult, which includes the files the remote versions.
 //
 // URL, Fingerprint, ExpectState and ExpectCommit connect that folder to a repository at URL: they are the
 // address, the confirmed host key and the SourceCompareResult (State and Commit) the operator was shown. The
@@ -929,19 +939,26 @@ const (
 
 // SourceCompareResult answers SourceCompareCommand. Case is SourceCaseLocal or SourceCaseFiles. Branch is the
 // compared remote branch and Commit its commit, empty for SourceRemoteEmpty. Paths are the paths that differ,
-// a limited number of the PathCount that differ; they are data of the remote and the folder. PlannedFiles is
-// the file list of SourceCaseFiles that was compared. Secrets is set when a push would follow (a remote
-// without commit for a local source, a different remote) and holds the secret check of what that push would
-// publish.
+// a limited number of the PathCount that differ; they are data of the remote and the folder. Secrets is set
+// when a push would follow (a remote without commit for a local source, a different remote) and holds the
+// secret check of what that push would publish.
+//
+// For SourceCaseFiles, PlannedFiles and Excluded are the plan that was compared, made as for
+// SourceInspectResult with the remote commit taken into account: a file of the folder that the remote commit
+// versions and that would only be left out as SourceExcludedNotReferenced is planned, so joining the remote
+// removes nothing it versions. RemoteFiles lists those planned files. This plan is what SourceAddArgs.Files
+// confirms when the folder joins the remote.
 type SourceCompareResult struct {
-	Case         string         `json:"case"`
-	State        string         `json:"state"`
-	Branch       string         `json:"branch"`
-	Commit       string         `json:"commit,omitempty"`
-	Paths        []string       `json:"paths,omitempty"`
-	PathCount    int            `json:"path_count"`
-	PlannedFiles []string       `json:"planned_files,omitempty"`
-	Secrets      *SourceSecrets `json:"secrets,omitempty"`
+	Case         string           `json:"case"`
+	State        string           `json:"state"`
+	Branch       string           `json:"branch"`
+	Commit       string           `json:"commit,omitempty"`
+	Paths        []string         `json:"paths,omitempty"`
+	PathCount    int              `json:"path_count"`
+	PlannedFiles []string         `json:"planned_files,omitempty"`
+	Excluded     []SourceExcluded `json:"excluded,omitempty"`
+	RemoteFiles  []string         `json:"remote_files,omitempty"`
+	Secrets      *SourceSecrets   `json:"secrets,omitempty"`
 }
 
 // The kinds SourceSecretFinding.Kind takes.
@@ -1038,7 +1055,8 @@ type SourceAccess struct {
 }
 
 // SourceExcluded is a file or folder, as a path below the folder, that the first commit would leave out. Reason is
-// one of the SourceExcluded constants; Stack names the stack whose bind mount it is.
+// one of the SourceExcluded constants; Stack names the stack the reason concerns: the one whose bind mount,
+// secret or unreadable files it is.
 type SourceExcluded struct {
 	Path   string `json:"path"`
 	Reason string `json:"reason"`
@@ -1062,6 +1080,9 @@ type SourceStack struct {
 	Project      string   `json:"project,omitempty"`
 	ComposeFiles []string `json:"compose_files,omitempty"`
 	EnvFiles     []string `json:"env_files,omitempty"`
+	// Unresolved lists the references of the compose files whose path uses a variable without a value in
+	// .env, so the first commit cannot tell whether it needs the file. It names the variable, never a value.
+	Unresolved []string `json:"unresolved_references,omitempty"`
 }
 
 // EngineSystem names the container engine of the deploy service in SourceConflict.Engine. A rootless engine

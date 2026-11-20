@@ -463,15 +463,15 @@ func TestSourceAddFilesCreatesNothingWhenTheListChangedOrIsMissing(t *testing.T)
 	}
 	noGit(t, h, dir)
 
-	writeTree(t, dir, map[string]string{"web/new.txt": "x"})
+	writeTree(t, dir, map[string]string{".gitattributes": "x"})
 	_, err = h.sourceAddFiles(dir, shown)
 	wantCode(t, err, control.CodeInvalid)
-	if !strings.Contains(err.Error(), `1 added: "web/new.txt"`) || strings.Contains(err.Error(), "removed") {
+	if !strings.Contains(err.Error(), `1 added: ".gitattributes"`) || strings.Contains(err.Error(), "removed") {
 		t.Fatalf("err = %v", err)
 	}
 	noGit(t, h, dir)
 
-	if err := os.Remove(filepath.Join(dir, "web/new.txt")); err != nil {
+	if err := os.Remove(filepath.Join(dir, ".gitattributes")); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove(filepath.Join(dir, "web/.env")); err != nil {

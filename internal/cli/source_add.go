@@ -28,13 +28,18 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			"with --yes. It never overwrites silently. A folder that is missing or empty is cloned from --url like\n" +
 			"'repo set' (and created with owner qhost-deploy:qhost-deploy and mode 0755 when missing); a clone with an origin\n" +
 			"remote is taken over with that address; a repository without a remote is bound as a local source; a\n" +
-			"folder with files and no repository gets a repository with a first commit of the listed files (branch\n" +
-			"main, as qhost, files left out only in .git/info/exclude, no file written) and is bound as a local\n" +
+			"folder with files and no repository gets a repository with a first commit of the files its stacks refer\n" +
+			"to (compose files, .env, env_file, configs, build contexts, include and extends, read-only mounts; also\n" +
+			".gitignore, .gitattributes and the stack settings), branch main, as qhost; everything else is left out\n" +
+			"with its reason, only in .git/info/exclude, no file written, and the folder is bound as a local\n" +
 			"source. With --url, a folder of files is instead compared with the repository at that address, which\n" +
-			"must hold commits: add shows how they relate like 'source remote' does, stops at secret-like files in\n" +
-			"what a push would publish, and after you confirm starts the repository on the history of the remote\n" +
-			"(the state of the host becomes one commit and is pushed when the files differ) and binds it as a\n" +
-			"remote source. If the list changed since it was shown, add stops before it changes anything.\n" +
+			"must hold commits: a file of the folder that the remote versions is also taken when no stack refers to\n" +
+			"it, marked as versioned in the remote, so joining removes nothing the remote has (a file left out for\n" +
+			"another reason, such as a writable mount, a secrets file, data or an unreadable stack, stays out); add\n" +
+			"shows how they relate like 'source remote' does, stops at secret-like files in what a push would\n" +
+			"publish, and after you confirm starts the repository on the history of the remote (the state of the\n" +
+			"host becomes one commit and is pushed when the files differ) and binds it as a remote source. If the\n" +
+			"list changed since it was shown, add stops before it changes anything.\n" +
 			"A folder that is rejected is refused and nothing changes.\n" +
 			"Like 'source inspect', add checks the Docker engine of the service and the rootless engines of the\n" +
 			"users for containers of the stack folders and names each conflict with its engine, and the engines it\n" +
@@ -137,6 +142,8 @@ func prepareSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 		if remote, err = compareFiles(c, state, notice, path, url, fingerprint); err != nil {
 			return nil, err
 		}
+		// The folder joins the remote with the plan of the comparison, which keeps what the remote versions.
+		res = remote.plan(res)
 	}
 
 	perms, err := planAccess(c.Context(), res)
@@ -236,7 +243,16 @@ func executeSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 func executeSourceFiles(c *cobra.Command, program *cobracli.Program, state *notRunning, shown control.SourceInspectResult,
 	plan *permPlan, remote *filesRemote) error {
 	path, notice := shown.Path, c.ErrOrStderr()
-	now, err := inspectSource(c, state, path, remote.url())
+	var now control.SourceInspectResult
+	var err error
+	if remote != nil {
+		var cmp control.SourceCompareResult
+		if cmp, err = compareRemote(c, state, path, remote.address, remote.fingerprint); err == nil {
+			now = (&filesRemote{cmp: cmp}).plan(control.SourceInspectResult{Case: cmp.Case})
+		}
+	} else {
+		now, err = inspectSource(c, state, path, "")
+	}
 	if err != nil {
 		return err
 	}
@@ -293,12 +309,11 @@ type filesRemote struct {
 	cmp                  control.SourceCompareResult
 }
 
-// url is the address to look at the folder with; a nil remote has none.
-func (r *filesRemote) url() string {
-	if r == nil {
-		return ""
-	}
-	return r.address
+// plan is res with the plan of the comparison: the files the folder joins the remote with, including those only
+// the remote versions, and what is left out.
+func (r *filesRemote) plan(res control.SourceInspectResult) control.SourceInspectResult {
+	res.PlannedFiles, res.Excluded = r.cmp.PlannedFiles, r.cmp.Excluded
+	return res
 }
 
 // compareFiles confirms the host key, compares the folder of files with the remote and shows the result. It
@@ -471,7 +486,7 @@ func filesPreview(res control.SourceInspectResult) []string {
 		fmt.Sprintf("Start a git repository in %s (branch main, core.sharedRepository=group) and bind it as a local source.", res.Path),
 		"The first commit is made as " + commitAuthor + "; no file in the folder is written.",
 	}
-	return append(lines, fileListLines(res, "The first commit takes")...)
+	return append(lines, fileListLines(res, "The first commit takes", nil)...)
 }
 
 // filesRemotePreview describes the repository a folder of files gets on the history of a remote.
@@ -487,23 +502,39 @@ func filesRemotePreview(res control.SourceInspectResult, remote *filesRemote) []
 		lines = append(lines, "The files equal the remote: no commit is made and nothing is pushed.")
 	}
 	lines = append(lines, "No file in the folder is written.")
-	return append(lines, fileListLines(res, "The repository takes")...)
+	return append(lines, fileListLines(res, "The repository takes", remote.cmp.RemoteFiles)...)
 }
 
-// fileListLines lists the files of the repository and what is left out with the reason.
-func fileListLines(res control.SourceInspectResult, takes string) []string {
+// remoteMark follows a listed file that is taken only because the remote versions it.
+const remoteMark = " (versioned in the remote)"
+
+// fileListLines lists the files of the repository and what is left out with the reason. remote are the listed
+// files that no stack refers to and that are taken because the remote versions them.
+func fileListLines(res control.SourceInspectResult, takes string, remote []string) []string {
 	lines := []string{fmt.Sprintf("%s %d files:", takes, len(res.PlannedFiles))}
+	if len(remote) > 0 {
+		lines[0] = fmt.Sprintf("%s %d files, %d of them only because the remote versions them:", takes, len(res.PlannedFiles), len(remote))
+	}
+	byRemote := make(map[string]bool, len(remote))
+	for _, f := range remote {
+		byRemote[f] = true
+	}
 	for i, f := range res.PlannedFiles {
 		if i == listLimit {
 			lines = append(lines, fmt.Sprintf("  ... and %d more", len(res.PlannedFiles)-listLimit))
 			break
 		}
-		lines = append(lines, "  "+f)
+		line := "  " + f
+		if byRemote[f] {
+			line += remoteMark
+		}
+		lines = append(lines, line)
 	}
+	lines = append(lines, unresolvedLines(res)...)
 	if len(res.Excluded) == 0 {
 		return append(lines, "Nothing is left out.")
 	}
-	lines = append(lines, fmt.Sprintf("Left out (%d), recorded only in .git/info/exclude, never in .gitignore:", len(res.Excluded)))
+	lines = append(lines, fmt.Sprintf("Left out (%d), not needed by the stacks, recorded only in .git/info/exclude, never in .gitignore:", len(res.Excluded)))
 	for i, e := range res.Excluded {
 		if i == listLimit {
 			lines = append(lines, fmt.Sprintf("  ... and %d more", len(res.Excluded)-listLimit))
@@ -514,6 +545,18 @@ func fileListLines(res control.SourceInspectResult, takes string) []string {
 			line += " (stack " + e.Stack + ")"
 		}
 		lines = append(lines, line)
+	}
+	return lines
+}
+
+// unresolvedLines names the references of the stacks whose path the service could not resolve, so the operator
+// knows the list may miss a file.
+func unresolvedLines(res control.SourceInspectResult) []string {
+	var lines []string
+	for _, st := range res.Stacks {
+		for _, u := range st.Unresolved {
+			lines = append(lines, fmt.Sprintf("Not resolvable in stack %s, so the file it names is not listed: %s", st.Name, u))
+		}
 	}
 	return lines
 }

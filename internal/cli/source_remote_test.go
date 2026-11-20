@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
@@ -73,9 +74,16 @@ func (r *remoteFake) untouched() bool {
 	return len(r.remoted) == 0 && len(r.added) == 0
 }
 
+// differentCompare is a remote that differs; for a folder of files it carries the plan of listedFilesInspect, as
+// the service compares the plan.
 func differentCompare(kase string) control.SourceCompareResult {
-	return control.SourceCompareResult{Case: kase, State: control.SourceRemoteDifferent, Branch: "main", Commit: remoteCommit,
+	res := control.SourceCompareResult{Case: kase, State: control.SourceRemoteDifferent, Branch: "main", Commit: remoteCommit,
 		Paths: []string{".env", "web/compose.yaml"}, PathCount: 2}
+	if kase == control.SourceCaseFiles {
+		plan := listedFilesInspect()
+		res.PlannedFiles, res.Excluded = plan.PlannedFiles, plan.Excluded
+	}
+	return res
 }
 
 func secretCompare(kase string) control.SourceCompareResult {
@@ -313,6 +321,68 @@ func TestSourceAddFilesWithURLYesPassesTheShownState(t *testing.T) {
 	}
 	if !strings.Contains(d.dropIn(t), tree.dir) || len(d.lchowns) == 0 {
 		t.Fatalf("drop-in %q, chowns %d", d.dropIn(t), len(d.lchowns))
+	}
+}
+
+func TestSourceAddFilesWithURLTakesThePlanOfTheComparisonAndMarksWhatTheRemoteVersions(t *testing.T) {
+	useFolderHost(t)
+	tree := newFilesTree(t)
+	cmp := differentCompare(control.SourceCaseFiles)
+	cmp.State, cmp.Paths, cmp.PathCount = control.SourceRemoteEqual, nil, 0
+	cmp.PlannedFiles = []string{".env", "README.md", "compose.yaml", "conf/app.yaml"}
+	cmp.RemoteFiles = []string{"README.md"}
+	cmp.Excluded = listedFilesInspect().Excluded[:3]
+	fake := &remoteFake{compare: cmp}
+	startFakeService(t, fake.handlers(listedFilesInspect()))
+	useStdin(t, strings.NewReader(""))
+
+	code, _, stderr := run(t, "source", "add", tree.dir, "--url", remoteURL, "--fingerprint", remoteKeyPrint)
+	if code != 2 || !strings.Contains(stderr, "confirmation-required") {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	for _, want := range []string{"takes 4 files, 1 of them only because the remote versions them", "  README.md (versioned in the remote)",
+		"  compose.yaml\n", "Left out (3)"} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("preview lacks %q:\n%s", want, stderr)
+		}
+	}
+	if strings.Contains(stderr, "notes.txt") || !fake.untouched() {
+		t.Fatalf("the preview is not the plan of the comparison, or something changed:\n%s", stderr)
+	}
+
+	code, _, stderr = run(t, "source", "add", tree.dir, "--url", remoteURL, "--fingerprint", remoteKeyPrint, "--yes")
+	if code != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if len(fake.added) != 1 || strings.Join(fake.added[0].Files, ",") != ".env,README.md,compose.yaml,conf/app.yaml" {
+		t.Fatalf("source.add args %+v", fake.added)
+	}
+}
+
+func TestSourceAddFilesWithURLStopsWhenThePlanOfTheComparisonChanged(t *testing.T) {
+	d := useFolderHost(t)
+	tree := newFilesTree(t)
+	var asked atomic.Int32
+	fake := &remoteFake{}
+	handlers := fake.handlers(listedFilesInspect())
+	handlers[control.SourceCompareCommand] = func(json.RawMessage) any {
+		res := differentCompare(control.SourceCaseFiles)
+		if asked.Add(1) > 1 {
+			res.PlannedFiles = append(res.PlannedFiles, "README.md")
+			res.RemoteFiles = []string{"README.md"}
+		}
+		return res
+	}
+	startFakeService(t, handlers)
+	useStdin(t, strings.NewReader(""))
+	before := tree.snapshot(t)
+
+	code, _, stderr := run(t, "source", "add", tree.dir, "--url", remoteURL, "--fingerprint", remoteKeyPrint, "--yes")
+	if code == 0 || !strings.Contains(stderr, "new in files: README.md") || !strings.Contains(stderr, "nothing was changed") {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if !fake.untouched() || !equalModes(before, tree.snapshot(t)) || len(d.lchowns) != 0 || d.dropIn(t) != "" {
+		t.Fatal("a changed plan did not stop before the change")
 	}
 }
 

@@ -541,7 +541,16 @@ func applyFolder(ctx context.Context, b Backend, host Folders, flow *addFlow) (a
 	path := flow.res.Path
 	res := flow.res
 	if res.Case == control.SourceCaseFiles {
-		now, err := b.SourceInspect(ctx, path, "")
+		// A folder that joins a remote is looked at again by comparing, since its plan keeps what the remote versions.
+		var now control.SourceInspectResult
+		var err error
+		if flow.cmp != nil {
+			var cmp control.SourceCompareResult
+			cmp, err = b.SourceCompare(ctx, control.SourceCompareArgs{Path: path, URL: flow.url, Fingerprint: flow.probe.Fingerprint})
+			now = withComparison(control.SourceInspectResult{Case: cmp.Case}, cmp)
+		} else {
+			now, err = b.SourceInspect(ctx, path, "")
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -696,6 +705,9 @@ func (m *Model) stackLines(res control.SourceInspectResult, width int) []string 
 				style = kittui.StyleFail
 			}
 			lines = append(lines, text(detailIndent+2, style, t.Lookup(textStackFinding, f.Severity, f.Rule, f.Cause))...)
+		}
+		for _, u := range st.Unresolved {
+			lines = append(lines, text(detailIndent+2, kittui.StyleWarn, t.Lookup(textStackUnresolved, u))...)
 		}
 		for _, c := range st.Conflicts {
 			lines = append(lines, text(detailIndent+2, kittui.StyleWarn, t.Lookup(textStackConflict, c.Container, c.Project, engineName(c.Engine)))...)

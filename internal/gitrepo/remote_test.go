@@ -190,11 +190,11 @@ func TestCompareFolderOfFilesWithoutGit(t *testing.T) {
 		"web/secrets.env": "DEMO_TOKEN=not-a-real-secret\n", ".gitattributes": "* text eol=crlf\n"})
 	files := []string{"README.md", "db/compose.yaml", "web/compose.yaml"}
 	before := snapshot(t, dir)
-	got, err := CompareFolder(ctx, cfg, dir, remote.bare, files)
+	got, err := CompareFolder(ctx, cfg, dir, remote.bare, fixedPlan(files))
 	if err != nil || got.State != RemoteEqual || got.Branch != "main" || got.Commit != remoteHead {
 		t.Fatalf("equal: %+v, %v", got, err)
 	}
-	got, err = CompareFolder(ctx, cfg, dir, remote.bare, []string{"README.md", "web/compose.yaml", "web/secrets.env"})
+	got, err = CompareFolder(ctx, cfg, dir, remote.bare, fixedPlan([]string{"README.md", "web/compose.yaml", "web/secrets.env"}))
 	want := Comparison{State: RemoteDifferent, Branch: "main", Commit: remoteHead,
 		Paths: []string{"db/compose.yaml", "web/secrets.env"}, PathCount: 2}
 	// The secrets file is what a push would publish, and only that: the place, never the value.
@@ -214,10 +214,10 @@ func TestCompareFolderOfFilesWithoutGit(t *testing.T) {
 	// The default branch of the remote counts, "main" only if it names none.
 	master := emptyBare(t, "master")
 	fixtureGit(t, remote.work, "push", "-q", master, "main:master")
-	if got, err := CompareFolder(ctx, cfg, dir, master, files); err != nil || got.State != RemoteEqual || got.Branch != "master" {
+	if got, err := CompareFolder(ctx, cfg, dir, master, fixedPlan(files)); err != nil || got.State != RemoteEqual || got.Branch != "master" {
 		t.Fatalf("master: %+v, %v", got, err)
 	}
-	if got, err := CompareFolder(ctx, cfg, dir, emptyBare(t, "trunk"), files); err != nil || got.State != RemoteEmpty || got.Branch != "main" {
+	if got, err := CompareFolder(ctx, cfg, dir, emptyBare(t, "trunk"), fixedPlan(files)); err != nil || got.State != RemoteEmpty || got.Branch != "main" {
 		t.Fatalf("empty: %+v, %v", got, err)
 	}
 	wantSame(t, "folder", before, snapshot(t, dir))
@@ -232,10 +232,57 @@ func TestCompareFolderOfFilesWithoutGit(t *testing.T) {
 		"outside":   {dir, []string{"../x"}},
 		"has a git": {func() string { d := folder(map[string]string{"a": "1"}); fixtureGit(t, d, "init", "-q"); return d }(), []string{"a"}},
 	} {
-		if _, err := CompareFolder(ctx, cfg, c.dir, remote.bare, c.files); err == nil {
+		if _, err := CompareFolder(ctx, cfg, c.dir, remote.bare, fixedPlan(c.files)); err == nil {
 			t.Errorf("%s: no error", name)
 		}
 	}
+}
+
+// fixedPlan chooses the same files whatever the remote versions.
+func fixedPlan(files []string) FolderPlan {
+	return func([]string) ([]string, error) { return files, nil }
+}
+
+func TestCompareFolderPlansWithTheFilesOfTheRemote(t *testing.T) {
+	ctx := context.Background()
+	remote := newRemote(t)
+	dir := filepath.Join(t.TempDir(), "stacks")
+	writeTree(t, dir, map[string]string{"README.md": "x\n", "web/compose.yaml": "a\n", "db/compose.yaml": "a\n", "notes.txt": "n\n"})
+	cfg := testConfig(t)
+
+	// The plan is given what the remote versions and takes those of the folder's candidates.
+	var seen [][]string
+	plan := func(remote []string) ([]string, error) {
+		seen = append(seen, slices.Clone(remote))
+		var out []string
+		for _, f := range []string{"README.md", "db/compose.yaml", "notes.txt", "web/compose.yaml"} {
+			if f == "web/compose.yaml" || slices.Contains(remote, f) {
+				out = append(out, f)
+			}
+		}
+		return out, nil
+	}
+	got, err := CompareFolder(ctx, cfg, dir, remote.bare, plan)
+	if err != nil || got.State != RemoteEqual {
+		t.Fatalf("equal with the files of the remote: %+v, %v", got, err)
+	}
+	if want := [][]string{{"README.md", "db/compose.yaml", "web/compose.yaml"}}; fmt.Sprint(seen) != fmt.Sprint(want) {
+		t.Fatalf("the plan was given %q; want %q", seen, want)
+	}
+
+	// A remote without commit versions nothing; the plan is still asked, and its error comes back as it is.
+	seen = nil
+	if got, err := CompareFolder(ctx, cfg, dir, emptyBare(t, "main"), plan); err != nil || got.State != RemoteEmpty || len(seen) != 1 || seen[0] != nil {
+		t.Fatalf("empty: %+v, %v, plan given %q", got, err, seen)
+	}
+	refused := errors.New("refused by the plan")
+	if _, err := CompareFolder(ctx, cfg, dir, remote.bare, func([]string) ([]string, error) { return nil, refused }); !errors.Is(err, refused) {
+		t.Fatalf("the error of the plan is not returned: %v", err)
+	}
+	if _, err := CompareFolder(ctx, cfg, dir, remote.bare, nil); err == nil {
+		t.Fatal("compared without a plan")
+	}
+	wantNoTempLeft(t)
 }
 
 func TestAddRemoteFetchBranchAndLocalHistory(t *testing.T) {

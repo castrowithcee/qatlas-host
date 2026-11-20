@@ -67,8 +67,11 @@ type Stack struct {
 	// ComposeFiles are the compose files in merge order, relative to Dir.
 	ComposeFiles []string
 	// BindMounts are the sorted host paths, relative to Dir, that a service of the compose files mounts as a bind
-	// mount and that lie below Dir. A source with a variable, one outside Dir and Dir itself are left out.
+	// mount and that lie below Dir. A source with a variable that has no value in .env, one outside Dir and Dir itself
+	// are left out.
 	BindMounts []string
+	// Refs are the files and folders of the working copy that the compose files refer to; see Refs.
+	Refs Refs
 	// Volumes are the sorted names of the named volumes of the compose files: the top-level volumes and the
 	// volume sources of the services that are no paths. Names are as written; Compose prefixes the project.
 	Volumes []string
@@ -307,7 +310,8 @@ func loadStack(root, folder string, settingsOf func(name string) (*Rules, error)
 		return s, false
 	}
 	s.ComposeFiles = files
-	s.BindMounts = readBindMounts(dir, files)
+	s.BindMounts = readBindMounts(dir, files, env)
+	s.Refs = readRefs(root, folder, files, env)
 	s.Volumes = readVolumes(dir, files)
 
 	if s.EnvErr == nil {

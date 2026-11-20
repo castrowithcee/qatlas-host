@@ -451,6 +451,12 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 	case control.SourceCompareResult:
 		m.showComparison(res)
 		return nil
+	case compared:
+		if s.add != nil {
+			s.add.res, s.add.plan = res.res, res.plan
+		}
+		m.showComparison(res.cmp)
+		return nil
 	case control.SourceRemoteResult:
 		s.add = nil
 		details := []string{t.Lookup(textDetailState, res.State), t.Lookup(textDetailBranch, res.Branch), t.Lookup(textDetailHead, short(res.Head)),

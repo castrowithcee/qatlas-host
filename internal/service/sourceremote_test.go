@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -513,7 +514,8 @@ func (r *remoteTest) filesFolder(t *testing.T) (string, []string) {
 	t.Helper()
 	dir := filepath.Join(tempBase(t), "files")
 	writeTree(t, dir, map[string]string{
-		"web/compose.yaml": webCompose, "web/.env": "WEB_VERSION=1.2.3\n", "web/secrets.env": "DEMO_TOKEN=" + secretValue + "\n"})
+		"web/compose.yaml": webCompose + "    env_file: secrets.env\n", "web/.env": "WEB_VERSION=1.2.3\n",
+		"web/secrets.env": "DEMO_TOKEN=" + secretValue + "\n"})
 	shown := r.inspect(dir, r.url)
 	if shown.Case != control.SourceCaseFiles || shown.URL != r.url || len(shown.PlannedFiles) != 3 {
 		t.Fatalf("inspect = %+v", shown)
@@ -573,6 +575,75 @@ func TestSourceCompareOfAFolderOfFilesAndTheInspectOfAnAddress(t *testing.T) {
 	// A repository that is no source yet is compared after it is bound.
 	err := r.call(control.SourceCompareCommand, control.SourceCompareArgs{Path: local, URL: r.url, Fingerprint: r.fp()}, &res)
 	wantCode(t, err, control.CodeInvalid)
+}
+
+func TestSourceCompareAndAddWithAnAddressKeepWhatTheRemoteVersions(t *testing.T) {
+	notRoot(t)
+	r := newRemoteTest(t, true)
+	dir := filepath.Join(tempBase(t), "files")
+	writeTree(t, dir, map[string]string{
+		"web/compose.yaml": webCompose, "web/.env": "WEB_VERSION=1.2.3\n", "web/compose.yaml.bak": webCompose,
+		"README.md": "x", "docs/guide.md": "x", "docs/locked.md": "x", "notes.txt": "x",
+		"locked/compose.yaml": webCompose, "locked/.env": "WEB_VERSION=1.2.3\n",
+	})
+	for _, f := range []string{"docs/locked.md", "locked/.env"} {
+		if err := os.Chmod(filepath.Join(dir, f), 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	strict := r.inspect(dir, r.url)
+	if want := []string{"web/.env", "web/compose.yaml"}; strict.Case != control.SourceCaseFiles || !slices.Equal(strict.PlannedFiles, want) {
+		t.Fatalf("inspect = %+v", strict)
+	}
+
+	// The remote versions files no stack refers to; those in the folder that can be read are planned and named. A
+	// file the remote lacks stays not referenced, and neither a file the service cannot read nor one of a stack
+	// that cannot be read is taken because the remote has it.
+	r.git.Configure(func(g *servicetest.Git) {
+		g.RemoteFiles = []string{"README.md", "docs/guide.md", "docs/locked.md", "gone.txt", "locked/compose.yaml", "web/.env", "web/compose.yaml"}
+	})
+	r.cmp(gitrepo.Comparison{State: gitrepo.RemoteEqual, Branch: "main", Commit: remoteTip}, gitrepo.Scan{})
+	var res control.SourceCompareResult
+	if err := r.call(control.SourceCompareCommand, control.SourceCompareArgs{Path: dir, URL: r.url, Fingerprint: r.fp()}, &res); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"README.md", "docs/guide.md", "web/.env", "web/compose.yaml"}; !slices.Equal(res.PlannedFiles, want) {
+		t.Fatalf("planned = %q, want %q", res.PlannedFiles, want)
+	}
+	if want := []string{"README.md", "docs/guide.md"}; !slices.Equal(res.RemoteFiles, want) {
+		t.Fatalf("versioned in the remote = %q, want %q", res.RemoteFiles, want)
+	}
+	got := excludedReasons(control.SourceInspectResult{Excluded: res.Excluded})
+	want := map[string]string{
+		"docs/locked.md": control.SourceExcludedUnreadable, "locked": control.SourceExcludedUnreadableStack,
+		"notes.txt": control.SourceExcludedNotReferenced, "web/compose.yaml.bak": control.SourceExcludedNotReferenced,
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("excluded = %v, want %v", got, want)
+	}
+	if ops := r.git.Ops(); !slices.Equal(ops, []string{"compare-folder " + r.url + " 4"}) {
+		t.Fatalf("steps = %q", ops)
+	}
+
+	// The list inspect shows without the remote is no longer what the folder joins with, and creates nothing.
+	_, err := r.addRemote(dir, strict.PlannedFiles, r.fp(), "equal", remoteTip)
+	wantCode(t, err, control.CodeInvalid)
+	if !strings.Contains(err.Error(), "README.md") || !strings.Contains(err.Error(), "nothing was created") {
+		t.Fatalf("message = %v", err)
+	}
+	r.noGit(t, dir)
+
+	// The plan with the files of the remote is accepted and taken as it is.
+	added, err := r.addRemote(dir, res.PlannedFiles, r.fp(), "equal", remoteTip)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if added.Kind != control.SourceKindRemote || added.Files != 4 || added.Pushed {
+		t.Fatalf("add = %+v", added)
+	}
+	if ops := r.git.Ops(); ops[len(ops)-1] != "init-from-remote "+r.url+" main "+remoteTip+" 4" {
+		t.Fatalf("steps = %q", ops)
+	}
 }
 
 func TestSourceAddWithAnAddressCreatesNothingWhenTheAnswerChangedOrIsRefused(t *testing.T) {

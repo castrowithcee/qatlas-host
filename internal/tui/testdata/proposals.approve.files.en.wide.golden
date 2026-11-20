@@ -18,14 +18,16 @@
     demo/.env                                                                                                           
     demo/compose.yaml                                                                                                   
                                                                                                                         
-  Left out (1), recorded only in .git/info/exclude                                                                      
+  Left out (2), not needed by the stacks, recorded only in .git/info/exclude                                            
     demo/data: bind-mount (stack demo)                                                                                  
+    demo/notes.txt: not-referenced                                                                                      
                                                                                                                         
   Stacks (1)                                                                                                            
     demo (folder demo)                                                                                                  
       works: deploy                                                                                                     
       does not work: backup                                                                                             
       warning secrets-env-not-ignored: secrets.env is not listed in .gitignore                                          
+      not resolvable: env_file "${CONF_DIR}/app.env": variable CONF_DIR has no value in .env                            
       conflict: the container demo-app-1 of the project old-demo runs in the folder, in the engine system               
                                                                                                                         
   Changes after yes                                                                                                     
@@ -33,8 +35,6 @@
     is written. It is taken over as a local stack folder.                                                               
     3 paths get the group of the service account with group write; the owner stays                                      
     The folder is added to the systemd drop-in of the service, which restarts once.                                     
-                                                                                                                        
-                                                                                                                        
                                                                                                                         
                                                                                                                         
 y yes, do it  w with a remote  n/esc/enter cancel                                                             ↑/↓ scroll

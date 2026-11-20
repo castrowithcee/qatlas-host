@@ -62,7 +62,7 @@ type Git interface {
 	Clone(ctx context.Context, cfg gitrepo.Config, url, dir string) (WorkingCopy, error)
 	Open(cfg gitrepo.Config, dir string) (WorkingCopy, error)
 	// CompareFolder and InitFromRemote work on a folder without a repository; see internal/gitrepo.
-	CompareFolder(ctx context.Context, cfg gitrepo.Config, dir, url string, files []string) (gitrepo.Comparison, error)
+	CompareFolder(ctx context.Context, cfg gitrepo.Config, dir, url string, plan gitrepo.FolderPlan) (gitrepo.Comparison, error)
 	InitFromRemote(ctx context.Context, cfg gitrepo.Config, dir, url, branch, remoteCommit string, files, excluded []string) (string, error)
 }
 
@@ -76,8 +76,8 @@ func (realGit) Open(cfg gitrepo.Config, dir string) (WorkingCopy, error) {
 	return gitrepo.Open(cfg, dir)
 }
 
-func (realGit) CompareFolder(ctx context.Context, cfg gitrepo.Config, dir, url string, files []string) (gitrepo.Comparison, error) {
-	return gitrepo.CompareFolder(ctx, cfg, dir, url, files)
+func (realGit) CompareFolder(ctx context.Context, cfg gitrepo.Config, dir, url string, plan gitrepo.FolderPlan) (gitrepo.Comparison, error) {
+	return gitrepo.CompareFolder(ctx, cfg, dir, url, plan)
 }
 
 func (realGit) InitFromRemote(ctx context.Context, cfg gitrepo.Config, dir, url, branch, remoteCommit string, files, excluded []string) (string, error) {
