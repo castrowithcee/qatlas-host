@@ -661,3 +661,78 @@ func TestFileTreeContentIsNeverShown(t *testing.T) {
 		t.Error("the undo must bring the content back")
 	}
 }
+
+func TestFileJournalFolderLocked(t *testing.T) {
+	f := newFileFixture(t)
+	const j = "/var/lib/qhost-host"
+	for name, args := range map[string][]string{
+		"write":                {ActionFileWrite, j},
+		"write in journal":     {ActionFileWrite, j + "/journal/x.json"},
+		"create folder":        {ActionFileCreateFolder, j + "/journal"},
+		"create folder below":  {ActionFileCreateFolder, j + "/journal/new"},
+		"rename source":        {ActionFileRename, j + "/journal/x", "/srv/demo/x"},
+		"rename source folder": {ActionFileRename, j, "/srv/demo/old"},
+		"rename target":        {ActionFileRename, "/srv/demo/a", j + "/journal/x"},
+		"copy target":          {ActionFileCopy, "/srv/demo/a", j + "/journal/x"},
+		"copy target folder":   {ActionFileCopy, "/srv/demo/a", j},
+		"remove folder":        {ActionFileRemove, j},
+		"remove journal":       {ActionFileRemove, j + "/journal"},
+		"remove journal file":  {ActionFileRemove, j + "/journal/x.json"},
+	} {
+		var data []byte
+		if args[0] == ActionFileWrite {
+			data = []byte("x\n")
+		}
+		_, err := f.runner.Registry.Describe(args[0], args[1:], data)
+		wantRefusal(t, name, err, "locked", "journal")
+	}
+	for _, id := range []string{ActionFileWrite, ActionFileCreateFolder} {
+		step := map[string]string{ActionFileWrite: stepFileWrite, ActionFileCreateFolder: stepFolderCreate}[id]
+		cmd := Command{Argv: []string{step, j + "/journal/x"}, Builtin: true, Secret: []byte(`{"content":"eAo="}`)}
+		if err := runFileStep(cmd, fileOps{chown: f.chown}); err == nil || !strings.Contains(err.Error(), "locked") {
+			t.Errorf("the %s step must refuse on its own: %v", id, err)
+		}
+	}
+	for name, tc := range map[string]struct {
+		step string
+		args []string
+	}{
+		"rename": {stepFileRename, []string{j + "/journal/x", "/srv/demo/x"}},
+		"copy":   {stepFileCopy, []string{"/srv/demo/a", j + "/journal/x"}},
+		"remove": {stepFileRemove, []string{j + "/journal/x"}},
+	} {
+		err := runFileStep(Command{Argv: append([]string{tc.step}, tc.args...), Builtin: true}, f.ops())
+		if err == nil || !strings.Contains(err.Error(), "locked") {
+			t.Errorf("the %s step must refuse on its own: %v", name, err)
+		}
+	}
+	for _, p := range []string{"/var/lib/qhost-hostx/a", "/var/lib/qhost/a"} {
+		if _, err := f.runner.Registry.Describe(ActionFileWrite, []string{p}, []byte("x\n")); err != nil {
+			t.Errorf("%s: %v", p, err)
+		}
+	}
+	if _, err := f.runner.Registry.Describe(ActionFileCopy, []string{j + "/journal/x.json", "/srv/demo/x.bak"}, nil); err != nil {
+		t.Errorf("copying out of the journal only reads it: %v", err)
+	}
+
+	// A folder that holds the journal folder is neither removed, moved nor overwritten.
+	old := journalStateDir
+	journalStateDir = filepath.Join(f.root, "var", "lib", "qhost-host")
+	t.Cleanup(func() { journalStateDir = old })
+	lib := filepath.Join(f.root, "var", "lib")
+	mkdir(t, filepath.Join(f.root, "var"), 0o755)
+	mkdir(t, lib, 0o755)
+	mkdir(t, journalStateDir, 0o755)
+	mkdir(t, filepath.Join(f.root, "other"), 0o755)
+	mkfile(t, filepath.Join(journalStateDir, "entry.json"), "{}\n", 0o600)
+	for name, args := range map[string][]string{
+		"remove /var/lib": {ActionFileRemove, lib},
+		"rename /var/lib": {ActionFileRename, lib, filepath.Join(f.root, "lib2")},
+	} {
+		_, err := f.runner.Apply(t.Context(), args[0], args[1:], nil)
+		wantRefusal(t, name, err, "locked", "journal")
+	}
+	if content(t, filepath.Join(journalStateDir, "entry.json")) != "{}\n" {
+		t.Fatal("the journal changed")
+	}
+}
