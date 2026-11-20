@@ -448,6 +448,7 @@ func previewSourceAdd(w io.Writer, res control.SourceInspectResult, url string, 
 	if plan != nil {
 		lines = append(lines, plan.summary()...)
 	}
+	lines = append(lines, "The first run deploys every stack: containers whose configuration and image are unchanged keep running, and a stack stopped by hand is started.")
 	lines = append(lines, fmt.Sprintf("The folder is added to %s and the %s service restarts.", folders.dropIn(), serviceAccount))
 	_, _ = fmt.Fprintf(w, "Case %s, folder %s:\n", res.Case, res.Path)
 	for _, l := range lines {

@@ -1349,7 +1349,10 @@ log_steps() {
 }
 
 rolled_back_steps=stop,backup,pull,up,check,rollback,stop,restore,revert,push,fast-forward,up,check
-rollback_failed_steps=stop,backup,pull,up,check,rollback,stop,restore,revert,push,stop
+# A stack without backup rules is not stopped for a backup, so its run starts at the backup step.
+rolled_back_plain_steps=backup,pull,up,check,rollback,stop,restore,revert,push,fast-forward,up,check
+# The rollback-failed run is one of demo-cache, which has no backup rules either.
+rollback_failed_steps=backup,pull,up,check,rollback,stop,restore,revert,push,stop
 
 # newest_run prints the id of the newest recorded run of a stack (empty when there is none).
 newest_run() {
@@ -1511,7 +1514,7 @@ $hook_signing_value
 	failed_log=$(qd stack log "$failed_run")
 	printf '%s' "$failed_log" | grep -q ' result rolled-back' || fail "the run log does not end rolled-back: $failed_log"
 	printf '%s' "$failed_log" | grep -q 'unhealthy' || fail "the run log does not name the unhealthy container: $failed_log"
-	[ "$(log_steps "$failed_log")" = "$rolled_back_steps" ] || fail "unexpected steps of the rolled-back run: $(log_steps "$failed_log")"
+	[ "$(log_steps "$failed_log")" = "$rolled_back_plain_steps" ] || fail "unexpected steps of the rolled-back run: $(log_steps "$failed_log")"
 	printf '%s' "$failed_log" | grep -q 'skipped: the stack has no backup rules' || fail "the rollback did not skip the data restore for a stack without backup rules: $failed_log"
 	revert=$(as_admin "cd ~/stacks && git pull -q --ff-only && git rev-parse HEAD")
 	[ "$revert" != "$bad" ] || fail 'no revert commit reached the remote branch'
@@ -2591,6 +2594,11 @@ list_has_path() {
 	qd --output json source list | jq -e --arg p "$1" '[.sources[].path] | index($p) != null' >/dev/null
 }
 
+# live_containers prints the id and the start time of every container of demo-live.
+live_containers() {
+	docker exec "$host" sh -c "docker ps -q --filter label=com.docker.compose.project=demo-live | sort | xargs -r docker inspect -f '{{.Id}} {{.State.StartedAt}}'"
+}
+
 # scenario_source_local proves source add, list and remove on a local repository without a remote below
 # /srv/qd-local, which no stack folder uses: the service gets the access it needs, a version committed by a person is
 # deployed, a failing one is rolled back by a local revert commit, and removing the source leaves the files and the
@@ -2614,6 +2622,20 @@ services:
       DEMO_HEALTH: \${DEMO_HEALTH}
 EOF2
 	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/demo-local/.env'"
+	# demo-live pins its image and is started by hand before the source is added, as an existing stack would be.
+	docker exec "$host" sh -ec "mkdir -p '$base/demo-live'"
+	cat <<EOF2 | docker exec -i "$host" sh -ec "cat >'$base/demo-live/compose.yaml'"
+name: demo-live
+
+services:
+  app:
+    image: registry.$domain/demo/app:1.0.0
+    restart: unless-stopped
+    environment:
+      DEMO_NAME: demo-live
+      DEMO_VERSION: 1.0.0
+      DEMO_HEALTH: ok
+EOF2
 	printf 'secrets.env\ndata/\n' | docker exec -i "$host" sh -ec "cat >'$base/demo-local/.gitignore'"
 	docker exec "$host" sh -ec "cd '$base' && git init -q -b main && git add -A &&
 		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-local stack' &&
@@ -2641,6 +2663,11 @@ EOF2
 	fi
 	if list_has_path "$base"; then fail 'a refused source add bound the folder'; fi
 
+	step 'demo-live is started by hand before the source is added'
+	docker exec "$host" docker compose --project-directory "$base/demo-live" up -d >/dev/null 2>&1 || fail 'cannot start demo-live by hand'
+	live_before=$(live_containers)
+	[ -n "$live_before" ] || fail 'demo-live has no running container'
+
 	step 'source add --yes binds the repository as a local source and gives the service the group access'
 	# qd merges stderr, where the preview and the notices go; the JSON answer is the last line.
 	out=$(qd --output json source add "$base" --yes) || fail "source add failed: $out"
@@ -2663,6 +2690,20 @@ EOF2
 		sleep 1
 	done
 	[ "$(stack_images demo-local)" = "$image:1.0.0" ] || fail "demo-local does not run 1.0.0: $(stack_images demo-local)"
+
+	step 'the first run of the running demo-live neither stops nor recreates it, and a stack with backup rules still stops before its backup'
+	i=0
+	until stack_settled demo-live succeeded; do
+		i=$((i + 1))
+		[ "$(stack_field demo-live last_run)" != failed ] || fail "the first run of demo-live failed: $(qd stack log "$(newest_run demo-live)")"
+		[ "$i" -lt 180 ] || fail "timeout waiting for the first run of demo-live: $(qd --output json status | tr ',' '\n' | grep -e qd-local -e demo-live)"
+		sleep 1
+	done
+	run_log=$(qd stack log "$(newest_run demo-live)")
+	[ "$(log_steps "$run_log")" = backup,pull,up,check ] || fail "unexpected steps of the first run of demo-live: $(log_steps "$run_log")"
+	if printf '%s\n' "$run_log" | grep -q '^[^ ]* step stop$'; then fail "the first run of demo-live stopped the stack: $run_log"; fi
+	[ "$(live_containers)" = "$live_before" ] || fail "the first run changed the containers of demo-live: before $live_before, now $(live_containers)"
+	# The runs of demo-stack with its backup rules keep the stop before the backup: see the good run of scenario_backup.
 
 	step 'a person in the group qhost-deploy commits a version; git refuses the folder until it is marked safe'
 	docker exec "$host" usermod -aG qhost-deploy "$admin" || fail 'cannot add the admin to the group qhost-deploy'
@@ -4332,7 +4373,7 @@ scenario_tui() {
 		fail "the log on the screen is not the newest run of demo-cache ($screen_run): $(tui_screen)"
 	run_log=$(qd stack log "$screen_run")
 	printf '%s' "$run_log" | grep -q ' result succeeded' || fail "the update run did not succeed: $run_log"
-	[ "$(update_steps "$run_log")" = stop,backup,commit,push,fast-forward,pull,up,check ] || fail "unexpected steps of the update run: $(update_steps "$run_log")"
+	[ "$(update_steps "$run_log")" = backup,commit,push,fast-forward,pull,up,check ] || fail "unexpected steps of the update run: $(update_steps "$run_log")"
 	as_admin 'cd ~/stacks && git pull -q --ff-only'
 	[ "$(as_admin "cd ~/stacks && git rev-list --count $head_before..HEAD")" = 1 ] || fail 'the update did not create exactly one commit'
 	tui_commit_only_version "$(as_admin 'cd ~/stacks && git rev-parse HEAD')" demo-cache 1.0.1 1.1.0
