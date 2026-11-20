@@ -2328,6 +2328,8 @@ scenario_stacks_repo() {
 
 	scenario_tui_sudo
 
+	scenario_tui_deploy_sudo
+
 	scenario_tui_secrets
 
 	scenario_tui_folder_sudo
@@ -3796,6 +3798,193 @@ scenario_tui_sudo() {
 	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
 	docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1 || fail "sudo of $admin asks for a password again after the rule is put back"
 	window_far_away >/dev/null || fail 'cannot move the maintenance window out of the way again'
+}
+
+# scenario_tui_deploy_sudo proves the deploy actions of the interface started without sudo: deciding proposals and
+# creating a missing data directory. Like scenario_tui_sudo, the rule of $admin is put aside and sudo asks for the
+# password at every command (timestamp_timeout=0), which is typed in the terminal. An administrator without sudo
+# proposes a new maintenance window; the interface approves it through `sudo qhost proposal approve` and the window
+# is read back. A second proposal is rejected with a reason through `sudo qhost proposal reject` and stands as
+# rejected. The stack demo-dirs runs as 1000:1000 with bind mounts below data/ that do not exist, so its first run
+# waits with the finding data-dir-missing; the stack detail creates the directories through `sudo qhost stack
+# datadir` with an owner and a changed mode, and the owner, the mode and the run that follows are read. The password
+# shows on no captured screen. The stack is removed again, the rule of the administrator is put back and the
+# password is locked again.
+scenario_tui_deploy_sudo() {
+	tui_log=$work/tui-deploy-sudo-screens.log
+	: >"$tui_log"
+	ds_login=E2e-admin-Login-8851
+	ds_stack=demo-dirs
+	ds_dir=/opt/stacks/$ds_stack
+
+	step 'the stack demo-dirs waits for two data directories that do not exist'
+	as_admin 'cd ~/stacks && git pull -q --ff-only && mkdir demo-dirs'
+	cat <<EOF2 | as_admin 'cat >"$HOME"/stacks/demo-dirs/compose.yaml'
+services:
+  app:
+    image: registry.$domain/demo/app:1.0.0
+    user: "1000:1000"
+    restart: unless-stopped
+    environment:
+      DEMO_NAME: demo-dirs
+    volumes:
+      - ./data/db:/data
+      - ./data/files:/files
+EOF2
+	as_admin 'cd ~/stacks && cp demo-stack/.gitignore demo-dirs/.gitignore && git add -A &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Add the demo-dirs stack" && git push -q origin main'
+	restart_service
+	wait_for 'the finding data-dir-missing of demo-dirs' 240 has_finding "$ds_stack" data-dir-missing
+	docker exec "$host" test ! -e "$ds_dir/data" || fail 'the data directory of demo-dirs exists before it was created'
+	[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=$ds_stack)" ] ||
+		fail 'containers of demo-dirs exist although its data directories are missing'
+
+	step 'sudo asks for the password at every command'
+	printf '%s:%s\n' "$admin" "$ds_login" | docker exec -i "$host" chpasswd || fail "cannot give $admin a password"
+	docker exec "$host" sh -ec "mv /etc/sudoers.d/e2e-admin /etc/sudoers.d/e2e-admin.off &&
+		printf 'Defaults:%s timestamp_timeout=0\n' '$admin' >/etc/sudoers.d/e2e-ask && chmod 0440 /etc/sudoers.d/e2e-ask && visudo -c >/dev/null" ||
+		fail 'cannot put the sudo rule of the administrator aside'
+	if docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1; then fail "sudo runs a command of $admin without a password although the rule is put aside"; fi
+
+	step 'the interface without sudo approves a window proposal through sudo qhost proposal approve'
+	ds_start=$(date -u -d '+10 hours' +%H:%M)
+	[ "$ds_start" != "$(window_field start)" ] || ds_start=$(date -u -d '+9 hours' +%H:%M)
+	ds_id=$(prop_submit_kind window "{\"days\":[\"daily\"],\"start\":\"$ds_start\",\"duration\":\"2m\",\"zone\":\"UTC\"}")
+	[ -n "$ds_id" ] || fail 'the window proposal has no id'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 6
+	tui_wait 'maintenance window' 15
+	tui_send Enter
+	tui_wait 'Effect if applied now' 30
+	tui_wait 'The maintenance window would change:' 10
+	tui_wait "after:  \"$ds_start\"" 10
+	tui_send A
+	tui_wait 'and set this maintenance window?' 30
+	# The command stands at the end of the sheet, below the window.
+	for _ in 1 2 3 4 5 6 7 8 9 10; do tui_send Down; done
+	tui_wait 'sudo qhost proposal approve' 10
+	tui_has '--fingerprint' || fail "the question does not show the fingerprint: $(tui_screen)"
+	tui_has '--confirm' || fail "the question does not show --confirm: $(tui_screen)"
+	tui_excerpt 'sudo qhost proposal approve' 6
+	[ "$(prop_state "$ds_id")" = open ] || fail 'the window proposal left the state open before yes'
+	[ "$(window_field start)" != "$ds_start" ] || fail 'the window changed before yes'
+	tui_send y
+	tui_wait "[sudo] password for $admin" 30
+	tui_type "$ds_login"
+	tui_send Enter
+	tui_wait 'The maintenance window is changed.' 60
+	tui_send Enter
+	wait_for 'the window proposal to be applied' 30 prop_is "$ds_id" applied
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	[ "$(window_field start)" = "$ds_start" ] && [ "$(window_field duration)" = 2m ] && [ "$(window_field zone)" = UTC ] ||
+		fail "the window does not hold the proposal: $(qd --output json window show)"
+	log "scenario: the interface without sudo approved $ds_id through sudo; the window starts at $ds_start"
+
+	step 'the interface without sudo rejects a proposal with a reason through sudo qhost proposal reject'
+	ds_start2=$(date -u -d '+8 hours' +%H:%M)
+	[ "$ds_start2" != "$(window_field start)" ] || ds_start2=$(date -u -d '+7 hours' +%H:%M)
+	ds_id2=$(prop_submit_kind window "{\"days\":[\"daily\"],\"start\":\"$ds_start2\",\"duration\":\"3m\",\"zone\":\"UTC\"}")
+	[ -n "$ds_id2" ] || fail 'the second window proposal has no id'
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 6
+	tui_wait 'maintenance window' 15
+	tui_send Enter
+	tui_wait 'Effect if applied now' 30
+	tui_send N
+	tui_wait 'Reject a proposal' 10
+	tui_type 'not this host'
+	tui_send F2
+	tui_wait 'Reject proposal' 10
+	tui_has 'sudo qhost proposal reject' || fail "the question does not show the command: $(tui_screen)"
+	tui_has 'not this host' || fail "the question does not show the reason: $(tui_screen)"
+	tui_excerpt 'Reject proposal' 12
+	[ "$(prop_state "$ds_id2")" = open ] || fail 'the second proposal left the state open before yes'
+	tui_send y
+	tui_wait "[sudo] password for $admin" 30
+	tui_type "$ds_login"
+	tui_send Enter
+	tui_wait 'is rejected.' 60
+	tui_send Enter
+	wait_for 'the second proposal to be rejected' 30 prop_is "$ds_id2" rejected
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	out=$(as_admin "qhost proposal show $ds_id2 2>&1") || fail "qhost proposal show failed: $out"
+	printf '%s' "$out" | grep -qF 'not this host' || fail "qhost proposal show does not hold the reason: $out"
+	[ "$(window_field start)" = "$ds_start" ] || fail "the rejection changed the window: $(qd --output json window show)"
+	log "scenario: the interface without sudo rejected $ds_id2 through sudo"
+
+	step 'the stack detail without sudo creates the missing data directories through sudo qhost stack datadir'
+	ds_prev=$(newest_run "$ds_stack")
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_wait "[ ] $ds_stack" 30
+	tui_send Home
+	i=0
+	until tui_screen | grep -q "^> .*\[.\] $ds_stack "; do
+		i=$((i + 1))
+		[ "$i" -lt 40 ] || fail "the cursor does not reach $ds_stack: $(tui_screen)"
+		tui_send Down
+		sleep 0.2
+	done
+	tui_send Enter
+	tui_wait 'Missing data directories' 15
+	tui_wait 'owner 1000:1000' 10
+	tui_send m
+	tui_wait 'Create data directories' 10
+	tui_wait '1000:1000' 10
+	tui_send Tab
+	tui_clear
+	tui_type 0700
+	tui_send F2
+	tui_wait 'Create the missing data directories of the' 10
+	tui_has 'sudo qhost stack datadir' || fail "the question does not show the command: $(tui_screen)"
+	tui_has '--owner 1000:1000' || fail "the question does not show the owner: $(tui_screen)"
+	tui_has '--mode 0700' || fail "the question does not show the changed mode: $(tui_screen)"
+	tui_excerpt 'Create the missing data directories' 16
+	docker exec "$host" test ! -e "$ds_dir/data" || fail 'the directories exist before yes'
+	[ "$(newest_run "$ds_stack")" = "$ds_prev" ] || fail 'a run of demo-dirs started before yes'
+	tui_send y
+	tui_wait "[sudo] password for $admin" 30
+	tui_type "$ds_login"
+	tui_send Enter
+	tui_wait "Data directories created for the stack $ds_stack" 90
+	tui_send Enter
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	for d in db files; do
+		[ "$(docker exec "$host" stat -c '%u:%g %a' "$ds_dir/data/$d")" = '1000:1000 700' ] ||
+			fail "data/$d has owner and mode '$(docker exec "$host" stat -c '%u:%g %a' "$ds_dir/data/$d")', want '1000:1000 700'"
+	done
+	ds_run=$(next_run "$ds_stack" "$ds_prev") || fail 'no run of demo-dirs started after the creation'
+	wait_for "the run $ds_run" 240 run_finished "$ds_stack" "$ds_run"
+	qd stack log "$ds_run" | grep -q ' result succeeded' || fail "the run $ds_run did not succeed: $(qd stack log "$ds_run")"
+	no_finding "$ds_stack" data-dir-missing || fail "demo-dirs still shows the finding: $(qd --output json status)"
+	[ -n "$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=$ds_stack --filter status=running)" ] ||
+		fail 'demo-dirs does not run after the creation'
+	log "scenario: the interface without sudo created the data directories of $ds_stack through sudo, run $ds_run"
+
+	step 'the password shows on no captured screen; the rule of the administrator is put back'
+	[ "$(wc -l <"$tui_log")" -gt 40 ] || fail 'too few screens were captured to check'
+	if grep -qF -- "$ds_login" "$tui_log"; then fail 'the password typed for sudo shows on a captured screen'; fi
+	docker exec "$host" sh -ec 'rm -f /etc/sudoers.d/e2e-ask && mv /etc/sudoers.d/e2e-admin.off /etc/sudoers.d/e2e-admin && visudo -c >/dev/null' ||
+		fail 'cannot put the sudo rule of the administrator back'
+	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
+	docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1 || fail "sudo of $admin asks for a password again after the rule is put back"
+	window_far_away >/dev/null || fail 'cannot move the maintenance window out of the way again'
+
+	step 'demo-dirs leaves the repository'
+	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q demo-dirs &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the demo-dirs stack" && git push -q origin main'
+	restart_service
+	docker exec "$host" sh -c "docker ps -aq --filter label=com.docker.compose.project=$ds_stack | xargs -r docker rm -f" >/dev/null ||
+		fail "cannot remove the containers of $ds_stack"
+	docker exec "$host" rm -rf "$ds_dir"
+	wait_for 'the deploy service to answer' 30 qd status
+	log 'scenario: demo-dirs is removed'
 }
 
 # ts_watch_start starts a watcher on the host that records every process whose command line holds a line of the
