@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -97,7 +98,7 @@ func TestNotSetUpShowsHowToSetUpInEveryDockerArea(t *testing.T) {
 		m, _ := notSetUpModel(t, i18n.English, newFakeDeploy(), 1000, wideWidth, goldenRows)
 		send(m, area)
 		screen := m.render()
-		for _, want := range []string{"The deploy service is not set up yet", "G sets it up", "Setting up needs root: quit and run sudo qhost."} {
+		for _, want := range []string{"The deploy service is not set up yet", "G sets it up"} {
 			if !strings.Contains(screen, want) {
 				t.Errorf("area %s lacks %q:\n%s", area, want, screen)
 			}
@@ -105,18 +106,6 @@ func TestNotSetUpShowsHowToSetUpInEveryDockerArea(t *testing.T) {
 		if strings.Contains(screen, "is not running") {
 			t.Errorf("area %s shows a connection error:\n%s", area, screen)
 		}
-	}
-}
-
-func TestNotSetUpWithoutRootNeedsSudo(t *testing.T) {
-	d := newFakeDeploy()
-	m, _ := notSetUpModel(t, i18n.English, d, 1000, wideWidth, goldenRows)
-	send(m, "G")
-	if m.modal != nil || d.ran != 0 {
-		t.Fatal("the setup was offered without root")
-	}
-	if screen := m.render(); !strings.Contains(screen, "needs root") {
-		t.Fatalf("no hint about sudo:\n%s", screen)
 	}
 }
 
@@ -199,6 +188,20 @@ func TestGoldenSetupConfirmation(t *testing.T) {
 	}
 }
 
+func TestGoldenSetupSudoConfirmation(t *testing.T) {
+	for name, lang := range goldenLangs {
+		for size, wh := range setupSizes {
+			t.Run(name+"."+size, func(t *testing.T) {
+				m, _ := notSetUpModel(t, lang, newFakeDeploy(), 1000, wh[0], wh[1])
+				send(m, "G", "y")
+				screen := m.render()
+				checkScreen(t, screen, wh[0], wh[1])
+				checkGolden(t, "deploy.setup.sudo."+name+"."+size+".golden", screen+"\n")
+			})
+		}
+	}
+}
+
 // instanceDeploy is a host with the system service set up and rootless engines for demo_ops and bob. demo_ops is an
 // administrator, bob is in the group docker and is refused.
 func instanceDeploy() *fakeDeploy {
@@ -231,16 +234,6 @@ func TestInstanceSetupIsOfferedInStacksOfARunningHost(t *testing.T) {
 	}
 	send(m, "G")
 	contains(t, m, "Which deploy service do you want to set up?", "system engine", "rootless engine")
-}
-
-func TestInstanceSetupWithoutRootNeedsSudo(t *testing.T) {
-	d := instanceDeploy()
-	m, _ := instanceModel(t, i18n.English, d, 1000, wideWidth, goldenRows)
-	send(m, "G")
-	if m.modal != nil || d.ran != 0 {
-		t.Fatal("the setup was offered without root")
-	}
-	contains(t, m, "needs root")
 }
 
 func TestInstanceSetupListsUsersAndAsksWithWarningAndSteps(t *testing.T) {
@@ -337,4 +330,45 @@ func TestGoldenInstanceSetup(t *testing.T) {
 			}
 		}
 	}
+}
+
+const setupJSON = `{"set_up":true,"changed":true,"steps":4}`
+
+func TestSetupWithoutRootRunsTheCommandThroughSudo(t *testing.T) {
+	d := newFakeDeploy()
+	m, b := notSetUpModel(t, i18n.English, d, 1000, wideWidth, 30)
+	f := &fakeRoot{report: setupJSON}
+	m.root = f.hook()
+	send(m, "G", "y")
+	contains(t, m, "Set up the deploy service now?", "$ groupadd --system qhost-deploy",
+		"$ sudo qhost deploy-service setup", "--confirm --yes --output")
+	send(m, "n")
+	if len(f.reqs) != 0 || d.ran != 0 || m.modal != nil {
+		t.Fatalf("cancel ran something: %+v", f.reqs)
+	}
+	send(m, "G", "y")
+	b.statusErr = nil
+	send(m, "y")
+	want := []string{"deploy-service", "setup", "--confirm", "--yes", "--output", "json"}
+	if len(f.reqs) != 1 || !slices.Equal(f.reqs[0].Args, want) {
+		t.Fatalf("requests %+v, want arguments %v", f.reqs, want)
+	}
+	if d.ran != 0 || m.notSetUp {
+		t.Fatalf("the interface ran the setup itself (%d) or still says not set up", d.ran)
+	}
+}
+
+func TestInstanceSetupWithoutRootPassesTheUser(t *testing.T) {
+	d := instanceDeploy()
+	m, _ := instanceModel(t, i18n.English, d, 1000, wideWidth, 30)
+	f := &fakeRoot{report: setupJSON}
+	m.root = f.hook()
+	send(m, "G", "r", "d", "e", "m", "o", "_", "o", "p", "s", "enter")
+	contains(t, m, "$ sudo qhost deploy-service setup", "--rootless demo_ops", "--confirm --yes --output")
+	send(m, "y")
+	want := []string{"deploy-service", "setup", "--rootless", "demo_ops", "--confirm", "--yes", "--output", "json"}
+	if len(f.reqs) != 1 || !slices.Equal(f.reqs[0].Args, want) || d.ran != 0 {
+		t.Fatalf("requests %+v, ran %d", f.reqs, d.ran)
+	}
+	contains(t, m, "rootless engine of demo_ops is set up and started")
 }

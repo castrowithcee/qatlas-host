@@ -101,7 +101,7 @@ func (m *Model) formDataDirLines(f *settingsForm, width int) []string {
 }
 
 // openDataDirForm opens the owner and mode form for the missing directories of the detail's stack. Without
-// the finding, or without root, it only says so.
+// the finding it only says so.
 func (m *Model) openDataDirForm() tea.Cmd {
 	stack, ok := m.detailStack()
 	if !ok || m.detailBusy() {
@@ -110,10 +110,6 @@ func (m *Model) openDataDirForm() tea.Cmd {
 	finding, ok := m.dataDirFinding(stack)
 	if !ok {
 		m.warn(m.text.Lookup(textDataDirsNone))
-		return nil
-	}
-	if m.euid() != 0 {
-		m.warn(m.text.Lookup(textDataDirsNeedRoot))
 		return nil
 	}
 	dir, ok := m.snap.stacks.StackDir(stack)
@@ -155,10 +151,47 @@ func (m *Model) submitDataDirs(f *settingsForm, ownerText, modeText string) tea.
 		details = append(details, "  "+p)
 	}
 	req := datadir.Request{StackDir: stackDir, Paths: paths, Owner: owner, Mode: mode}
+	if m.euid() != 0 {
+		m.askDataDirsSudo(stack, req, details)
+		return nil
+	}
 	m.ask(textTitleDataDirs, t.Lookup(textAskDataDirs, stack), t.Lookup(textWhatDataDirs), details, false, func() tea.Cmd {
 		return m.createDataDirs(stack, req)
 	})
 	return nil
+}
+
+// askDataDirsSudo asks to create the directories with `sudo qhost stack datadir`, with the owner and mode that
+// the form gave. The command makes the directories and then starts a run of the stack, as the call as root does.
+func (m *Model) askDataDirsSudo(stack string, req datadir.Request, details []string) {
+	if m.settingsBusy() {
+		m.warn(m.text.Lookup(textActionBusy))
+		return
+	}
+	var gen int
+	m.askSudo(sudoAsk{title: textTitleDataDirs, question: m.text.Lookup(textAskDataDirs, stack), consequence: m.text.Lookup(textWhatDataDirs),
+		lead: dialogLines(details),
+		args: []string{"stack", "datadir", "--owner", req.Owner.String(), "--mode", fmt.Sprintf("%04o", req.Mode), "--yes",
+			"--output", "json", "--", stack},
+		begin: func() { gen = m.beginSetting() },
+		done: func(r sudoRun) tea.Cmd {
+			msg := settingMsg{gen: gen, op: opDataDirs, name: stack}
+			var v struct {
+				Created  string `json:"created"`
+				Parents  string `json:"parents"`
+				Existing string `json:"existing"`
+				Run      string `json:"run"`
+				Commit   string `json:"commit"`
+			}
+			if !r.decode(&v) || v.Run == "" {
+				msg.err = sudoProblem(r.problem)
+				return m.applySetting(msg)
+			}
+			msg.res = dataDirsResult{stack: stack,
+				res: datadir.Result{Created: splitList(v.Created), Parents: splitList(v.Parents), Existing: splitList(v.Existing)},
+				run: control.DeployResult{ID: v.Run, Stack: stack, Commit: v.Commit}}
+			return m.applySetting(msg)
+		}})
 }
 
 // createDataDirs makes the confirmed directories and then starts a run of the stack, off the event loop.

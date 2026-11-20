@@ -4,7 +4,7 @@
   The deploy service is not set up yet. It rolls out and updates your stacks and runs as its own system user, apart from
   the host service, with access to Docker. G sets it up; on the command line: sudo qhost deploy-service setup           
                                                                                                                         
-  Setting up needs root: quit and run sudo qhost.                                                                       
+                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         
