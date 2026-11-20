@@ -3664,7 +3664,8 @@ scenario_stack_actions() {
 # password between two commands (timestamp_timeout=0); the rule that asks is the one of the group sudo. A Ctrl-C at
 # the password prompt of a deploy changes nothing and the interface says so. Then a deploy of demo-cache, the
 # restart of a single container and a change of the maintenance window each run with the password typed in the
-# terminal, with the effect read from the service. The rule and the password are put back at the end.
+# terminal, with the effect read from the service. A Ctrl-C at the password prompt of a change in the System area
+# changes nothing either and is reported as an interruption. The rule and the password are put back at the end.
 scenario_tui_sudo() {
 	tui_log=$work/tui-sudo-screens.log
 	: >"$tui_log"
@@ -3783,10 +3784,37 @@ scenario_tui_sudo() {
 	tui_send Enter
 	[ "$(window_field start)" = "$sa_start" ] || fail "the window was not set through sudo: $(qd --output json window show)"
 	tui_send Escape
+	log "scenario: the interface set the maintenance window to $sa_start through sudo"
+
+	step 'a Ctrl-C at the password prompt of a change in the System area changes nothing and says the run was interrupted'
+	sa_group=e2e-sudogroup
+	docker exec "$host" sh -c "getent group $sa_group >/dev/null && groupdel $sa_group; true"
+	sa_entries=$(docker exec "$host" sh -c 'ls /var/lib/qhost-host/journal 2>/dev/null | wc -l')
+	tui_send 7
+	tui_wait 'DOCKER' 15
+	tui_system_tab Groups
+	tui_wait 'MEMBERS' 10
+	tui_send a
+	tui_wait 'The system gives the group a regular group number.' 10
+	tui_type "$sa_group"
+	tui_send F2
+	tui_wait "Create the group $sa_group." 10
+	tui_send y
+	tui_wait "[sudo] password for $admin" 30
+	tui_send C-c
+	tui_wait 'interrupted' 30
+	tui_screen | tr -s ' \n' '  ' | grep -q 'Nothing was changed' || fail "the interface does not say that nothing was changed: $(tui_screen)"
+	tui_has 'no longer holds' && fail "the interface takes the Ctrl-C for a password sudo no longer holds: $(tui_screen)"
+	tui_has 'qhost-exit' && fail "the interface ended with the Ctrl-C at the password prompt: $(tui_screen)"
+	[ "$(docker exec "$host" sh -c 'ls /var/lib/qhost-host/journal 2>/dev/null | wc -l')" = "$sa_entries" ] ||
+		fail 'the aborted change wrote a journal entry'
+	if docker exec "$host" getent group "$sa_group" >/dev/null; then fail "the aborted change created the group $sa_group"; fi
+	tui_send Enter
+	tui_send Escape
 	tui_send q
 	tui_wait 'qhost-exit=0' 10
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	log "scenario: the interface set the maintenance window to $sa_start through sudo"
+	log 'scenario: a Ctrl-C at the password prompt of a change in the System area changed nothing and the interface said so'
 
 	step 'the password shows on no captured screen; the rule of the administrator is put back'
 	[ "$(wc -l <"$tui_log")" -gt 40 ] || fail 'too few screens were captured to check'
