@@ -703,6 +703,51 @@ scenario_host_changes() {
 	docker exec "$host" rm -f "$sample"
 	log "scenario: file.write $write_id wrote $sample in place, the undo restored the previous content"
 
+	step 'sudo qhost host apply file.copy, file.remove and file.rename work on a folder tree, the undo restores it and an existing target is refused'
+	tree=/srv/qhost-e2e-tree
+	copy=/srv/qhost-e2e-tree-copy
+	moved=/srv/qhost-e2e-tree-moved
+	docker exec "$host" sh -c "rm -rf '$tree' '$copy' '$moved' && mkdir -p '$tree/sub' && printf 'qhost-e2e-top' >'$tree/top.txt' && printf 'qhost-e2e-deep' >'$tree/sub/deep.txt' && ln -s top.txt '$tree/link'" ||
+		fail "cannot make $tree"
+	out=$(as_admin "sudo qhost --output json host apply file.copy '$tree' '$copy' --confirm 2>&1") || fail "host apply file.copy failed: $out"
+	flat=$(printf '%s' "$out" | tr -d ' \n')
+	copy_id=$(json_value "$flat" journal_id)
+	[ -n "$copy_id" ] || fail "host apply file.copy reports no journal entry: $out"
+	printf '%s' "$flat" | grep -q '"result":"applied"' || fail "host apply file.copy does not report the result applied: $out"
+	if printf '%s' "$out" | grep -q 'qhost-e2e-\(top\|deep\)'; then fail "the report of file.copy shows file content: $out"; fi
+	[ "$(docker exec "$host" cat "$copy/top.txt")" = qhost-e2e-top ] || fail 'the copy does not hold top.txt'
+	[ "$(docker exec "$host" cat "$copy/sub/deep.txt")" = qhost-e2e-deep ] || fail 'the copy does not hold sub/deep.txt'
+	[ "$(docker exec "$host" readlink "$copy/link")" = top.txt ] || fail "the link of the copy points to $(docker exec "$host" readlink "$copy/link"), want top.txt"
+	[ "$(docker exec "$host" cat "$tree/top.txt")" = qhost-e2e-top ] || fail 'file.copy changed the source'
+	if out=$(as_admin "sudo qhost --output json host apply file.copy '$tree' '$copy' --confirm 2>&1"); then fail "file.copy onto an existing target succeeded: $out"; fi
+	if out=$(as_admin "sudo qhost --output json host apply file.rename '$tree' '$copy' --confirm 2>&1"); then fail "file.rename onto an existing target succeeded: $out"; fi
+	[ "$(docker exec "$host" cat "$tree/top.txt")" = qhost-e2e-top ] || fail 'a refused file.rename changed the source'
+	out=$(as_admin "sudo qhost --output json host apply file.remove '$copy' --confirm 2>&1") || fail "host apply file.remove failed: $out"
+	flat=$(printf '%s' "$out" | tr -d ' \n')
+	remove_id=$(json_value "$flat" journal_id)
+	[ -n "$remove_id" ] || fail "host apply file.remove reports no journal entry: $out"
+	if docker exec "$host" test -e "$copy" || docker exec "$host" test -L "$copy"; then fail "$copy exists after file.remove"; fi
+	if printf '%s' "$out" | grep -q 'qhost-e2e-\(top\|deep\)'; then fail "the report of file.remove shows file content: $out"; fi
+	journal=$(as_admin 'sudo qhost --output json host journal 2>&1') || fail "sudo qhost host journal failed: $journal"
+	flat=$(printf '%s' "$journal" | tr -d ' \n')
+	printf '%s' "$flat" | grep -q "\"id\":\"$remove_id\",[^}]*\"action\":\"file.remove\"" || fail "the journal does not list the file.remove $remove_id: $journal"
+	if printf '%s' "$journal" | grep -q 'qhost-e2e-\(top\|deep\)'; then fail "the journal listing shows file content: $journal"; fi
+	out=$(as_admin "sudo qhost --output json host undo $remove_id --confirm 2>&1") || fail "host undo of file.remove failed: $out"
+	[ "$(docker exec "$host" cat "$copy/top.txt")" = qhost-e2e-top ] || fail 'the undo did not restore top.txt'
+	[ "$(docker exec "$host" cat "$copy/sub/deep.txt")" = qhost-e2e-deep ] || fail 'the undo did not restore sub/deep.txt'
+	[ "$(docker exec "$host" readlink "$copy/link")" = top.txt ] || fail 'the undo did not restore the link as a link'
+	if printf '%s' "$out" | grep -q 'qhost-e2e-\(top\|deep\)'; then fail "the report of the undo shows file content: $out"; fi
+	out=$(as_admin "sudo qhost --output json host apply file.rename '$copy' '$moved' --confirm 2>&1") || fail "host apply file.rename failed: $out"
+	rename_id=$(json_value "$(printf '%s' "$out" | tr -d ' \n')" journal_id)
+	[ -n "$rename_id" ] || fail "host apply file.rename reports no journal entry: $out"
+	docker exec "$host" test -d "$moved" || fail "$moved does not exist after file.rename"
+	if docker exec "$host" test -e "$copy"; then fail "$copy exists after file.rename"; fi
+	out=$(as_admin "sudo qhost --output json host undo $rename_id --confirm 2>&1") || fail "host undo of file.rename failed: $out"
+	[ "$(docker exec "$host" cat "$copy/sub/deep.txt")" = qhost-e2e-deep ] || fail 'the undo did not move the folder back'
+	if docker exec "$host" test -e "$moved"; then fail "$moved exists after the undo of file.rename"; fi
+	docker exec "$host" rm -rf "$tree" "$copy" "$moved"
+	log "scenario: file.copy $copy_id copied a folder tree, file.remove $remove_id removed it, the undo restored it, file.rename $rename_id moved it and the undo moved it back"
+
 	step 'the protection rules refuse changing the own account, the group sudo and a system path, and leave no journal entry'
 	before=$(docker exec "$host" sh -c 'ls /var/lib/qhost-host/journal | wc -l')
 	for refused in "user.lock $admin|you cannot lock yourself" "user.delete $admin|you cannot delete your own account" \
