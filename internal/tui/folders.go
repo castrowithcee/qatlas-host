@@ -403,6 +403,14 @@ func (m *Model) showInspection(flow *addFlow) {
 			m.askSheet(title, t.Lookup(textAskFolderNoFiles, res.Path), t.Lookup(textWhatFolderNoFiles), body, nil, nil)
 			return
 		}
+		if flow.proposal != nil && flow.proposal.url != "" && m.euid() != 0 {
+			// The command takes the address of the proposal along, so a folder without remote is not offered:
+			// the command would refuse it every time. The only way on is with the remote, as for a clone.
+			m.askSheet(title, m.finalQuestion(flow, t.Lookup(textAskFolderFiles, res.Path)), m.finalConsequence(flow, textWhatFolderFiles), body,
+				[]kittui.Answer{{Action: actYes, Label: textAnswerWithRemote}, {Action: actNo, Label: textAnswerCancel}},
+				func() tea.Cmd { return m.openForm(m.folderURLForm()) })
+			return
+		}
 		files := []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actWithRemote, Label: textAnswerWithRemote},
 			{Action: actNo, Label: textAnswerCancel}}
 		m.askSheet(title, m.finalQuestion(flow, t.Lookup(textAskFolderFiles, res.Path)), m.finalConsequence(flow, textWhatFolderFiles), final, files,

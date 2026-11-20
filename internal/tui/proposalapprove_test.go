@@ -113,23 +113,6 @@ func TestProposalApproveTheAddressIsChangeableAndThePathIsNot(t *testing.T) {
 	}
 }
 
-func TestProposalApproveWithoutSudoDoesNothing(t *testing.T) {
-	b := approveBackend()
-	m := proposalOpen(t, b, false, 0)
-	if screen := m.render(); strings.Contains(screen, "approve") || strings.Contains(screen, "reject") {
-		t.Fatalf("keys offered without sudo:\n%s", screen)
-	}
-	send(m, "A")
-	if m.modal != nil || m.set.form != nil {
-		t.Fatal("approving opened something without sudo")
-	}
-	send(m, "N")
-	if m.modal != nil || m.set.form != nil {
-		t.Fatal("rejecting opened something without sudo")
-	}
-	noProposalChange(t, b)
-}
-
 func TestProposalApproveRefusesAChangedProposalOrEffect(t *testing.T) {
 	for _, c := range []struct {
 		name   string

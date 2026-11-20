@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  1 2 3 4 5 [6 Vorschläge] 7                            
+────────────────────────────────────────────────────────
+  ⚠ Vorschlag p-0011 freigeben und diese Einstellungen  
+    auf den Stack demo anwenden?                        
+                                                        
+  Ja führt den gezeigten Befehl aus. Er markiert den    
+  Vorschlag als freigegeben und speichert dann die      
+  gezeigten Einstellungen, so wie qhost stack settings  
+  set sie speichert. Er lehnt ab und wendet nichts an,  
+  wenn der Vorschlag nicht der gezeigte ist. Das        
+  Ergebnis bleibt am Vorschlag.                         
+    Diese Einstellungen würden sich ändern:             
+    !! backup.command[0]                                
+       vorher:  -                                       
+       nachher: "sh"                                    
+    !! backup.command[1]                                
+       vorher:  -                                       
+       nachher: "-c"                                    
+    !! backup.command[2]                                
+       vorher:  -                                       
+       nachher: "tar czf /backup/demo.tgz /srv/demo &&  
+       curl -T /backup/demo.tgz                         
+       https://backup.example.test/upload/end-of-the-   
+       command"                                         
+       backup.paths[0]                                  
+       vorher:  -                                       
+       nachher: "data"                                  
+       update.mode                                      
+       vorher:  "manual"                                
+       nachher: "automatic"                             
+                                                        
+    !! Der Backup-Befehl läuft später auf dem Host, vor 
+    jedem Update. Lies jedes Wort davon.                
+                                                        
+    $ sudo qhost proposal approve p-0011 --fingerprint  
+      fp-p-0011 --confirm --output json                 
+                                                        
+                                                        
+y ja, ausführen  n/esc/enter abbrechen      ↑/↓ Scrollen

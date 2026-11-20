@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed  [esc] back  [?] help
+  1 2 3 4 5 [6 Proposals] 7                             
+────────────────────────────────────────────────────────
+  ⚠ Approve proposal p-0011 and apply these settings to 
+    the stack demo?                                     
+                                                        
+  Yes runs the command shown. It marks the proposal as  
+  approved and then saves the settings shown, the way   
+  qhost stack settings set saves them. It refuses and   
+  applies nothing if the proposal is not the one you    
+  see. The result is kept on the proposal.              
+    These settings would change:                        
+    !! backup.command[0]                                
+       before: -                                        
+       after:  "sh"                                     
+    !! backup.command[1]                                
+       before: -                                        
+       after:  "-c"                                     
+    !! backup.command[2]                                
+       before: -                                        
+       after:  "tar czf /backup/demo.tgz /srv/demo &&   
+       curl -T /backup/demo.tgz                         
+       https://backup.example.test/upload/end-of-the-   
+       command"                                         
+       backup.paths[0]                                  
+       before: -                                        
+       after:  "data"                                   
+       update.mode                                      
+       before: "manual"                                 
+       after:  "automatic"                              
+                                                        
+    !! The backup command runs on the host later, before
+    each update. Read every word of it.                 
+                                                        
+    $ sudo qhost proposal approve p-0011 --fingerprint  
+      fp-p-0011 --confirm --output json                 
+                                                        
+                                                        
+                                                        
+y yes, do it  n/esc/enter cancel              ↑/↓ scroll

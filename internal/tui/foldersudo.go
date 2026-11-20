@@ -45,6 +45,11 @@ func (f *addFlow) noPermissions() bool {
 // inspectSudo inspects the folder with `sudo qhost source inspect` and goes on like the inspection as root. It only
 // reads, so it asks nothing first. foreign is the project the folder belongs to when it is adopted.
 func (m *Model) inspectSudo(path string, foreign *foreignSource) tea.Cmd {
+	return m.inspectSudoFor(path, foreign, nil)
+}
+
+// inspectSudoFor is inspectSudo for a folder a proposal names: the flow then ends in approving the proposal.
+func (m *Model) inspectSudoFor(path string, foreign *foreignSource, proposal *proposalCtx) tea.Cmd {
 	gen := m.beginSetting()
 	args := []string{"source", "inspect", "--output", "json", "--", path}
 	return m.runSudo(args, func(r sudoRun) tea.Cmd {
@@ -56,7 +61,10 @@ func (m *Model) inspectSudo(path string, foreign *foreignSource) tea.Cmd {
 			return m.applySetting(msg)
 		}
 		flow := &addFlow{res: got.SourceInspectResult, effect: got.Effect, foreign: foreign,
-			missing: got.Missing && got.Case == control.SourceCaseClone}
+			missing: got.Missing && got.Case == control.SourceCaseClone, proposal: proposal}
+		if proposal != nil {
+			flow.proposal.effect = got.Effect
+		}
 		if p := got.Permissions; p != nil {
 			flow.plan = PermPlan{Changed: p.Changed, Summary: p.Summary}
 		}
@@ -90,6 +98,9 @@ func (m *Model) askCompareSudo(flow *addFlow) {
 
 // sudoArgs are the arguments after qhost of the command that applies what the flow showed.
 func (f *addFlow) sudoArgs() []string {
+	if f.proposal != nil {
+		return f.proposalArgs()
+	}
 	path, end := f.res.Path, []string{"--yes", "--output", "json", "--"}
 	if f.remote {
 		args := append([]string{"source", "remote", "--fingerprint", f.probe.Fingerprint}, f.expectArgs()...)
@@ -132,11 +143,16 @@ func (m *Model) sudoLines(flow *addFlow, width int) []string {
 	if m.euid() == 0 {
 		return nil
 	}
+	return m.commandLines(flow.sudoArgs(), width)
+}
+
+// commandLines is the command sudo runs for args, dimmed, below an empty line.
+func (m *Model) commandLines(args []string, width int) []string {
 	const prompt = "$ "
 	room := max(width-detailIndent-len(prompt), 1)
 	var rows []string
 	row := ""
-	for _, arg := range strings.Split(kittui.Escape(sudoCommand(flow.sudoArgs())), " ") {
+	for _, arg := range strings.Split(kittui.Escape(sudoCommand(args)), " ") {
 		switch {
 		case row == "":
 			row = arg
@@ -182,10 +198,15 @@ func (m *Model) applySudo(flow *addFlow) tea.Cmd {
 		msg := settingMsg{gen: gen, op: op, name: path}
 		res, ok := decodeApplied(flow, r)
 		switch {
+		case ok && flow.proposal != nil:
+			msg.res = proposalDone{res: res}
 		case ok:
 			msg.res = res
 		case r.code == codeStateChanged:
 			msg.res = stateChanged{flow}
+		case flow.proposal != nil:
+			// The proposal may be locked or failed by now, so the view reads it again.
+			msg.res = proposalDone{err: sudoProblem(r.problem)}
 		default:
 			msg.err = sudoProblem(r.problem)
 		}
@@ -224,11 +245,31 @@ func (m *Model) stateChangedDone(res stateChanged) {
 		text = t.Lookup(textStateChangedRemote, flow.res.Path)
 	}
 	next := textAgainAdd
+	if flow.proposal != nil {
+		text, next = t.Lookup(textStateChangedProposal, flow.res.Path), textAgainProposal
+	}
 	switch {
 	case flow.remote:
 		next = textAgainRemote
+	case flow.proposal != nil:
 	case flow.foreign != nil:
 		next = textAgainAdopt
 	}
 	m.tell(flow.title(), text, []string{t.Lookup(next)})
+}
+
+// proposalArgs are the arguments after qhost of the command that approves the proposal of the flow bound to what
+// was shown: the proposal as it was read, the address and the host key, the effect of the inspection and the state
+// of the comparison.
+func (f *addFlow) proposalArgs() []string {
+	p := f.proposal
+	args := []string{"proposal", "approve", p.id, "--fingerprint", p.fingerprint, "--confirm"}
+	if f.url != "" && f.res.Case != control.SourceCaseLocal {
+		args = append(args, "--url", f.url, "--host-key-fingerprint", f.probe.Fingerprint)
+	}
+	args = append(args, "--expect-effect", f.effect)
+	if f.url != "" && f.res.Case == control.SourceCaseFiles {
+		args = append(args, f.expectArgs()...)
+	}
+	return append(args, "--output", "json")
 }

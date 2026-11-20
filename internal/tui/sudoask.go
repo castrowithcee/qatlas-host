@@ -38,6 +38,9 @@ type sudoAsk struct {
 	// also are further commands of the same form that done runs one after another once the first one ended, as
 	// one per stack; the question shows them with the first.
 	also [][]string
+	// body, where set, gives lines to read above the command for a width; the question is then a sheet that fills
+	// the workspace, as for a change whose effect is longer than a dialog holds.
+	body func(width int) []string
 	// input, where set, gives the standard input of args. It runs before the command, off the event loop.
 	input func(ctx context.Context, b Backend) ([]byte, error)
 	// begin, where set, runs on y before the command, as to mark the action busy.
@@ -96,7 +99,7 @@ func (m *Model) askSudo(a sudoAsk) {
 		}
 		commands = append(commands, sudoCommand(more))
 	}
-	m.askCommands(a.title, a.question, consequence, false, a.danger, a.lead, commands, func() tea.Cmd {
+	yes := func() tea.Cmd {
 		if a.begin != nil {
 			a.begin()
 		}
@@ -104,7 +107,19 @@ func (m *Model) askSudo(a sudoAsk) {
 			return m.readSudoInput(a)
 		}
 		return m.runSudo(a.args, a.done)
-	}, a.drop)
+	}
+	if a.body != nil {
+		body := func(width int) []string { return append(a.body(width), m.commandLines(a.args, width)...) }
+		m.askSheet(a.title, a.question, consequence, body,
+			[]kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}}, yes)
+		if m.modal != nil && m.modal.kind == modalSheet && m.modal.question == a.question {
+			m.modal.drop = a.drop
+		} else if a.drop != nil {
+			a.drop()
+		}
+		return
+	}
+	m.askCommands(a.title, a.question, consequence, false, a.danger, a.lead, commands, yes, a.drop)
 }
 
 // runSudo hands the terminal to `sudo qhost args` and gives done the answer.

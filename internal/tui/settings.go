@@ -464,6 +464,9 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 	case stateChanged:
 		s.add = nil
 		m.stateChangedDone(res)
+		if res.flow.proposal != nil {
+			return m.readProposal()
+		}
 		return nil
 	case control.RepoSetResult:
 		s.add = nil
