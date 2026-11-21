@@ -346,3 +346,122 @@ func TestEachSourceKeyIsItsOwn(t *testing.T) {
 		t.Fatal("the private text of the source key is not registered")
 	}
 }
+
+func TestReadValue(t *testing.T) {
+	s, dir, _ := openStore(t)
+	if err := s.Set("registry.example", demoToken); err != nil {
+		t.Fatal(err)
+	}
+	vals := filepath.Join(dir, "credentials")
+	got, err := ReadValue(dir, "registry.example")
+	if err != nil || got != demoToken {
+		t.Fatalf("ReadValue = %q, %v", got, err)
+	}
+	if _, err := ReadValue(dir, "registry.other"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("missing credential: %v", err)
+	}
+	if _, err := ReadValue(dir, "../x"); !errors.Is(err, ErrInvalidName) {
+		t.Errorf("bad name: %v", err)
+	}
+	if _, err := ReadValue("relative", "registry.example"); err == nil {
+		t.Error("relative dir accepted")
+	}
+
+	// No sweep: a leftover stays untouched.
+	leftover := filepath.Join(vals, tmpPrefix+"abc")
+	if err := os.WriteFile(leftover, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadValue(dir, "registry.example"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(leftover); err != nil {
+		t.Errorf("leftover swept: %v", err)
+	}
+
+	// No creation: a missing dir is not found and stays missing; a missing values dir is not created.
+	none := filepath.Join(t.TempDir(), "none")
+	if _, err := ReadValue(none, "registry.example"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("missing dir: %v", err)
+	}
+	if _, err := os.Lstat(none); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("dir created: %v", err)
+	}
+	half := filepath.Join(t.TempDir(), "half")
+	if err := os.Mkdir(half, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadValue(half, "registry.example"); err == nil || errors.Is(err, ErrNotFound) {
+		t.Errorf("missing values dir: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(half, "credentials")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("values dir created: %v", err)
+	}
+}
+
+func TestReadValueFailsClosed(t *testing.T) {
+	s, dir, _ := openStore(t)
+	if err := s.Set("registry.example", demoToken); err != nil {
+		t.Fatal(err)
+	}
+	vals := filepath.Join(dir, "credentials")
+	file := filepath.Join(vals, "registry.example")
+	check := func(what string) {
+		t.Helper()
+		if _, err := ReadValue(dir, "registry.example"); !errors.Is(err, ErrUnsafe) {
+			t.Errorf("%s: %v", what, err)
+		}
+	}
+
+	if err := os.Chmod(file, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	check("file mode")
+	if err := os.Chmod(file, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Link(file, link); err != nil {
+		t.Fatal(err)
+	}
+	check("hardlink")
+	_ = os.Remove(link)
+
+	other := filepath.Join(vals, "registry.real")
+	if err := os.Rename(file, other); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(other, file); err != nil {
+		t.Fatal(err)
+	}
+	check("symlink")
+	_ = os.Remove(file)
+	_ = os.Rename(other, file)
+
+	if err := os.Chmod(vals, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	check("values dir mode")
+	if err := os.Chmod(vals, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	check("state dir mode")
+	if err := os.Chmod(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	// A foreign owner cannot be built without root, so the owner check is exercised on the helper directly.
+	st := &Store{uid: uint32(os.Geteuid()) + 1}
+	info, _ := os.Lstat(file)
+	if err := st.checkFile(info); !errors.Is(err, ErrUnsafe) {
+		t.Errorf("foreign owner file: %v", err)
+	}
+	dinfo, _ := os.Lstat(dir)
+	if err := st.checkDir(dir, dinfo, nil); !errors.Is(err, ErrUnsafe) {
+		t.Errorf("foreign owner dir: %v", err)
+	}
+}
