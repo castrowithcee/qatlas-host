@@ -113,13 +113,13 @@ func New(stateDir, passwd string, now func() time.Time, log *slog.Logger, normal
 // Commands returns the commands of the store with the access each needs, by command name.
 func (s *Store) Commands() map[string]control.Command {
 	return map[string]control.Command{
-		control.ProposalSubmitCommand:   {Access: control.AccessPropose, Handle: s.Submit},
-		control.ProposalWithdrawCommand: {Access: control.AccessPropose, Handle: s.Withdraw},
-		control.ProposalApproveCommand:  {Access: control.AccessWrite, Handle: s.Approve},
-		control.ProposalRejectCommand:   {Access: control.AccessWrite, Handle: s.Reject},
-		control.ProposalResultCommand:   {Access: control.AccessWrite, Handle: s.Result},
-		control.ProposalListCommand:     {Access: control.AccessRead, Handle: s.List},
-		control.ProposalShowCommand:     {Access: control.AccessRead, Handle: s.Show},
+		control.ProposalSubmitCommand:   {Class: control.ClassPropose, Scope: control.ScopeDeploy, Handle: s.Submit},
+		control.ProposalWithdrawCommand: {Class: control.ClassPropose, Scope: control.ScopeDeploy, Handle: s.Withdraw},
+		control.ProposalApproveCommand:  {Class: control.ClassChange, Scope: control.ScopeDeploy, Handle: s.Approve},
+		control.ProposalRejectCommand:   {Class: control.ClassChange, Scope: control.ScopeDeploy, Handle: s.Reject},
+		control.ProposalResultCommand:   {Class: control.ClassChange, Scope: control.ScopeDeploy, Handle: s.Result},
+		control.ProposalListCommand:     {Class: control.ClassRead, Scope: control.ScopeDeploy, Handle: s.List},
+		control.ProposalShowCommand:     {Class: control.ClassRead, Scope: control.ScopeDeploy, Handle: s.Show},
 	}
 }
 

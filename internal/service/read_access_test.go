@@ -53,10 +53,10 @@ func withPeers(t *testing.T, p *peers, reg *atomic.Pointer[control.Registry]) fu
 	}
 }
 
-func commandsOf(reg *control.Registry, access control.Access) []string {
+func commandsOf(reg *control.Registry, class control.Class) []string {
 	var names []string
 	for _, name := range reg.Names() {
-		if c, _ := reg.Lookup(name); c.Access == access {
+		if c, _ := reg.Lookup(name); c.Class == class {
 			names = append(names, name)
 		}
 	}
@@ -82,9 +82,9 @@ func TestAnAdministratorWithoutRootReadsButNeverWrites(t *testing.T) {
 		err := h.call(name, nil, nil)
 		var ce *control.Error
 		switch {
-		case c.Access == control.AccessWrite && (!errors.As(err, &ce) || ce.Code != control.CodeNotRoot):
+		case c.Class == control.ClassChange && (!errors.As(err, &ce) || ce.Code != control.CodeNotRoot):
 			t.Errorf("write %s = %v, want %s", name, err, control.CodeNotRoot)
-		case c.Access == control.AccessRead && errors.As(err, &ce) && (ce.Code == control.CodeNotRoot || ce.Code == control.CodeNoAccess):
+		case c.Class == control.ClassRead && errors.As(err, &ce) && (ce.Code == control.CodeNotRoot || ce.Code == control.CodeNoAccess):
 			t.Errorf("read %s = %v", name, err)
 		}
 	}
@@ -197,7 +197,7 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		control.ProposalShowCommand:     {control.ProposalIDArgs{ID: prop.ID}},
 		control.ContainerLogsCommand:    {control.ContainerLogsArgs{Stack: "plain-stack"}, control.ContainerLogsArgs{Name: app.Name}},
 	}
-	if got, want := slices.Sorted(maps.Keys(reads)), commandsOf(reg, control.AccessRead); !slices.Equal(got, want) {
+	if got, want := slices.Sorted(maps.Keys(reads)), commandsOf(reg, control.ClassRead); !slices.Equal(got, want) {
 		t.Fatalf("the test covers %v, the service reads with %v", got, want)
 	}
 
