@@ -1,6 +1,7 @@
 package hostservice
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -26,13 +27,18 @@ var proposalActions = map[string]string{
 
 // proposalCommands adds the commands of the store through add, each with the class the store gives it. The
 // handlers learn the peer from their context.
-func proposalCommands(add func(name, action string, class control.Class, h control.Handler) error, store *proposals.Store) error {
+func proposalCommands(add func(name, action string, class control.Class, h control.Handler) error, store *proposals.Store,
+	commandsEnabled func() (bool, error)) error {
 	for name, c := range store.Commands() {
 		action, ok := proposalActions[name]
 		if !ok {
 			panic(fmt.Sprintf("hostservice: the proposal command %s has no log action", name))
 		}
-		if err := add(name, action, c.Class, c.Handle); err != nil {
+		handle := c.Handle
+		if name == control.ProposalApproveCommand {
+			handle = gateCommandApproval(handle, store.Commands()[control.ProposalShowCommand].Handle, commandsEnabled)
+		}
+		if err := add(name, action, c.Class, handle); err != nil {
 			return err
 		}
 	}
@@ -115,4 +121,29 @@ func printableLine(s string, max int) bool {
 		return false
 	}
 	return !strings.ContainsFunc(s, func(r rune) bool { return !unicode.IsPrint(r) })
+}
+
+// gateCommandApproval refuses the approval of a proposal of kind ProposalKindCommand while the switch is off,
+// so turning it off also stops a run that was reviewed before. Every other kind passes unchanged.
+func gateCommandApproval(approve, show control.Handler, enabled func() (bool, error)) control.Handler {
+	return func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var a control.ProposalApproveArgs
+		if json.Unmarshal(raw, &a) == nil {
+			// A proposal that cannot be shown is left to approve, which answers it in its own words.
+			showArgs, _ := json.Marshal(control.ProposalIDArgs{ID: a.ID})
+			if res, err := show(ctx, showArgs); err == nil {
+				if shown, ok := res.(control.ProposalShowResult); ok && shown.Kind == control.ProposalKindCommand {
+					on, err := enabled()
+					if err != nil {
+						return nil, control.NewError(control.CodeInternal, "internal error")
+					}
+					if !on {
+						return nil, control.NewError(control.CodeCommandsDisabled,
+							"proposals of commands are switched off; an administrator turns them on with 'sudo qhost proposal commands enable'")
+					}
+				}
+			}
+		}
+		return approve(ctx, raw)
+	}
 }

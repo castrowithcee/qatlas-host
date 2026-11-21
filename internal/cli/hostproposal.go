@@ -63,6 +63,9 @@ func loadHostProposal(c *cobra.Command, state *notRunning, id string) (control.P
 	if res.State != control.ProposalOpen {
 		return res, content, usageFailure("the proposal is "+plainText(res.State)+", not open", "List the proposals with 'qhost proposal list'.")
 	}
+	if res.Kind == control.ProposalKindCommand {
+		return res, content, runInstead(id)
+	}
 	reject := "Reject it with 'sudo qhost proposal reject " + plainText(id) + "'."
 	if res.Kind != control.ProposalKindHostChange {
 		return res, content, usageFailure("the proposal is of the kind "+shortText(res.Kind)+", not "+control.ProposalKindHostChange, reject)

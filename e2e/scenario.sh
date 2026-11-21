@@ -1203,6 +1203,85 @@ scenario_tui_host_proposal() {
 	log "scenario: $hp_id proposed $hp_user in $hp_group with a key, the interface approved it as $hp_change and the undo removed the user"
 }
 
+# scenario_free_command_proposal proves a proposal of free commands. It is refused while the switch is off. After
+# sudo qhost proposal commands enable, the administrator without sudo submits a harmless command, proposal show marks it
+# as text of the submitter, qhost proposal approve and host apply point to proposal run, and sudo qhost proposal run
+# with the fingerprint and --confirm creates the file as root. The journal holds the commands and cannot be undone, the
+# action log names the proposal and the human behind sudo without the command, and with the switch off again the
+# next run is refused.
+scenario_free_command_proposal() {
+	fc_dir=/var/tmp/e2e-free-command
+	fc_text="touch $fc_dir/ready"
+	docker exec "$host" sh -c "rm -rf '$fc_dir' && mkdir '$fc_dir'" || fail 'cannot prepare the folder of the free command'
+	admin_uid=$(docker exec "$host" id -u "$admin")
+
+	step 'a proposal of free commands is refused while the switch is off'
+	content=$(jq -nc --arg c "$fc_text" '{commands: [$c], reason: "e2e: leave a marker file"}')
+	if out=$(printf '%s' "$content" | as_admin 'qhost --output json proposal submit --kind command 2>&1'); then
+		fail "a proposal of free commands was accepted while the switch is off: $out"
+	fi
+	printf '%s' "$out" | grep -q 'sudo qhost proposal commands enable' || fail "the refusal does not name the switch: $out"
+	out=$(as_admin 'qhost --output json proposal commands status 2>&1') || fail "proposal commands status failed: $out"
+	printf '%s' "$out" | grep -q '"enabled": *false' || fail "the switch is not off by default: $out"
+	if out=$(as_admin 'qhost proposal commands enable 2>&1'); then fail "proposal commands enable worked without sudo: $out"; fi
+
+	step 'sudo qhost proposal commands enable turns the switch on, and the administrator without sudo submits the command'
+	out=$(as_admin 'sudo qhost --output json proposal commands enable 2>&1') || fail "sudo qhost proposal commands enable failed: $out"
+	out=$(printf '%s' "$content" | as_admin 'qhost --output json proposal submit --kind command 2>&1') || fail "submit --kind command failed: $out"
+	fc_id=$(printf '%s' "$out" | sed -n 's/.*"id": *"\(h-[0-9a-f]*\)".*/\1/p' | head -n 1)
+	[ -n "$fc_id" ] || fail "proposal submit printed no id: $out"
+	out=$(as_admin "qhost proposal show $fc_id 2>&1") || fail "proposal show failed: $out"
+	printf '%s' "$out" | grep -qF 'unchecked, no computed effect, no undo' || fail "proposal show lacks the notice: $out"
+	printf '%s' "$out" | grep -qF -- "$fc_text" || fail "proposal show lacks the command: $out"
+	fc_fp=$(as_admin "qhost --output json proposal show $fc_id" | jq -r .fingerprint)
+	[ -n "$fc_fp" ] && [ "$fc_fp" != null ] || fail 'proposal show gave no fingerprint'
+	docker exec "$host" test ! -e "$fc_dir/ready" || fail 'submitting the proposal ran the command'
+
+	step 'approve and host apply do not take the proposal, and run without --confirm runs nothing'
+	if out=$(as_admin "sudo qhost host apply --proposal $fc_id --fingerprint $fc_fp --confirm 2>&1"); then fail "host apply took a proposal of free commands: $out"; fi
+	printf '%s' "$out" | grep -qF 'proposal run' || fail "host apply does not point to proposal run: $out"
+	if out=$(as_admin "qhost proposal run $fc_id --fingerprint $fc_fp --confirm 2>&1"); then fail "proposal run worked without sudo: $out"; fi
+	printf '%s' "$out" | grep -q 'must run as root' || fail "proposal run without sudo gives the wrong refusal: $out"
+	if out=$(as_admin "sudo qhost proposal run $fc_id --fingerprint $fc_fp 2>&1"); then fail "proposal run without --confirm succeeded: $out"; fi
+	if out=$(as_admin "sudo qhost proposal run $fc_id --fingerprint wrong --confirm 2>&1"); then fail "proposal run took a wrong fingerprint: $out"; fi
+	docker exec "$host" test ! -e "$fc_dir/ready" || fail 'a refused run created the file'
+
+	step 'sudo qhost proposal run with the fingerprint and --confirm runs the command as root'
+	out=$(as_admin "sudo qhost --output json proposal run $fc_id --fingerprint $fc_fp --confirm 2>/dev/null") || fail "proposal run failed: $out"
+	docker exec "$host" test -e "$fc_dir/ready" || fail "the file was not created: $out"
+	[ "$(docker exec "$host" stat -c %U "$fc_dir/ready")" = root ] || fail 'the command did not run as root'
+	fc_journal=$(printf '%s' "$out" | jq -r '.journal_id // empty')
+	[ -n "$fc_journal" ] || fail "the report names no journal entry: $out"
+	[ "$(prop_state "$fc_id")" = applied ] || fail "the proposal is $(prop_state "$fc_id"), want applied"
+
+	step 'the journal holds the command and refuses the undo, and the action log names the proposal without the command'
+	journal=$(as_admin 'sudo qhost --output json host journal 2>&1') || fail "sudo qhost host journal failed: $journal"
+	printf '%s' "$journal" | jq -e --arg id "$fc_journal" --argjson uid "$admin_uid" \
+		'[.. | objects | select(.id? == $id)][0] | .action == "proposal.run" and .reversible == false and .sudo_uid == $uid' >/dev/null ||
+		fail "the journal entry $fc_journal is not the unreversible run of uid $admin_uid: $journal"
+	docker exec "$host" cat "/var/lib/qhost-host/journal/$fc_journal.json" | jq -e --argjson uid "$admin_uid" --arg name "$admin" \
+		'.submitter_uid == $uid and .submitter_name == $name and (.exits | length) == 1 and .commands[0] == "touch /var/tmp/e2e-free-command/ready"' >/dev/null ||
+		fail "the journal file of $fc_journal does not name $admin (uid $admin_uid) as the submitter with the command and its exit code"
+	if out=$(as_admin "sudo qhost host undo $fc_journal --confirm 2>&1"); then fail "host undo took the run of free commands: $out"; fi
+	printf '%s' "$out" | grep -q 'cannot be undone' || fail "host undo gives the wrong refusal: $out"
+	out=$(as_admin 'qhost --output json audit --action host.change --limit 100 2>&1') || fail "qhost audit failed: $out"
+	printf '%s' "$out" | grep -qF "proposal.run $fc_journal proposal $fc_id" || fail "qhost audit does not show the run of $fc_id: $out"
+	if printf '%s' "$out" | grep -qF -e "$fc_dir" -e touch; then fail "qhost audit shows the command: $out"; fi
+	printf '%s' "$out" | tr -d ' \n' | grep -q "\"client_uid\":$admin_uid,\"action\":\"host.change\"" || fail "qhost audit does not name the human behind sudo: $out"
+
+	step 'with the switch off again a new proposal is refused and an open one does not run'
+	out=$(printf '%s' "$content" | as_admin 'qhost --output json proposal submit --kind command 2>&1') || fail "submit failed with the switch on: $out"
+	fc_id2=$(printf '%s' "$out" | sed -n 's/.*"id": *"\(h-[0-9a-f]*\)".*/\1/p' | head -n 1)
+	fc_fp2=$(as_admin "qhost --output json proposal show $fc_id2" | jq -r .fingerprint)
+	out=$(as_admin 'sudo qhost --output json proposal commands disable 2>&1') || fail "sudo qhost proposal commands disable failed: $out"
+	if out=$(as_admin "sudo qhost proposal run $fc_id2 --fingerprint $fc_fp2 --confirm 2>&1"); then fail "proposal run worked with the switch off: $out"; fi
+	printf '%s' "$out" | grep -qF 'proposal commands enable' || fail "the refusal does not name the switch: $out"
+	if printf '%s' "$content" | as_admin 'qhost proposal submit --kind command >/dev/null 2>&1'; then fail 'a proposal was accepted with the switch off'; fi
+	as_admin "qhost proposal withdraw $fc_id2 >/dev/null 2>&1" || true
+	docker exec "$host" rm -rf "$fc_dir"
+	log "scenario: $fc_id ran as $fc_journal behind the switch and cannot be undone"
+}
+
 # service_log_warn_count prints how many entries of the service log at the level warn or above say that the window
 # could not read the stacks, read as the administrator without sudo.
 service_log_warn_count() {
@@ -2258,6 +2337,7 @@ scenario_stacks_repo() {
 	scenario_tui_system
 	scenario_tui_changes
 	scenario_tui_host_proposal
+	scenario_free_command_proposal
 	scenario_rootless_instance
 	url=git.$domain:stacks.git
 

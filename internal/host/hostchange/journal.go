@@ -59,9 +59,16 @@ type Entry struct {
 	Commands []string `json:"commands"`
 	Result   string   `json:"result"`
 	// SudoUID is the human behind the sudo call; 0 when root was not reached through sudo.
-	SudoUID       int             `json:"sudo_uid"`
-	Reversible    bool            `json:"reversible"`
-	NotReversible string          `json:"not_reversible,omitempty"`
+	SudoUID       int    `json:"sudo_uid"`
+	Reversible    bool   `json:"reversible"`
+	NotReversible string `json:"not_reversible,omitempty"`
+	// Exits are the exit codes of the commands of a proposal of free commands that ran, in order; a command
+	// after the first failure has none. Earlier entries have no such field and read as before.
+	Exits []int `json:"exits,omitempty"`
+	// SubmitterUID and SubmitterName are the user who submitted the proposal of free commands (UID 0, root,
+	// is left out); the name is shown text with control characters replaced.
+	SubmitterUID  int             `json:"submitter_uid,omitempty"`
+	SubmitterName string          `json:"submitter_name,omitempty"`
 	Previous      json.RawMessage `json:"previous,omitempty"`
 	Check         string          `json:"check"`
 	CheckError    string          `json:"check_error,omitempty"`

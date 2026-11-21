@@ -72,7 +72,7 @@ func (s *server) registry(store *proposals.Store) (*control.Registry, map[string
 			return nil, nil, err
 		}
 	}
-	if err := proposalCommands(add, store); err != nil {
+	if err := proposalCommands(add, store, s.commandSwitch.Enabled); err != nil {
 		return nil, nil, err
 	}
 	return reg, actions, nil
@@ -152,7 +152,7 @@ func (s *server) logList(c *call) (any, error) {
 			Result: e.Result, ErrorCode: e.ErrorCode, DurationMS: e.DurationMS,
 		}
 		if h := e.Host; h != nil {
-			out.Entries[i].Change = &control.HostLogChange{ActionID: h.ActionID, JournalID: h.JournalID, UndoOf: h.UndoOf}
+			out.Entries[i].Change = &control.HostLogChange{ActionID: h.ActionID, JournalID: h.JournalID, UndoOf: h.UndoOf, ProposalID: h.ProposalID}
 		}
 	}
 	return out, nil
@@ -193,7 +193,7 @@ func hostRecord(c *call) (any, error) {
 	if err := json.Unmarshal(c.args, &a); err != nil {
 		return nil, badRequest()
 	}
-	change := auditlog.Host{ActionID: a.Action, JournalID: a.JournalID, UndoOf: a.UndoOf}
+	change := auditlog.Host{ActionID: a.Action, JournalID: a.JournalID, UndoOf: a.UndoOf, ProposalID: a.ProposalID}
 	if change.Validate() != nil {
 		return nil, badRequest()
 	}

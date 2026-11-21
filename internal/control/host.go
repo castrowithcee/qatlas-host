@@ -81,6 +81,8 @@ type HostLogChange struct {
 	ActionID  string `json:"action_id"`
 	JournalID string `json:"journal_id"`
 	UndoOf    string `json:"undo_of,omitempty"`
+	// ProposalID is set for the run of a proposal of free commands.
+	ProposalID string `json:"proposal_id,omitempty"`
 }
 
 // HostLogListResult answers HostLogListCommand. Next is set when more entries match; passing it as After
@@ -138,4 +140,6 @@ type HostRecordArgs struct {
 	SudoUID   uint32 `json:"sudo_uid"`
 	JournalID string `json:"journal_id"`
 	UndoOf    string `json:"undo_of,omitempty"`
+	// ProposalID is set for the run of a proposal of free commands.
+	ProposalID string `json:"proposal_id,omitempty"`
 }

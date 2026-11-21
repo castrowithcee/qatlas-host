@@ -117,7 +117,7 @@ func TestCommandTree(t *testing.T) {
 		proposalSub = append(proposalSub, c.Name())
 	}
 	slices.Sort(proposalSub)
-	if want := []string{"approve", "commands", "list", "reject", "show", "submit", "withdraw"}; !slices.Equal(proposalSub, want) {
+	if want := []string{"approve", "commands", "list", "reject", "run", "show", "submit", "withdraw"}; !slices.Equal(proposalSub, want) {
 		t.Fatalf("proposal commands = %v, want %v", proposalSub, want)
 	}
 	var commandsSub []string

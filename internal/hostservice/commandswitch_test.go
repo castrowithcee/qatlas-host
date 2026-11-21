@@ -2,6 +2,7 @@ package hostservice
 
 import (
 	"encoding/json"
+	"github.com/castrowithcee/qatlas-host/internal/host/auditlog"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -127,4 +128,54 @@ func TestSwitchingOffKeepsOpenCommandProposals(t *testing.T) {
 		t.Fatalf("content = %s, %v", shown.Content, err)
 	}
 	wantCode(t, e.do(control.ProposalSubmitCommand, commandSubmit(t, validCommands()), nil), control.CodeCommandsDisabled)
+}
+
+func TestApprovalOfACommandProposalNeedsTheSwitchOn(t *testing.T) {
+	var peer atomic.Uint32
+	e := startAs(t, &peer)
+	if err := setSwitch(t, e, &peer, 0, true); err != nil {
+		t.Fatal(err)
+	}
+	peer.Store(4100)
+	var info control.ProposalInfo
+	if err := e.do(control.ProposalSubmitCommand, commandSubmit(t, validCommands()), &info); err != nil {
+		t.Fatal(err)
+	}
+	if err := setSwitch(t, e, &peer, 0, false); err != nil {
+		t.Fatal(err)
+	}
+	approve := control.ProposalApproveArgs{ID: info.ID, Fingerprint: info.Fingerprint}
+	err := e.do(control.ProposalApproveCommand, approve, nil)
+	wantCode(t, err, control.CodeCommandsDisabled)
+	if !strings.Contains(err.Error(), "sudo qhost proposal commands enable") {
+		t.Fatalf("the message does not name the switch: %v", err)
+	}
+	var shown control.ProposalShowResult
+	if err := e.do(control.ProposalShowCommand, control.ProposalIDArgs{ID: info.ID}, &shown); err != nil || shown.State != control.ProposalOpen {
+		t.Fatalf("the refused approval changed the proposal: %+v, %v", shown, err)
+	}
+	if err := setSwitch(t, e, &peer, 0, true); err != nil {
+		t.Fatal(err)
+	}
+	peer.Store(0)
+	var approved control.ProposalInfo
+	if err := e.do(control.ProposalApproveCommand, approve, &approved); err != nil || approved.State != control.ProposalApproving {
+		t.Fatalf("approved = %+v, %v", approved, err)
+	}
+}
+
+func TestHostRecordKeepsTheProposalAndNoCommand(t *testing.T) {
+	e := start(t, 0)
+	const proposal = "h-0123456789abcdef"
+	args := control.HostRecordArgs{Action: "proposal.run", Result: control.HostResultFailed, SudoUID: 1000, JournalID: testJournalID, ProposalID: proposal}
+	if err := e.do(control.HostRecordCommand, args, nil); err != nil {
+		t.Fatal(err)
+	}
+	en := e.entries(t)[0].Entry
+	want := auditlog.Host{ActionID: "proposal.run", JournalID: testJournalID, ProposalID: proposal}
+	if en.Host == nil || *en.Host != want || en.ClientUID == nil || *en.ClientUID != 1000 || en.ErrorCode != "change-failed" {
+		t.Fatalf("entry = %+v", en)
+	}
+	args.ProposalID = "not-a-proposal; rm -rf /"
+	wantCode(t, e.do(control.HostRecordCommand, args, nil), control.CodeBadRequest)
 }

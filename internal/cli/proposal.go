@@ -37,7 +37,7 @@ func newProposalCommand(program *cobracli.Program, state *notRunning, secrets *r
 	group.AddCommand(newProposalSubmit(program, state), newProposalList(program, state),
 		newProposalShow(program, state), newProposalWithdraw(program, state),
 		newProposalApprove(program, state, secrets), newProposalReject(program, state),
-		newProposalCommandsCommand(program, state))
+		newProposalCommandsCommand(program, state), newProposalRunCommand(program, state, secrets))
 	return group
 }
 
