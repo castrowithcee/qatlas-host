@@ -51,6 +51,8 @@ const (
 	ScopeDeploy Scope = iota + 1
 	// ScopeStack marks a request that concerns one stack, whose name is known before the command runs.
 	ScopeStack
+	// ScopeHost marks a request that concerns the host itself, which the host service serves.
+	ScopeHost
 )
 
 func (s Scope) String() string {
@@ -59,6 +61,8 @@ func (s Scope) String() string {
 		return "deploy"
 	case ScopeStack:
 		return "stack"
+	case ScopeHost:
+		return "host"
 	}
 	return "unmarked"
 }
@@ -96,6 +100,9 @@ func (c Command) AccessFor(args json.RawMessage) Access {
 	case c.Class == ClassRead && (c.Writes == nil || !c.Writes(args)):
 		class = ClassRead
 	}
+	if c.Scope == ScopeHost {
+		return Access{Class: class, Scope: ScopeHost}
+	}
 	if c.Scope == ScopeStack && c.Stack != nil {
 		if names := c.Stack(args); len(names) == 1 && names[0] != "" {
 			return Access{Class: class, Scope: ScopeStack, Stack: names[0]}
@@ -131,7 +138,7 @@ func (r *Registry) Register(name string, c Command) error {
 	if c.Class != ClassRead && c.Class != ClassPropose && c.Class != ClassChange {
 		return fmt.Errorf("command %q is not marked as read, propose or change", name)
 	}
-	if c.Scope != ScopeDeploy && c.Scope != ScopeStack {
+	if c.Scope != ScopeDeploy && c.Scope != ScopeStack && c.Scope != ScopeHost {
 		return fmt.Errorf("command %q is not marked with a scope", name)
 	}
 	if (c.Scope == ScopeStack) != (c.Stack != nil) {

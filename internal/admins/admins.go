@@ -95,3 +95,20 @@ func scanner(r io.Reader) *bufio.Scanner {
 	sc.Buffer(make([]byte, 0, 4096), maxLine)
 	return sc
 }
+
+// Authorize is the decision both services take for one request, by its class only. Root may run every command.
+// An administrator may run commands that read or propose and gets control.ErrNotRoot for any other. Anyone else,
+// and anyone whose right could not be read, gets control.ErrNoAccess. admin tells whether uid is an administrator
+// per the group database; it counts only when the lookup succeeded.
+func Authorize(uid uint32, admin bool, access control.Access) error {
+	if uid == 0 {
+		return nil
+	}
+	if !admin {
+		return control.ErrNoAccess()
+	}
+	if access.Class != control.ClassRead && access.Class != control.ClassPropose {
+		return control.ErrNotRoot()
+	}
+	return nil
+}
