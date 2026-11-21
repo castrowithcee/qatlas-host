@@ -192,7 +192,7 @@ const (
 	fakeRegistryUser  = "fake-user-1"
 	fakeRegistryToken = "fake-token-42"
 	noCredentialText  = "no credential could be determined for the registry"
-	authText          = "the registry requires a login or did not accept the credential"
+	authText          = "the registry requires a login or did not accept the credential; store a login as credential registry.registry.example.test (see qhost help credentials)"
 )
 
 func TestUpdatesRegistryLogin(t *testing.T) {

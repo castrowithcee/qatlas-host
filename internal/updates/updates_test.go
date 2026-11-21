@@ -186,7 +186,8 @@ func TestCredentialLookupPerHostAndNoLeak(t *testing.T) {
 	if by["OK"].Selected != "1.1.0" || by["OK2"].Status != engine.UpdateAvailable {
 		t.Errorf("authorized: %+v %+v", by["OK"], by["OK2"])
 	}
-	if it := by["WRONG"]; it.Status != engine.UpdateError || it.Error != textAuth {
+	if it := by["WRONG"]; it.Status != engine.UpdateError ||
+		it.Error != textAuth+"; store a login as credential registry.wrong.example.test (see qhost help credentials)" || len([]rune(it.Error)) > maxText {
 		t.Errorf("WRONG: %+v", it)
 	}
 	if it := by["NONE"]; it.Status != engine.UpdateError || it.Error != textNoCredential {

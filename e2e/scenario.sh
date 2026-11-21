@@ -3024,6 +3024,9 @@ EOF2
 	printf '%s' "$run_log" | grep -q ' result failed pull:' || fail "the run did not fail at the pull step: $run_log"
 	case ",$(log_steps "$run_log")," in *,pull,*) ;; *) fail "the run has no pull step: $run_log" ;; esac
 	case ",$(log_steps "$run_log")," in *,up,*) fail "the run went on after the failed pull: $run_log" ;; esac
+	runs_json=$(qd --output json stack runs demo-private) || fail "stack runs failed: $runs_json"
+	printf '%s' "$runs_json" | grep -q 'pull: [^"]*denied access; store a login as credential '"$cred"' (see qhost help credentials)\|pull: [^"]*denied access; store a login as credential '"$cred"' for ' ||
+		fail "the run record does not name the login $cred: $runs_json"
 	[ -z "$(stack_images demo-private)" ] || fail "demo-private runs without a login: $(stack_images demo-private)"
 
 	step 'with the stored login a manual run deploys the stack'

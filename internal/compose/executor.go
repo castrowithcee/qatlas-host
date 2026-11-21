@@ -87,12 +87,12 @@ func orDefault(d, def time.Duration) time.Duration {
 
 // Pull pulls the images of the stack.
 func (x *Executor) Pull(ctx context.Context, st stacks.Stack, log Logger) error {
-	return x.step(ctx, st, log, orDefault(x.PullTimeout, DefaultPullTimeout), "pull", "pull")
+	return x.pulling(ctx, st, log, orDefault(x.PullTimeout, DefaultPullTimeout), "pull", "pull")
 }
 
 // Up starts the stack detached and removes containers of services that are gone.
 func (x *Executor) Up(ctx context.Context, st stacks.Stack, log Logger) error {
-	return x.step(ctx, st, log, orDefault(x.UpTimeout, DefaultUpTimeout), "up", "up", "-d", "--remove-orphans")
+	return x.pulling(ctx, st, log, orDefault(x.UpTimeout, DefaultUpTimeout), "up", "up", "-d", "--remove-orphans")
 }
 
 // Stop stops the containers of the stack without removing them.
@@ -117,6 +117,21 @@ func (x *Executor) step(ctx context.Context, st stacks.Stack, log Logger, timeou
 	}
 	res, err := x.run(ctx, log, c, timeout, label)
 	logOutput(log, res)
+	return err
+}
+
+// pulling is step for a call that may pull images: a refusal by the registry gets a cause that names the
+// login to store.
+func (x *Executor) pulling(ctx context.Context, st stacks.Stack, log Logger, timeout time.Duration, label string, words ...string) error {
+	c, err := x.command(st, st.Name, 0, words...)
+	if err != nil {
+		return err
+	}
+	res, err := x.run(ctx, log, c, timeout, label)
+	logOutput(log, res)
+	if err != nil {
+		err = explainDenied(st, string(res.Output), err)
+	}
 	return err
 }
 
