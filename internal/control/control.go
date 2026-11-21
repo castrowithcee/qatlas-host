@@ -213,6 +213,9 @@ type StatusResult struct {
 	Engine    EngineStatus `json:"engine"`
 	// Window is the maintenance window; nil when its setting cannot be read.
 	Window *WindowResult `json:"window,omitempty"`
+	// NotChecked is set only by a client that merges the answers of several deploy services: the engines whose
+	// service could not be asked. A deploy service never sets it.
+	NotChecked []EngineNotChecked `json:"engines_not_checked,omitempty"`
 }
 
 // EngineStatus is the engine's part of StatusResult. Sources has every stack folder in the order they were
@@ -240,6 +243,8 @@ const (
 type SourceStatus struct {
 	ID   string `json:"id"`
 	Path string `json:"path"`
+	// Engine is the engine of the deploy service that holds the stack folder; empty as in StackStatus.Engine.
+	Engine string `json:"engine,omitempty"`
 	// Kind is SourceKindRemote or SourceKindLocal; URL is the repository address and empty for a local one.
 	Kind       string    `json:"kind"`
 	URL        string    `json:"url,omitempty"`
@@ -279,8 +284,11 @@ func Primary(stacks []StackStatus, i int) bool {
 // ActiveRun is the id of the run in progress, LastRun the result of the last finished one. Paused is set
 // while the stack gets no runs after a failed rollback.
 type StackStatus struct {
-	Name      string        `json:"name"`
-	Source    string        `json:"source"`
+	Name   string `json:"name"`
+	Source string `json:"source"`
+	// Engine is the engine of the deploy service the stack comes from. A deploy service leaves it empty; a
+	// client that merges several deploy services sets it, as EngineSystem or "rootless:<user>".
+	Engine    string        `json:"engine,omitempty"`
 	Deployed  string        `json:"deployed,omitempty"`
 	Pending   string        `json:"pending,omitempty"`
 	ActiveRun string        `json:"active_run,omitempty"`
@@ -563,11 +571,14 @@ type RunInfo struct {
 	Error      string    `json:"error,omitempty"`
 	// LogUnreadable is the refusal of the run's log when this version does not read it; it names the file.
 	LogUnreadable string `json:"log_unreadable,omitempty"`
+	// Engine is the engine of the deploy service that recorded the run; empty as in StackStatus.Engine.
+	Engine string `json:"engine,omitempty"`
 }
 
-// RunsResult answers RunsCommand, newest run first.
+// RunsResult answers RunsCommand, newest run first. NotChecked is set as in StatusResult.
 type RunsResult struct {
-	Runs []RunInfo `json:"runs"`
+	Runs       []RunInfo          `json:"runs"`
+	NotChecked []EngineNotChecked `json:"engines_not_checked,omitempty"`
 }
 
 // LogArgs are the arguments of LogCommand.
@@ -714,6 +725,8 @@ type RepoFetchSource struct {
 type StacksResult struct {
 	Dir    string      `json:"dir"`
 	Stacks []StackInfo `json:"stacks"`
+	// NotChecked is set as in StatusResult.
+	NotChecked []EngineNotChecked `json:"engines_not_checked,omitempty"`
 }
 
 // StackDir returns the folder of the listed stack name as a path below its stack folder (SourceDir, else Dir),
@@ -752,9 +765,11 @@ type StackInfo struct {
 	Error    string   `json:"error,omitempty"`
 	// Stopped is set while the stack was stopped through qhost.
 	Stopped *HoldInfo `json:"stopped,omitempty"`
-	// Source and SourceDir are the id and the path of the stack folder the stack comes from.
+	// Source and SourceDir are the id and the path of the stack folder the stack comes from; Engine is the engine
+	// of its deploy service, empty as in StackStatus.Engine.
 	Source    string `json:"source"`
 	SourceDir string `json:"source_dir"`
+	Engine    string `json:"engine,omitempty"`
 	// Collision says why the stack is not deployed when another stack folder holds its name.
 	Collision string `json:"collision,omitempty"`
 }
@@ -779,14 +794,17 @@ type StacksCheckResult struct {
 	Stacks   []StackReport `json:"stacks"`
 	Errors   int           `json:"errors"`
 	Warnings int           `json:"warnings"`
+	// NotChecked is set as in StatusResult.
+	NotChecked []EngineNotChecked `json:"engines_not_checked,omitempty"`
 }
 
 // StackReport is the check of one stack: the functions in the order deploy, update, rollback, backup, redact,
 // and the findings sorted by severity and rule.
 type StackReport struct {
 	Stack string `json:"stack"`
-	// Source is the id of the stack folder the stack comes from.
+	// Source is the id of the stack folder the stack comes from; Engine is as in StackStatus.Engine.
 	Source    string          `json:"source"`
+	Engine    string          `json:"engine,omitempty"`
 	Functions []StackFunction `json:"functions"`
 	Findings  []CheckFinding  `json:"findings"`
 }
@@ -1015,6 +1033,8 @@ const SourceListCommand = "source.list"
 // SourceListResult answers SourceListCommand: every source in the order it was bound.
 type SourceListResult struct {
 	Sources []SourceStatus `json:"sources"`
+	// NotChecked is set as in StatusResult.
+	NotChecked []EngineNotChecked `json:"engines_not_checked,omitempty"`
 }
 
 // SourceRemoveCommand releases a stack folder: its engine stops and its state is dropped. No file of the folder
@@ -1200,12 +1220,16 @@ type UpdatesArgs struct {
 // UpdatesResult answers UpdatesListCommand.
 type UpdatesResult struct {
 	Stacks []StackUpdates `json:"stacks"`
+	// NotChecked is set as in StatusResult.
+	NotChecked []EngineNotChecked `json:"engines_not_checked,omitempty"`
 }
 
 // StackUpdates is the detection result of one stack. Checked is zero for a stack never checked. Error is set
 // when the stack cannot be read.
 type StackUpdates struct {
-	Name    string       `json:"name"`
+	Name string `json:"name"`
+	// Engine is as in StackStatus.Engine.
+	Engine  string       `json:"engine,omitempty"`
 	Update  string       `json:"update"`
 	Checked time.Time    `json:"checked,omitzero"`
 	Items   []UpdateInfo `json:"items"`

@@ -17,7 +17,9 @@ import (
 // A user name stands for the instance of the rootless engine of that user; the empty name is the service of the
 // system engine.
 type DeploySetup interface {
-	// Installed reports whether the deploy service of the system engine is set up.
+	// Installed reports whether a deploy service is set up: the one of the system engine or the instance of a
+	// rootless engine. A host with only instances is set up, and the setup of the service of the system engine
+	// is still offered.
 	Installed() bool
 	// Users lists the users that have a rootless engine; it is a list to choose from, not a check.
 	Users() []string

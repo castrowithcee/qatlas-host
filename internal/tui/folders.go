@@ -191,7 +191,7 @@ func (m *Model) askFolderFetch() tea.Cmd {
 	m.askSetting(settingChange{title: textTitleFolders, question: m.text.Lookup(textAskFetch, f.Path),
 		consequence: m.text.Lookup(textWhatFetch), op: opFetch, name: f.Path,
 		direct: func(b Backend) (any, error) { return b.RepoFetch(m.ctx, f.Path) },
-		args:   []string{"repo", "fetch", "--dir", f.Path, "--output", "json"},
+		args:   m.folderArgs(f.Path, []string{"repo", "fetch", "--dir", f.Path, "--output", "json"}),
 		decode: decodeSudo[control.RepoFetchResult](func(r control.RepoFetchResult) bool { return r.Dir != "" })})
 	return nil
 }
@@ -224,7 +224,7 @@ func (m *Model) askFolderRemove() tea.Cmd {
 	m.askSetting(settingChange{title: textTitleFolders, question: m.text.Lookup(textAskRelease, f.Path),
 		consequence: m.text.Lookup(textWhatRelease), op: opSourceRemove, name: f.Path,
 		direct: func(b Backend) (any, error) { return b.SourceRemove(m.ctx, f.Path) },
-		args:   []string{"source", "remove", "--yes", "--output", "json", "--", f.Path},
+		args:   m.folderArgs(f.Path, []string{"source", "remove", "--yes", "--output", "json", "--", f.Path}),
 		decode: decodeSudo[control.SourceRemoveResult](func(r control.SourceRemoveResult) bool { return r.Path != "" })})
 	return nil
 }

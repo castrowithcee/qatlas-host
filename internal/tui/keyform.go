@@ -58,7 +58,7 @@ func (m *Model) askKeyGenerate(k keyGenerateAsk) {
 		args = append(args, "--replace")
 		c.question, c.consequence, c.danger = t.Lookup(textAskKeyReplace), t.Lookup(textWhatKeyReplace), true
 	}
-	c.args = append(args, "--output", "json")
+	c.args = m.folderArgs(k.dir, append(args, "--output", "json"))
 	m.askSetting(c)
 }
 
@@ -83,7 +83,7 @@ func (m *Model) askKeySet(k keySetAsk) {
 		args = append(args, "--replace")
 		c.question, c.consequence, c.danger = t.Lookup(textAskKeyReplace), t.Lookup(textWhatKeyReplace), true
 	}
-	c.args = append(args, "--output", "json")
+	c.args = m.folderArgs(k.dir, append(args, "--output", "json"))
 	m.askSetting(c)
 }
 

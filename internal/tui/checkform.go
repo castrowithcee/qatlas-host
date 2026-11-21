@@ -229,7 +229,7 @@ func (m *Model) openRemoveSettings() tea.Cmd {
 	m.askSetting(settingChange{title: textTitleSettingsRemove, question: m.text.Lookup(textAskSettingsRemove, stack),
 		consequence: m.text.Lookup(what), danger: true, op: opStackSettingsRemove, name: stack,
 		direct: func(b Backend) (any, error) { return b.StackSettingsRemove(m.ctx, stack) },
-		args:   []string{"stack", "settings", "remove", "--output", "json", "--", stack},
+		args:   m.stackArgs(stack, []string{"stack", "settings", "remove", "--output", "json", "--", stack}),
 		decode: decodeSudo[control.StackSettingsRemoveResult](func(r control.StackSettingsRemoveResult) bool { return r.Stack != "" })})
 	return nil
 }

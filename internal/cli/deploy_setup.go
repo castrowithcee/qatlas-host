@@ -72,6 +72,16 @@ func (t setupTarget) apply(ctx context.Context, plan deploysetup.Plan) error {
 // deployInstalled reports whether the setup installed the unit of the deploy service.
 func deployInstalled() bool { return deploysetup.Installed(deploySetup.host.Root) }
 
+// deployPresent reports whether any deploy service is set up: the one of the system engine or the instance of a
+// rootless engine. A host with only instances is set up; the service of the system engine can still be added.
+func deployPresent() bool {
+	if deployInstalled() {
+		return true
+	}
+	list, err := folders.instances()
+	return err == nil && len(list) > 0
+}
+
 // notSetUp is the diagnostic of a command that needs the deploy service before it exists. It ends with the
 // exit code of a service that is not running, because for a caller waiting on the service both mean that
 // nothing answers, and only the next step differs.
@@ -193,7 +203,7 @@ type tuiDeploySetup struct{}
 
 var _ tui.DeploySetup = tuiDeploySetup{}
 
-func (tuiDeploySetup) Installed() bool { return deployInstalled() }
+func (tuiDeploySetup) Installed() bool { return deployPresent() }
 
 func (tuiDeploySetup) Users() []string {
 	users, err := deploySetup.host.RootlessUsers()

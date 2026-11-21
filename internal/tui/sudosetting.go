@@ -86,7 +86,7 @@ func (m *Model) askSettingsSet(title kittui.TextID, question, consequence string
 			edit(&s)
 			return b.StackSettingsSet(m.ctx, stack, s)
 		},
-		args: []string{"stack", "settings", "set", "--file", "-", "--output", "json", "--", stack},
+		args: m.stackArgs(stack, []string{"stack", "settings", "set", "--file", "-", "--output", "json", "--", stack}),
 		input: func(ctx context.Context, b Backend) ([]byte, error) {
 			s, err := currentSettings(ctx, b, stack)
 			if err != nil {

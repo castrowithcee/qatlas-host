@@ -37,10 +37,10 @@ func (m *Model) askSudoPlan(p plan) {
 	} else {
 		first = p.stacks[0]
 		for _, name := range p.stacks[1:] {
-			a.also = append(a.also, sudoPlanArgs(p.kind, name))
+			a.also = append(a.also, m.stackArgs(name, sudoPlanArgs(p.kind, name)))
 		}
 	}
-	a.args = sudoPlanArgs(p.kind, first)
+	a.args = m.stackArgs(first, sudoPlanArgs(p.kind, first))
 	var gen int
 	a.begin = func() {
 		m.runGen++

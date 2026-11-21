@@ -124,7 +124,10 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"It needs a terminal on both standard input and output and the running deploy service. Root and administrators in\n" +
 			"the group qhost may open it. Without sudo a change shows the command sudo qhost ... and runs it after y;\n" +
 			"sudo asks for the password itself. This covers data folders, setting up the deploy service and deciding a proposal of the deploy\n" +
-			"service as well. A deploy service that is not set up is no failure: the areas that need it say so and, with y\n" +
+			"service as well. On a host with several deploy services, the one of the system engine and the instance of each\n" +
+			"rootless engine, the interface reads all of them and sends an action to the service that has the stack; a service\n" +
+			"that cannot be asked is named, and the others are still shown. A host with only instances of rootless engines\n" +
+			"counts as set up. No deploy service at all is no failure: the areas that need it say so and, with y\n" +
 			"after a question, set it up\n" +
 			"(G; without sudo through sudo qhost deploy-service setup). A set up deploy service that is not running ends with exit code 3 before it draws\n" +
 			"anything. Device-local preferences are read from ~/.qatlas/qhost/tui.yaml; a missing file means\n" +
@@ -137,10 +140,11 @@ func newTUICommand(state *notRunning) *cobra.Command {
 				return usageFailure("the terminal interface needs a terminal on standard input and standard output",
 					"Run 'qhost tui' in a terminal, or use the commands such as 'qhost status' in scripts.")
 			}
-			backend := tui.NewBackend(serviceEndpoint()).WithVersion(version)
+			backend := newEngineBackend().withVersion(version)
 			// The interface refuses before it takes the terminal, so a missing service or root fails as every
-			// channel command does. A deploy service that is not set up is no failure: the interface offers the setup.
-			if _, err := backend.Status(c.Context()); err != nil && !(errors.Is(err, client.ErrNotRunning) && !deployInstalled()) {
+			// channel command does. No deploy service at all is no failure: the interface offers the setup. A host
+			// with only instances of rootless engines has a deploy service.
+			if _, err := backend.Status(c.Context()); err != nil && !(errors.Is(err, client.ErrNotRunning) && !deployPresent()) {
 				if handled, failed := regroup(err, c.ErrOrStderr()); handled {
 					return failed
 				}

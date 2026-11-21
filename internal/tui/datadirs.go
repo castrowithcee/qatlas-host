@@ -171,8 +171,8 @@ func (m *Model) askDataDirsSudo(stack string, req datadir.Request, details []str
 	var gen int
 	m.askSudo(sudoAsk{title: textTitleDataDirs, question: m.text.Lookup(textAskDataDirs, stack), consequence: m.text.Lookup(textWhatDataDirs),
 		lead: dialogLines(details),
-		args: []string{"stack", "datadir", "--owner", req.Owner.String(), "--mode", fmt.Sprintf("%04o", req.Mode), "--yes",
-			"--output", "json", "--", stack},
+		args: m.stackArgs(stack, []string{"stack", "datadir", "--owner", req.Owner.String(), "--mode", fmt.Sprintf("%04o", req.Mode), "--yes",
+			"--output", "json", "--", stack}),
 		begin: func() { gen = m.beginSetting() },
 		done: func(r sudoRun) tea.Cmd {
 			msg := settingMsg{gen: gen, op: opDataDirs, name: stack}

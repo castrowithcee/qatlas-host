@@ -115,7 +115,7 @@ func (m *Model) submitSecret(f *settingsForm, key, value string) tea.Cmd {
 	m.askSetting(settingChange{title: textTitleSecret, question: m.text.Lookup(textAskSecretSet, key, stack),
 		consequence: m.text.Lookup(textWhatSecretSet), op: opSecretSet, name: key,
 		direct: func(b Backend) (any, error) { return b.SecretSet(m.ctx, stack, key, value) },
-		args:   []string{"stack", "secret", "set", "--output", "json", "--", stack, key},
+		args:   m.stackArgs(stack, []string{"stack", "secret", "set", "--output", "json", "--", stack, key}),
 		input:  secretInput(value),
 		decode: decodeSudo[control.SecretResult](func(r control.SecretResult) bool { return r.Stack != "" })})
 	return nil
@@ -206,7 +206,7 @@ func (m *Model) picked(id kittui.ItemID) tea.Cmd {
 		m.askSetting(settingChange{title: textTitleSecretDelete, question: m.text.Lookup(textAskSecretDelete, key, stack),
 			consequence: m.text.Lookup(textWhatSecretDelete), danger: true, op: opSecretDelete, name: key,
 			direct: func(b Backend) (any, error) { return b.SecretDelete(m.ctx, stack, key) },
-			args:   []string{"stack", "secret", "delete", "--output", "json", "--", stack, key},
+			args:   m.stackArgs(stack, []string{"stack", "secret", "delete", "--output", "json", "--", stack, key}),
 			decode: decodeSudo[control.SecretResult](func(r control.SecretResult) bool { return r.Stack != "" })})
 	case pickBackup:
 		b := p.backups[id]
@@ -214,7 +214,7 @@ func (m *Model) picked(id kittui.ItemID) tea.Cmd {
 		m.askSetting(settingChange{title: textTitleRestore, question: m.text.Lookup(textAskRestore, key, stack),
 			consequence: m.text.Lookup(textWhatRestore), details: details, danger: true, op: opRestore, name: key,
 			direct: func(b Backend) (any, error) { return b.BackupRestore(m.ctx, stack, key) },
-			args:   []string{"stack", "backup", "restore", "--yes", "--output", "json", "--", stack, key},
+			args:   m.stackArgs(stack, []string{"stack", "backup", "restore", "--yes", "--output", "json", "--", stack, key}),
 			decode: decodeRestore})
 	}
 	return nil

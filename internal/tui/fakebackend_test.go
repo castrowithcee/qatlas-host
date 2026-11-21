@@ -900,6 +900,10 @@ var svcLevelRank = map[string]int{control.LogLevelDebug: 0, control.LogLevelInfo
 // ServiceLog answers like the service from svcLog: by level, time and cursor (the number of entries already
 // looked at), keeps the last Tail entries and cuts a page at svcPage entries. An error set in errs under
 // "servicelog:" fails the call.
+func (f *fakeBackend) Engines(context.Context) ([]string, error) {
+	return []string{control.EngineSystem}, nil
+}
+
 func (f *fakeBackend) ServiceLog(_ context.Context, a control.ServiceLogArgs) (control.ServiceLogResult, error) {
 	f.count("servicelog")
 	if err := f.fail("servicelog", ""); err != nil {
