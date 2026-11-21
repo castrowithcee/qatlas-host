@@ -435,7 +435,7 @@ func TestCleanCache(t *testing.T) {
 	now := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
 	write := func(name string, age time.Duration) {
 		p := filepath.Join(dir, name)
-		if err := os.WriteFile(p, []byte("{}"), 0o600); err != nil {
+		if err := os.WriteFile(p, []byte(`{"version":2}`), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.Chtimes(p, now.Add(-age), now.Add(-age)); err != nil {

@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                                    [?] Hilfe
+  [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ ssh://git.example.test/ops/stacks.git nach /srv/new-example klonen?                                                 
+                                                                                                                        
+  Erst jetzt wird der Hostschlüssel gespeichert, und die unten aufgeführten Änderungen werden vorgenommen.              
+    Host: example.test                                                                                                  
+    Schlüsseltyp: ssh-ed25519                                                                                           
+    Fingerabdruck: SHA256:ExampleFingerprintForTestsOnly0000000000                                                      
+    Ordner: /srv/new-example                                                                                            
+                                                                                                                        
+  Änderungen nach Ja                                                                                                    
+    Der Ordner wird mit Eigentümer qhost-deploy:qhost-deploy und Modus 0755 angelegt.                                   
+    Der Hostschlüssel wird gespeichert und das Repository in den Ordner geklont.                                        
+    Keine Rechteänderung: Der Dienst kann bereits schreiben.                                                            
+    Der Ordner wird in das systemd-Drop-in des Dienstes eingetragen, der einmal neu startet.                            
+                                                                                                                        
+    $ sudo qhost source add --url ssh://git.example.test/ops/stacks.git --fingerprint                                   
+      SHA256:ExampleFingerprintForTestsOnly0000000000 --expect-effect                                                   
+      sha256:example-effect-for-tests-only-0000000000000000000000000000 --yes --output json -- /srv/new-example         
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+y ja, ausführen  n/esc/enter abbrechen                                                                      ↑/↓ Scrollen

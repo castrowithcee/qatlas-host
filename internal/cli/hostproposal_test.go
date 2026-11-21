@@ -406,9 +406,19 @@ func TestHostApplyProposalNeedsAPersonRootAndConfirm(t *testing.T) {
 		t.Errorf("no terminal: code %d, stderr %q", code, errOut)
 	}
 	useControllingTerminal(t, true)
-	if code, _, errOut := run(t, base...); code != 2 || !strings.Contains(errOut, "--confirm") {
-		t.Errorf("no --confirm: code %d, stderr %q", code, errOut)
+	code, out, errOut := run(t, base...)
+	if code != 2 || out != "" || !strings.Contains(errOut, "--confirm") {
+		t.Errorf("no --confirm: code %d, stdout %q, stderr %q", code, out, errOut)
 	}
+	if strings.Count(errOut, "Set alpha to new.") != 1 || strings.Count(errOut, "demo-set alpha new") != 1 {
+		t.Errorf("the sentence and the commands must appear once: %q", errOut)
+	}
+	if h := env.history(); h != "show" || len(f.w.calls) != 0 {
+		t.Errorf("the preview only reads the proposal: order %q, executed %v", h, f.w.calls)
+	}
+	env.mu.Lock()
+	env.order = nil
+	env.mu.Unlock()
 	if code, _, _ := run(t, append(base, "--confirm", "demo.set")...); code != 2 {
 		t.Errorf("an action next to --proposal: code %d", code)
 	}
@@ -505,4 +515,21 @@ func proposalInput(t *testing.T, initial string, keys []string) []byte {
 		t.Fatal(err)
 	}
 	return b
+}
+
+func TestHostApplyProposalPreviewAsksNothingAndTakesNoApproval(t *testing.T) {
+	env := &hostProposalEnv{content: control.ProposalHostChange{Action: "demo.set", Args: []string{"alpha", "new"}}}
+	f, _ := startHostProposalEnv(t, env)
+	// A terminal that would be asked, and standard input that must stay unread.
+	useTerminalStdin(t, "y\n")
+	code, out, errOut := run(t, "host", "apply", "--proposal", demoHostProposalID)
+	if code != 2 || out != "" || !strings.Contains(errOut, "--confirm") || !strings.Contains(errOut, "Fingerprint of the proposal: fp-one") {
+		t.Fatalf("code %d, stdout %q, stderr %q", code, out, errOut)
+	}
+	if strings.Contains(errOut, "Apply proposal") {
+		t.Errorf("a question was asked: %q", errOut)
+	}
+	if h := env.history(); h != "show" || len(f.w.calls) != 0 || len(f.audited) != 0 || f.w.values["alpha"] != "old" {
+		t.Errorf("order %q, executed %v, audited %v", h, f.w.calls, f.audited)
+	}
 }

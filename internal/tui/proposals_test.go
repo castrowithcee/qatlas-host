@@ -116,7 +116,7 @@ func TestProposalsNoticeComesOnlyOnce(t *testing.T) {
 	}
 }
 
-func TestProposalViewWorksOutTheEffectOnlyWithSudo(t *testing.T) {
+func TestProposalViewWorksOutTheEffectOnlyAsRoot(t *testing.T) {
 	b := proposalBackend()
 	m := proposalModel(t, i18n.English, b, true, 120, 40)
 	send(m, "6", "enter")
@@ -134,7 +134,7 @@ func TestProposalViewWorksOutTheEffectOnlyWithSudo(t *testing.T) {
 	m = proposalModel(t, i18n.English, b, false, 120, 40)
 	send(m, "6", "enter")
 	screen = m.render()
-	if !strings.Contains(screen, "need sudo") || strings.Contains(screen, "demo/compose.yaml") {
+	if !strings.Contains(screen, "worked out when you approve it") || strings.Contains(screen, "demo/compose.yaml") {
 		t.Errorf("without sudo the view shows the effect or no hint:\n%s", screen)
 	}
 	if b.called("sourceinspect") != 0 {

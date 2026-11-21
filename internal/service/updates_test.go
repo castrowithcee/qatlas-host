@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/credentials"
 	"github.com/castrowithcee/qatlas-host/internal/registry"
 	"github.com/castrowithcee/qatlas-host/internal/registry/registrytest"
 	"github.com/castrowithcee/qatlas-host/internal/service"
@@ -191,7 +192,7 @@ const (
 	fakeRegistryUser  = "fake-user-1"
 	fakeRegistryToken = "fake-token-42"
 	noCredentialText  = "no credential could be determined for the registry"
-	authText          = "the registry requires a login or did not accept the credential"
+	authText          = "the registry requires a login or did not accept the credential; store a login as credential registry.registry.example.test (see qhost help credentials)"
 )
 
 func TestUpdatesRegistryLogin(t *testing.T) {
@@ -235,5 +236,23 @@ func TestUpdatesRegistryLogin(t *testing.T) {
 				t.Fatalf("item = %+v", it)
 			}
 		})
+	}
+}
+
+func TestRegistryCredentialFromUsesSharedMapping(t *testing.T) {
+	store, err := credentials.Open(filepath.Join(t.TempDir(), "state"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set("registry.docker.io", "demo-user:demo-token-0000"); err != nil {
+		t.Fatal(err)
+	}
+	lookup := service.RegistryCredentialFrom(store)
+	cred, err := lookup("registry-1.docker.io")
+	if err != nil || cred.User != "demo-user" || cred.Token != "demo-token-0000" {
+		t.Fatalf("hub lookup = %+v, %v", cred, err)
+	}
+	if cred, err := lookup("ghcr.io"); err != nil || cred.User != "" {
+		t.Fatalf("anonymous lookup = %+v, %v", cred, err)
 	}
 }

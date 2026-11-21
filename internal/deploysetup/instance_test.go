@@ -136,9 +136,9 @@ func TestTemplateRendersTheDerivedNames(t *testing.T) {
 	unit := unitLines(strings.ReplaceAll(string(packaging.DeployInstanceUnit), "%i", i.User()))
 	for _, want := range []string{
 		"ReadWritePaths=" + i.ChannelDir(),
+		"ReadWritePaths=-/run/qhost-hook/" + i.User(),
 		"StateDirectory=" + path.Base(i.StateDir()),
 		"ConfigurationDirectory=" + path.Base(i.ConfigDir()),
-		"Environment=DOCKER_CONFIG=" + path.Join(i.StateDir(), "docker"),
 		"ExecStart=/usr/local/bin/" + Program + " deploy-service run --instance " + i.User(),
 		"User=" + i.User(),
 	} {

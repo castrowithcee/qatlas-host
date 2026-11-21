@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                    [?] Hilfe
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+        STACK                      VERSION  VERFÜGBAR  Z
+> ▾ [ ] ■ /srv/local-example (0)   lokal               …
+  ▾ [ ] ■ /srv/stacks-example (6)  Klon                …
+    [ ] demo-stack                 1.4.2    1.5.0      …
+    [ ] mail-relay                 3.1      aktuell    …
+    [ ] old-tool                   -        ungeprüft  …
+    [ ] photo-album                2.0.1    Fehler     …
+    [ ] web-shop                   5.2.0,…  6.0.0 (M…  …
+    [ ] wiki                       1.41.0   ungeprüft  …
+  ╔═ Remote hinzufügen ══════════════════════════════╗  
+  ║ ⚠ /srv/local-example mit dem Repository unter    ║  
+  ║   ssh://git.example.test/ops/local-example.git   ║  
+  ║   vergleichen?                                   ║  
+  ║                                                  ║  
+  ║ Dafür wird der Git-Server der Adresse angefragt, ║  
+  ║ die Anfrage verlässt also den Host. Am Ordner    ║  
+  ║ und am Repository ändert sich nichts. Nur der    ║  
+  ║ zuvor bestätigte Hostschlüssel wird gespeichert, ║  
+  ║ und der Vergleich wird danach angezeigt.         ║  
+  ║ $ sudo qhost source compare --fingerprint        ║  
+  ║   SHA256:ExampleFingerprintForTestsOnly000000000 ║  
+  ║   0 --output json -- /srv/local-example          ║  
+  ║   ssh://git.example.test/ops/local-example.git   ║  
+  ║                                                  ║  
+  ║ [ ja, mit sudo ]  > abbrechen <                  ║  
+  ║ y ja, mit sudo  n/esc/enter abbrechen            ║  
+  ╚══════════════════════════════════════════════════╝  
+                                                        
+                                                        
+                                                        
+                                                        
+╭─ /srv/local-example ─────────────────────────────────╮
+│ letzter Abruf: Fr 2026-10-30 14:25                   │
+│ Abruf fehlgeschlagen: the working copy has           │
+│ uncommitted changes in demo/compose.yaml             │
+╰──────────────────────────────────────────────────────╯
+                                                     1/6

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
@@ -13,8 +14,8 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/window"
 )
 
-// UpdateNotice tells that the maintenance window found an update for a stack in manual mode, which it leaves
-// to the operator. Items are the variables with an update.
+// UpdateNotice tells that the maintenance window or the regular registry check found an update for a stack in
+// manual mode, which it leaves to the operator. Items are the variables with an update.
 type UpdateNotice struct {
 	Stack string
 	Items []engine.UpdateItem
@@ -23,14 +24,21 @@ type UpdateNotice struct {
 // windowService runs the work of each opening of the maintenance window: a registry check of every stack,
 // then the updates of the stacks in automatic mode, one after another, through the path 'qhost stack update' takes.
 type windowService struct {
+	stackUpdater
+	sched *window.Scheduler
+}
+
+// stackUpdater reports and updates the stacks a scheduled registry check found updates for: the maintenance
+// window or the regular check. label begins its log lines.
+type stackUpdater struct {
 	upd    *updatesService
-	sched  *window.Scheduler
 	log    *slog.Logger
+	label  string
 	notify func(UpdateNotice)
 }
 
 func newWindowService(stateDir string, upd *updatesService, clock window.Clock, log *slog.Logger, notify func(UpdateNotice)) (*windowService, error) {
-	w := &windowService{upd: upd, log: log, notify: notify}
+	w := &windowService{stackUpdater: stackUpdater{upd: upd, log: log, label: "maintenance window", notify: notify}}
 	sched, err := window.New(window.Config{StateDir: stateDir, Job: w.run, Clock: clock, Logger: log})
 	if err != nil {
 		return nil, err
@@ -43,7 +51,7 @@ func registerWindowCommands(r *control.Registry, w *windowService) error {
 	if err := r.Register(control.WindowShowCommand, reading(w.handleShow)); err != nil {
 		return err
 	}
-	return r.Register(control.WindowSetCommand, writing(w.handleSet))
+	return r.Register(control.WindowSetCommand, changing(w.handleSet))
 }
 
 var errWindowUnreadable = control.NewError(control.CodeInternal,
@@ -135,7 +143,8 @@ func windowResult(st window.Status) control.WindowResult {
 	}
 }
 
-// run is the work of one opening. Every stack is checked at the registries and the result stored, as
+// run is the work of one opening. Only stacks with the update trigger window are handled; the others are
+// skipped without a notice, with a debug log line. Every such stack is checked at the registries and the result stored, as
 // 'qhost stack updates --refresh' does, also for a paused or pinned stack, so an available update stays visible.
 // A stack in manual mode is only reported. The stacks in automatic mode are updated in name order, each once
 // the one before is done; a stack is skipped, with a log line that says why, when its marks forbid it, when it
@@ -147,6 +156,13 @@ func (w *windowService) run(ctx context.Context, open func() bool) {
 		w.log.Warn("maintenance window: the stacks cannot be read; nothing is checked or updated", "error", err)
 		return
 	}
+	list = slices.DeleteFunc(list, func(st stacks.Stack) bool {
+		if trigger, _ := st.UpdateTrigger(); trigger != stacks.TriggerWindow {
+			w.log.Debug("maintenance window: stack skipped", "stack", st.Name, "reason", "the update trigger is "+trigger)
+			return true
+		}
+		return false
+	})
 	cctx, cancel := context.WithTimeout(ctx, control.UpdatesRefreshTimeout)
 	fresh, err := w.upd.detector.Check(cctx, list)
 	cancel()
@@ -190,39 +206,40 @@ func (w *windowService) run(ctx context.Context, open func() bool) {
 	w.upd.recheck(ctx, updated)
 }
 
-func (w *windowService) skip(name, reason string) {
-	w.log.Info("maintenance window: stack skipped", "stack", name, "reason", reason)
+func (u stackUpdater) skip(name, reason string) {
+	u.log.Info(u.label+": stack skipped", "stack", name, "reason", reason)
 }
 
 // report emits the notice of a stack in manual mode with an available update. It sends nothing anywhere.
-func (w *windowService) report(name string, check engine.UpdateCheck) {
+func (u stackUpdater) report(name string, check engine.UpdateCheck) {
 	var items []engine.UpdateItem
 	for _, it := range check.Items {
 		if it.Status == engine.UpdateAvailable {
 			items = append(items, it)
-			w.log.Info("update available", "event", "update-available", "stack", name, "mode", stacks.ModeManual,
+			u.log.Info("update available", "event", "update-available", "stack", name, "mode", stacks.ModeManual,
 				"variable", it.Variable, "current", it.Current, "available", it.Selected)
 		}
 	}
-	if len(items) > 0 && w.notify != nil {
-		w.notify(UpdateNotice{Stack: name, Items: items})
+	if len(items) > 0 && u.notify != nil {
+		u.notify(UpdateNotice{Stack: name, Items: items})
 	}
 }
 
-// update updates one stack in automatic mode and tells whether a step succeeded.
-func (w *windowService) update(ctx context.Context, name string, check engine.UpdateCheck, open func() bool) bool {
-	eng := w.upd.eng
+// update updates one stack in automatic mode and tells whether a step succeeded. open tells whether a new step
+// may begin; the regular check passes one that always allows it.
+func (u stackUpdater) update(ctx context.Context, name string, check engine.UpdateCheck, open func() bool) bool {
+	eng := u.upd.eng
 	verdict, err := eng.WindowEligibility(name)
 	switch {
 	case err != nil:
-		w.skip(name, "the engine state cannot be read")
+		u.skip(name, "the engine state cannot be read")
 		return false
 	case !verdict.Allowed:
-		w.skip(name, "marked "+strings.Join(verdict.Reasons, ", "))
+		u.skip(name, "marked "+strings.Join(verdict.Reasons, ", "))
 		return false
 	}
 	if reason := nothingToUpdate(check); reason != "" {
-		w.skip(name, reason)
+		u.skip(name, reason)
 		return false
 	}
 	pctx, cancel := context.WithTimeout(ctx, control.UpdatesRefreshTimeout)
@@ -230,34 +247,34 @@ func (w *windowService) update(ctx context.Context, name string, check engine.Up
 	st, err := eng.CheckUpdate(pctx, name)
 	var steps []engine.VersionStep
 	if err == nil {
-		steps, err = w.upd.detector.Plan(pctx, st, "", "")
+		steps, err = u.upd.detector.Plan(pctx, st, "", "")
 	}
 	switch {
 	case err != nil:
-		w.skip(name, refusal(pctx, err))
+		u.skip(name, refusal(pctx, err))
 		return false
 	case len(steps) == 0:
-		w.skip(name, "nothing to update")
+		u.skip(name, "nothing to update")
 		return false
 	}
 	results, err := eng.UpdateWhile(ctx, name, steps, open)
 	if err != nil {
-		w.skip(name, refusal(ctx, err))
+		u.skip(name, refusal(ctx, err))
 		return false
 	}
 	succeeded, failed := false, false
 	for _, r := range results {
 		switch {
 		case r.Run != "":
-			w.log.Info("maintenance window: update step finished", "stack", name, "variable", r.Variable,
+			u.log.Info(u.label+": update step finished", "stack", name, "variable", r.Variable,
 				"from", r.From, "to", r.To, "run", r.Run, "result", r.Result)
 			succeeded = succeeded || r.Result == engine.ResultSucceeded
 			failed = failed || r.Result != engine.ResultSucceeded
 		case failed:
-			w.log.Info("maintenance window: update step not attempted after a failed step", "stack", name,
+			u.log.Info(u.label+": update step not attempted after a failed step", "stack", name,
 				"variable", r.Variable, "to", r.To)
 		default:
-			w.log.Info("maintenance window: update step waits for the next window", "stack", name,
+			u.log.Info(u.label+": update step waits for the next window", "stack", name,
 				"variable", r.Variable, "to", r.To, "reason", "the window has closed")
 		}
 	}

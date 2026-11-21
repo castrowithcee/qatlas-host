@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers  [6 ◈ Proposals]  7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Reject a proposal                                                                                                     
+                                                                                                                        
+         ╔═════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+> reason ║ not this host_                                                                                              ║
+         ╚═════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+         optional, at most 300 characters; the submitter reads it with qhost proposal show                              
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Reject a proposal ══════════════════════════════════════════╗                            
+                            ║ ⚠ Reject proposal p-0005?                                    ║                            
+                            ║                                                              ║                            
+                            ║ The proposal is closed as rejected and nothing on the host   ║                            
+                            ║ changes. The reason, if you give one, is shown to the        ║                            
+                            ║ submitter.                                                   ║                            
+                            ║ $ sudo qhost proposal reject p-0005 --reason 'not this host' ║                            
+                            ║   --output json                                              ║                            
+                            ║                                                              ║                            
+                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ y yes, with sudo  n/esc/enter cancel                         ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+[ F2 save ]  [ esc discard ]                                                                                            
+                                                                                                                        

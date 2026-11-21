@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks  [2 ▣ Stack detail]  3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Create data directories                                                                                               
+                            ╔═ Create data directories ════════════════════════════════════╗                            
+  Missing below /srv/stacks/║ ⚠ Create the missing data directories of the stack demo-     ║                            
+    data/db                 ║   stack and deploy it?                                       ║                            
+    data/files              ║                                                              ║                            
+                            ║ Only the directories below are created, with this owner and  ║                            
+        ╔═══════════════════║ mode. Existing directories stay as they are. Then a run of   ║═══════════════════════════╗
+> Owner ║ 1000:1000_        ║ the stack is started.                                        ║                           ║
+        ╚═══════════════════║ stack folder: /srv/stacks/demo-stack                         ║═══════════════════════════╝
+        UID:GID of the user ║ owner: 1000:1000                                             ║                            
+        ╭───────────────────║ mode: 0750                                                   ║───────────────────────────╮
+  Mode  │ 0750              ║   data/db                                                    ║                           │
+        ╰───────────────────║   data/files                                                 ║───────────────────────────╯
+                            ║ $ sudo qhost stack datadir --owner 1000:1000 --mode 0750     ║                            
+                            ║   --yes --output json -- demo-stack                          ║                            
+                            ║                                                              ║                            
+                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ y yes, with sudo  n/esc/enter cancel                         ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+[ F2 save ]  [ esc discard ]                                                                                            
+                                                                                                                        

@@ -5,7 +5,7 @@
   Systembenutzer getrennt vom Host-Dienst und hat Zugriff auf Docker. G richtet ihn ein; auf der Kommandozeile: sudo    
   qhost deploy-service setup                                                                                            
                                                                                                                         
-  Das Einrichten braucht root: beende und starte sudo qhost.                                                            
+                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         

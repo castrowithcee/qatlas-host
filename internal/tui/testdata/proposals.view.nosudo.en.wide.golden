@@ -13,7 +13,8 @@
     address: none proposed                                                                                              
                                                                                                                         
   Effect if applied now                                                                                                 
-    The effect and approving a proposal need sudo. Run qhost with sudo to see what applying it changes.                 
+    The effect of this proposal is worked out when you approve it. It asks for your sudo password and changes nothing   
+    until you confirm.                                                                                                  
                                                                                                                         
                                                                                                                         
                                                                                                                         
@@ -36,5 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-esc back  r reload  1-7 area  q quit                                                                          ↑/↓ scroll
+esc back  A approve  N reject  r reload  1-7 area  q quit                                                     ↑/↓ scroll

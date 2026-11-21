@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe  [4 ⚙ Einstellungen]  5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+   Allgemein   Zugangsdaten   Wartungsfenster  [Benachrichtigungen]                                                     
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Einstellungen des Kanals                                                                                              
+                                                                                                                        
+                    ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+  Webhook-URL       │ (eingegeben, verborgen)                                                                          │
+                    ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+                    ╔══════════════════════════════════════════════════════════════════════════════════════════════════╗
+> Signaturschlüssel ║ ••••••••••••••••••••••••_                                                                        ║
+                    ╚══════════════════════════════════════════════════════════════════════════════════════════════════╝
+                    verborgen; signiert jede Nachricht                                                                  
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Benachrichtigungskanal anlegen ═════════════════════════════╗                            
+                            ║ ⚠ Den Kanal deploy-hook (webhook) anlegen?                   ║                            
+                            ║                                                              ║                            
+                            ║ Der Dienst speichert die geheimen Teile und zeigt sie nie    ║                            
+                            ║ wieder.                                                      ║                            
+                            ║ $ sudo qhost notify add --type webhook --events succeeded    ║                            
+                            ║   --output json -- deploy-hook                               ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+[ F2 speichern ]  [ esc Verwerfen ]                                                                                     
+                                                                                                                        

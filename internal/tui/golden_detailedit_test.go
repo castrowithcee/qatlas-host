@@ -77,3 +77,10 @@ func TestGoldenDetailDataDirsDone(t *testing.T) {
 	asRoot(t)
 	goldenScreens(t, "detail.datadirs.done", detailEditRows, dataDirBackend, seq(toDataDirs, keys("f2", "y"))...)
 }
+
+func TestGoldenDetailDataDirsSudoQuestion(t *testing.T) {
+	oldEuid := defaultEuid
+	defaultEuid = func() int { return 1000 }
+	t.Cleanup(func() { defaultEuid = oldEuid })
+	goldenScreens(t, "detail.datadirs.sudo", detailEditRows, dataDirBackend, seq(toDataDirs, keys("f2"))...)
+}

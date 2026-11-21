@@ -57,14 +57,16 @@ func newUninstallCommand(program *cobracli.Program) *cobra.Command {
 			"/var/lib/qhost-host (the journal) and the users and groups; that cannot be undone.\n" +
 			"The stack folders, their data and the containers are never touched, and containers keep running. If a\n" +
 			"deletion would reach a bound stack folder, nothing is changed.\n" +
-			"Uninstalling needs root. It first shows what it will do and the exact commands and asks; it needs\n" +
-			"--confirm and asks for confirmation on a terminal, and --yes answers the question. A removal that\n" +
-			"stopped at a step continues from there when run again.\n" +
+			"Uninstalling needs root. It first shows what it will do and the exact commands; without --confirm it\n" +
+			"stops there and changes nothing. With --confirm it asks for confirmation on a terminal, and --yes answers\n" +
+			"the question. A removal that stopped at a step continues from there when run again.\n" +
 			"Every deploy service instance for a rootless engine that is set up (see 'qhost help deploy-setup') is stopped and\n" +
 			"disabled with systemctl disable --now, and its /etc/tmpfiles.d/qhost-deploy-<user>.conf, channel directory\n" +
 			"/run/qhost-deploy-<user> and drop-in directory (only if empty) are deleted, and last the template unit\n" +
 			"qhost-deploy@.service; with --purge also /var/lib/qhost-deploy-<user> and /etc/qhost-deploy-<user>. The users,\n" +
-			"their homes, their rootless engines and containers always stay.",
+			"their homes, their rootless engines and containers always stay.\n" +
+			"Where the webhook receiver is set up, it is stopped and disabled too, and its unit, /etc/tmpfiles.d/qhost-hook.conf and\n" +
+			"/run/qhost-hook are deleted; with --purge also /etc/qhost-hook and the user and group qhost-hook.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if uninstaller.euid() != 0 {
@@ -78,11 +80,11 @@ func newUninstallCommand(program *cobracli.Program) *cobra.Command {
 			if plan.Empty() {
 				return emitUninstall(c, program, purge, 0)
 			}
-			// Without --confirm the request fails before anything is shown or changed.
+			// The plan is shown first; without --confirm the request then fails before anything is changed.
+			_, _ = fmt.Fprint(c.ErrOrStderr(), uninstallText(plan))
 			if err := gate.Run(cobracli.Request{Changes: true}, func() error { return nil }); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprint(c.ErrOrStderr(), uninstallText(plan))
 			return gate.Run(cobracli.Request{Question: "Remove qhost with these steps?", Changes: true}, func() error {
 				if err := plan.Apply(c.Context()); err != nil {
 					return uninstallFailure(err, true)
@@ -91,7 +93,7 @@ func newUninstallCommand(program *cobracli.Program) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&purge, "purge", false, "also delete the state of both services, the journal of the host changes, the system users and the group qhost")
+	cmd.Flags().BoolVar(&purge, "purge", false, "also delete the state of both services, the journal of the host changes, the configuration of the webhook receiver, the system users and the group qhost")
 	gate = program.AddGate(cmd, cobracli.Gates{Question: true, Change: true})
 	return cmd
 }

@@ -34,20 +34,48 @@ func kernelPeer(conn net.Conn) (uint32, error) {
 	return uid, nil
 }
 
-// reading and writing mark a handler with the access its command needs; see control.Access.
+// reading, changing and proposing mark a handler with the class its command needs and the scope deploy; see
+// control.Class. inStack narrows the scope to one stack read by stack.
 func reading(h control.Handler) control.Command {
-	return control.Command{Access: control.AccessRead, Handle: h}
+	return control.Command{Class: control.ClassRead, Scope: control.ScopeDeploy, Handle: h}
 }
 
-func writing(h control.Handler) control.Command {
-	return control.Command{Access: control.AccessWrite, Handle: h}
+func changing(h control.Handler) control.Command {
+	return control.Command{Class: control.ClassChange, Scope: control.ScopeDeploy, Handle: h}
 }
 
 func proposing(h control.Handler) control.Command {
-	return control.Command{Access: control.AccessPropose, Handle: h}
+	return control.Command{Class: control.ClassPropose, Scope: control.ScopeDeploy, Handle: h}
 }
 
-// authorizer decides whether the user uid may run a command that needs access; it answers a refusal as a
+func inStack(c control.Command, stack control.StackFunc) control.Command {
+	c.Scope, c.Stack = control.ScopeStack, stack
+	return c
+}
+
+// stackField reads the one string field "stack" of the arguments; anything unreadable names no stack.
+func stackField(raw json.RawMessage) []string {
+	var a struct {
+		Stack string `json:"stack"`
+	}
+	if len(raw) == 0 || json.Unmarshal(raw, &a) != nil {
+		return nil
+	}
+	return []string{a.Stack}
+}
+
+// stackList reads the string list field "stacks" of the arguments.
+func stackList(raw json.RawMessage) []string {
+	var a struct {
+		Stacks []string `json:"stacks"`
+	}
+	if len(raw) == 0 || json.Unmarshal(raw, &a) != nil {
+		return nil
+	}
+	return a.Stacks
+}
+
+// authorizer decides whether the user uid may run a request of this access; it answers a refusal as a
 // *control.Error.
 type authorizer func(uid uint32, access control.Access) error
 
@@ -125,7 +153,7 @@ func (s *server) handle(ctx context.Context, conn net.Conn) {
 	uid, err := s.check(conn)
 	if err == nil {
 		// A peer without any access is refused before anything is read.
-		err = s.authorize(uid, control.AccessRead)
+		err = s.authorize(uid, control.Access{Class: control.ClassRead, Scope: control.ScopeDeploy})
 	}
 	if err != nil {
 		s.respond(conn, errorResponse(peerRefusal(err)))
@@ -184,7 +212,7 @@ func (s *server) dispatch(ctx context.Context, uid uint32, raw []byte) (resp con
 	// Access is decided before anything of the command runs, from the group database as it is now. An unknown
 	// command needs read access, so a peer without access learns nothing.
 	command, ok := s.registry.Lookup(req.Command)
-	access := control.AccessRead
+	access := control.Access{Class: control.ClassRead, Scope: control.ScopeDeploy}
 	if ok {
 		access = command.AccessFor(req.Args)
 	}

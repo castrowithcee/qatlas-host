@@ -71,6 +71,35 @@ func (r *Runner) Apply(ctx context.Context, id string, args []string, secret []b
 	})
 }
 
+// PreviewUndo builds the plan of the undo of a journal entry without locking or changing anything. It refuses
+// what Undo refuses.
+func (r *Runner) PreviewUndo(journalID string) (Plan, error) {
+	_, _, plan, err := r.undoPlan(journalID)
+	return plan, err
+}
+
+// undoPlan reads the entry and builds the plan of its inverse; an error means the entry cannot be undone.
+func (r *Runner) undoPlan(journalID string) (Entry, Definition, Plan, error) {
+	orig, err := r.Journal.Get(journalID)
+	if err != nil {
+		return Entry{}, Definition{}, Plan{}, err
+	}
+	switch {
+	case orig.Result != ResultApplied:
+		return Entry{}, Definition{}, Plan{}, fmt.Errorf("change %s has the result %q and cannot be undone", orig.ID, orig.Result)
+	case !orig.Reversible:
+		return Entry{}, Definition{}, Plan{}, fmt.Errorf("change %s cannot be undone: %s", orig.ID, orig.NotReversible)
+	case orig.UndoneBy != "":
+		return Entry{}, Definition{}, Plan{}, fmt.Errorf("change %s was already undone", orig.ID)
+	}
+	def, ok := r.Registry.Lookup(orig.Action)
+	if !ok || def.Inverse == nil {
+		return Entry{}, Definition{}, Plan{}, fmt.Errorf("action %q is not known to this build", orig.Action)
+	}
+	plan, err := def.Inverse(orig.Previous)
+	return orig, def, plan, err
+}
+
 // Undo runs the inverse of a reversible, applied entry.
 func (r *Runner) Undo(ctx context.Context, journalID string) (Result, error) {
 	unlock, err := r.Journal.Lock()
@@ -78,23 +107,7 @@ func (r *Runner) Undo(ctx context.Context, journalID string) (Result, error) {
 		return Result{}, err
 	}
 	defer unlock()
-	orig, err := r.Journal.Get(journalID)
-	if err != nil {
-		return Result{}, err
-	}
-	switch {
-	case orig.Result != ResultApplied:
-		return Result{}, fmt.Errorf("change %s has the result %q and cannot be undone", orig.ID, orig.Result)
-	case !orig.Reversible:
-		return Result{}, fmt.Errorf("change %s cannot be undone: %s", orig.ID, orig.NotReversible)
-	case orig.UndoneBy != "":
-		return Result{}, fmt.Errorf("change %s was already undone", orig.ID)
-	}
-	def, ok := r.Registry.Lookup(orig.Action)
-	if !ok || def.Inverse == nil {
-		return Result{}, fmt.Errorf("action %q is not known to this build", orig.Action)
-	}
-	plan, err := def.Inverse(orig.Previous)
+	orig, def, plan, err := r.undoPlan(journalID)
 	if err != nil {
 		return Result{}, err
 	}

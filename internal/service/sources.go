@@ -20,6 +20,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/credentials"
 	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
@@ -63,8 +64,8 @@ func overlaps(a, b string) bool {
 }
 
 func validateSources(c sourcesConfig) error {
-	if c.Version != sourcesVersion {
-		return fmt.Errorf("unsupported version %d", c.Version)
+	if err := formatnum.Check(sourcesFile, "version", c.Version, sourcesVersion); err != nil {
+		return err
 	}
 	for i, src := range c.Sources {
 		if err := checkDirShape(src.Path); err != nil {
@@ -105,10 +106,18 @@ func strictDecode[T any](b []byte) (T, error) {
 	return c, err
 }
 
-var sourcesCodec = configfile.Codec[sourcesConfig]{
-	Validate: validateSources,
-	Encode:   func(c sourcesConfig) ([]byte, error) { return json.MarshalIndent(c, "", "  ") },
-	Decode:   strictDecode[sourcesConfig],
+// sourcesCodecAt is the codec of the sources file at path, which the refusal of an unknown format number names.
+func sourcesCodecAt(path string) configfile.Codec[sourcesConfig] {
+	return configfile.Codec[sourcesConfig]{
+		Validate: validateSources,
+		Encode:   func(c sourcesConfig) ([]byte, error) { return json.MarshalIndent(c, "", "  ") },
+		Decode: func(b []byte) (sourcesConfig, error) {
+			if err := formatnum.CheckJSON(path, "version", b, sourcesVersion); err != nil {
+				return sourcesConfig{}, err
+			}
+			return strictDecode[sourcesConfig](b)
+		},
+	}
 }
 
 // legacyConfig is the content of legacyFile.
@@ -119,16 +128,18 @@ type legacyConfig struct {
 }
 
 func readLegacy(stateDir string) (legacyConfig, error) {
-	data, err := os.ReadFile(filepath.Join(stateDir, legacyFile))
+	path := filepath.Join(stateDir, legacyFile)
+	data, err := os.ReadFile(path)
 	if err != nil {
+		return legacyConfig{}, err
+	}
+	if err := formatnum.CheckJSON(path, "version", data, legacyVersion); err != nil {
 		return legacyConfig{}, err
 	}
 	c, err := strictDecode[legacyConfig](data)
 	switch {
 	case err != nil:
 		return c, err
-	case c.Version != legacyVersion:
-		return c, fmt.Errorf("unsupported version %d", c.Version)
 	case gitrepo.ValidateURL(c.URL) != nil, checkDirShape(c.Dir) != nil:
 		return c, errors.New("invalid binding")
 	}
@@ -145,7 +156,7 @@ func migrateLegacy(stateDir string, store *configfile.Store[sourcesConfig], log 
 	case errors.Is(err, fs.ErrNotExist):
 		return nil
 	case err != nil:
-		log.Warn("the old stacks repository binding cannot be read and is left in place", "file", legacyFile)
+		log.Warn("the old stacks repository binding cannot be read and is left in place", "file", legacyFile, "error", err)
 		return nil
 	}
 	conf, rev, err := store.LoadVersioned()
@@ -206,7 +217,7 @@ func syncDir(dir string) {
 func BoundDirs(stateDir string) []string {
 	var dirs []string
 	if data, err := os.ReadFile(filepath.Join(stateDir, sourcesFile)); err == nil {
-		if c, err := sourcesCodec.Decode(data); err == nil && validateSources(c) == nil {
+		if c, err := sourcesCodecAt(filepath.Join(stateDir, sourcesFile)).Decode(data); err == nil && validateSources(c) == nil {
 			for _, src := range c.Sources {
 				dirs = append(dirs, src.Path)
 			}
@@ -251,7 +262,7 @@ type sourceSet struct {
 }
 
 func openSources(stateDir string, keys *credentials.Store, git Git, tmpl engine.Config, log *slog.Logger) (*sourceSet, error) {
-	store, err := configfile.NewStore(filepath.Join(stateDir, sourcesFile), sourcesCodec)
+	store, err := configfile.NewStore(filepath.Join(stateDir, sourcesFile), sourcesCodecAt(filepath.Join(stateDir, sourcesFile)))
 	if err != nil {
 		return nil, err
 	}
@@ -282,6 +293,8 @@ func (s *sourceSet) load() (sourcesConfig, configfile.Revision, error) {
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return sourcesConfig{Version: sourcesVersion}, rev, nil
+	case formatnum.Is(err):
+		return sourcesConfig{}, rev, err
 	case err != nil:
 		return sourcesConfig{}, rev, errors.New("the source configuration cannot be read")
 	}
@@ -720,6 +733,16 @@ func (s *sourceSet) Log(id string) (string, error) {
 		}
 	}
 	return "", engine.ErrNoSuchRun
+}
+
+// LogFormat returns the refusal of the log of a run of any source whose format number is not read.
+func (s *sourceSet) LogFormat(id string) error {
+	for _, src := range s.sources() {
+		if err := src.eng.LogFormat(id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // AppendLog adds an entry to the log of a run of any source.

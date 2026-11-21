@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/hostservice"
+	"github.com/castrowithcee/qatlas-host/internal/service"
 )
 
 // ExitServiceNotRunning is the exit code of a command that found no running service. The kit's exit contract
@@ -43,12 +46,17 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"and, per stack, what is deployed, pending or running, the last run result, a pause after a failed rollback, the operator's pause and pin, the observation time after an update, and the findings,\n" +
 			"and whether the maintenance window is open and when it opens next (see 'qhost window'). A stack is listed as\n" +
 			"stack.<name>; when another stack folder holds its name, as source.<id>.stack.<name> (see 'qhost help sources').\n" +
-			"Every instance for the rootless engine of a user that is set up is listed as instance.<user>, with its unit, whether it\n" +
-			"runs and, when it does, its version and start time.\n" +
+			"Every stack folder and stack has the field engine, system here. Every instance for the rootless engine of a user that is\n" +
+			"set up is listed as instance.<user>, with its unit, whether it runs and, when it does, its version and start time,\n" +
+			"and its stack folders and stacks as instance.<user>.source.<id> and instance.<user>.stack.<name>, in the same form\n" +
+			"with the field engine rootless:<user>. An instance that cannot be asked shows its state in instance.<user>.deploy_service.\n" +
+			"The webhook receiver is shown as hook_service: not set up until 'sudo qhost hook-service setup', then running or not running\n" +
+			"as systemd reports it, with its address (hook_listen) and the number of hooks (hook_count); it needs no root.\n" +
 			"Root and administrators in the group qhost may read; run it without sudo. A set up deploy service that is not running ends with exit code 3.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			host := append(hostFields(c.Context()), instanceFields(c.Context())...)
+			host = append(host, hookFields(c.Context())...)
 			if !deployInstalled() {
 				fields := append([]output.Field{{Name: "running", Value: false}, {Name: "deploy_service", Value: "not set up"}}, host...)
 				return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: fields})
@@ -57,6 +65,7 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			if err := call(c.Context(), serviceEndpoint(), control.StatusCommand, nil, &st); err != nil {
 				if errors.Is(err, client.ErrNotRunning) {
 					state.seen = true
+					return withStateCause(failureOf(err), stateDir())
 				}
 				return failureOf(err)
 			}
@@ -65,7 +74,7 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 				{Name: "version", Value: st.Version},
 				{Name: "started_at", Value: st.StartedAt.UTC().Format(time.RFC3339)},
 			}
-			fields = append(fields, engineFields(st.Engine)...)
+			fields = append(fields, engineFields(control.EngineSystem, st.Engine)...)
 			if w := st.Window; w != nil {
 				fields = append(fields, output.Field{Name: "window_open", Value: w.Open},
 					output.Field{Name: "window_next_opening", Value: w.NextOpening.Format(time.RFC3339)})
@@ -96,6 +105,31 @@ func hostFields(ctx context.Context) []output.Field {
 	return []output.Field{{Name: "host_service", Value: "unreachable"}}
 }
 
+// hookActive reports whether systemd runs the webhook receiver; it reads the state and changes nothing, so it
+// needs no root. Tests replace it.
+var hookActive = func(ctx context.Context) bool {
+	return exec.CommandContext(ctx, "systemctl", "is-active", "--quiet", deploysetup.HookService+".service").Run() == nil
+}
+
+// hookFields describes the webhook receiver: not set up, or its state from systemd with the address and the
+// number of hooks from its configuration, which everybody may read. Nothing here fails the command.
+func hookFields(ctx context.Context) []output.Field {
+	root := deploySetup.host.Root
+	if !deploysetup.HookInstalled(root) {
+		return []output.Field{{Name: "hook_service", Value: "not set up"}}
+	}
+	state := "not running"
+	if hookActive(ctx) {
+		state = "running"
+	}
+	out := []output.Field{{Name: "hook_service", Value: state}}
+	cfg, err := deploysetup.HookConfig(root)
+	if err != nil {
+		return append(out, output.Field{Name: "hook_config", Value: "unreadable: " + err.Error()})
+	}
+	return append(out, output.Field{Name: "hook_listen", Value: cfg.Listen}, output.Field{Name: "hook_count", Value: len(cfg.Hooks)})
+}
+
 // instanceFields describes every deploy service instance set up on the host. As for the host service, a failed
 // reading is a state of the instance, never a failure of the command.
 func instanceFields(ctx context.Context) []output.Field {
@@ -116,9 +150,15 @@ func instanceFields(ctx context.Context) []output.Field {
 			out = append(out, output.Field{Name: p + "deploy_service", Value: "running"},
 				output.Field{Name: p + "version", Value: st.Version},
 				output.Field{Name: p + "started_at", Value: st.StartedAt.UTC().Format(time.RFC3339)})
+			out = append(out, entryFields(p, rootlessPrefix+inst.User(), st.Engine)...)
 			continue
 		case errors.Is(err, client.ErrNotRunning):
 			state = "not running"
+			if cause, readable := stateCause(inst.StateDir()); cause != "" {
+				out = append(out, output.Field{Name: p + "state", Value: "unreadable: " + cause})
+			} else if !readable {
+				out = append(out, output.Field{Name: p + "state", Value: stateHint})
+			}
 		case errors.As(err, &remote) && (remote.Code == control.CodeNoAccess || remote.Code == control.CodeNotAdmin):
 			state = "running (reserved for administrators)"
 		case errors.Is(err, client.ErrNoAccess):
@@ -129,8 +169,42 @@ func instanceFields(ctx context.Context) []output.Field {
 	return out
 }
 
-// engineFields flattens the engine part into scalar fields, which every output format can carry.
-func engineFields(e control.EngineStatus) []output.Field {
+// stateHint is shown where the state files of a service that does not run could not be checked.
+const stateHint = "unknown (run 'sudo qhost status' to check its state files)"
+
+// stateCause checks the state files of a deploy service that does not run, changing nothing. cause names the
+// file when a format number refusal or another read error is found; readable is false when the files could not
+// be read for lack of permission, which only root has.
+func stateCause(dir string) (cause string, readable bool) {
+	err := service.CheckState(dir)
+	switch {
+	case err == nil:
+		return "", true
+	case errors.Is(err, fs.ErrPermission):
+		return "", false
+	}
+	return err.Error(), true
+}
+
+// withStateCause adds to the failure of a deploy service that is not running the file that keeps it from starting,
+// or the way to find out.
+func withStateCause(err error, dir string) error {
+	var f *cli.Failure
+	if !deployInstalled() || !errors.As(err, &f) {
+		return err
+	}
+	if cause, readable := stateCause(dir); cause != "" {
+		f.Message += "; its state cannot be read: " + cause
+		f.NextStep = "Fix or move aside the file named above (see 'qhost help troubleshooting'), then start it with 'sudo systemctl start qhost-deploy'."
+	} else if !readable {
+		f.NextStep += " If it does not start, run 'sudo qhost status' to check its state files."
+	}
+	return err
+}
+
+// engineFields flattens the engine part into scalar fields, which every output format can carry. The stack
+// folders and stacks carry the engine of the deploy service that was asked.
+func engineFields(engine string, e control.EngineStatus) []output.Field {
 	var out []output.Field
 	if !e.LastPoll.IsZero() {
 		out = append(out, output.Field{Name: "last_poll", Value: e.LastPoll.UTC().Format(time.RFC3339)})
@@ -140,9 +214,18 @@ func engineFields(e control.EngineStatus) []output.Field {
 			out = append(out, output.Field{Name: f[0], Value: f[1]})
 		}
 	}
+	return append(out, entryFields("", engine, e)...)
+}
+
+// entryFields flattens the stack folders and stacks of the engine part. The keys start with prefix, which is
+// empty for the deploy service of the system engine and instance.<user>. for an instance, so that one name
+// never stands for two engines.
+func entryFields(prefix, engine string, e control.EngineStatus) []output.Field {
+	var out []output.Field
 	for _, src := range e.Sources {
-		p := "source." + src.ID + "."
-		out = append(out, output.Field{Name: p + "path", Value: src.Path}, output.Field{Name: p + "kind", Value: src.Kind})
+		p := prefix + "source." + src.ID + "."
+		out = append(out, output.Field{Name: p + "path", Value: src.Path}, output.Field{Name: p + "engine", Value: engine},
+			output.Field{Name: p + "kind", Value: src.Kind})
 		if !src.LastPoll.IsZero() {
 			out = append(out, output.Field{Name: p + "last_poll", Value: src.LastPoll.UTC().Format(time.RFC3339)})
 		}
@@ -154,11 +237,11 @@ func engineFields(e control.EngineStatus) []output.Field {
 	}
 	for i, s := range e.Stacks {
 		// The entry that stands for a name keeps the short key; another source's entry of it carries its source.
-		p := "stack." + s.Name + "."
+		p := prefix + "stack." + s.Name + "."
 		if !control.Primary(e.Stacks, i) {
-			p = "source." + s.Source + ".stack." + s.Name + "."
+			p = prefix + "source." + s.Source + ".stack." + s.Name + "."
 		}
-		out = append(out, output.Field{Name: p + "source", Value: s.Source},
+		out = append(out, output.Field{Name: p + "engine", Value: engine}, output.Field{Name: p + "source", Value: s.Source},
 			output.Field{Name: p + "deployed", Value: s.Deployed}, output.Field{Name: p + "pending", Value: s.Pending})
 		if s.ActiveRun != "" {
 			out = append(out, output.Field{Name: p + "active_run", Value: s.ActiveRun})

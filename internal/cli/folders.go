@@ -9,9 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +21,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/rootless"
 	"github.com/castrowithcee/qatlas-host/internal/service"
 	"github.com/castrowithcee/qatlas-host/internal/tui"
@@ -49,8 +48,10 @@ type folderHost struct {
 	root string
 	// systemctl runs the service manager with the given arguments.
 	systemctl func(ctx context.Context, args ...string) error
-	// owner returns the ids of the service account.
-	owner func() (uid, gid int, err error)
+	// owner returns the ids of the account that runs a deploy service.
+	owner func(name string) (uid, gid int, err error)
+	// instances lists the deploy service instances that are set up.
+	instances func() ([]deploysetup.Instance, error)
 	// waitService returns once the control socket of the service answers.
 	waitService func(ctx context.Context) error
 	// readOnly reports whether the file system of a path lies read-only.
@@ -71,17 +72,9 @@ var folders = folderHost{
 		}
 		return nil
 	},
-	owner: func() (int, int, error) {
-		u, err := user.Lookup(serviceAccount)
-		if err != nil {
-			return 0, 0, err
-		}
-		uid, err := strconv.Atoi(u.Uid)
-		if err != nil {
-			return 0, 0, err
-		}
-		gid, err := strconv.Atoi(u.Gid)
-		return uid, gid, err
+	owner: lookupOwner,
+	instances: func() ([]deploysetup.Instance, error) {
+		return deploysetup.Instances(deploySetup.host.Root)
 	},
 	waitService: waitForService,
 	readOnly:    pathOnReadOnlyFS,
@@ -90,7 +83,7 @@ var folders = folderHost{
 }
 
 // waitForService polls the control socket until the service answers; any answer counts, also a refusal.
-func waitForService(ctx context.Context) error { return waitForEndpoint(ctx, serviceEndpoint()) }
+func waitForService(ctx context.Context) error { return waitForEndpoint(ctx, targetOf(ctx).endpoint()) }
 
 // waitForEndpoint is waitForService for the service at ep.
 func waitForEndpoint(ctx context.Context, ep localipc.ServiceEndpoint) error {
@@ -111,7 +104,7 @@ func waitForEndpoint(ctx context.Context, ep localipc.ServiceEndpoint) error {
 	}
 }
 
-func (h folderHost) dropIn() string { return filepath.Join(h.root, stackFoldersDropIn) }
+func (h folderHost) dropIn(t engineTarget) string { return t.dropIn(h.root) }
 
 func folderEntry(dir string) string { return "ReadWritePaths=-" + dir }
 
@@ -178,6 +171,7 @@ func (h folderHost) grant(ctx context.Context, dir string, create bool, notice i
 	if err != nil {
 		return err
 	}
+	t := targetOf(ctx)
 	created := false
 	if absent {
 		if !create {
@@ -185,13 +179,13 @@ func (h folderHost) grant(ctx context.Context, dir string, create bool, notice i
 				Message:  "the stack folder " + dir + " does not exist and was not created",
 				NextStep: "Confirm creating it, or create it yourself and run the command again."}
 		}
-		if err := h.create(dir); err != nil {
+		if err := h.create(t, dir); err != nil {
 			return err
 		}
 		created = true
-		_, _ = fmt.Fprintf(notice, "Created the stack folder %s (owner %s:%s, mode %04o).\n", dir, serviceAccount, serviceAccount, folderMode)
+		_, _ = fmt.Fprintf(notice, "Created the stack folder %s (owner %s:%s, mode %04o).\n", dir, t.account(), t.account(), folderMode)
 	}
-	added, err := h.addToDropIn(dir)
+	added, err := h.addToDropIn(t, dir)
 	if err != nil {
 		return err
 	}
@@ -199,16 +193,16 @@ func (h folderHost) grant(ctx context.Context, dir string, create bool, notice i
 		return nil
 	}
 	if added {
-		_, _ = fmt.Fprintf(notice, "Granted the service write access to %s in %s.\n", dir, h.dropIn())
+		_, _ = fmt.Fprintf(notice, "Granted the service write access to %s in %s.\n", dir, h.dropIn(t))
 	}
 	return h.restart(ctx, notice)
 }
 
 // create makes the folder and its missing parents; only the folder itself belongs to the service account.
-func (h folderHost) create(dir string) error {
-	uid, gid, err := h.owner()
+func (h folderHost) create(t engineTarget, dir string) error {
+	uid, gid, err := h.owner(t.account())
 	if err != nil {
-		return folderFailure("cannot find the service account "+serviceAccount, err)
+		return folderFailure("cannot find the service account "+t.account(), err)
 	}
 	if err := os.MkdirAll(filepath.Dir(dir), folderMode); err != nil {
 		return folderFailure("cannot create the parent of the stack folder "+dir, err)
@@ -221,14 +215,14 @@ func (h folderHost) create(dir string) error {
 		return folderFailure("cannot set the mode of the stack folder "+dir, err)
 	}
 	if err := os.Chown(dir, uid, gid); err != nil {
-		return folderFailure("cannot give the stack folder "+dir+" to "+serviceAccount, err)
+		return folderFailure("cannot give the stack folder "+dir+" to "+t.account(), err)
 	}
 	return nil
 }
 
 // addToDropIn lists dir in the drop-in; added is false when it was listed already.
-func (h folderHost) addToDropIn(dir string) (added bool, err error) {
-	path := h.dropIn()
+func (h folderHost) addToDropIn(t engineTarget, dir string) (added bool, err error) {
+	path := h.dropIn(t)
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return false, folderFailure("cannot read "+path, err)
@@ -263,16 +257,17 @@ func (h folderHost) addToDropIn(dir string) (added bool, err error) {
 }
 
 func (h folderHost) restart(ctx context.Context, notice io.Writer) error {
-	_, _ = fmt.Fprintln(notice, "Restarting the qhost-deploy service.")
-	for _, args := range [][]string{{"daemon-reload"}, {"restart", serviceAccount}} {
+	unit := targetOf(ctx).unit()
+	_, _ = fmt.Fprintf(notice, "Restarting the %s service.\n", unit)
+	for _, args := range [][]string{{"daemon-reload"}, {"restart", unit}} {
 		if err := h.systemctl(ctx, args...); err != nil {
 			return &cli.Failure{Code: output.CodeRuntime, Message: "the service manager refused: " + err.Error(), Cause: err,
-				NextStep: "Run 'systemctl daemon-reload' and 'systemctl restart qhost-deploy', then run the command again."}
+				NextStep: "Run 'systemctl daemon-reload' and 'systemctl restart " + unit + "', then run the command again."}
 		}
 	}
 	if err := h.waitService(ctx); err != nil {
 		return &cli.Failure{Code: output.CodeUnreachable, Message: err.Error(), Cause: err,
-			NextStep: "Check 'systemctl status qhost-deploy', then run the command again."}
+			NextStep: "Check 'systemctl status " + unit + "', then run the command again."}
 	}
 	return nil
 }
@@ -285,17 +280,17 @@ func (h folderHost) repairBound(ctx context.Context, notice io.Writer) error {
 	}
 	granted := false
 	for _, dir := range service.BoundDirs(stateDir()) {
-		data, err := os.ReadFile(h.dropIn())
+		data, err := os.ReadFile(h.dropIn(engineTarget{}))
 		if err == nil && hasEntry(string(data), dir) {
 			continue
 		}
 		_, _ = fmt.Fprintf(notice, "Notice: the bound stack folder %s has no write grant for the service yet.\n", dir)
-		added, err := h.addToDropIn(dir)
+		added, err := h.addToDropIn(engineTarget{}, dir)
 		if err != nil {
 			return err
 		}
 		if added {
-			_, _ = fmt.Fprintf(notice, "Granted the service write access to %s in %s.\n", dir, h.dropIn())
+			_, _ = fmt.Fprintf(notice, "Granted the service write access to %s in %s.\n", dir, h.dropIn(engineTarget{}))
 			granted = true
 		}
 	}
@@ -349,7 +344,7 @@ func prepareFolder(c *cobra.Command, dir string, create bool) error {
 		return err
 	}
 	if absent && !create {
-		if err := confirmFolderCreate(c, dir); err != nil {
+		if err := confirmFolderCreate(c, targetOf(c.Context()), dir); err != nil {
 			return err
 		}
 		create = true
@@ -358,7 +353,7 @@ func prepareFolder(c *cobra.Command, dir string, create bool) error {
 }
 
 // confirmFolderCreate shows the exact path and asks at a terminal; without a terminal it refuses and names the flag.
-func confirmFolderCreate(c *cobra.Command, dir string) error {
+func confirmFolderCreate(c *cobra.Command, t engineTarget, dir string) error {
 	in := stdinStream()
 	f, ok := in.(*os.File)
 	if !ok || !isTerminal(f) {
@@ -368,7 +363,7 @@ func confirmFolderCreate(c *cobra.Command, dir string) error {
 	}
 	w := c.ErrOrStderr()
 	_, _ = fmt.Fprintf(w, "The stack folder %s does not exist.\n", dir)
-	_, _ = fmt.Fprintf(w, "Create it with owner %s:%s and mode %04o and let the service write to it? [y/N] ", serviceAccount, serviceAccount, folderMode)
+	_, _ = fmt.Fprintf(w, "Create it with owner %s:%s and mode %04o and let the service write to it? [y/N] ", t.account(), t.account(), folderMode)
 	line, err := bufio.NewReader(in).ReadString('\n')
 	if err != nil && line == "" {
 		return &cli.Failure{Code: output.CodeRuntime, Message: "cannot read the answer from the terminal",

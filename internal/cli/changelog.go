@@ -26,7 +26,8 @@ const (
 const maxNotesRunes = 100
 
 func newChangelogCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	cmd := &cobra.Command{
 		Use:   "changelog <stack>",
 		Short: "Show the release notes between the current and the available version of a stack",
 		Long: "changelog lists, for every image version variable of the stack with an available update, the GitHub\n" +
@@ -39,19 +40,24 @@ func newChangelogCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			"credentials).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, engine, args[0]); err != nil {
+				return err
+			}
 			var res control.ChangelogResult
-			err := callFor(c.Context(), control.ChangelogTimeout+client.CallTimeout, serviceEndpoint(),
+			err := callFor(c.Context(), control.ChangelogTimeout+client.CallTimeout, targetOf(c.Context()).endpoint(),
 				control.ChangelogShowCommand, control.ChangelogArgs{Stack: args[0]}, &res)
 			if err != nil {
 				if errors.Is(err, client.ErrNotRunning) {
 					state.seen = true
 				}
-				return failureOf(err)
+				return targetFailure(c.Context(), err)
 			}
 			return encodeChangelogs(c.OutOrStdout(), program.Format(),
 				[]stackChangelog{{name: res.Stack, checked: res.Checked, items: res.Items}})
 		},
 	}
+	addEngineFlag(cmd, &engine, stackEngineUsage, stackEngineNote)
+	return cmd
 }
 
 type stackChangelog struct {

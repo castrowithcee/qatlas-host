@@ -359,6 +359,34 @@ func TestSourceAddFilesWithURLTakesThePlanOfTheComparisonAndMarksWhatTheRemoteVe
 	}
 }
 
+func TestSourceAddFilesWithURLChecksTheEffectOfTheInspection(t *testing.T) {
+	useFolderHost(t)
+	tree := newFilesTree(t)
+	cmp := differentCompare(control.SourceCaseFiles)
+	cmp.State, cmp.Paths, cmp.PathCount = control.SourceRemoteEqual, nil, 0
+	cmp.PlannedFiles = []string{".env", "README.md", "compose.yaml", "conf/app.yaml"}
+	cmp.RemoteFiles = []string{"README.md"}
+	cmp.Excluded = listedFilesInspect().Excluded[:3]
+	fake := &remoteFake{compare: cmp}
+	startFakeService(t, fake.handlers(listedFilesInspect()))
+	useStdin(t, strings.NewReader(""))
+
+	// The effect source inspect shows still applies when the comparison plans files the remote versions.
+	_, got := inspectJSON(t, tree.dir)
+	effect, _ := got["effect"].(string)
+	if effect == "" {
+		t.Fatalf("no effect: %v", got)
+	}
+	code, _, stderr := run(t, "source", "add", tree.dir, "--url", remoteURL, "--fingerprint", remoteKeyPrint,
+		"--expect-effect", effect, "--expect-state", cmp.State, "--expect-commit", cmp.Commit, "--yes")
+	if code != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if len(fake.added) != 1 || strings.Join(fake.added[0].Files, ",") != ".env,README.md,compose.yaml,conf/app.yaml" {
+		t.Fatalf("source.add args %+v", fake.added)
+	}
+}
+
 func TestSourceAddFilesWithURLStopsWhenThePlanOfTheComparisonChanged(t *testing.T) {
 	d := useFolderHost(t)
 	tree := newFilesTree(t)

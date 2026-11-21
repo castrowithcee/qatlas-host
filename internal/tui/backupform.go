@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"errors"
 	"path"
 	"regexp"
@@ -278,9 +279,7 @@ func (m *Model) submitBackup(f *settingsForm, v map[kittui.FieldID]kittui.FormVa
 		}
 	}
 	stack := f.stack
-	m.ask(textTitleBackup, t.Lookup(textAskBackup, stack), m.whatSettings(stack, textWhatBackupAfter), details, false, func() tea.Cmd {
-		return m.writeCall(opStackSettingsSet, stack, func(b Backend) (any, error) { return saveBackup(m, b, stack, r) })
-	})
+	m.askSettingsSet(textTitleBackup, t.Lookup(textAskBackup, stack), m.whatSettings(stack, textWhatBackupAfter), details, stack, backupEdit(r))
 	return nil
 }
 
@@ -341,15 +340,13 @@ func (m *Model) submitCompose(f *settingsForm) tea.Cmd {
 		details = append(details, t.Lookup(textDetailComposeDefault))
 	}
 	stack := f.stack
-	m.ask(textTitleCompose, t.Lookup(textAskCompose, stack), m.whatSettings(stack, textWhatComposeAfter), details, false, func() tea.Cmd {
-		return m.writeCall(opStackSettingsSet, stack, func(b Backend) (any, error) { return saveCompose(m, b, stack, files) })
-	})
+	m.askSettingsSet(textTitleCompose, t.Lookup(textAskCompose, stack), m.whatSettings(stack, textWhatComposeAfter), details, stack, composeEdit(files))
 	return nil
 }
 
 // currentSettings are the settings the service holds now.
-func currentSettings(m *Model, b Backend, stack string) (control.StackSettings, error) {
-	cur, err := b.StackSettings(m.ctx, stack)
+func currentSettings(ctx context.Context, b Backend, stack string) (control.StackSettings, error) {
+	cur, err := b.StackSettings(ctx, stack)
 	if err != nil {
 		return control.StackSettings{}, err
 	}
@@ -359,32 +356,26 @@ func currentSettings(m *Model, b Backend, stack string) (control.StackSettings, 
 	return *cur.Settings, nil
 }
 
-// saveBackup sets the backup section on the settings the service holds now, so that what the form does not
+// backupEdit sets the backup section on the settings the service holds now, so that what the form does not
 // show stays as it is.
-func saveBackup(m *Model, b Backend, stack string, r backupValues) (control.StackSettingsSetResult, error) {
-	s, err := currentSettings(m, b, stack)
-	if err != nil {
-		return control.StackSettingsSetResult{}, err
+func backupEdit(r backupValues) settingsEdit {
+	return func(s *control.StackSettings) {
+		bk := &control.StackBackupSettings{Paths: r.paths, Volumes: r.volumes, Command: r.command}
+		if r.keep > 0 || r.maxAge > 0 {
+			bk.Retention = &control.StackRetentionSettings{Keep: r.keep, MaxAgeDays: r.maxAge}
+		}
+		s.Backup = bk
 	}
-	bk := &control.StackBackupSettings{Paths: r.paths, Volumes: r.volumes, Command: r.command}
-	if r.keep > 0 || r.maxAge > 0 {
-		bk.Retention = &control.StackRetentionSettings{Keep: r.keep, MaxAgeDays: r.maxAge}
-	}
-	s.Backup = bk
-	return b.StackSettingsSet(m.ctx, stack, s)
 }
 
-// saveCompose sets the compose files on the settings the service holds now.
-func saveCompose(m *Model, b Backend, stack string, files []string) (control.StackSettingsSetResult, error) {
-	s, err := currentSettings(m, b, stack)
-	if err != nil {
-		return control.StackSettingsSetResult{}, err
+// composeEdit sets the compose files on the settings the service holds now.
+func composeEdit(files []string) settingsEdit {
+	return func(s *control.StackSettings) {
+		s.Compose = nil
+		if len(files) > 0 {
+			s.Compose = &control.StackComposeSettings{Files: files}
+		}
 	}
-	s.Compose = nil
-	if len(files) > 0 {
-		s.Compose = &control.StackComposeSettings{Files: files}
-	}
-	return b.StackSettingsSet(m.ctx, stack, s)
 }
 
 // settingsProblems places a refusal of the service at the field its path names; ok is false for any other

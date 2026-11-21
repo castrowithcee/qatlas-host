@@ -19,6 +19,7 @@ var stackActionCommands = map[string]string{
 
 func newStackActionCommand(program *cobracli.Program, state *notRunning, verb string) *cobra.Command {
 	var gate *cobracli.Gate
+	var engine string
 	long := map[string]string{
 		"start": "start starts the existing, stopped containers of the stack, clears the stopped mark and runs the\n" +
 			"stack's check. It never creates containers: a stack that was never deployed or whose containers are\n" +
@@ -37,19 +38,22 @@ func newStackActionCommand(program *cobracli.Program, state *notRunning, verb st
 			"sudo. See 'qhost help containers'.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, engine, args[0]); err != nil {
+				return err
+			}
 			question := strings.ToUpper(verb[:1]) + verb[1:] + " stack " + args[0] + "?"
 			if verb == "stop" {
 				question = "Stop stack " + args[0] + " and keep it stopped until it is started?"
 			}
 			return gate.Run(cobracli.Request{Question: question}, func() error {
 				var res control.StackActionResult
-				err := callFor(c.Context(), control.StackActionTimeout, serviceEndpoint(), stackActionCommands[verb],
+				err := callFor(c.Context(), control.StackActionTimeout, targetOf(c.Context()).endpoint(), stackActionCommands[verb],
 					control.StackActionArgs{Stack: args[0]}, &res)
 				if errors.Is(err, client.ErrNotRunning) {
 					state.seen = true
 				}
 				if err != nil {
-					return failureOf(err)
+					return targetFailure(c.Context(), err)
 				}
 				return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
 					{Name: "stack", Value: res.Stack}, {Name: "action", Value: res.Action}, {Name: "stopped", Value: res.Stopped},
@@ -57,6 +61,7 @@ func newStackActionCommand(program *cobracli.Program, state *notRunning, verb st
 			})
 		},
 	}
+	addEngineFlag(cmd, &engine, stackEngineUsage, stackEngineNote)
 	gate = program.AddGate(cmd, cobracli.Gates{Question: true})
 	return cmd
 }

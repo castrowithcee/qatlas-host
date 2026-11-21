@@ -17,7 +17,7 @@ import (
 )
 
 func newSourceRemoteCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	var fingerprint string
+	var fingerprint, expectState, expectCommit, engine string
 	var gate *cobracli.Gate
 	remote := &cobra.Command{
 		Use:   "remote <path> <ssh-url>",
@@ -31,7 +31,11 @@ func newSourceRemoteCommand(program *cobracli.Program, state *notRunning) *cobra
 			"host key (that takes the terminal or --fingerprint). If the commits that would be pushed hold secret-like\n" +
 			"files (secrets files, env files with values, private keys), remote stops, names commit, path and kind\n" +
 			"and never a value; there is no way around it, clean the history yourself. The source is then a remote\n" +
-			"source. The deploy key of the folder needs write access to the repository. Run it with sudo.",
+			"source. The deploy key of the folder needs write access to the repository. Run it with sudo.\n" +
+			"--expect-state and --expect-commit take the state (empty, equal or different) and the commit of the\n" +
+			"comparison that 'source compare' showed; give both or neither. The commit is empty exactly when the state\n" +
+			"is empty. remote compares again and, when state or commit differ now, stops with the code state-changed\n" +
+			"before it changes anything. They do not replace the question or the confirmation of a host key.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return usageFailure("source remote takes two arguments, the path of the folder and the SSH address",
@@ -40,19 +44,55 @@ func newSourceRemoteCommand(program *cobracli.Program, state *notRunning) *cobra
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSourceRemote(c, program, gate, state, args[0], args[1], fingerprint)
+			return runSourceRemote(c, program, gate, state, args[0], args[1], fingerprint, expectState, expectCommit, engine)
 		},
 	}
 	remote.Flags().StringVar(&fingerprint, "fingerprint", "",
 		"expected SHA256 fingerprint of the server's host key; required without a terminal")
+	remoteFlags(remote, &expectState, &expectCommit)
+	addEngineFlag(remote, &engine, folderEngineUsage, folderEngineNote)
 	gate = program.AddGate(remote, cobracli.Gates{Question: true})
 	return remote
 }
 
-func runSourceRemote(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, path, url, fingerprint string) error {
-	if err := folders.requireRoot(); err != nil {
-		return err
+func newSourceCompareCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
+	var fingerprint, engine string
+	compare := &cobra.Command{
+		Use:   "compare <path> <ssh-url>",
+		Short: "Compare a folder with a remote repository and show how they relate; changes nothing in the folder",
+		Long: "compare shows how the history of the repository at the address relates to the folder, as 'source remote'\n" +
+			"and 'source add --url' compare before they ask: the state (empty: the remote has no commit; equal: the\n" +
+			"same files; different: the paths that differ, the first 50 and their number), the branch and commit of\n" +
+			"the remote and the secret-like files in the commits a push would publish (commit, path and kind, never a\n" +
+			"value). Finding such files is an answer here, not an error. The host key of the server is confirmed as\n" +
+			"for 'source remote': it is pinned already, or it matches --fingerprint, or you confirm it at a terminal;\n" +
+			"the confirmed key is pinned, and that is all compare stores. Nothing in the folder or the repository is\n" +
+			"changed. Pass the state and the commit to --expect-state and --expect-commit of 'source remote' or\n" +
+			"'source add' to apply exactly this comparison. Run it with sudo.\n" +
+			"With --output json the fields are case, state, branch, commit, paths, path_count, secrets (total and\n" +
+			"findings) and, for a folder of files, planned_files, excluded and remote_files: the plan the folder\n" +
+			"joins the remote with, where remote_files are the planned files no stack refers to that the remote\n" +
+			"versions.",
+		Args: func(_ *cobra.Command, args []string) error {
+			if len(args) != 2 {
+				return usageFailure("source compare takes two arguments, the path of the folder and the SSH address",
+					"Run 'qhost source compare <path> <ssh-url>'.")
+			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			return runSourceCompare(c, program, state, args[0], args[1], fingerprint, engine)
+		},
 	}
+	compare.Flags().StringVar(&fingerprint, "fingerprint", "",
+		"expected SHA256 fingerprint of the server's host key; required without a terminal")
+	addEngineFlag(compare, &engine, compareEngineUsage, compareEngineNote)
+	return compare
+}
+
+// checkRemoteInput validates what source remote and source compare take: the folder, the address and the
+// fingerprint of the host key.
+func checkRemoteInput(path, url, fingerprint string) error {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
 		return usageFailure("the path must be absolute and clean", "Pass the absolute path of the folder.")
 	}
@@ -62,6 +102,112 @@ func runSourceRemote(c *cobra.Command, program *cobracli.Program, gate *cobracli
 	if fingerprint != "" && !strings.HasPrefix(fingerprint, "SHA256:") {
 		return usageFailure("--fingerprint must look like SHA256:..., as ssh-keygen -l prints it",
 			"Copy the fingerprint of the server's host key.")
+	}
+	return nil
+}
+
+func runSourceCompare(c *cobra.Command, program *cobracli.Program, state *notRunning, path, url, fingerprint, engine string) error {
+	if err := folders.requireRoot(); err != nil {
+		return err
+	}
+	if err := checkRemoteInput(path, url, fingerprint); err != nil {
+		return err
+	}
+	if err := routeFolderKey(c, state, engine, path); err != nil {
+		return err
+	}
+	probe, err := trustHostKey(c, state, url, fingerprint)
+	if err != nil {
+		return err
+	}
+	cmp, err := compareRemote(c, state, path, url, probe.Fingerprint)
+	if err != nil {
+		return err
+	}
+	return output.Encode(c.OutOrStdout(), program.Format(), compareFields(program.Format(), cmp))
+}
+
+// compareFields is the comparison as the fields of its JSON form; for the text formats the fields are flat.
+func compareFields(format output.Format, cmp control.SourceCompareResult) output.Object {
+	fields := []output.Field{{Name: "case", Value: cmp.Case}, {Name: "state", Value: cmp.State}, {Name: "branch", Value: cmp.Branch}}
+	add := func(name string, value any) { fields = append(fields, output.Field{Name: name, Value: value}) }
+	if cmp.Commit != "" {
+		add("commit", cmp.Commit)
+	}
+	if structuredFormat(format) {
+		if len(cmp.Paths) > 0 {
+			add("paths", cmp.Paths)
+		}
+		add("path_count", cmp.PathCount)
+		if len(cmp.PlannedFiles) > 0 {
+			add("planned_files", cmp.PlannedFiles)
+		}
+		if len(cmp.Excluded) > 0 {
+			add("excluded", structured(format, cmp.Excluded))
+		}
+		if len(cmp.RemoteFiles) > 0 {
+			add("remote_files", cmp.RemoteFiles)
+		}
+		if cmp.Secrets != nil {
+			add("secrets", structured(format, cmp.Secrets))
+		}
+		return output.Object{Fields: fields}
+	}
+	add("path_count", cmp.PathCount)
+	for i, p := range cmp.Paths {
+		if i == listLimit {
+			break
+		}
+		add("path", p)
+	}
+	for i, p := range cmp.PlannedFiles {
+		if i == listLimit {
+			break
+		}
+		add("planned_file", p)
+	}
+	for i, p := range cmp.RemoteFiles {
+		if i == listLimit {
+			break
+		}
+		add("remote_file", p)
+	}
+	for i, e := range cmp.Excluded {
+		if i == listLimit {
+			break
+		}
+		value := e.Path + ": " + e.Reason
+		if e.Stack != "" {
+			value += " (stack " + e.Stack + ")"
+		}
+		add("excluded", value)
+	}
+	if s := cmp.Secrets; s != nil {
+		add("secrets_total", s.Total)
+		for i, f := range s.Findings {
+			if i == listLimit {
+				break
+			}
+			add("secret", fmt.Sprintf("%s %s (%s)", shortCommit(f.Commit), f.Path, f.Kind))
+		}
+	}
+	return output.Object{Fields: fields}
+}
+
+func runSourceRemote(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, path, url, fingerprint,
+	expectState, expectCommit, engine string) error {
+	if err := folders.requireRoot(); err != nil {
+		return err
+	}
+	if err := checkRemoteInput(path, url, fingerprint); err != nil {
+		return err
+	}
+	expect, err := expectedRemoteOf(expectState, expectCommit)
+	if err != nil {
+		return err
+	}
+	if err := routeFolder(c, state, engine, path); err != nil {
+		return err
 	}
 	probe, err := trustHostKey(c, state, url, fingerprint)
 	if err != nil {
@@ -78,6 +224,9 @@ func runSourceRemote(c *cobra.Command, program *cobracli.Program, gate *cobracli
 	w := c.ErrOrStderr()
 	_, _ = fmt.Fprintf(w, "Compare %s with %s:\n", path, url)
 	printLines(w, compareLines(cmp))
+	if err := expect.check(cmp, path, url); err != nil {
+		return err
+	}
 	if err := refuseSecrets(cmp); err != nil {
 		return err
 	}

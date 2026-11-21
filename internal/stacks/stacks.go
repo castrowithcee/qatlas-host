@@ -149,6 +149,22 @@ func (s Stack) UpdateMode() string {
 	return s.Rules.Update.Mode
 }
 
+// UpdateTrigger resolves what makes qhost check the stack's registries: the trigger (TriggerWindow without
+// settings) and, for TriggerInterval only, the time between two checks; zero for any other trigger.
+func (s Stack) UpdateTrigger() (trigger string, interval time.Duration) {
+	if s.Rules == nil || s.Rules.Update.Trigger == "" {
+		return TriggerWindow, 0
+	}
+	if s.Rules.Update.Trigger != TriggerInterval {
+		return s.Rules.Update.Trigger, 0
+	}
+	interval = s.Rules.Update.Interval
+	if interval <= 0 {
+		interval = DefaultIntervalSeconds * time.Second
+	}
+	return TriggerInterval, interval
+}
+
 // ObserveTime is the observation time after an update of the stack, the default for a stack without settings.
 func (s Stack) ObserveTime() time.Duration {
 	if s.Rules == nil {

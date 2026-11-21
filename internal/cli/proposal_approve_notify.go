@@ -17,14 +17,14 @@ import (
 )
 
 // approveNotifyChannel reviews and applies a proposal of the kind notify-channel: it shows every field of the
-// channel in full, asks, reads the secret parts from the person the way 'qhost notify add' reads them, checks
-// proposal and state again and adds the channel the way 'qhost notify add' does. The proposal never holds a
+// channel in full, asks, reads the secret parts from the person the way 'qhost notify add' reads them (with
+// --fingerprint as JSON on standard input instead), checks proposal and state again and adds the channel the way 'qhost notify add' does. The proposal never holds a
 // secret part and the result kept on it never mentions one.
 func approveNotifyChannel(c *cobra.Command, program *cobracli.Program, state *notRunning, secrets *redact.Redactor,
-	first control.ProposalShowResult, url string) error {
+	first control.ProposalShowResult, o approveOptions) error {
 	id := first.ID
-	if url != "" {
-		return usageFailure("--url applies to proposals of the kind source-add only", "Run 'sudo qhost proposal approve "+id+"' without --url.")
+	if err := o.onlyForSourceAdd(id); err != nil {
+		return err
 	}
 	var content control.ProposalNotifyChannel
 	if err := json.Unmarshal(first.Content, &content); err != nil {
@@ -38,7 +38,7 @@ func approveNotifyChannel(c *cobra.Command, program *cobracli.Program, state *no
 		return err
 	}
 	_, _ = io.WriteString(notice, shownEffect)
-	if err := askApproval(c, "Approve proposal "+first.ID+" and add this channel?"); err != nil {
+	if err := o.decide(c, "Approve proposal "+first.ID+" and add this channel?"); err != nil {
 		return err
 	}
 
@@ -46,7 +46,12 @@ func approveNotifyChannel(c *cobra.Command, program *cobracli.Program, state *no
 	add := control.NotifyAddArgs{Name: content.Name, Type: content.Type, Events: content.Events, Host: content.Host,
 		Port: content.Port, Security: content.Security, User: content.User, From: content.From, To: content.To,
 		ChatID: content.ChatID, BaseURL: content.BaseURL}
-	values, err := readSecrets(c, add.Name, secretPrompts(add))
+	var values []string
+	if o.asks() {
+		values, err = readSecrets(c, add.Name, secretPrompts(add))
+	} else {
+		values, err = readSecretsJSON(secretPrompts(add), secrets)
+	}
 	if err != nil {
 		return err
 	}

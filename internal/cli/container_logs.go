@@ -25,7 +25,7 @@ var logsPollInterval = time.Second
 const defaultLogTail = 100
 
 func newContainerLogs(program *cobracli.Program, state *notRunning) *cobra.Command {
-	var stack, since, until string
+	var stack, since, until, engine string
 	var tail int
 	var follow bool
 	cmd := &cobra.Command{
@@ -44,6 +44,10 @@ func newContainerLogs(program *cobracli.Program, state *notRunning) *cobra.Comma
 				return &cli.Failure{Code: output.CodeInvalidRequest, Message: "give exactly one of a container name and --stack",
 					Usage: true, NextStep: "Run 'qhost container logs <name>' or 'qhost container logs --stack <stack>'."}
 			}
+			if stack == "" && engine != "" {
+				return &cli.Failure{Code: output.CodeInvalidRequest, Message: "--engine works only with --stack",
+					Usage: true, NextStep: "Run 'qhost container logs --stack <stack> --engine <engine>', or leave out --engine."}
+			}
 			a := control.ContainerLogsArgs{Stack: stack, Tail: tail}
 			if len(args) == 1 {
 				a.Name = args[0]
@@ -61,6 +65,11 @@ func newContainerLogs(program *cobracli.Program, state *notRunning) *cobra.Comma
 					Message:  fmt.Sprintf("--tail must be between 0 and %d", control.ContainerLogsMaxTail),
 					NextStep: "Use a smaller --tail, or narrow the lines with --since."}
 			}
+			if stack != "" {
+				if err := routeStacks(c, state, engine, stack); err != nil {
+					return err
+				}
+			}
 			ctx := c.Context()
 			if follow {
 				var stop context.CancelFunc
@@ -76,6 +85,7 @@ func newContainerLogs(program *cobracli.Program, state *notRunning) *cobra.Comma
 	cmd.Flags().StringVar(&until, "until", "", "only lines up to this time: a duration back from now or an RFC 3339 time")
 	cmd.Flags().IntVar(&tail, "tail", defaultLogTail, "show only the last n lines (0 for all)")
 	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "keep running and show new lines until interrupted")
+	addEngineFlag(cmd, &engine, "with --stack: "+stackEngineUsage, logsEngineNote)
 	return cmd
 }
 

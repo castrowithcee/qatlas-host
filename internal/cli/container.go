@@ -153,7 +153,7 @@ func encodeContainerAction(w io.Writer, format output.Format, res control.Contai
 
 // containerCall adds the codes of the container engine to what failureOf knows.
 func containerCall(c *cobra.Command, state *notRunning, limit time.Duration, command string, args, result any) error {
-	err := callFor(c.Context(), limit, serviceEndpoint(), command, args, result)
+	err := callFor(c.Context(), limit, targetOf(c.Context()).endpoint(), command, args, result)
 	if err == nil {
 		return nil
 	}
@@ -180,7 +180,7 @@ func containerCall(c *cobra.Command, state *notRunning, limit time.Duration, com
 				NextStep: "Use 'qhost container show <name>' for single containers.", Cause: err}
 		}
 	}
-	return failureOf(err)
+	return targetFailure(c.Context(), err)
 }
 
 func encodeContainerList(w io.Writer, format output.Format, res control.ContainerListResult, metrics bool) error {

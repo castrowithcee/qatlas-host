@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 [5 Container] 6 7                                                     
+────────────────────────────────────────────────────────────────────────────────
+    NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS 
+  ▾ ■ ei╔═ stop ═══════════════════════════════════════════════════════╗        
+>   demo║ ⚠ Container demo-stack-app-1 (eigener Stack demo-stack)      ║        
+    demo║   stoppen (stop)?                                            ║        
+  ▾ ■ ei║                                                              ║        
+    exam║ Signalisiert dem Container das Ende und beendet ihn nach 10  ║        
+  ▾ ■ fr║ Sekunden gewaltsam. Was er bereitstellt, ist nicht           ║        
+    lega║ erreichbar, bis er wieder gestartet wird. Der Stack wird     ║        
+    lega║ nicht als gestoppt markiert: ein Lauf des Stacks (deploy,    ║        
+  ▾ ■ fr║ update oder das Wartungsfenster) kann den Container wieder   ║ (1)    
+    wiki║ starten.                                                     ║        
+        ║ Zustand: ok (running)                                        ║        
+        ║ $ sudo qhost container stop --yes --output json --           ║        
+        ║   0123456789ab                                               ║        
+        ║                                                              ║        
+        ║ [ ja, mit sudo ]  > abbrechen <                              ║        
+        ║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                             1/6

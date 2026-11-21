@@ -25,10 +25,10 @@ const wrapWidth = 76
 // approveStackSettings reviews and applies a proposal of the kind stack-settings: it shows the difference to
 // the settings that apply now, asks, checks proposal and difference again and writes the settings the way
 // 'qhost stack settings set' does.
-func approveStackSettings(c *cobra.Command, program *cobracli.Program, state *notRunning, _ *redact.Redactor, first control.ProposalShowResult, url string) error {
+func approveStackSettings(c *cobra.Command, program *cobracli.Program, state *notRunning, _ *redact.Redactor, first control.ProposalShowResult, o approveOptions) error {
 	id := first.ID
-	if url != "" {
-		return usageFailure("--url applies to proposals of the kind source-add only", "Run 'sudo qhost proposal approve "+id+"' without --url.")
+	if err := o.onlyForSourceAdd(id); err != nil {
+		return err
 	}
 	content, err := decodeSettingsProposal(first)
 	if err != nil {
@@ -42,7 +42,7 @@ func approveStackSettings(c *cobra.Command, program *cobracli.Program, state *no
 		return err
 	}
 	_, _ = io.WriteString(notice, shownEffect)
-	if err := askApproval(c, "Approve proposal "+first.ID+" and apply these settings?"); err != nil {
+	if err := o.decide(c, "Approve proposal "+first.ID+" and apply these settings?"); err != nil {
 		return err
 	}
 

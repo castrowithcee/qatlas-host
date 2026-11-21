@@ -53,6 +53,10 @@ func withComparison(res control.SourceInspectResult, cmp control.SourceCompareRe
 // confirmed before. The service changes nothing but the pinned host key. A folder of files then joins with the
 // plan of the comparison, so the permissions are worked out again for it.
 func (m *Model) compareFolder(flow *addFlow) tea.Cmd {
+	if m.euid() != 0 {
+		m.askCompareSudo(flow)
+		return nil
+	}
 	args := control.SourceCompareArgs{Path: flow.res.Path, URL: flow.url, Fingerprint: flow.probe.Fingerprint}
 	ctx, host, shown := m.ctx, m.folders, flow.res
 	return m.writeCall(opCompare, args.Path, func(b Backend) (any, error) {
@@ -79,16 +83,19 @@ func (m *Model) showComparison(cmp control.SourceCompareResult) {
 	flow.cmp = &cmp
 	dir, url, title := flow.res.Path, flow.url, flow.title()
 	body := func(width int) []string { return m.comparisonLines(flow, width) }
+	// A question that applies the comparison shows the command that yes runs without root.
+	final := func(width int) []string { return append(m.comparisonLines(flow, width), m.sudoLines(flow, width)...) }
 	yes := []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}}
 	if cmp.Secrets != nil && cmp.Secrets.Total > 0 {
 		m.set.add = nil
 		m.askSheet(title, t.Lookup(textAskRemoteSecrets, dir, url, cmp.Secrets.Total), t.Lookup(textWhatRemoteSecrets), body, nil, nil)
 		return
 	}
-	final := func() tea.Cmd { return m.connectRemote(flow) }
+	step := func() tea.Cmd { return m.connectRemote(flow) }
 	if flow.res.Case == control.SourceCaseFiles {
-		final = func() tea.Cmd { return m.addFolder(flow) }
+		step = func() tea.Cmd { return m.addFolder(flow) }
 	}
+	apply := m.lastStep(flow, step)
 	switch cmp.State {
 	case control.SourceRemoteEmpty:
 		if flow.res.Case == control.SourceCaseFiles {
@@ -97,12 +104,12 @@ func (m *Model) showComparison(cmp control.SourceCompareResult) {
 			m.askSheet(title, t.Lookup(textAskRemoteNoCommit, url, dir), t.Lookup(textWhatRemoteNoCommit), body, nil, nil)
 			return
 		}
-		m.askSheet(title, t.Lookup(textAskRemoteEmpty, dir, url, cmp.Branch), t.Lookup(textWhatRemoteEmpty), body, yes, final)
+		m.askSheet(title, t.Lookup(textAskRemoteEmpty, dir, url, cmp.Branch), t.Lookup(textWhatRemoteEmpty), final, yes, apply)
 	case control.SourceRemoteEqual:
-		m.askSheet(title, t.Lookup(textAskRemoteEqual, dir, url), t.Lookup(textWhatRemoteEqual), body, yes, final)
+		m.askSheet(title, t.Lookup(textAskRemoteEqual, dir, url), t.Lookup(textWhatRemoteEqual), final, yes, apply)
 	case control.SourceRemoteDifferent:
 		answers := []kittui.Answer{{Action: actYes, Label: textAnswerPush}, {Action: actNo, Label: textAnswerCancel}}
-		m.askSheet(title, t.Lookup(textAskRemoteDifferent, dir, cmp.Branch, url), t.Lookup(textWhatRemoteDifferent), body, answers, final)
+		m.askSheet(title, t.Lookup(textAskRemoteDifferent, dir, cmp.Branch, url), t.Lookup(textWhatRemoteDifferent), final, answers, apply)
 	default:
 		m.set.add = nil
 		m.failure = t.Lookup(kittui.TextError, t.Lookup(textErrService, "unknown state "+cmp.State))

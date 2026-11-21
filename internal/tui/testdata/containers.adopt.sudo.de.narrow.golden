@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 [5 Container] 6 7                                                     
+────────────────────────────────────────────────────────────────────────────────
+  ⚠ Das Repository /srv/demo-foreign als lokalen Stack-Ordner übernehmen?       
+                                                                                
+  Ja nimmt die unten aufgeführten Änderungen vor.                               
+                                                                                
+    Ordner: /srv/demo-foreign                                                   
+    Fall: local (ein Repository ohne Remote, das so ausgerollt wird)            
+                                                                                
+  Fremdes Projekt                                                               
+    Projekt: legacy-blog                                                        
+    Compose-Dateien (Labels): /srv/demo-foreign/compose.yaml                    
+    Env-Dateien (Labels): /srv/demo-foreign/.env                                
+                                                                                
+    Eigentümer: root, Gruppe: root, Modus: 0755                                 
+    der Dienst kann ihn schreiben: ja                                           
+    Rechte werden gesetzt: nein                                                 
+                                                                                
+  Stacks (1)                                                                    
+    legacy-blog (Ordner .)                                                      
+      funktioniert: deploy                                                      
+      funktioniert nicht: backup                                                
+                                                                                
+  Änderungen nach Ja                                                            
+    Das Repository wird als lokaler Stack-Ordner übernommen.                    
+    Keine Rechteänderung: Der Dienst kann bereits schreiben.                    
+    Der Ordner wird in das systemd-Drop-in des Dienstes eingetragen, der einmal 
+    neu startet.                                                                
+                                                                                
+    $ sudo qhost source add --expect-effect                                     
+      sha256:example-effect-for-tests-only-0000000000000000000000000000 --yes   
+      --output json -- /srv/demo-foreign                                        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+y ja, ausführen  n/esc/enter abbrechen                              ↑/↓ Scrollen

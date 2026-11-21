@@ -474,11 +474,15 @@ type StackComposeSettings struct {
 }
 
 // StackUpdateSettings say whether and how far the stack is updated. Mode is automatic or manual, Ceiling
-// patch, minor or major, Major direct or stepwise. Observe is the observation time after an update in
+// patch, minor or major, Major direct or stepwise. Trigger is window (default), interval or webhook; Interval
+// is the seconds between two registry queries, from 30 to 86400, 60 when left out, and only allowed with the
+// trigger interval. Observe is the observation time after an update in
 // minutes, from 0 (off) to 1440, 60 when left out. Tags maps an image version variable to a regular
 // expression its candidate tags must match; Changelog maps it to a GitHub repository (owner/name).
 type StackUpdateSettings struct {
 	Mode      string            `json:"mode,omitempty"`
+	Trigger   string            `json:"trigger,omitempty"`
+	Interval  *int              `json:"interval,omitempty"`
 	Ceiling   string            `json:"ceiling,omitempty"`
 	Major     string            `json:"major,omitempty"`
 	Observe   *int              `json:"observe,omitempty"`
@@ -555,6 +559,8 @@ type RunInfo struct {
 	DurationMS int64     `json:"duration_ms"`
 	Result     string    `json:"result"`
 	Error      string    `json:"error,omitempty"`
+	// LogUnreadable is the refusal of the run's log when this version does not read it; it names the file.
+	LogUnreadable string `json:"log_unreadable,omitempty"`
 }
 
 // RunsResult answers RunsCommand, newest run first.
@@ -731,9 +737,13 @@ type StackInfo struct {
 	Name string `json:"name"`
 	// Folder is the directory of the stack below Dir, "." for a root stack that is the whole stack folder; it
 	// differs from Name when the Compose file names the project.
-	Folder string      `json:"folder"`
-	Update string      `json:"update"`
-	Images []ImageInfo `json:"images"`
+	Folder string `json:"folder"`
+	Update string `json:"update"`
+	// Trigger is what makes qhost check the stack's registries: window, interval or webhook. Interval is the
+	// seconds between two checks, set for the trigger interval only.
+	Trigger  string      `json:"trigger"`
+	Interval int         `json:"interval,omitempty"`
+	Images   []ImageInfo `json:"images"`
 	// Volumes are the names of the named volumes of the stack's compose files, sorted.
 	Volumes  []string `json:"volumes,omitempty"`
 	Findings int      `json:"findings"`
@@ -1173,6 +1183,8 @@ type BackupInfo struct {
 	Size       int64            `json:"size"`
 	Items      []BackupItemInfo `json:"items"`
 	Incomplete bool             `json:"incomplete,omitempty"`
+	// Unreadable is the refusal of a backup whose metadata this version does not read; it names the file.
+	Unreadable string `json:"unreadable,omitempty"`
 }
 
 // BackupCreateResult answers BackupCreateCommand; Removed lists the ids retention deleted.
@@ -1855,9 +1867,17 @@ type ProposalInfo struct {
 	Message string `json:"message,omitempty"`
 }
 
+// UnreadableInfo names a stored file that is left out of an answer because this version cannot read it.
+type UnreadableInfo struct {
+	File  string `json:"file"`
+	Error string `json:"error"`
+}
+
 // ProposalListResult answers ProposalListCommand, the newest proposal first.
 type ProposalListResult struct {
 	Proposals []ProposalInfo `json:"proposals"`
+	// Unreadable lists the proposal files this version cannot read, which are not among Proposals.
+	Unreadable []UnreadableInfo `json:"unreadable,omitempty"`
 }
 
 // ProposalIDArgs are the arguments of ProposalShowCommand and ProposalWithdrawCommand.

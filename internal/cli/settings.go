@@ -24,7 +24,9 @@ import (
 const settingsFields = "The settings are one object with these members, each optional except version:\n\n" +
 	"  version: 1\n" +
 	"  compose.files: the compose files in merge order, relative to the stack folder\n" +
-	"  update.mode: automatic or manual (manual); update.ceiling: patch, minor or major (minor);\n" +
+	"  update.mode: automatic or manual (manual); update.trigger: window, interval or webhook (window);\n" +
+	"  update.interval: seconds from 30 to 86400 between two registry queries (60), only with update.trigger: interval;\n" +
+	"  update.ceiling: patch, minor or major (minor);\n" +
 	"  update.major: direct or stepwise (stepwise); update.observe: minutes, 0 off, at most 1440 (60); update.tags: image version variable to a regular\n" +
 	"  expression its tags must match; update.changelog: image version variable to a GitHub repository\n" +
 	"  backup.paths, backup.volumes, backup.command: data directories below the stack folder, named volumes\n" +
@@ -33,6 +35,7 @@ const settingsFields = "The settings are one object with these members, each opt
 	"A stack without settings is deployed but never updated."
 
 func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
+	var showEngine, setEngine, removeEngine string
 	show := &cobra.Command{
 		Use:   "settings <stack>",
 		Short: "Show, replace or remove the settings of a stack: update, backup, check and compose files",
@@ -47,6 +50,9 @@ func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, showEngine, args[0]); err != nil {
+				return err
+			}
 			var res control.StackSettingsResult
 			if err := credentialCall(c, state, control.StackSettingsGetCommand, control.StackSettingsArgs{Stack: args[0]}, &res); err != nil {
 				return err
@@ -83,6 +89,9 @@ func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 			if err != nil {
 				return err
 			}
+			if err := routeStacks(c, state, setEngine, args[0]); err != nil {
+				return err
+			}
 			var res control.StackSettingsSetResult
 			if err := remoteCall(c, state, control.StackSettingsTimeout, control.StackSettingsSetCommand,
 				control.StackSettingsSetArgs{Stack: args[0], Settings: s}, &res); err != nil {
@@ -111,6 +120,9 @@ func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, removeEngine, args[0]); err != nil {
+				return err
+			}
 			var res control.StackSettingsRemoveResult
 			if err := remoteCall(c, state, control.StackSettingsTimeout, control.StackSettingsRemoveCommand,
 				control.StackSettingsArgs{Stack: args[0]}, &res); err != nil {
@@ -121,6 +133,9 @@ func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 		},
 	}
 	set.Flags().StringVar(&file, "file", "", "the settings as YAML or JSON; - reads standard input")
+	addEngineFlag(show, &showEngine, stackEngineUsage, stackEngineNote)
+	addEngineFlag(set, &setEngine, stackEngineUsage, stackEngineNote)
+	addEngineFlag(remove, &removeEngine, stackEngineUsage, stackEngineNote)
 	show.AddCommand(set, remove)
 	return show
 }
@@ -201,6 +216,12 @@ func settingsOutput(format output.Format, s control.StackSettings) []output.Fiel
 	}
 	if u := s.Update; u != nil {
 		add("update.mode", u.Mode)
+		if u.Trigger != "" {
+			add("update.trigger", u.Trigger)
+		}
+		if u.Interval != nil {
+			add("update.interval", *u.Interval)
+		}
 		add("update.ceiling", u.Ceiling)
 		add("update.major", u.Major)
 		if u.Observe != nil {

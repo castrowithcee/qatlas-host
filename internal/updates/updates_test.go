@@ -123,6 +123,15 @@ func TestErrorsAreRecordedPerVariable(t *testing.T) {
 			t.Errorf("%s: %+v", v, it)
 		}
 	}
+	// only an unreachable or rate-limiting registry makes the regular check wait longer
+	for v, it := range by {
+		if Throttled(it) != (v == "DOWN") {
+			t.Errorf("%s throttled = %v", v, Throttled(it))
+		}
+	}
+	if !Throttled(engine.UpdateItem{Status: engine.UpdateError, Error: textRateLimited}) {
+		t.Error("rate-limited is not throttled")
+	}
 }
 
 func TestOneListingPerRepositoryAndRun(t *testing.T) {
@@ -177,7 +186,8 @@ func TestCredentialLookupPerHostAndNoLeak(t *testing.T) {
 	if by["OK"].Selected != "1.1.0" || by["OK2"].Status != engine.UpdateAvailable {
 		t.Errorf("authorized: %+v %+v", by["OK"], by["OK2"])
 	}
-	if it := by["WRONG"]; it.Status != engine.UpdateError || it.Error != textAuth {
+	if it := by["WRONG"]; it.Status != engine.UpdateError ||
+		it.Error != textAuth+"; store a login as credential registry.wrong.example.test (see qhost help credentials)" || len([]rune(it.Error)) > maxText {
 		t.Errorf("WRONG: %+v", it)
 	}
 	if it := by["NONE"]; it.Status != engine.UpdateError || it.Error != textNoCredential {

@@ -111,9 +111,13 @@ func (m *Model) submitSecret(f *settingsForm, key, value string) tea.Cmd {
 		return nil
 	}
 	stack := f.stack
-	m.ask(textTitleSecret, m.text.Lookup(textAskSecretSet, key, stack), m.text.Lookup(textWhatSecretSet), nil, false, func() tea.Cmd {
-		return m.writeCall(opSecretSet, key, func(b Backend) (any, error) { return b.SecretSet(m.ctx, stack, key, value) })
-	})
+	// The value goes on standard input of the command; the question shows the command without it.
+	m.askSetting(settingChange{title: textTitleSecret, question: m.text.Lookup(textAskSecretSet, key, stack),
+		consequence: m.text.Lookup(textWhatSecretSet), op: opSecretSet, name: key,
+		direct: func(b Backend) (any, error) { return b.SecretSet(m.ctx, stack, key, value) },
+		args:   []string{"stack", "secret", "set", "--output", "json", "--", stack, key},
+		input:  secretInput(value),
+		decode: decodeSudo[control.SecretResult](func(r control.SecretResult) bool { return r.Stack != "" })})
 	return nil
 }
 
@@ -199,15 +203,19 @@ func (m *Model) picked(id kittui.ItemID) tea.Cmd {
 	stack, key := p.stack, string(id)
 	switch p.kind {
 	case pickSecret:
-		m.ask(textTitleSecretDelete, m.text.Lookup(textAskSecretDelete, key, stack), m.text.Lookup(textWhatSecretDelete), nil, true, func() tea.Cmd {
-			return m.writeCall(opSecretDelete, key, func(b Backend) (any, error) { return b.SecretDelete(m.ctx, stack, key) })
-		})
+		m.askSetting(settingChange{title: textTitleSecretDelete, question: m.text.Lookup(textAskSecretDelete, key, stack),
+			consequence: m.text.Lookup(textWhatSecretDelete), danger: true, op: opSecretDelete, name: key,
+			direct: func(b Backend) (any, error) { return b.SecretDelete(m.ctx, stack, key) },
+			args:   []string{"stack", "secret", "delete", "--output", "json", "--", stack, key},
+			decode: decodeSudo[control.SecretResult](func(r control.SecretResult) bool { return r.Stack != "" })})
 	case pickBackup:
 		b := p.backups[id]
 		details := []string{b.Created.In(m.loc).Format(lastRunLayout), humanSize(b.Size)}
-		m.ask(textTitleRestore, m.text.Lookup(textAskRestore, key, stack), m.text.Lookup(textWhatRestore), details, true, func() tea.Cmd {
-			return m.writeCall(opRestore, key, func(b Backend) (any, error) { return b.BackupRestore(m.ctx, stack, key) })
-		})
+		m.askSetting(settingChange{title: textTitleRestore, question: m.text.Lookup(textAskRestore, key, stack),
+			consequence: m.text.Lookup(textWhatRestore), details: details, danger: true, op: opRestore, name: key,
+			direct: func(b Backend) (any, error) { return b.BackupRestore(m.ctx, stack, key) },
+			args:   []string{"stack", "backup", "restore", "--yes", "--output", "json", "--", stack, key},
+			decode: decodeRestore})
 	}
 	return nil
 }

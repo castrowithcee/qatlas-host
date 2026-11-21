@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks  [2 ▣ Stack-Details]  3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Update-Regeln eines Stacks                                                                                            
+                                                                                                                        
+  Regeln des Stacks demo-stack. Backup, Prüfung und Compose-Dateien bleiben unverändert.                                
+                                                                                                                        
+                         ╔═════════════════════════════════════════════════════════════════════════════════════════════╗
+> Modus                  ║ automatisch                                                                               ▾ ║
+                         ╚═════════════════════════════════════════════════════════════════════════════════════════════╝
+                         automatisch aktualisiert im Wartungsfenster, manuell nur auf Anforderung                       
+                         ╭─────────────────────────────────────────────────────────────────────────────────────────────╮
+  Obergrenze             │ p╔═ Update-Regeln eines Stacks ═════════════════════════════════╗                         ▾ │
+                         ╰──║ ⚠ Die Update-Regeln des Stacks demo-stack speichern?         ║───────────────────────────╯
+                         ╭──║                                                              ║───────────────────────────╮
+  Major-Sprung           │ d║ Im Stack-Repository entsteht ein Commit mit den neuen Regeln ║                         ▾ │
+                         ╰──║ und wird zum Remote gepusht. Die Regeln wirken beim nächsten ║───────────────────────────╯
+                         ╭──║ Update.                                                      ║───────────────────────────╮
+  Beobachtung (Minuten)  │ 1║ Modus: automatisch, Obergrenze: patch, Major-Sprung: direct  ║                           │
+                         ╰──║ Beobachtung: 15 Min.                                         ║───────────────────────────╯
+                         ╭──║ Auslöser: Wartungsfenster                                    ║───────────────────────────╮
+  Auslöser               │ W║ Tag-Filter APP_VERSION: ^1\.[0-9.]+$                         ║                         ▾ │
+                         ╰──║ Changelog APP_VERSION: example/app                           ║───────────────────────────╯
+                         ╭──║ $ sudo qhost stack settings set --file - --output json --    ║───────────────────────────╮
+  Abstand (Sekunden)     │ 6║   demo-stack                                                 ║                           │
+                         ╰──║                                                              ║───────────────────────────╯
+                         ╭──║ [ ja, mit sudo ]  > abbrechen <                              ║───────────────────────────╮
+  Tag-Filter             │ A║ y ja, mit sudo  n/esc/enter abbrechen                        ║                           │
+                         ╰──╚══════════════════════════════════════════════════════════════╝───────────────────────────╯
+                         ╭─────────────────────────────────────────────────────────────────────────────────────────────╮
+  Changelog-Repositories │ APP_VERSION → example/app                                                                   │
+                         ╰─────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+[ F2 speichern ]  [ esc Verwerfen ]                                                                                     
+                                                                                                                        

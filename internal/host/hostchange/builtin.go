@@ -31,7 +31,11 @@ const (
 	maxKeysFile   = 1 << 20
 )
 
-var builtinSteps = map[string]bool{stepKeysAdd: true, stepKeysRemove: true}
+var builtinSteps = map[string]bool{
+	stepKeysAdd: true, stepKeysRemove: true,
+	stepFileWrite: true, stepFileRestore: true, stepFolderCreate: true, stepFolderRemove: true,
+	stepFileRename: true, stepFileCopy: true, stepFileRemove: true, stepFileRemoveCopy: true, stepFileRestoreTree: true,
+}
 
 // accountLookup resolves the user a built-in step works for.
 type accountLookup func(name string) (hostadmin.Account, error)
@@ -43,6 +47,8 @@ func systemAccount(name string) (hostadmin.Account, error) {
 
 func runBuiltin(c Command, lookup accountLookup) error {
 	switch {
+	case fileSteps[c.Argv[0]]:
+		return runFileStep(c, systemFileOps)
 	case c.Argv[0] == stepKeysAdd && len(c.Argv) == 2:
 		acc, err := lookup(c.Argv[1])
 		if err != nil {

@@ -75,7 +75,7 @@ func (s serviceDatadir) Deploy(_ context.Context, stack string) (control.DeployR
 }
 
 func newDatadirCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	var owner, mode string
+	var owner, mode, engine string
 	var gate *cobracli.Gate
 	cmd := &cobra.Command{
 		Use:   "datadir <stack> [--owner UID:GID] [--mode 0750] [--yes]",
@@ -91,11 +91,15 @@ func newDatadirCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 			"sudo. See 'qhost help data-directories'.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, engine, args[0]); err != nil {
+				return err
+			}
 			return runDatadir(c, program, gate, newDatadirAPI(c, state), args[0], owner, mode)
 		},
 	}
 	cmd.Flags().StringVar(&owner, "owner", "", "owner of the created directories as UID:GID (default: the proposal of the finding)")
 	cmd.Flags().StringVar(&mode, "mode", "0750", "octal permission mode of the created directories")
+	addEngineFlag(cmd, &engine, stackEngineUsage, stackEngineNote)
 	gate = program.AddGate(cmd, cobracli.Gates{Question: true})
 	return cmd
 }

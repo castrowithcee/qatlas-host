@@ -10,6 +10,7 @@ User=qhost-deploy
 Group=qhost-deploy
 SupplementaryGroups=docker
 ReadWritePaths=/run/qhost-deploy
+ReadWritePaths=-/run/qhost-hook/system
 StateDirectory=qhost-deploy
 StateDirectoryMode=0700
 ConfigurationDirectory=qhost-deploy

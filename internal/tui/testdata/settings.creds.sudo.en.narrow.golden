@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs [4 Settings] 5 Containers 6 Proposals 7 System 
+   General  [Credentials]  Maintenance window   Notifications                   
+────────────────────────────────────────────────────────────────────────────────
+  Set a credential                                                              
+                                                                                
+                ╭──────────────────────────────────────────────────────────────╮
+  Credential    │ registry login                                             ▾ │
+        ╔═ Set a credential ═══════════════════════════════════════════╗───────╯
+        ║ ⚠ Store the credential registry.registry.example.test-5000?  ║───────╮
+  Regist║                                                              ║       │
+        ║ The service stores the value and never shows it again. A     ║───────╯
+        ║ credential of that name is replaced.                         ║───────╮
+  Regist║ $ sudo qhost credential set --output json --                 ║       │
+        ║   registry.registry.example.test-5000                        ║───────╯
+        ║                                                              ║═══════╗
+> Token ║ [ yes, with sudo ]  > cancel <                               ║       ║
+        ║ y yes, with sudo  n/esc/enter cancel                         ║═══════╝
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+[ F2 save ]  [ esc discard ]                                                    
+                                                                                

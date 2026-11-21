@@ -119,6 +119,7 @@ func TestDeployUnitMeetsChannelContract(t *testing.T) {
 		"Group=qhost-deploy",
 		"SupplementaryGroups=docker",
 		"ReadWritePaths=/run/qhost-deploy",
+		"ReadWritePaths=-/run/qhost-hook/system",
 		"StateDirectory=qhost-deploy",
 		"StateDirectoryMode=0700",
 		"NoNewPrivileges=yes",
@@ -132,7 +133,7 @@ func TestDeployUnitMeetsChannelContract(t *testing.T) {
 		if strings.HasPrefix(l, "RuntimeDirectory") {
 			t.Errorf("deploy unit lets systemd create its runtime directory: %q", l)
 		}
-		if strings.HasPrefix(l, "ReadWritePaths=") && l != "ReadWritePaths=/run/qhost-deploy" {
+		if strings.HasPrefix(l, "ReadWritePaths=") && l != "ReadWritePaths=/run/qhost-deploy" && l != "ReadWritePaths=-/run/qhost-hook/system" {
 			t.Errorf("deploy unit names a writable path: %q", l)
 		}
 	}
@@ -224,8 +225,8 @@ func TestInstanceTemplateMeetsItsContract(t *testing.T) {
 	for _, want := range []string{
 		"ExecStart=/usr/local/bin/qhost deploy-service run --instance %i",
 		"User=%i",
-		"Environment=DOCKER_CONFIG=/var/lib/qhost-deploy-%i/docker",
 		"ReadWritePaths=/run/qhost-deploy-%i",
+		"ReadWritePaths=-/run/qhost-hook/%i",
 		"StateDirectory=qhost-deploy-%i",
 		"StateDirectoryMode=0700",
 		"ConfigurationDirectory=qhost-deploy-%i",
@@ -249,7 +250,7 @@ func TestInstanceTemplateMeetsItsContract(t *testing.T) {
 		if strings.Contains(l, "docker.service") || strings.Contains(l, "%I") {
 			t.Errorf("instance template has the line %q", l)
 		}
-		if strings.HasPrefix(l, "ReadWritePaths=") && l != "ReadWritePaths=/run/qhost-deploy-%i" {
+		if strings.HasPrefix(l, "ReadWritePaths=") && l != "ReadWritePaths=/run/qhost-deploy-%i" && l != "ReadWritePaths=-/run/qhost-hook/%i" {
 			t.Errorf("instance template names a writable path: %q", l)
 		}
 		if key, value, ok := strings.Cut(l, "="); ok && strings.HasPrefix(key, "Exec") {
@@ -280,6 +281,58 @@ func TestInstanceTemplateStaysOutOfTheReleaseArchive(t *testing.T) {
 	for _, f := range loadConfig(t).Files {
 		if strings.Contains(f.Source, "@") || strings.Contains(f.Path, "@") {
 			t.Errorf("release file %+v; the setup writes the instance template", f)
+		}
+	}
+}
+
+func TestEmbeddedHookUnitIsTheShippedFile(t *testing.T) {
+	if string(HookUnit) != string(readFile(t, "packaging/qhost-hook.service")) {
+		t.Fatal("the embedded hook unit differs from packaging/qhost-hook.service")
+	}
+}
+
+// The receiver listens on the network, so its unit carries the narrow sandbox and none of the groups that reach
+// the container engine or the host service.
+func TestHookUnitMeetsItsSandboxContract(t *testing.T) {
+	lines := unitLines(HookUnit)
+	for _, want := range []string{
+		"ExecStart=/usr/local/bin/qhost hook-service run",
+		"User=qhost-hook",
+		"Group=qhost-hook",
+		"NoNewPrivileges=yes",
+		"ProtectSystem=strict",
+		"ProtectHome=yes",
+		"PrivateTmp=yes",
+		"PrivateDevices=yes",
+		"CapabilityBoundingSet=",
+		"RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX",
+		"RestrictNamespaces=yes",
+		"LockPersonality=yes",
+		"SystemCallFilter=@system-service",
+		"MemoryMax=64M",
+		"ReadWritePaths=/run/qhost-hook",
+		"Restart=on-failure",
+	} {
+		if !lines[want] {
+			t.Errorf("hook unit lacks the line %q", want)
+		}
+	}
+	for l := range lines {
+		for _, f := range []string{"SupplementaryGroups=", "AmbientCapabilities=", "DynamicUser=", "RuntimeDirectory", "User=root", "Group=root"} {
+			if strings.HasPrefix(l, f) {
+				t.Errorf("hook unit has the line %q", l)
+			}
+		}
+		if strings.HasPrefix(l, "ReadWritePaths=") && l != "ReadWritePaths=/run/qhost-hook" {
+			t.Errorf("hook unit names a writable path: %q", l)
+		}
+	}
+}
+
+func TestHookUnitStaysOutOfTheReleaseArchive(t *testing.T) {
+	for _, f := range loadConfig(t).Files {
+		if strings.Contains(f.Source, "qhost-hook") {
+			t.Errorf("release file %+v; the setup installs the hook unit", f)
 		}
 	}
 }

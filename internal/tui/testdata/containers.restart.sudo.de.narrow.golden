@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 [5 Container] 6 7                                                     
+────────────────────────────────────────────────────────────────────────────────
+    NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS 
+  ▾ ■ eigener Stack demo-stack (2)                                              
+    demo╔═ restart ════════════════════════════════════════════════════╗        
+    demo║ ⚠ Container example-cache (einzelner Container) neu starten  ║        
+  ▾ ■ ei║   (restart)?                                                 ║        
+>   exam║                                                              ║        
+  ▾ ■ fr║ Stoppt den Container wie stop, startet ihn wieder und wartet ║        
+    lega║ bis zu eine Minute, bis er läuft und, falls er einen Health- ║        
+    lega║ Check hat, gesund ist. Was er bereitstellt, ist solange      ║        
+  ▾ ■ fr║ nicht erreichbar.                                            ║ (1)    
+    wiki║ Zustand: ok (running)                                        ║        
+        ║ $ sudo qhost container restart --yes --output json --        ║        
+        ║   feedfacecafe                                               ║        
+        ║                                                              ║        
+        ║ [ ja, mit sudo ]  > abbrechen <                              ║        
+        ║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                             3/6

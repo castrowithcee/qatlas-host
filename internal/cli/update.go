@@ -28,7 +28,7 @@ const (
 var updateRunColumns = []string{"stack", "variable", "from", "to", "run", "commit", "result", "error"}
 
 func newUpdateCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	var target, variable string
+	var target, variable, engine string
 	cmd := &cobra.Command{
 		Use:   "update <stack>... [--version <v> [--var <NAME>]]",
 		Short: "Update the image versions of stacks with a commit and a secured run per version step",
@@ -38,10 +38,11 @@ func newUpdateCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"stay. The version must be in the registry's tag list, of the same variant and higher than the\n" +
 			"current version. Under update.major stepwise a jump across major versions takes the highest version of\n" +
 			"each major version on the way, one step each.\n\n" +
-			"Each step stops the stack, backs up its data, commits the new version to the stack's .env (only that\n" +
-			"line changes), pushes the commit to the branch, then pulls, starts and checks the stack. A step that\n" +
-			"fails is rolled back like any run, and the later steps are not attempted; the earlier steps stay. A\n" +
-			"failure before the push leaves the branch as it was and starts the previous state again. The stacks run\n" +
+			"Each step stops the stack and backs up its data if the stack has backup rules, commits the new version\n" +
+			"to the stack's .env (only that line changes), pushes the commit to the branch, then pulls, starts and\n" +
+			"checks the stack. A step that fails is rolled back like any run, and the later steps are not attempted;\n" +
+			"the earlier steps stay. A failure before the push leaves the branch as it was and starts the previous\n" +
+			"state again. The stacks run\n" +
 			"one after another. Every stack is checked first: one that has no settings, was never deployed, has\n" +
 			"local changes or undeployed commits, is paused or has a run in progress refuses the whole call before\n" +
 			"anything changes. The deploy key needs write access to the branch. The command waits until the last\n" +
@@ -59,6 +60,9 @@ func newUpdateCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, engine, args...); err != nil {
+				return err
+			}
 			var res control.UpdateRunResult
 			a := control.UpdateRunArgs{Stacks: args, Version: target, Variable: variable}
 			if err := remoteCall(c, state, updateCallLimit, control.UpdateRunCommand, a, &res); err != nil {
@@ -78,6 +82,7 @@ func newUpdateCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 	}
 	cmd.Flags().StringVar(&target, "version", "", "the version to move to instead of the one the rules allow")
 	cmd.Flags().StringVar(&variable, "var", "", "the image version variable --version raises, for a stack with several")
+	addEngineFlag(cmd, &engine, stackEngineUsage, stackEngineNote+" Every stack of one call must be in the same engine.")
 	return cmd
 }
 

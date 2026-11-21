@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                                    [?] Hilfe
+  [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+        STACK              VERSION      VERFÜGBAR      MODUS                      ZUSTAND   BEFUNDE                     
+  ▾ [ ] ■ /srv/stacks (0)  Klon                                                             -                           
+  ▾ [ ] ■ ohne Gruppe (6)                                                                                               
+>   [ ] demo-stack         1.4.2        1.5.0          automatisch                deployt   1 Warnung                   
+    [ ] mail-relay         3.1          aktuell        manuell, Webhook           offen     keine                       
+    [ ] old-tool           -            ungeprüft      -                          entfernt  keine                       
+    [ ] photo-album        2.0.1        Fehler         automatisch                Rollback  1 Fehler                    
+    [ ] web-shop           5.2.0, 16.4  6.0.0 (Major)  automatisch, Abfrage 120s  läuft     keine                       
+    [ ] wiki               1.41.0       ungeprüft      keiner                     gepinnt   2 Warnungen                 
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+enter Details  / Suchen  space markieren  u update  d deploy  a hinzufügen  r Neu laden  1-7 Bereich  q Beenden         
+                                                                                                      ↑/↓ Auswählen  1/6

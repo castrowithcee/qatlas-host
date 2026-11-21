@@ -22,6 +22,7 @@ const (
 
 func newUpdatesCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var refresh, withChangelog bool
+	var engine string
 	cmd := &cobra.Command{
 		Use:   "updates [stack] [--refresh] [--changelog]",
 		Short: "Show the current and the available image versions of the stacks",
@@ -41,6 +42,11 @@ func newUpdatesCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 			a := control.UpdatesArgs{Refresh: refresh, Changelog: withChangelog}
 			if len(args) == 1 {
 				a.Stack = args[0]
+				if err := routeStacks(c, state, engine, a.Stack); err != nil {
+					return err
+				}
+			} else if err := routeInstance(c, engine); err != nil {
+				return err
 			}
 			limit := client.CallTimeout
 			if refresh {
@@ -50,11 +56,11 @@ func newUpdatesCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 				limit += control.ChangelogTimeout
 			}
 			var res control.UpdatesResult
-			if err := callFor(c.Context(), limit, serviceEndpoint(), control.UpdatesListCommand, a, &res); err != nil {
+			if err := callFor(c.Context(), limit, targetOf(c.Context()).endpoint(), control.UpdatesListCommand, a, &res); err != nil {
 				if errors.Is(err, client.ErrNotRunning) {
 					state.seen = true
 				}
-				return failureOf(err)
+				return targetFailure(c.Context(), err)
 			}
 			if withChangelog {
 				return encodeChangelogs(c.OutOrStdout(), program.Format(), changelogsOfUpdates(res))
@@ -64,6 +70,7 @@ func newUpdatesCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 	}
 	cmd.Flags().BoolVar(&refresh, "refresh", false, "ask the registries now and store the result")
 	cmd.Flags().BoolVar(&withChangelog, "changelog", false, "show the release notes of the available updates instead of the version table")
+	addEngineFlag(cmd, &engine, optionalStackEngineUsage, stackEngineNote+" "+wholeEngineNote)
 	return cmd
 }
 

@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs 4 Settings [5 Containers] 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+    NAME               STATE       IMAGE                      UPTIME  RESTARTS  
+  ▾ ■ foreign project legacy-blog (2)                                           
+    lega╔═ stop ═══════════════════════════════════════════════════════╗        
+    lega║ ⚠ Stop container demo-stack-app-1 (own stack demo-stack)?    ║        
+  ▾ ■ fo║                                                              ║        
+    wiki║ Signals the container to end and kills it after 10 seconds.  ║        
+  ▾ ■ ow║ Whatever it serves is unavailable until it is started again. ║        
+>   demo║ The stack is not marked as stopped: a run of the stack       ║        
+    demo║ (deploy, update or the maintenance window) can start the     ║        
+  ▾ ■ si║ container again.                                             ║        
+    exam║ State: ok (running)                                          ║        
+        ║ $ sudo qhost container stop --yes --output json --           ║        
+        ║   0123456789ab                                               ║        
+        ║                                                              ║        
+        ║ [ yes, with sudo ]  > cancel <                               ║        
+        ║ y yes, with sudo  n/esc/enter cancel                         ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                             4/6
