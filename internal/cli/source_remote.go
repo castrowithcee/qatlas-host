@@ -69,8 +69,10 @@ func newSourceCompareCommand(program *cobracli.Program, state *notRunning) *cobr
 			"the confirmed key is pinned, and that is all compare stores. Nothing in the folder or the repository is\n" +
 			"changed. Pass the state and the commit to --expect-state and --expect-commit of 'source remote' or\n" +
 			"'source add' to apply exactly this comparison. Run it with sudo.\n" +
-			"With --output json the fields are case, state, branch, commit, paths, path_count, planned_files and\n" +
-			"secrets (total and findings).",
+			"With --output json the fields are case, state, branch, commit, paths, path_count, secrets (total and\n" +
+			"findings) and, for a folder of files, planned_files, excluded and remote_files: the plan the folder\n" +
+			"joins the remote with, where remote_files are the planned files no stack refers to that the remote\n" +
+			"versions.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return usageFailure("source compare takes two arguments, the path of the folder and the SSH address",
@@ -140,6 +142,12 @@ func compareFields(format output.Format, cmp control.SourceCompareResult) output
 		if len(cmp.PlannedFiles) > 0 {
 			add("planned_files", cmp.PlannedFiles)
 		}
+		if len(cmp.Excluded) > 0 {
+			add("excluded", structured(format, cmp.Excluded))
+		}
+		if len(cmp.RemoteFiles) > 0 {
+			add("remote_files", cmp.RemoteFiles)
+		}
 		if cmp.Secrets != nil {
 			add("secrets", structured(format, cmp.Secrets))
 		}
@@ -157,6 +165,22 @@ func compareFields(format output.Format, cmp control.SourceCompareResult) output
 			break
 		}
 		add("planned_file", p)
+	}
+	for i, p := range cmp.RemoteFiles {
+		if i == listLimit {
+			break
+		}
+		add("remote_file", p)
+	}
+	for i, e := range cmp.Excluded {
+		if i == listLimit {
+			break
+		}
+		value := e.Path + ": " + e.Reason
+		if e.Stack != "" {
+			value += " (stack " + e.Stack + ")"
+		}
+		add("excluded", value)
 	}
 	if s := cmp.Secrets; s != nil {
 		add("secrets_total", s.Total)

@@ -40,11 +40,13 @@ func foldersBackend() *fakeBackend {
 		filesDir: {Path: filesDir, Case: control.SourceCaseFiles,
 			Access:       &control.SourceAccess{ModePath: filesDir, Owner: "root", Group: "root", Mode: "0755", SetsPermissions: true},
 			PlannedFiles: []string{"demo/.env", "demo/compose.yaml"},
-			Excluded:     []control.SourceExcluded{{Path: "demo/data", Reason: control.SourceExcludedBindMount, Stack: "demo"}},
+			Excluded: []control.SourceExcluded{{Path: "demo/data", Reason: control.SourceExcludedBindMount, Stack: "demo"},
+				{Path: "demo/notes.txt", Reason: control.SourceExcludedNotReferenced}},
 			Stacks: []control.SourceStack{{Name: "demo", Folder: "demo",
-				Functions: []control.StackFunction{{Function: "deploy", Works: true}, {Function: "backup"}},
-				Findings:  []control.CheckFinding{{Stack: "demo", Rule: "secrets-env-not-ignored", Severity: "warning", Cause: "secrets.env is not listed in .gitignore"}},
-				Conflicts: []control.SourceConflict{{Container: "demo-app-1", Project: "old-demo"}}}},
+				Unresolved: []string{`env_file "${CONF_DIR}/app.env": variable CONF_DIR has no value in .env`},
+				Functions:  []control.StackFunction{{Function: "deploy", Works: true}, {Function: "backup"}},
+				Findings:   []control.CheckFinding{{Stack: "demo", Rule: "secrets-env-not-ignored", Severity: "warning", Cause: "secrets.env is not listed in .gitignore"}},
+				Conflicts:  []control.SourceConflict{{Container: "demo-app-1", Project: "old-demo"}}}},
 			ContainersChecked: true},
 		cloneDir: {Path: cloneDir, Case: control.SourceCaseClone, NeedsURL: true,
 			Access: &control.SourceAccess{ModePath: "/srv", Owner: "root", Group: "root", Mode: "0755"}, Stacks: []control.SourceStack{}},
@@ -106,7 +108,7 @@ func TestFolderAddInspectsWithoutChangingAnything(t *testing.T) {
 	b := foldersBackend()
 	m := newSettingsModel(t, b)
 	send(m, addKeys(filesDir)...)
-	contains(t, m, "case: files", "demo/compose.yaml", "Left out (1)", "demo/data: bind-mount (stack demo)",
+	contains(t, m, "case: files", "demo/compose.yaml", "Left out (2)", "demo/data: bind-mount (stack demo)", "demo/notes.txt: not-referenced", "not resolvable: env_file",
 		"works: deploy", "does not work: backup", "secrets-env-not-ignored", "demo-app-1", "3 paths get the group")
 	if m.set.form != nil || m.modal == nil || b.called("sourceinspect") != 1 {
 		t.Fatalf("form %v, question %v, inspections %d", m.set.form, m.modal, b.called("sourceinspect"))

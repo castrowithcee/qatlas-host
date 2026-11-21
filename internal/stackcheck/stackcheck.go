@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"slices"
 	"sort"
 	"strings"
@@ -458,6 +459,10 @@ func errFindings(s stacks.Stack) []Finding {
 			"Name an image version variable of this stack in the stack settings ('qhost stack settings set'), or add the variable to the image reference.")}
 	case errors.As(s.Err, &rules):
 		return []Finding{mk(RuleInvalidRules, cause, "Correct the stack settings in the qhost TUI or with 'qhost stack settings set'; 'qhost help stack-settings' lists the fields.")}
+	}
+	if errors.Is(s.Err, fs.ErrPermission) {
+		return []Finding{mk(RuleUnreadableStack, cause, "Give the group of the deploy service read permission on the file named in the cause; qhost does not change it. "+
+			"The other checks cannot run on this stack before, and a first commit of the folder takes no file of it.")}
 	}
 	return []Finding{mk(RuleUnreadableStack, cause, "Correct the file named in the cause; the other checks cannot run on this stack before.")}
 }

@@ -242,19 +242,24 @@ func filesTree(t *testing.T) string {
 	t.Helper()
 	dir := newFolder(t)
 	writeTree(t, dir, map[string]string{
-		".gitignore":          "cache/\nsecrets.env\n",
-		"web/compose.yaml":    bindCompose,
-		"web/.env":            "WEB_VERSION=1.2.3\n",
-		"web/secrets.env":     "TOKEN=demo\n",
-		"web/data/db.bin":     "x",
-		"cache/blob":          "x",
-		"cache/private/x":     "x",
-		"big.bin":             strings.Repeat("x", 1<<20+1),
-		"exact.bin":           strings.Repeat("x", 1<<20),
-		"locked/inside.txt":   "x",
-		"noread.txt":          "x",
-		"inner/readme.txt":    "x",
-		"web/data/nested/log": "x",
+		".gitignore":           "cache/\nsecrets.env\n",
+		"web/compose.yaml":     bindCompose + "    env_file:\n      - ../exact.bin\n      - ../big.bin\n      - ../noread.txt\n      - ../link\n",
+		"web/.env":             "WEB_VERSION=1.2.3\n",
+		"web/secrets.env":      "TOKEN=demo\n",
+		"web/compose.yaml.bak": bindCompose,
+		"web/app.log":          "x",
+		"notes.txt":            "x",
+		"logs/a.log":           "x",
+		"logs/sub/b.log":       "x",
+		"web/data/db.bin":      "x",
+		"cache/blob":           "x",
+		"cache/private/x":      "x",
+		"big.bin":              strings.Repeat("x", 1<<20+1),
+		"exact.bin":            strings.Repeat("x", 1<<20),
+		"locked/inside.txt":    "x",
+		"noread.txt":           "x",
+		"inner/readme.txt":     "x",
+		"web/data/nested/log":  "x",
 	})
 	if err := syscall.Mkfifo(filepath.Join(dir, "pipe"), 0o644); err != nil {
 		t.Fatal(err)
@@ -283,19 +288,27 @@ func TestInspectPlansTheFirstCommitOfAFolderWithoutGit(t *testing.T) {
 		t.Fatalf("files = %+v", res)
 	}
 	wantPlanned := []string{".gitignore", "exact.bin", "noread.txt", "web/.env", "web/compose.yaml"}
+	notRef := func(p string) control.SourceExcluded {
+		return control.SourceExcluded{Path: p, Reason: control.SourceExcludedNotReferenced}
+	}
 	wantExcluded := []control.SourceExcluded{
 		{Path: "big.bin", Reason: control.SourceExcludedTooLarge},
 		{Path: "inner", Reason: control.SourceExcludedNestedRepo},
 		{Path: "link", Reason: control.SourceExcludedNotRegular},
 		{Path: "locked", Reason: control.SourceExcludedUnreadable},
+		notRef("logs"),
+		notRef("notes.txt"),
 		{Path: "pipe", Reason: control.SourceExcludedNotRegular},
+		notRef("web/app.log"),
+		notRef("web/compose.yaml.bak"),
 		{Path: "web/data", Reason: control.SourceExcludedBindMount, Stack: "web"},
 	}
 	if os.Geteuid() != 0 {
 		wantPlanned = slices.DeleteFunc(wantPlanned, func(p string) bool { return p == "noread.txt" })
-		wantExcluded = slices.Insert(wantExcluded, 4, control.SourceExcluded{Path: "noread.txt", Reason: control.SourceExcludedUnreadable})
+		wantExcluded = slices.Insert(wantExcluded, 5, control.SourceExcluded{Path: "noread.txt", Reason: control.SourceExcludedUnreadable})
 	} else {
 		wantExcluded = slices.DeleteFunc(wantExcluded, func(e control.SourceExcluded) bool { return e.Path == "locked" })
+		wantExcluded = slices.Insert(wantExcluded, 3, notRef("locked"))
 	}
 	if !slices.Equal(res.PlannedFiles, wantPlanned) {
 		t.Fatalf("planned = %q, want %q", res.PlannedFiles, wantPlanned)
@@ -319,7 +332,8 @@ func TestInspectChecksTheFilesAWouldBeFirstCommitTakes(t *testing.T) {
 	h := realGitService(t)
 	dir := newFolder(t)
 	writeTree(t, dir, map[string]string{
-		"web/compose.yaml": bindCompose, "web/.env": "WEB_VERSION=1.2.3\n", "web/secrets.env": "TOKEN=demo\n", "web/data/db.bin": "x",
+		"web/compose.yaml": bindCompose + "    env_file: secrets.env\n", "web/.env": "WEB_VERSION=1.2.3\n",
+		"web/secrets.env": "TOKEN=demo\n", "web/data/db.bin": "x",
 	})
 	res := h.inspect(dir, "")
 	if res.Case != control.SourceCaseFiles || !slices.Contains(res.PlannedFiles, "web/secrets.env") {

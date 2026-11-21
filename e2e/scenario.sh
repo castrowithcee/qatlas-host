@@ -3569,13 +3569,14 @@ files_git() {
 
 # scenario_source_files proves source add on a folder of files without a repository below /srv/qd-files, which no
 # stack folder uses: the answer lists the files and what is left out, nothing changes without the confirmation, the
-# confirmed add starts a repository with one commit of the listed files and leaves every file as it was, a version
-# committed by a person is deployed and a failing one is rolled back by a local revert commit.
+# confirmed add starts a repository with one commit of only the files the stack refers to and leaves every file as it
+# was, a version committed by a person is deployed and a failing one is rolled back by a local revert commit. A second
+# folder holds a stack whose .env the service cannot read, which brings no file.
 scenario_source_files() {
 	base=/srv/qd-files/web
 	image=registry.$domain/demo/app
 
-	step 'a folder of files without a repository is prepared as root, with a large file the first commit leaves out'
+	step 'a folder of files without a repository is prepared as root, with backup copies, a log, data and a writable file the first commit leaves out'
 	docker exec "$host" sh -ec "rm -rf /srv/qd-files && mkdir -p '$base' && chmod 0755 /srv/qd-files '$base'" || fail 'cannot create the folder of files'
 	cat <<EOF2 | docker exec -i "$host" sh -ec "cat >'$base/compose.yaml'"
 name: demo-files
@@ -3588,16 +3589,25 @@ services:
       DEMO_NAME: demo-files
       DEMO_VERSION: \${DEMO_APP_VERSION}
       DEMO_HEALTH: \${DEMO_HEALTH}
+    volumes:
+      - ./data:/srv/demo-data
+      - ./acme.json:/srv/demo-acme.json
 EOF2
 	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/.env'"
-	docker exec "$host" sh -ec "head -c 2097152 /dev/zero >'$base/big.bin' && chmod 0644 '$base/big.bin' '$base/compose.yaml' '$base/.env'" ||
-		fail 'cannot create the large file'
+	docker exec "$host" sh -ec "head -c 2097152 /dev/zero >'$base/big.bin' && mkdir -p '$base/data' && echo x >'$base/data/db.bin' &&
+		echo '{}' >'$base/acme.json' && echo old >'$base/app.log' && echo notes >'$base/notes.txt' &&
+		cp '$base/compose.yaml' '$base/compose.yaml.bak' && cp '$base/.env' '$base/.env.bak.1' &&
+		chmod 0644 '$base/big.bin' '$base/compose.yaml' '$base/.env' '$base/compose.yaml.bak' '$base/.env.bak.1' '$base/app.log' '$base/notes.txt' '$base/acme.json' '$base/data/db.bin'" ||
+		fail 'cannot create the files of the folder'
 	[ -z "$(docker exec "$host" ls -A "$base" | grep -x .git)" ] || fail 'the folder of files has a .git'
 
-	step 'source inspect names the files to take, the large file with its reason and the stack'
+	step 'source inspect names the referenced files to take and everything else with its reason'
 	out=$(qd --output json source inspect "$base") || fail "source inspect of the folder of files failed: $out"
-	printf '%s' "$out" | jq -e '.case == "files" and (.planned_files | (index("compose.yaml") != null and index(".env") != null)) and
-		([.excluded[] | select(.path == "big.bin" and .reason == "too-large")] | length) == 1 and
+	printf '%s' "$out" | jq -e '.case == "files" and (.planned_files == [".env", "compose.yaml"]) and
+		([.excluded[] | select((.path == "big.bin" or .path == "compose.yaml.bak" or .path == ".env.bak.1" or .path == "app.log" or
+			.path == "notes.txt") and .reason == "not-referenced")] | length) == 5 and
+		([.excluded[] | select(.path == "acme.json" and .reason == "writable-file")] | length) == 1 and
+		([.excluded[] | select(.path == "data" and .reason == "bind-mount")] | length) == 1 and
 		([.stacks[].name] | index("demo-files")) != null' >/dev/null || fail "unexpected inspection of the folder of files: $out"
 
 	step 'source add without a terminal and without --yes is refused and changes nothing'
@@ -3621,11 +3631,14 @@ EOF2
 	wait_for 'the deploy service to answer' 30 qd status
 	docker exec "$host" test -d "$base/.git" || fail 'source add made no repository'
 	if docker exec "$host" test -e "$base/.gitignore"; then fail 'source add wrote a .gitignore'; fi
-	docker exec "$host" grep -qx '/big.bin' "$base/.git/info/exclude" || fail "the large file is not in .git/info/exclude: $(docker exec "$host" cat "$base/.git/info/exclude")"
+	for left in big.bin compose.yaml.bak .env.bak.1 app.log notes.txt acme.json data; do
+		docker exec "$host" grep -qx "/$left" "$base/.git/info/exclude" || fail "$left is not in .git/info/exclude: $(docker exec "$host" cat "$base/.git/info/exclude")"
+	done
 	[ "$(files_git rev-list --count HEAD)" = 1 ] || fail "the repository does not have exactly one commit: $(files_git log --oneline)"
 	[ "$(files_git log -1 --format=%an)" = qhost ] || fail "the first commit has the wrong author: $(files_git log -1 --format=%an)"
 	[ "$(files_git symbolic-ref --short HEAD)" = main ] || fail "the branch is not main: $(files_git symbolic-ref --short HEAD)"
 	[ "$(files_git ls-files)" = "$(printf '.env\ncompose.yaml')" ] || fail "the first commit holds the wrong files: $(files_git ls-files)"
+	[ -z "$(files_git status --porcelain)" ] || fail "the new repository sees a local change: $(files_git status --porcelain)"
 	[ "$(files_git config core.sharedRepository)" = group ] || fail 'core.sharedRepository is not group'
 	[ -z "$(files_git remote)" ] || fail 'the new repository has a remote'
 	[ "$(files_state)" = "$state_before" ] || fail 'source add changed the content, the owner or the size of a file'
@@ -3682,6 +3695,71 @@ EOF2
 	[ -z "$(files_git remote)" ] || fail 'the rollback gave the repository a remote'
 	[ "$(stack_images demo-files)" = "$image:1.1.0" ] || fail "demo-files does not run the previous image 1.1.0: $(stack_images demo-files)"
 	log 'scenario: a folder of files got a repository with group access, deployed 1.1.0 and rolled back 2.0.0 by a local revert'
+	scenario_source_files_unreadable
+}
+
+# source_polled_clean succeeds when the source of the folder $1 has been polled and reports no poll error.
+source_polled_clean() {
+	qd --output json source list | jq -e --arg p "$1" '[.sources[] | select(.path == $p and .last_poll != null and (.poll_error // "") == "")] | length == 1' >/dev/null
+}
+
+# scenario_source_files_unreadable proves that a stack whose .env the service cannot read brings no file: the folder
+# below /srv/qd-multi holds a readable stack and one whose .env is 0600 root. The answer names the remedy and no value
+# of the readable .env, the first commit holds only the files of the readable stack, the folder of the other one stays
+# out, and the source polls without an error. The folder gets no remote, so its .env with a secret-like value is
+# never pushed.
+scenario_source_files_unreadable() {
+	base=/srv/qd-multi
+
+	step 'a folder with a readable stack and a stack whose .env the service cannot read is prepared as root'
+	docker exec "$host" sh -ec "rm -rf '$base' && mkdir -p '$base/qd-multi-ok' '$base/qd-multi-locked' && chmod 0755 '$base' '$base/qd-multi-ok' '$base/qd-multi-locked'" ||
+		fail 'cannot create the folder with two stacks'
+	for stack in qd-multi-ok qd-multi-locked; do
+		cat <<EOF2 | docker exec -i "$host" sh -ec "cat >'$base/$stack/compose.yaml'"
+services:
+  app:
+    image: registry.$domain/demo/app:\${DEMO_APP_VERSION}
+    restart: unless-stopped
+    environment:
+      DEMO_NAME: $stack
+      DEMO_VERSION: \${DEMO_APP_VERSION}
+      DEMO_HEALTH: \${DEMO_HEALTH}
+EOF2
+		printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/$stack/.env'"
+	done
+	# The value is made up; it must never show in an answer.
+	um_secret=e2e-not-a-real-secret-4711
+	printf 'DEMO_API_TOKEN=%s\n' "$um_secret" | docker exec -i "$host" sh -ec "cat >>'$base/qd-multi-ok/.env'"
+	docker exec "$host" sh -ec "echo notes >'$base/qd-multi-ok/notes.txt' && echo notes >'$base/qd-multi-locked/notes.txt' &&
+		chmod 0644 '$base/qd-multi-ok/compose.yaml' '$base/qd-multi-ok/.env' '$base/qd-multi-ok/notes.txt' '$base/qd-multi-locked/compose.yaml' '$base/qd-multi-locked/notes.txt' &&
+		chown root:root '$base/qd-multi-locked/.env' && chmod 0600 '$base/qd-multi-locked/.env'" || fail 'cannot set the modes of the stack files'
+
+	step 'source inspect takes the readable stack only and names how to make the other one readable'
+	out=$(qd --output json source inspect "$base") || fail "source inspect of the folder with two stacks failed: $out"
+	printf '%s' "$out" | jq -e '.case == "files" and (.planned_files == ["qd-multi-ok/.env", "qd-multi-ok/compose.yaml"]) and
+		([.excluded[] | select(.path == "qd-multi-locked" and .reason == "unreadable-stack")] | length) == 1 and
+		([.excluded[] | select(.path == "qd-multi-ok/notes.txt" and .reason == "not-referenced")] | length) == 1 and
+		([.stacks[] | select(.name == "qd-multi-locked") | .findings[] | select(.rule == "unreadable-stack" and (.fix | contains("read permission")))] | length) == 1' >/dev/null ||
+		fail "unexpected inspection of the folder with two stacks: $out"
+	if printf '%s' "$out" | grep -qF "$um_secret"; then fail "source inspect shows a value of .env: $out"; fi
+	out=$(qd source inspect "$base") || fail "the text source inspect of the folder with two stacks failed: $out"
+	if printf '%s' "$out" | grep -qF "$um_secret"; then fail "the text source inspect shows a value of .env: $out"; fi
+	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/qd-multi-locked/.env")" = 'root:root 600' ] || fail 'source inspect changed the unreadable .env'
+
+	step 'source add --yes starts a repository without a file of the unreadable stack, and the source polls without an error'
+	out=$(qd --output json source add "$base" --yes) || fail "source add of the folder with two stacks failed: $out"
+	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local" and .files == 2' >/dev/null || fail "unexpected source add result for two stacks: $out"
+	wait_for 'the deploy service to answer' 30 qd status
+	[ "$(folder_git "$base" ls-files)" = "$(printf 'qd-multi-ok/.env\nqd-multi-ok/compose.yaml')" ] ||
+		fail "the first commit holds the wrong files: $(folder_git "$base" ls-files)"
+	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/qd-multi-locked/.env")" = 'root:root 600' ] || fail 'source add changed the unreadable .env'
+	wait_for 'the first poll of the folder with two stacks' 120 source_polled_clean "$base"
+	wait_for 'the readable stack to be deployed' 180 stack_settled qd-multi-ok succeeded
+
+	step 'the folder with two stacks is released and its containers are removed'
+	out=$(qd --output json source remove "$base" --yes) || fail "source remove of the folder with two stacks failed: $out"
+	docker exec "$host" docker compose -p qd-multi-ok down >/dev/null 2>&1 || fail 'cannot remove the containers of qd-multi-ok'
+	log 'scenario: a stack whose .env the service cannot read brought no file into the first commit'
 }
 
 # register_folder_key creates the deploy key of the folder $1 and enters its public part at the git server.
@@ -3808,13 +3886,18 @@ EOF2
 	out=$(qd --output json source add "$equal" --url "$url3" --fingerprint "$(git_ed25519_fingerprint)" --yes) || fail "source add --url for the equal folder failed: $out"
 	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "remote" and .state == "equal" and .pushed == false' >/dev/null ||
 		fail "unexpected source add result for the equal folder: $out"
+	# extra/compose.yaml is no stack's file, but the repository versions it, so it is kept and named.
+	printf '%s' "$out" | grep -qF 'extra/compose.yaml (versioned in the remote)' || fail "the preview does not name extra/compose.yaml as versioned in the remote: $out"
 	wait_for 'the deploy service to answer' 30 qd status
 	[ "$(folder_git "$equal" rev-parse HEAD)" = "$repo_head3" ] || fail "the head of the folder is not the head of the repository: $(folder_git "$equal" rev-parse HEAD)"
+	folder_git "$equal" ls-files | grep -qx 'extra/compose.yaml' || fail "the folder does not track extra/compose.yaml: $(folder_git "$equal" ls-files)"
 	[ "$(folder_git "$equal" remote)" = origin ] || fail "the folder has not exactly the remote origin: $(folder_git "$equal" remote)"
 	folder_git "$equal" remote get-url origin | grep -q 'stacks3.git' || fail "origin is not the repository: $(folder_git "$equal" remote get-url origin)"
 	[ "$(qd --output json source list | jq -r --arg p "$equal" '.sources[] | select(.path == $p) | .kind')" = remote ] || fail 'the equal folder is not a remote source'
 	[ "$(tree_sums "$equal")" = "$sums_before" ] || fail 'the takeover changed the content of a file'
 	[ "$(remote_head "$url3")" = "$repo_head3" ] || fail 'taking over an equal remote changed it'
+	docker exec "$host" git -c safe.directory=/opt/stacks3 -C /opt/stacks3 cat-file -e "$(remote_head "$url3"):extra/compose.yaml" ||
+		fail 'the repository no longer versions extra/compose.yaml'
 	out=$(qd --output json source remove "$equal" --yes) || fail "source remove of the equal folder failed: $out"
 
 	step 'a folder of files that differs is shown and changes nothing without the confirmation'
