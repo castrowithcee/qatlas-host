@@ -14,3 +14,8 @@ var DeployUnit []byte
 //
 //go:embed qhost-deploy@.service
 var DeployInstanceUnit []byte
+
+// HookUnit is the systemd unit of the webhook receiver. The setup installs it; it is not in the release archive.
+//
+//go:embed qhost-hook.service
+var HookUnit []byte

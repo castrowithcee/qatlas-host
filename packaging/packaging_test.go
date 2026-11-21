@@ -283,3 +283,55 @@ func TestInstanceTemplateStaysOutOfTheReleaseArchive(t *testing.T) {
 		}
 	}
 }
+
+func TestEmbeddedHookUnitIsTheShippedFile(t *testing.T) {
+	if string(HookUnit) != string(readFile(t, "packaging/qhost-hook.service")) {
+		t.Fatal("the embedded hook unit differs from packaging/qhost-hook.service")
+	}
+}
+
+// The receiver listens on the network, so its unit carries the narrow sandbox and none of the groups that reach
+// the container engine or the host service.
+func TestHookUnitMeetsItsSandboxContract(t *testing.T) {
+	lines := unitLines(HookUnit)
+	for _, want := range []string{
+		"ExecStart=/usr/local/bin/qhost hook-service run",
+		"User=qhost-hook",
+		"Group=qhost-hook",
+		"NoNewPrivileges=yes",
+		"ProtectSystem=strict",
+		"ProtectHome=yes",
+		"PrivateTmp=yes",
+		"PrivateDevices=yes",
+		"CapabilityBoundingSet=",
+		"RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX",
+		"RestrictNamespaces=yes",
+		"LockPersonality=yes",
+		"SystemCallFilter=@system-service",
+		"MemoryMax=64M",
+		"ReadWritePaths=/run/qhost-hook",
+		"Restart=on-failure",
+	} {
+		if !lines[want] {
+			t.Errorf("hook unit lacks the line %q", want)
+		}
+	}
+	for l := range lines {
+		for _, f := range []string{"SupplementaryGroups=", "AmbientCapabilities=", "DynamicUser=", "RuntimeDirectory", "User=root", "Group=root"} {
+			if strings.HasPrefix(l, f) {
+				t.Errorf("hook unit has the line %q", l)
+			}
+		}
+		if strings.HasPrefix(l, "ReadWritePaths=") && l != "ReadWritePaths=/run/qhost-hook" {
+			t.Errorf("hook unit names a writable path: %q", l)
+		}
+	}
+}
+
+func TestHookUnitStaysOutOfTheReleaseArchive(t *testing.T) {
+	for _, f := range loadConfig(t).Files {
+		if strings.Contains(f.Source, "qhost-hook") {
+			t.Errorf("release file %+v; the setup installs the hook unit", f)
+		}
+	}
+}
