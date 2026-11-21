@@ -47,8 +47,9 @@ func askEach[T any](ctx context.Context, limit time.Duration, targets []engineTa
 
 // askOverview asks every deploy service of the host for an overview and returns the answers of those that
 // could be asked, in the order system engine, then instances by user. On a host with one deploy service a
-// failure ends the command as it always did. With several, a service that cannot be asked is a warning with
-// its engine, and the command fails only when none could be asked.
+// failure ends the command as it always did. With several, a service without a bound stack folder adds
+// nothing, a service that cannot be asked is a warning with its engine, and the command fails only when none
+// has an answer.
 func askOverview[T any](c *cobra.Command, state *notRunning, command string) ([]engineReply[T], error) {
 	targets, err := folders.engineTargets()
 	if err != nil {
@@ -62,16 +63,23 @@ func askOverview[T any](c *cobra.Command, state *notRunning, command string) ([]
 	if len(targets) > 1 {
 		limit = peerLimit
 	}
-	var ok []engineReply[T]
-	var failed []engineReply[T]
+	var ok, failed, empty []engineReply[T]
 	for _, r := range askEach[T](c.Context(), limit, targets, command, nil) {
-		if r.err != nil {
+		var remote *control.Error
+		switch {
+		case r.err == nil:
+			ok = append(ok, r)
+		case len(targets) > 1 && errors.As(r.err, &remote) && remote.Code == control.CodeNoRepo:
+			empty = append(empty, r)
+		default:
 			failed = append(failed, r)
-			continue
 		}
-		ok = append(ok, r)
 	}
-	if len(ok) == 0 {
+	if len(ok) == 0 && len(failed) == 0 {
+		// No service has a stack folder: the first one says so, as on a host with only that service.
+		return nil, targetFailure(withEngine(c.Context(), empty[0].target), empty[0].err)
+	}
+	if len(ok) == 0 && len(empty) == 0 {
 		if errors.Is(failed[0].err, client.ErrNotRunning) {
 			state.seen = true
 		}

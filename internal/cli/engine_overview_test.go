@@ -88,6 +88,40 @@ func TestStackListFailsWhenNoServiceAnswers(t *testing.T) {
 	}
 }
 
+func noRepoHandler() fakeHandlers {
+	return fakeHandlers{control.StacksListCommand: func(json.RawMessage) any {
+		return control.NewError(control.CodeNoRepo, "no stacks repository is bound")
+	}}
+}
+
+func TestStackListSkipsAnInstanceWithoutStackFolder(t *testing.T) {
+	d := useFolderHost(t)
+	eps := engineHost(t, d, "alice")
+	startFakeService(t, stacksHandler("web"))
+	serveFake(t, eps["alice"], noRepoHandler())
+
+	code, stdout, stderr := run(t, "stack", "list", "--output", "json")
+	if code != 0 || stderr != "" {
+		t.Fatalf("an instance without a folder is no warning: code %d, stderr %q", code, stderr)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &rows); err != nil || len(rows) != 1 || rows[0]["stack"] != "web" {
+		t.Fatalf("output %q: %v", stdout, err)
+	}
+}
+
+func TestStackListFailsWhenNoServiceHasAStackFolder(t *testing.T) {
+	d := useFolderHost(t)
+	eps := engineHost(t, d, "alice")
+	startFakeService(t, noRepoHandler())
+	serveFake(t, eps["alice"], noRepoHandler())
+
+	code, _, stderr := run(t, "stack", "list")
+	if code == 0 || !strings.Contains(stderr, "no stacks repository is bound") {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+}
+
 func TestSourceListShowsEveryEngine(t *testing.T) {
 	d := useFolderHost(t)
 	eps := engineHost(t, d, "alice", "bob")
