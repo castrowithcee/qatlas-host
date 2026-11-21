@@ -418,6 +418,9 @@ func failureOf(err error) error {
 	case errors.As(err, &remote) && remote.Code == control.CodeNoSuchBackup:
 		return &cli.Failure{Code: output.CodeNotFound, Message: remote.Message,
 			NextStep: "List the backups with 'qhost stack backup list <stack>'.", Cause: err}
+	case errors.As(err, &remote) && remote.Code == control.CodeOtherEngine:
+		return &cli.Failure{Code: output.CodeInvalidRequest, Message: remote.Message,
+			NextStep: "Restore the backup through the service of the engine it was made in ('qhost help backups'); another backup of this engine can be chosen from 'qhost stack backup list <stack>'.", Cause: err}
 	case errors.As(err, &remote) && remote.Code == control.CodeBackupFailed:
 		return &cli.Failure{Code: output.CodeRuntime, Message: remote.Message,
 			NextStep: "Check the service log, then check that the stack runs; a failed backup is removed and a stopped stack is started again.", Cause: err}

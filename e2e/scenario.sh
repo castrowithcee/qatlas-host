@@ -1858,7 +1858,12 @@ fixture_run() {
 
 # fixture_write fills /data with entries of mixed numeric owners and modes.
 fixture_write() {
-	fixture_run "$1" '
+	fixture_run "$1" "$(fixture_write_script)"
+}
+
+# fixture_write_script is the script that fills /data of a helper container.
+fixture_write_script() {
+	printf '%s' '
 		cd /data
 		mkdir -p sub/deep
 		printf "alpha\n" >a.txt && chown 1234:1234 a.txt && chmod 640 a.txt
@@ -2541,6 +2546,8 @@ scenario_stacks_repo() {
 
 	scenario_source_engine
 
+	scenario_backup_rootless
+
 	scenario_key_set
 
 	scenario_observe_end
@@ -2981,6 +2988,272 @@ scenario_source_engine() {
 	qd --output json credential list --engine "$se_engine" | jq -e --arg n "$se_cred" 'any(.[]; .name == $n) | not' >/dev/null ||
 		fail 'the credential is still listed by the instance after its deletion'
 	log "scenario: stack list, deploy, settings and credential reached the instance of $rootless_user and not the system service"
+}
+
+# rl_docker runs the Docker client as $rootless_user against its rootless engine, without standard input.
+rl_docker() {
+	docker exec -i -u "$rootless_user" -e "XDG_RUNTIME_DIR=/run/user/$rootless_uid" \
+		-e "DOCKER_HOST=unix:///run/user/$rootless_uid/docker.sock" "$host" docker "$@" </dev/null
+}
+
+# rl_fixture_run runs the script $2 in a helper container of the rootless engine with the folder $1 as /data.
+rl_fixture_run() {
+	rl_docker run --rm --network none -v "$1:/data" "$backup_image" sh -ec "$2"
+}
+
+# rl_fixture_snap is fixture_snap for the rootless engine: owners are those the container sees.
+rl_fixture_snap() {
+	rl_docker run --rm --network none -v "$1:/data:ro" "$backup_image" sh -ec '
+		cd /data
+		find . -printf "%U:%G:%m:%y %p -> %l\n" | sort -k2
+		find . -type f -exec sha256sum {} + | sort -k2'
+}
+
+# bkr_field prints a field of demo-rootless in the status of the instance of $rootless_user.
+bkr_field() {
+	qd --output json status | jq -r --arg k "instance.$rootless_user.stack.demo-rootless.$1" '.[$k] // ""'
+}
+
+# bkr_head prints the head commit of the folder of the instance.
+bkr_head() {
+	docker exec "$host" git -c "safe.directory=$bk_base" -C "$bk_base" rev-parse HEAD
+}
+
+# bkr_settled succeeds when the instance has no run of demo-rootless in progress, has deployed the head and ended
+# its last run as succeeded.
+bkr_settled() {
+	[ -z "$(bkr_field active_run)" ] && [ "$(bkr_field deployed)" = "$(bkr_head)" ] && [ "$(bkr_field last_run)" = succeeded ]
+}
+
+# bkr_restart restarts the instance, which makes it poll at once, and waits until it answers.
+bkr_restart() {
+	docker exec "$host" systemctl restart "$bk_unit" || fail "cannot restart $bk_unit"
+	wait_for "$bk_unit to answer" 60 qd --output json stack settings demo-rootless
+}
+
+# bkr_newest_run prints the newest recorded run of demo-rootless (empty when there is none).
+bkr_newest_run() {
+	qd --output json stack runs demo-rootless --engine "$bk_engine" | jq -r 'map(.run) | sort | last // ""'
+}
+
+# bkr_next_run waits for a run of demo-rootless other than $1, active or ended, and prints its id.
+bkr_next_run() {
+	i=0
+	while :; do
+		id=$(bkr_field active_run)
+		[ -n "$id" ] || id=$(bkr_newest_run)
+		if [ -n "$id" ] && [ "$id" != "$1" ]; then
+			printf '%s' "$id"
+			return 0
+		fi
+		i=$((i + 1))
+		[ "$i" -lt 400 ] || return 1
+		sleep 0.3
+	done
+}
+
+# bkr_finished succeeds when demo-rootless has no run in progress and the log of the run $1 has its result line.
+bkr_finished() {
+	[ -z "$(bkr_field active_run)" ] && qd stack log "$1" --engine "$bk_engine" | grep -q ' result '
+}
+
+# bkr_settings replaces the settings of demo-rootless with the YAML $1. A run of the stack that is active at that
+# moment (the instance polls on its own) makes the call fail; it is repeated then.
+bkr_settings() {
+	i=0
+	until bkr_out=$(qd_in "$1" --output json stack settings set demo-rootless --file -); do
+		case $bkr_out in *'already active'*) ;; *) fail "settings set of demo-rootless failed: $bkr_out" ;; esac
+		i=$((i + 1))
+		[ "$i" -lt 180 ] || fail "settings set of demo-rootless still finds a run active: $bkr_out"
+		sleep 1
+	done
+}
+
+# bkr_backup_ids prints the ids of the backups of demo-rootless, newest first.
+bkr_backup_ids() {
+	qd stack backup list demo-rootless --engine "$bk_engine" | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'
+}
+
+# bkr_healthy succeeds when a container of demo-rootless in the rootless engine is healthy.
+bkr_healthy() {
+	[ -n "$(rl_docker ps -q --filter label=com.docker.compose.project=demo-rootless --filter health=healthy)" ]
+}
+
+# bkr_containers prints the ids of the running containers of demo-rootless in the rootless engine.
+bkr_containers() {
+	rl_docker ps -q --filter label=com.docker.compose.project=demo-rootless | sort
+}
+
+# scenario_backup_rootless proves backup, restore and rollback with data in the rootless engine of $rootless_user, for
+# the stack demo-rootless that scenario_source_rootless bound to the instance. The instance gets the local helper image
+# in its own image store and a drop-in that names it; the drop-in is removed at the end, because the uninstall
+# removes the folder of the drop-ins only when it is empty. The stack keeps its rules and runs at the end.
+scenario_backup_rootless() {
+	bk_base=/srv/qd-rootless
+	bk_dir=$bk_base/demo-rootless
+	bk_data=$bk_dir/data
+	bk_engine=rootless:$rootless_user
+	bk_unit=qhost-deploy@$rootless_user.service
+	bk_dropin=/etc/systemd/system/$bk_unit.d/20-e2e-backup-image.conf
+	bk_store=/var/lib/qhost-deploy-$rootless_user/backups/demo-rootless
+	bk_group=$(docker exec "$host" id -gn "$rootless_user") || fail "cannot read the group of $rootless_user"
+	bk_sub=$(docker exec "$host" awk -F: -v u="$rootless_user" '$1 == u { print $2 }' /etc/subuid)
+	[ -n "$bk_sub" ] || fail "$rootless_user has no sub-UIDs"
+
+	step 'the helper image goes into the image store of the rootless engine and the instance names it in a drop-in'
+	docker exec "$host" sh -ec "docker save -o /tmp/e2e-backup-helper.tar '$backup_image' && chmod 644 /tmp/e2e-backup-helper.tar" ||
+		fail 'cannot save the helper image'
+	rl_docker load -q -i /tmp/e2e-backup-helper.tar >/dev/null || fail 'the rootless engine cannot load the helper image'
+	docker exec "$host" rm -f /tmp/e2e-backup-helper.tar
+	rl_docker image inspect "$backup_image" >/dev/null || fail 'the rootless engine does not have the helper image'
+	docker exec "$host" sh -ec "printf '[Service]\nExecStart=\nExecStart=/usr/local/bin/qhost deploy-service run --instance $rootless_user --backup-image $backup_image\n' >'$bk_dropin' &&
+		systemctl daemon-reload" || fail 'cannot write the drop-in of the instance'
+	docker exec "$host" test -f "/etc/systemd/system/$bk_unit.d/10-stack-folders.conf" || fail 'the drop-in of the stack folders is gone'
+	bkr_restart
+	wait_for 'the instance to be idle' 180 sr_idle
+
+	step 'demo-rootless gets a data directory owned by the user of the instance, backup rules and a checked healthcheck'
+	docker exec "$host" install -d -o "$rootless_user" -g "$bk_group" -m 0755 "$bk_data" || fail 'cannot create the data directory'
+	cat <<'EOF2' | docker exec -i "$host" sh -ec "cat >'$bk_dir/compose.yaml'"
+name: demo-rootless
+
+services:
+  app:
+    image: demo/app:1.0.0
+    restart: unless-stopped
+    environment:
+      DEMO_HEALTH: ok
+    volumes:
+      - ./data:/data
+EOF2
+	printf 'data/\n' | docker exec -i "$host" sh -ec "cat >'$bk_dir/.gitignore'" || fail 'cannot write the ignore file'
+	docker exec "$host" sh -ec "chgrp '$bk_group' '$bk_dir/compose.yaml' '$bk_dir/.gitignore' && chmod 664 '$bk_dir/compose.yaml' '$bk_dir/.gitignore'" ||
+		fail 'cannot give the group access to the stack files'
+	as_rootless "cd '$bk_dir' && git -c safe.directory='$bk_base' add -A &&
+		git -c safe.directory='$bk_base' -c user.name='E2E User' -c user.email=user.qhoste2e.test commit -q -m 'Give demo-rootless a data directory'" ||
+		fail 'the user of the instance cannot commit the data directory'
+	bkr_settings 'version: 1
+backup:
+  paths:
+    - data
+  retention:
+    keep: 10
+check:
+  containers: true
+'
+	printf '%s' "$bkr_out" | jq -e '.changed == true' >/dev/null || fail "settings set reports no change: $bkr_out"
+	bkr_restart
+	wait_for 'the instance to deploy the head of demo-rootless' 240 bkr_settled
+	sr_stack_runs || fail 'demo-rootless does not run in the rootless engine'
+	log "scenario: demo-rootless deployed at $(bkr_head) with a data directory and backup rules"
+
+	step 'the data of demo-rootless gets files with mixed owners; the container sees them as written'
+	bk_mounts=$(rl_docker inspect -f '{{range .Mounts}}{{.Destination}}{{end}}' "$(bkr_containers | head -n 1)") || fail 'cannot inspect the container'
+	[ "$bk_mounts" = /data ] || fail "the container of demo-rootless does not mount the data directory: $bk_mounts"
+	rl_fixture_run "$bk_data" "$(fixture_write_script)" || fail 'cannot write the fixture into the data directory'
+	bk_before=$(rl_fixture_snap "$bk_data") || fail 'cannot read the fixture'
+	printf '%s\n' "$bk_before" | grep -q '^1234:1234:640:f ./a.txt' || fail "the fixture lacks the owner 1234: $bk_before"
+	printf '%s\n' "$bk_before" | grep -q '^0:0:600:f ./r.txt' || fail "the fixture lacks the root file: $bk_before"
+	[ "$(docker exec "$host" stat -c %u "$bk_data/a.txt")" -eq $((bk_sub + 1233)) ] ||
+		fail "a.txt has the host owner $(docker exec "$host" stat -c %u "$bk_data/a.txt"), want $((bk_sub + 1233))"
+	[ "$(docker exec "$host" stat -c %u "$bk_data/r.txt")" -eq "$rootless_uid" ] ||
+		fail "r.txt has the host owner $(docker exec "$host" stat -c %u "$bk_data/r.txt"), want $rootless_uid"
+
+	step 'backup create saves the data and the metadata name the user namespace of the engine'
+	out=$(qd --output json stack backup create demo-rootless) || fail "backup create failed: $out"
+	b1=$(printf '%s\n' "$out" | sed -n 's/.*"backup": *"\([^"]*\)".*/\1/p')
+	[ -n "$b1" ] || fail "backup create reported no id: $out"
+	printf '%s' "$out" | grep -q '"items": *1' || fail "the backup does not hold one item: $out"
+	sr_stack_runs || fail 'demo-rootless does not run after the backup'
+	[ -n "$(bkr_containers)" ] || fail 'demo-rootless has no container after the backup'
+	bk_meta=$(docker exec "$host" cat "$bk_store/$b1/meta.json") || fail "cannot read the metadata of $b1"
+	printf '%s' "$bk_meta" | jq -e --argjson uid "$rootless_uid" '.schema == 2 and .identity.engine == "rootless" and
+		.identity.uid_map[0].inside == 0 and .identity.uid_map[0].outside == $uid and .identity.uid_map[0].count == 1 and
+		(.identity.gid_map | length) >= 1' >/dev/null || fail "unexpected metadata of $b1: $bk_meta"
+	[ "$(docker exec "$host" stat -c %a:%U "$bk_store/$b1/meta.json" "$bk_store/$b1/path-0.tar" | sort -u)" = "600:$rootless_user" ] ||
+		fail "the backup is not private to the user of the instance: $(docker exec "$host" ls -ln "$bk_store/$b1")"
+	log "scenario: backup $b1 of demo-rootless in the namespace $(printf '%s' "$bk_meta" | jq -c .identity.uid_map)"
+
+	step 'the data changes and the restore brings back data and owners as the container sees them'
+	rl_fixture_run "$bk_data" "cd /data; $(fixture_change_script)" || fail 'cannot change the data'
+	bk_changed=$(rl_fixture_snap "$bk_data") || fail 'cannot read the changed data'
+	[ "$bk_changed" != "$bk_before" ] || fail 'the change did not alter the data'
+	out=$(qd stack backup restore demo-rootless "$b1" --yes) || fail "backup restore failed: $out"
+	[ "$(rl_fixture_snap "$bk_data")" = "$bk_before" ] || fail "the data differs after the restore: $(rl_fixture_snap "$bk_data")"
+	[ "$(docker exec "$host" stat -c %u "$bk_data/a.txt")" -eq $((bk_sub + 1233)) ] || fail 'a.txt has another host owner after the restore'
+	sr_stack_runs || fail 'demo-rootless does not run after the restore'
+	log "scenario: restored $b1; the data and owners are those of the backed-up state"
+
+	step 'a backup with a foreign ID mapping is refused as a whole and changes nothing'
+	out=$(qd --output json stack backup create demo-rootless) || fail "second backup failed: $out"
+	b2=$(printf '%s\n' "$out" | sed -n 's/.*"backup": *"\([^"]*\)".*/\1/p')
+	[ -n "$b2" ] && [ "$b2" != "$b1" ] || fail "the second backup has no new id: $out"
+	bk_meta2=$bk_store/$b2/meta.json
+	bk_orig=$(docker exec "$host" cat "$bk_meta2") || fail "cannot read the metadata of $b2"
+	printf '%s' "$bk_orig" | jq '.identity.uid_map[0].outside += 1' | docker exec -i "$host" sh -ec "cat >'$bk_meta2'" ||
+		fail "cannot change the metadata of $b2"
+	rl_fixture_run "$bk_data" "cd /data; $(fixture_change_script)" || fail 'cannot change the data again'
+	bk_changed=$(rl_fixture_snap "$bk_data") || fail 'cannot read the changed data'
+	bk_ctr_before=$(bkr_containers)
+	out=$(qd_fails stack backup restore demo-rootless "$b2" --yes) || fail "the restore of a foreign backup succeeded: $out"
+	printf '%s' "$out" | grep -q 'belongs to another engine' || fail "the refusal does not say that the backup belongs to another engine: $out"
+	printf '%s' "$out" | grep -q 'nothing was changed' || fail "the refusal does not say that nothing was changed: $out"
+	[ "$(rl_fixture_snap "$bk_data")" = "$bk_changed" ] || fail 'the refused restore changed the data'
+	[ "$(bkr_containers)" = "$bk_ctr_before" ] && sr_stack_runs || fail 'the refused restore stopped or replaced the container of demo-rootless'
+	log "scenario: foreign backup refused: $out"
+	printf '%s' "$bk_orig" | docker exec -i "$host" sh -ec "cat >'$bk_meta2'" || fail "cannot put the metadata of $b2 back"
+	out=$(qd stack backup restore demo-rootless "$b2" --yes) || fail "the restore of $b2 with its own metadata failed: $out"
+	[ "$(rl_fixture_snap "$bk_data")" = "$bk_before" ] || fail 'the restore with the original metadata did not bring the data back'
+
+	step 'a failing update is rolled back with the data of the backup of its run'
+	wait_for 'the instance to be idle' 180 sr_idle
+	rl_fixture_run "$bk_data" "printf '%s\n' rootless-marker >/data/marker.txt && chown 4242:4242 /data/marker.txt && chmod 604 /data/marker.txt" ||
+		fail 'cannot write the marker'
+	bk_before=$(rl_fixture_snap "$bk_data") || fail 'cannot read the data before the run'
+	printf '%s\n' "$bk_before" | grep -q '^4242:4242:604:f ./marker.txt' || fail "the marker is missing: $bk_before"
+	bk_old=$(bkr_backup_ids | tr '\n' ' ')
+	bk_good=$(bkr_head)
+	prev=$(bkr_newest_run)
+	as_rootless "cd '$bk_dir' && sed -i 's/DEMO_HEALTH: ok/DEMO_HEALTH: fail/' compose.yaml &&
+		git -c safe.directory='$bk_base' -c user.name='E2E User' -c user.email=user.qhoste2e.test commit -q -am 'Break the healthcheck of demo-rootless'" ||
+		fail 'the user of the instance cannot commit the failing version'
+	bk_bad=$(bkr_head)
+	[ "$bk_bad" != "$bk_good" ] || fail 'the failing version has no commit'
+	bkr_restart
+	run=$(bkr_next_run "$prev") || fail 'no run of demo-rootless started for the failing commit'
+	# Once the run has its backup, the data changes under the new version; only a restore can undo that.
+	i=0
+	until qd stack log "$run" --engine "$bk_engine" | grep -q ' info backup [0-9]\{8\}T'; do
+		i=$((i + 1))
+		[ "$i" -lt 600 ] || fail "the run $run made no backup"
+		sleep 0.2
+	done
+	rl_docker run --rm --network none -v "$bk_data:/data" "$backup_image" sh -ec "cd /data; $(fixture_change_script)" ||
+		fail 'cannot change the data during the run'
+	wait_for "the run $run" 300 bkr_finished "$run"
+	run_log=$(qd stack log "$run" --engine "$bk_engine")
+	printf '%s' "$run_log" | grep -q ' result rolled-back' || fail "the run did not end rolled-back: $run_log"
+	run_backups=$(printf '%s\n' "$run_log" | sed -n 's/^[^ ]* info backup \([0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}\)$/\1/p')
+	[ "$(printf '%s\n' "$run_backups" | wc -l)" = 2 ] && [ "$(printf '%s\n' "$run_backups" | sort -u | wc -l)" = 1 ] ||
+		fail "the backup and the restore do not name one backup: $run_backups"
+	run_backup=$(printf '%s\n' "$run_backups" | head -n 1)
+	case " $bk_old " in *" $run_backup "*) fail "the run restored an older backup: $run_backup" ;; esac
+	[ "$(rl_fixture_snap "$bk_data")" = "$bk_before" ] || fail "the data differs from the backed-up state after the rollback: $(rl_fixture_snap "$bk_data")"
+	[ "$(docker exec "$host" cat "$bk_data/marker.txt")" = rootless-marker ] || fail 'the marker of the run backup is not back'
+	revert=$(bkr_head)
+	[ "$revert" != "$bk_bad" ] || fail 'no revert commit was made'
+	docker exec "$host" grep -q 'DEMO_HEALTH: ok' "$bk_dir/compose.yaml" || fail 'the revert did not restore the compose file'
+	[ "$(bkr_field deployed)" = "$revert" ] || fail "demo-rootless is not recorded as deployed at the revert commit $revert"
+	wait_for 'demo-rootless to run healthy again' 60 bkr_healthy
+	sr_stack_runs || fail 'demo-rootless does not run its previous image after the rollback'
+	log "scenario: run $run of demo-rootless rolled back; restored $run_backup; data identical to the backed-up state; revert $revert"
+
+	step 'the drop-in of the helper image is removed again and the instance answers'
+	docker exec "$host" sh -ec "rm -f '$bk_dropin' && systemctl daemon-reload" || fail 'cannot remove the drop-in of the instance'
+	docker exec "$host" test -f "/etc/systemd/system/$bk_unit.d/10-stack-folders.conf" || fail 'the drop-in of the stack folders is gone'
+	bkr_restart
+	wait_for 'the instance to be idle' 180 sr_idle
+	sr_stack_runs || fail 'demo-rootless does not run after the drop-in is removed'
 }
 
 # local_tree prints mode, owner, group and size of every path below /srv/qd-local except .git, which the service

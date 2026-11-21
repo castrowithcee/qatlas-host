@@ -102,6 +102,9 @@ const (
 	CodeNoSuchBackup  = "no-such-backup"
 	CodeConfirmation  = "confirmation-required"
 	CodeBackupFailed  = "backup-failed"
+	// CodeOtherEngine answers the restore of a backup made in another engine, that is another user
+	// namespace. Nothing was changed.
+	CodeOtherEngine = "other-engine"
 
 	CodeBadVersion   = "bad-version"
 	CodeRegistry     = "registry-failed"

@@ -255,7 +255,8 @@ Commands (list runs without sudo for an administrator in the group qhost, the re
 How it works:
 - A data directory or volume is packed into a tar archive with owners and permissions by a short-lived helper container without network. The helper image is set with qhost deploy-service run --backup-image; it needs sh, find, rm and a tar that knows --numeric-owner.
 - backup.command runs on the host, not in a container, as a program in the search path or an absolute path, in the stack folder and without a shell; its standard output is saved as command.out in the backup. A relative path such as ./dump.sh is refused.
-- The backup records the stack, the time, the commit deployed at that time and the image versions.
+- The backup records the stack, the time, the commit deployed at that time, the image versions and the user namespace of the engine it was made in (the ID mapping, read in the helper container).
+- A backup belongs to the engine it was made in, because the owners in its archives are relative to the user namespace. A deploy service for a rootless engine keeps its own backups in its own state directory and pulls the helper image into its own engine on first use; set --backup-image for it in a drop-in if the image is not to come from the registry.
 - A failed backup is removed and a stack that ran is started again.
 - A backup and a deployment of the same stack never run at the same time.
 - Every deployment run of a stack whose settings have a backup section makes a backup after it stopped the stack; when the run is rolled back, that backup is restored. These backups count for retention like any other.
@@ -268,6 +269,7 @@ Restore:
 - At a terminal the command asks first (default no). Without a terminal, and with --agent, it refuses unless --yes is given.
 - Every archive is read through before the first target is emptied. Each target is then emptied and unpacked inside the helper container, on the mounted path only.
 - A backup that holds a data directory or volume the settings no longer list is refused as a whole.
+- A restore in an engine with another user namespace is refused as a whole before the stack is stopped or anything is emptied, also when it is the rollback of a deployment run; the run then stops with a failed rollback and the stack stays stopped. There is no option to override it. A namespace that cannot be read counts as another one. A backup from before the namespace was recorded counts as made by the system engine: it restores there and is refused in a rootless engine.
 - The command output is not restored; the settings have no restore command.
 - A restore that fails after the first target was emptied leaves the stack stopped, because it would run on incomplete data.
 - A volume must exist before it is backed up or restored; deploy the stack first.`
