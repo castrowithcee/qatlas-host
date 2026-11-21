@@ -3051,7 +3051,7 @@ check:
 	bk_changed=$(rl_fixture_snap "$bk_data") || fail 'cannot read the changed data'
 	bk_ctr_before=$(bkr_containers)
 	out=$(qd_fails stack backup restore demo-rootless "$b2" --yes) || fail "the restore of a foreign backup succeeded: $out"
-	printf '%s' "$out" | grep -q 'other-engine' || fail "the refusal does not carry the code other-engine: $out"
+	printf '%s' "$out" | grep -q 'belongs to another engine' || fail "the refusal does not say that the backup belongs to another engine: $out"
 	printf '%s' "$out" | grep -q 'nothing was changed' || fail "the refusal does not say that nothing was changed: $out"
 	[ "$(rl_fixture_snap "$bk_data")" = "$bk_changed" ] || fail 'the refused restore changed the data'
 	[ "$(bkr_containers)" = "$bk_ctr_before" ] && sr_stack_runs || fail 'the refused restore stopped or replaced the container of demo-rootless'
