@@ -230,6 +230,35 @@ scenario_rootless_instance() {
 	log "scenario: the setup question without an answer:"
 	printf '%s\n' "$out" | sed 's/^/e2e:   | /'
 
+	# The engine of $rootless_user has no deploy service yet and the one of the system engine runs: the only moment
+	# of the run to see an engine without a deploy service.
+	step "container list shows a container of the engine of $rootless_user without a deploy service only with sudo, read-only"
+	ri_engine=rootless:$rootless_user
+	ri_ct=$prefix-rootless-ro
+	as_rootless "docker run -d --quiet --name $ri_ct demo/app:1.0.0" >/dev/null ||
+		fail 'the rootless engine cannot start demo/app:1.0.0 from the registry mirror'
+	ri_started=$(as_rootless "docker inspect -f '{{.State.StartedAt}}' $ri_ct")
+	out=$(docker exec -i "$host" qhost --output json container list 2>/dev/null </dev/null) || fail "sudo qhost container list failed: $out"
+	printf '%s' "$out" | jq -e --arg e "$ri_engine" --arg c "$ri_ct" '
+		any(.groups[]; .engine == $e and .name == $c and .kind == "single" and .read_only == true)
+		and (.notes // [] | any(contains("has no deploy service")))' >/dev/null ||
+		fail "container list as root does not show $ri_ct read-only in $ri_engine, with the note: $out"
+	out=$(qd container list) || fail "container list as root failed: $out"
+	printf '%s' "$out" | grep -q "^single  *$ri_engine  *$ri_ct " || fail "the table does not show $ri_ct with the engine $ri_engine: $out"
+	printf '%s' "$out" | grep -qF "note: the Docker engine $ri_engine has no deploy service" || fail "container list does not say that $ri_engine has no deploy service: $out"
+	out=$(as_admin 'qhost --output json container list 2>/dev/null') || fail "qhost container list without sudo failed: $out"
+	printf '%s' "$out" | jq -e --arg e "$ri_engine" '
+		all((.groups // [])[]; .engine != $e) and (.notes // [] | any(contains("shown only with sudo")))' >/dev/null ||
+		fail "container list without sudo shows the engine without a deploy service or lacks the note: $out"
+	out=$(as_admin 'qhost container list 2>&1 >/dev/null') || fail "qhost container list without sudo failed: $out"
+	printf '%s' "$out" | grep -qF 'note: Docker engines without a deploy service are shown only with sudo' ||
+		fail "container list without sudo does not print the note: $out"
+	out=$(qd_fails container restart "$ri_ct" --yes) || fail "container restart reached a container of an engine without a deploy service: $out"
+	printf '%s' "$out" | grep -q 'has no deploy service' || fail "the refusal does not say that the engine has no deploy service: $out"
+	[ "$(as_rootless "docker inspect -f '{{.State.StartedAt}}' $ri_ct")" = "$ri_started" ] || fail "the refused restart changed $ri_ct"
+	as_rootless "docker rm -f $ri_ct" >/dev/null || fail "cannot remove $ri_ct"
+	log "scenario: container list showed $ri_ct read-only in $ri_engine with sudo and said so without; the restart was refused"
+
 	step 'the setup refuses a user in the group docker with its reason, in the terminal interface and on the command line'
 	docker exec "$host" sh -c "id $ri_docker_user >/dev/null 2>&1 || useradd --no-create-home --shell /usr/sbin/nologin --groups docker $ri_docker_user" ||
 		fail "cannot create the test user $ri_docker_user"
@@ -2784,7 +2813,8 @@ sr_idle() {
 # scenario_source_engine proves that commands reach the deploy service of the engine that has the stack, on the
 # folder scenario_source_rootless bound: stack list without sudo names both engines, a deploy and a change of the
 # settings under sudo act in the rootless instance and not in the system service, and a credential set with --engine
-# is listed by that instance only. The credential is deleted again; the stack, its settings and its run stay.
+# is listed by that instance only. Container list without sudo shows both engines, and a container restart under sudo acts in
+# the engine of the container. The credential is deleted again; the stack, its settings and its run stay.
 scenario_source_engine() {
 	se_engine=rootless:$rootless_user
 	se_cred=registry.qhost-e2e-rootless.test
@@ -2823,6 +2853,35 @@ scenario_source_engine() {
 	docker exec "$host" git -c "safe.directory=$sr_base" -C "$sr_base" log --format=%s | grep -qx 'qhost: settings of demo-rootless' ||
 		fail 'the stack folder of the instance has no settings commit'
 	out=$(qd_fails stack settings demo-rootless --engine system) || fail "the system service answered for demo-rootless: $out"
+
+	step "container list without sudo shows the containers of both engines, and sudo qhost container restart acts in the engine of the container"
+	wait_for 'the instance to be idle' 180 sr_idle
+	se_ct=$(as_rootless "docker ps --filter label=com.docker.compose.project=demo-rootless --format '{{.Names}}'" | head -n 1)
+	[ -n "$se_ct" ] || fail 'no container of demo-rootless runs in the rootless engine'
+	se_sys_started() {
+		docker exec "$host" sh -c "docker ps -q --filter label=com.docker.compose.project=demo-stack | xargs -r docker inspect -f '{{.Name}} {{.State.StartedAt}}'"
+	}
+	out=$(as_admin 'qhost --output json container list 2>/dev/null') || fail "qhost container list without sudo failed: $out"
+	printf '%s' "$out" | jq -e --arg e "$se_engine" '
+		any(.groups[]; .engine == "system" and .kind == "own" and .name == "demo-stack")
+		and any(.groups[]; .engine == $e and .kind == "own" and .name == "demo-rootless" and (.read_only // false) == false)
+		and (.notes // [] | any(contains("shown only with sudo")))' >/dev/null ||
+		fail "container list without sudo does not show demo-stack and demo-rootless with their engines, or lacks the note: $out"
+	out=$(as_admin 'qhost container list 2>&1') || fail "qhost container list without sudo failed: $out"
+	printf '%s' "$out" | grep -q "^own  *$se_engine  *demo-rootless " || fail "the table does not show demo-rootless with the engine $se_engine: $out"
+	printf '%s' "$out" | grep -q '^own  *system  *demo-stack ' || fail "the table does not show demo-stack with the engine system: $out"
+	printf '%s' "$out" | grep -qF 'note: Docker engines without a deploy service are shown only with sudo' ||
+		fail "container list without sudo does not print the note: $out"
+	out=$(qd --output json container show "$se_ct") || fail "container show $se_ct failed: $out"
+	printf '%s' "$out" | jq -e --arg e "$se_engine" '.engine == $e' >/dev/null || fail "container show does not name the engine $se_engine for $se_ct: $out"
+	se_started=$(as_rootless "docker inspect -f '{{.State.StartedAt}}' $se_ct")
+	se_sys_before=$(se_sys_started)
+	[ -n "$se_sys_before" ] || fail 'no container of demo-stack runs in the system engine'
+	out=$(as_admin "sudo qhost container restart $se_ct --yes 2>&1") || fail "sudo qhost container restart $se_ct failed: $out"
+	[ "$(as_rootless "docker inspect -f '{{.State.StartedAt}}' $se_ct")" != "$se_started" ] || fail "the restart did not restart $se_ct in the rootless engine"
+	[ "$(as_rootless "docker inspect -f '{{.State.Running}}' $se_ct")" = true ] || fail "$se_ct does not run after the restart"
+	[ "$(se_sys_started)" = "$se_sys_before" ] || fail 'the restart changed the containers of the system engine'
+	log "scenario: container list showed both engines without sudo; the restart of $se_ct acted in $se_engine only"
 
 	step "a credential set with --engine $se_engine is listed by that instance only"
 	out=$(printf '%s' 'demo-user:demo-token-e2e' |
@@ -3679,11 +3738,12 @@ scenario_containers() {
 	[ "$show_rc" -eq 0 ] || fail "container show failed: $show_json"
 	[ "$table_rc" -eq 0 ] || fail "container list (table) failed: $list_table"
 	[ "$missing_rc" -ne 0 ] || fail "container show of a missing container succeeded: $missing_out"
-	printf '%s' "$list_json" | grep -q '"kind": *"own", *"name": *"demo-stack"' || fail "demo-stack is not an own group: $list_json"
-	printf '%s' "$list_json" | grep -q "\"kind\": *\"foreign\", *\"name\": *\"$foreign\"" || fail "$foreign is not a foreign group: $list_json"
+	printf '%s' "$list_json" | grep -q '"kind": *"own", *"engine": *"system", *"name": *"demo-stack"' || fail "demo-stack is not an own group of the system engine: $list_json"
+	printf '%s' "$list_json" | grep -q "\"kind\": *\"foreign\", *\"engine\": *\"system\", *\"name\": *\"$foreign\"" || fail "$foreign is not a foreign group of the system engine: $list_json"
 	printf '%s' "$list_json" | grep -q "\"working_dir\": *\"$foreign_dir\"" || fail "the foreign group does not show its working directory: $list_json"
-	printf '%s' "$list_json" | grep -q "\"kind\": *\"single\", *\"name\": *\"$single\"" || fail "$single is not a single group: $list_json"
-	printf '%s' "$list_table" | grep -q "^single  *$single " || fail "the table does not show $single as single: $list_table"
+	printf '%s' "$list_json" | grep -q "\"kind\": *\"single\", *\"engine\": *\"system\", *\"name\": *\"$single\"" || fail "$single is not a single group of the system engine: $list_json"
+	printf '%s' "$list_table" | grep -q "^single  *system  *$single " || fail "the table does not show $single as single of the system engine: $list_table"
+	printf '%s' "$show_json" | grep -q '"engine": *"system"' || fail "container show does not name the engine: $show_json"
 	printf '%s' "$show_json" | grep -q '"E2E_PLANTED"' || fail "container show does not name the planted variable: $show_json"
 	printf '%s' "$show_json" | grep -q '"kind": *"single"' || fail "container show does not name the kind: $show_json"
 	printf '%s' "$missing_out" | grep -q 'no such container' || fail "the refusal of a missing container is unclear: $missing_out"
