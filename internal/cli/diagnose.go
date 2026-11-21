@@ -22,6 +22,45 @@ var diagnoseEnv = func() userfile.Env { return userfile.Env{} }
 // diagnoseNotice is said with the path of every package.
 const diagnoseNotice = "The package holds the host name and paths. Check it before you pass it on."
 
+// diagnoseResult writes the package and describes it.
+func diagnoseResult(ctx context.Context, format output.Format, out string) (output.Object, error) {
+	if out != "" {
+		abs, err := filepath.Abs(out)
+		if err != nil {
+			return output.Object{}, &cli.Failure{Code: output.CodeInvalidRequest, Usage: true, Message: "--out is not a usable path",
+				NextStep: "Name a file in an existing folder."}
+		}
+		out = abs
+	}
+	call := func(ctx context.Context, command string, args, result any) error {
+		return callFor(ctx, client.CallTimeout, serviceEndpoint(), command, args, result)
+	}
+	pkg := diagnose.Build(ctx, diagnose.Options{Call: call, Version: version})
+	path, err := pkg.Save(diagnoseEnv(), out)
+	if err != nil {
+		return output.Object{}, &cli.Failure{Code: output.CodeRuntime, Message: "the package could not be written: " + err.Error(),
+			NextStep: "Name another file with --out, or free the name and the folder.", Cause: err}
+	}
+	problems := []string{}
+	for _, p := range pkg.Parts {
+		if p.Err != "" {
+			problems = append(problems, p.Name+": "+p.Err)
+		}
+	}
+	fields := []output.Field{
+		{Name: "path", Value: path}, {Name: "complete", Value: len(problems) == 0},
+		{Name: "notice", Value: diagnoseNotice},
+	}
+	if len(problems) > 0 {
+		var value any = strings.Join(problems, "\n")
+		if structuredFormat(format) {
+			value = problems
+		}
+		fields = append(fields, output.Field{Name: "problems", Value: value})
+	}
+	return output.Object{Fields: fields}, nil
+}
+
 func newDiagnoseCommand(program *cobracli.Program) *cobra.Command {
 	var out string
 	cmd := &cobra.Command{
@@ -41,41 +80,11 @@ func newDiagnoseCommand(program *cobracli.Program) *cobra.Command {
 			"without sudo for an administrator in the group qhost, and nothing is sent anywhere.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			if out != "" {
-				abs, err := filepath.Abs(out)
-				if err != nil {
-					return &cli.Failure{Code: output.CodeInvalidRequest, Usage: true, Message: "--out is not a usable path",
-						NextStep: "Name a file in an existing folder."}
-				}
-				out = abs
-			}
-			call := func(ctx context.Context, command string, args, result any) error {
-				return callFor(ctx, client.CallTimeout, serviceEndpoint(), command, args, result)
-			}
-			pkg := diagnose.Build(c.Context(), diagnose.Options{Call: call, Version: version})
-			path, err := pkg.Save(diagnoseEnv(), out)
+			result, err := diagnoseResult(c.Context(), program.Format(), out)
 			if err != nil {
-				return &cli.Failure{Code: output.CodeRuntime, Message: "the package could not be written: " + err.Error(),
-					NextStep: "Name another file with --out, or free the name and the folder.", Cause: err}
+				return err
 			}
-			problems := []string{}
-			for _, p := range pkg.Parts {
-				if p.Err != "" {
-					problems = append(problems, p.Name+": "+p.Err)
-				}
-			}
-			fields := []output.Field{
-				{Name: "path", Value: path}, {Name: "complete", Value: len(problems) == 0},
-				{Name: "notice", Value: diagnoseNotice},
-			}
-			if len(problems) > 0 {
-				var value any = strings.Join(problems, "\n")
-				if structuredFormat(program.Format()) {
-					value = problems
-				}
-				fields = append(fields, output.Field{Name: "problems", Value: value})
-			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: fields})
+			return output.Encode(c.OutOrStdout(), program.Format(), result)
 		},
 	}
 	cmd.Flags().StringVar(&out, "out", "", "write the package to this new file instead of the folder qhost in your home")
