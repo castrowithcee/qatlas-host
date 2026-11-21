@@ -44,6 +44,8 @@ func registerBackupCommands(r *control.Registry, eng *sourceSet, backups Backups
 			return control.NewError(control.CodeNoBackupRules, "the stack settings have no backup section")
 		case errors.Is(err, backup.ErrNoSuchBackup):
 			return control.NewError(control.CodeNoSuchBackup, "no such backup")
+		case errors.Is(err, backup.ErrOtherNamespace):
+			return control.NewError(control.CodeOtherEngine, printable(redact(err.Error())))
 		}
 		var ce *control.Error
 		if ans := runsAnswer(err); errors.As(ans, &ce) {

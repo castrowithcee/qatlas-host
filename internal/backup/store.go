@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/formatnum"
+	"github.com/castrowithcee/qatlas-host/internal/idmap"
 )
 
 const (
@@ -22,9 +23,11 @@ const (
 	fileMode = 0o600
 
 	metaFile   = "meta.json"
-	metaSchema = 1
-	maxMeta    = 1 << 20
-	idTime     = "20060102T150405Z"
+	metaSchema = 2
+	// metaSchemaOldest is the oldest metadata format that is still read.
+	metaSchemaOldest = 1
+	maxMeta          = 1 << 20
+	idTime           = "20060102T150405Z"
 )
 
 var (
@@ -66,14 +69,17 @@ type ImageVersion struct {
 // Meta describes one backup. Incomplete is set for a directory without valid metadata; only ID and Stack are
 // then known.
 type Meta struct {
-	Schema     int            `json:"schema"`
-	ID         string         `json:"id"`
-	Stack      string         `json:"stack"`
-	Created    time.Time      `json:"created"`
-	Commit     string         `json:"commit,omitempty"`
-	Images     []ImageVersion `json:"images,omitempty"`
-	Items      []Item         `json:"items"`
-	Incomplete bool           `json:"-"`
+	Schema  int            `json:"schema"`
+	ID      string         `json:"id"`
+	Stack   string         `json:"stack"`
+	Created time.Time      `json:"created"`
+	Commit  string         `json:"commit,omitempty"`
+	Images  []ImageVersion `json:"images,omitempty"`
+	Items   []Item         `json:"items"`
+	// Identity is the user namespace of the engine the backup was made in. A backup of schema 1 has none; it
+	// counts as made by a system engine, see Identity.
+	Identity   *Identity `json:"identity,omitempty"`
+	Incomplete bool      `json:"-"`
 	// Unsupported is the refusal of a metadata file whose format number is not read; such a backup is
 	// Incomplete for display but is never removed.
 	Unsupported error `json:"-"`
@@ -174,6 +180,43 @@ func (m *Manager) remove(stack, id string) error {
 	return os.RemoveAll(dir)
 }
 
+// Engine kinds of an Identity.
+const (
+	// EngineSystem is an engine without a user namespace of its own: the default mapping.
+	EngineSystem = "system"
+	// EngineRootless is an engine whose containers run in a user namespace with another mapping.
+	EngineRootless = "rootless"
+)
+
+// Identity says in which user namespace a backup was made. The owners in its archives are relative to that
+// namespace, so the backup can only be restored where the mappings are equal.
+type Identity struct {
+	// Engine is EngineSystem for the default mapping and EngineRootless for any other, derived from the maps.
+	Engine string    `json:"engine"`
+	UIDMap idmap.Map `json:"uid_map"`
+	GIDMap idmap.Map `json:"gid_map"`
+}
+
+// NewIdentity builds the identity of a namespace from its two mappings.
+func NewIdentity(uid, gid idmap.Map) Identity {
+	kind := EngineRootless
+	if uid.Equal(idmap.Default()) && gid.Equal(idmap.Default()) {
+		kind = EngineSystem
+	}
+	return Identity{Engine: kind, UIDMap: uid, GIDMap: gid}
+}
+
+// systemIdentity is what a backup without an identity counts as.
+func systemIdentity() Identity { return NewIdentity(idmap.Default(), idmap.Default()) }
+
+// sameNamespace reports whether the identity stored with a backup is that of the current engine. A stored
+// identity that is not valid is never the same.
+func (id Identity) sameNamespace(cur Identity) bool {
+	uid, err1 := idmap.Normalize(id.UIDMap)
+	gid, err2 := idmap.Normalize(id.GIDMap)
+	return err1 == nil && err2 == nil && uid.Equal(cur.UIDMap) && gid.Equal(cur.GIDMap)
+}
+
 func writeMeta(dir string, meta Meta) error {
 	meta.Schema = metaSchema
 	data, err := json.MarshalIndent(meta, "", "  ")
@@ -209,7 +252,7 @@ func readMeta(dir, stack, id string) (Meta, error) {
 	if err != nil {
 		return Meta{}, err
 	}
-	if err := formatnum.CheckJSON(path, "schema", data, metaSchema); err != nil {
+	if err := formatnum.CheckJSON(path, "schema", data, metaSchema, metaSchemaOldest); err != nil {
 		return Meta{}, err
 	}
 	var meta Meta

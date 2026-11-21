@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -168,6 +169,8 @@ func TestBackupRefusals(t *testing.T) {
 	check(control.BackupCreateCommand, control.BackupArgs{Stack: "plain-stack"}, control.CodeNoBackupRules)
 	f.err = backup.ErrNoSuchBackup
 	check(control.BackupRestoreCommand, control.BackupRestoreArgs{Stack: "plain-stack", ID: backupID, Confirm: true}, control.CodeNoSuchBackup)
+	f.err = fmt.Errorf("%w: another namespace", backup.ErrOtherNamespace)
+	check(control.BackupRestoreCommand, control.BackupRestoreArgs{Stack: "plain-stack", ID: backupID, Confirm: true}, control.CodeOtherEngine)
 	f.err = errors.New("docker: boom\x00 at /var/lib/x")
 	err := h.call(control.BackupCreateCommand, control.BackupArgs{Stack: "plain-stack"}, nil)
 	if codeOf(t, err) != control.CodeBackupFailed || strings.Contains(err.Error(), "\x00") || !strings.Contains(err.Error(), "boom") {
