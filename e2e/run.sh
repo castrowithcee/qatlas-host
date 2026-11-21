@@ -24,6 +24,9 @@
 # acceptance starts; up and scenario need no internet. The newer test tags
 # n8nio/n8n:2.48.0 and linuxserver/bookstack:26.10.0, derived images whose healthcheck always fails, are pushed
 # only by the acceptance scenario, after its successful update, so the update ceiling cannot reach them earlier.
+# A second registry, private.qhoste2e.test, asks for a login (htpasswd with bcrypt, made for the run; the user is
+# demo-user, the token is random and stays in the file named by E2E_PRIVATE_LOGIN_FILE). It holds demo/app with
+# the tags 1.0.0 and 1.1.0, and the simulated host trusts it like the other registry but has no stored login.
 # The registry is also the Docker Hub mirror of the host's Docker daemon; for acceptance it holds busybox by the
 # digest of the default backup helper image, so qhost runs a backup there without --backup-image.
 #
@@ -49,6 +52,9 @@ rootless_user=e2e-rootless
 rootless_uid=1001
 tags='1.0.0 1.0.1 1.1.0 2.0.0 2.1.0-rc.1 3.0.0 4.0.0 5.0.0'
 unhealthy_tags='4.0.0'
+# The registry with a login: private.$domain, image demo/app, these tags; the user is fixed and the token is made per run.
+private_user=demo-user
+private_tags='1.0.0 1.1.0'
 # Tags of the repository demo/late: 1.0.0 is a healthy demo, 1.1.0 fails 100 seconds after its start.
 # Real images copied into the registry as "<source>|<path in the registry>:<tag>", and test images derived from
 # one of them as "<registry path>:<base tag>|<new tag>".
@@ -243,11 +249,13 @@ make_keys_and_certs() {
 	openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
 		-subj "/CN=$prefix helper services" -keyout "$ca/server.key" -out "$work/keys/server.csr" 2>/dev/null
 	cat >"$work/keys/server.ext" <<EXT
-subjectAltName = DNS:registry.$domain, DNS:hooks.$domain, DNS:mail.$domain, DNS:releases.$domain, DNS:api.github.com, DNS:github.com
+subjectAltName = DNS:registry.$domain, DNS:private.$domain, DNS:hooks.$domain, DNS:mail.$domain, DNS:releases.$domain, DNS:api.github.com, DNS:github.com
 extendedKeyUsage = serverAuth
 EXT
 	openssl x509 -req -in "$work/keys/server.csr" -CA "$ca/ca.crt" -CAkey "$work/keys/ca.key" -CAcreateserial \
 		-days 2 -extfile "$work/keys/server.ext" -out "$ca/server.crt" 2>/dev/null
+	# The login of the private registry: "<user>:<token>", made for this run only.
+	(umask 077 && printf '%s:demo-%s\n' "$private_user" "$(openssl rand -hex 12)" >"$work/keys/private-login")
 }
 
 write_testenv() {
@@ -261,6 +269,10 @@ E2E_SSH_KEY=$work/keys/admin
 E2E_GIT_URL=git.$domain:stacks.git
 E2E_REGISTRY=registry.$domain
 E2E_IMAGE=registry.$domain/demo/app
+E2E_PRIVATE_REGISTRY=private.$domain
+E2E_PRIVATE_IMAGE=private.$domain/demo/app
+E2E_PRIVATE_TAGS='$private_tags'
+E2E_PRIVATE_LOGIN_FILE=$work/keys/private-login
 E2E_TAGS='$tags'
 E2E_BACKUP_IMAGE=$backup_image
 E2E_RELEASES_URL=https://releases.$domain
@@ -279,9 +291,13 @@ build_images() {
 	(cd "$root" && CGO_ENABLED=0 go build -tags e2efakes -trimpath -o "$work/ctx/fakes" ./e2e/fakes)
 	cp -r "$here/demo-stacks" "$here/demo-stacks-second" "$here/demo-stacks-root" "$here/git-sshd.conf" "$here/git-entrypoint.sh" "$work/ctx/"
 
+	# The htpasswd file of the private registry; the login comes from the file, never from an argument.
+	login=$(cat "$work/keys/private-login")
+	printf '%s' "${login#*:}" | "$work/ctx/fakes" htpasswd "${login%%:*}" >"$work/ctx/htpasswd"
+
 	log 'building the images'
 	# --network none: a build that still needs the internet fails here instead of depending on it.
-	for name in fakes registry git skopeo; do
+	for name in fakes registry private-registry git skopeo; do
 		case $name in git | skopeo) set -- --build-arg BASE="$(base_image "$name")" ;; *) set -- ;; esac
 		docker build -q --network none --label "$label" -t "$prefix-$name:latest" "$@" \
 			-f "$here/$name.Dockerfile" "$work/ctx" >/dev/null || fail "building the image $name failed"
@@ -294,10 +310,14 @@ start_services() {
 	docker volume create --label "$label" "$prefix-containerd" >/dev/null
 	docker volume create --label "$label" "$prefix-rootless" >/dev/null
 	docker volume create --label "$label" "$prefix-registry" >/dev/null
+	docker volume create --label "$label" "$prefix-private-registry" >/dev/null
 	docker volume create --label "$label" "$prefix-git" >/dev/null
 
 	docker run -d --name "$prefix-registry" --label "$label" --network "$net" \
 		--network-alias "registry.$domain" -v "$prefix-registry:/var/lib/registry" "$prefix-registry:latest" >/dev/null
+	docker run -d --name "$prefix-private-registry" --label "$label" --network "$net" \
+		--network-alias "private.$domain" -v "$prefix-private-registry:/var/lib/registry" \
+		"$prefix-private-registry:latest" >/dev/null
 	docker run -d --name "$prefix-git" --label "$label" --network "$net" --network-alias "git.$domain" \
 		-e GIT_AUTHORIZED_KEY="$(cat "$work/keys/admin.pub")" -v "$prefix-git:/srv/git" "$prefix-git:latest" >/dev/null
 	docker run -d --name "$prefix-hooks" --label "$label" --network "$net" --network-alias "hooks.$domain" \
@@ -342,6 +362,8 @@ prepare_host() {
 	# The inner Docker daemon reads per-registry CAs without a restart.
 	docker exec "$host" mkdir -p "/etc/docker/certs.d/registry.$domain"
 	docker cp "$work/ctx/certs/ca.crt" "$host:/etc/docker/certs.d/registry.$domain/ca.crt"
+	docker exec "$host" mkdir -p "/etc/docker/certs.d/private.$domain"
+	docker cp "$work/ctx/certs/ca.crt" "$host:/etc/docker/certs.d/private.$domain/ca.crt"
 	wait_for 'the inner Docker daemon' 60 docker exec "$host" docker info
 
 	wait_for 'the git host key' 30 git_host_key
@@ -397,6 +419,28 @@ push_images() {
 			docker rmi registry.$domain/demo/late:$tag >/dev/null"
 	done
 	docker exec "$host" rm -rf /tmp/demo-image
+}
+
+# push_private_images builds the demo image once per tag inside the host and pushes it to the private registry.
+# The login lives in a throw-away Docker configuration folder that goes with the run; the host's own Docker
+# configuration never holds it, so a pull of these images fails until qhost has the login stored.
+push_private_images() {
+	log "pushing the demo image tags to the registry with a login: $private_tags"
+	login=$(cat "$work/keys/private-login")
+	docker exec "$host" mkdir -p /tmp/private-image
+	docker cp "$work/ctx/fakes" "$host:/tmp/private-image/fakes"
+	docker cp "$here/demo-image.Dockerfile" "$host:/tmp/private-image/Dockerfile"
+	printf '%s' "${login#*:}" | docker exec -i -w /tmp/private-image "$host" sh -ec "
+		export DOCKER_CONFIG=/tmp/private-docker
+		docker login -u '${login%%:*}' --password-stdin private.$domain >/dev/null
+		for tag in $private_tags; do
+			docker build -q --target healthy --build-arg VERSION=\$tag -t private.$domain/demo/app:\$tag . >/dev/null
+			docker push -q private.$domain/demo/app:\$tag >/dev/null
+			docker rmi private.$domain/demo/app:\$tag >/dev/null
+		done
+		docker logout private.$domain >/dev/null
+		cd /
+		rm -rf /tmp/private-image /tmp/private-docker" || fail 'pushing the images to the private registry failed'
 }
 
 # backup_helper_ref prints the default helper image of the backup package, name and digest.
@@ -480,6 +524,13 @@ check_services() {
 	for tag in $tags; do
 		printf '%s' "$got" | grep -q "\"$tag\"" || fail "the registry does not list the tag $tag"
 	done
+	[ "$(http_code "https://private.$domain/v2/")" = 401 ] ||
+		fail 'the private registry does not ask for a login'
+	got=$(docker exec "$host" curl -fsS -u "$(cat "$work/keys/private-login")" "https://private.$domain/v2/demo/app/tags/list") ||
+		fail 'the private registry does not accept its login over trusted HTTPS'
+	for tag in $private_tags; do
+		printf '%s' "$got" | grep -q "\"$tag\"" || fail "the private registry does not list the tag $tag"
+	done
 	[ "$(http_code -X POST -d '{"check":true}' "https://hooks.$domain/hook")" = 204 ] ||
 		fail 'the webhook receiver does not accept a request'
 	docker exec "$host" curl -fsS "https://hooks.$domain/_e2e/requests" | grep -q '"check\\":true' ||
@@ -529,6 +580,7 @@ up() {
 	prepare_host
 	prepare_rootless
 	push_images
+	push_private_images
 	load_backup_helper
 	check_services
 	done_=1

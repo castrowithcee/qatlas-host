@@ -10,7 +10,7 @@ import (
 	"os"
 )
 
-const usage = "usage: fakes releases|webhook|mail|demoapp|healthcheck"
+const usage = "usage: fakes releases|webhook|mail|demoapp|healthcheck|htpasswd"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -29,6 +29,8 @@ func main() {
 		err = runDemoApp()
 	case "healthcheck":
 		err = runHealthcheck()
+	case "htpasswd":
+		err = runHTPasswd()
 	default:
 		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(2)

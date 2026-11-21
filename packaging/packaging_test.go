@@ -224,7 +224,6 @@ func TestInstanceTemplateMeetsItsContract(t *testing.T) {
 	for _, want := range []string{
 		"ExecStart=/usr/local/bin/qhost deploy-service run --instance %i",
 		"User=%i",
-		"Environment=DOCKER_CONFIG=/var/lib/qhost-deploy-%i/docker",
 		"ReadWritePaths=/run/qhost-deploy-%i",
 		"StateDirectory=qhost-deploy-%i",
 		"StateDirectoryMode=0700",

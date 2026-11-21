@@ -43,6 +43,9 @@ type Config struct {
 	// Git is the git layer of the repository commands. Nil means the system git through internal/gitrepo;
 	// tests inject their own.
 	Git Git
+	// Executable is the program the credential helper link points at; empty means the running program. Tests
+	// inject their own.
+	Executable string
 	// Deployer brings a stack to a commit. Nil means the engine only polls, updates the working copy and
 	// reports pending stacks; it never deploys.
 	Deployer engine.Deployer
@@ -108,6 +111,17 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 	store, err := credentials.Open(cfg.StateDir, secrets.Add)
 	if err != nil {
 		return fmt.Errorf("open the credential store: %w", err)
+	}
+	if cfg.Deployer != nil {
+		exe := cfg.Executable
+		if exe == "" {
+			if exe, err = resolvedExecutable(); err != nil {
+				return fmt.Errorf("find the running program: %w", err)
+			}
+		}
+		if err := prepareDockerConfig(cfg.StateDir, exe, log); err != nil {
+			return fmt.Errorf("prepare the docker configuration: %w", err)
+		}
 	}
 	registry := control.NewRegistry()
 	if err := registerServiceLogCommands(registry, logs, secrets); err != nil {

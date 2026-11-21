@@ -138,7 +138,6 @@ func TestTemplateRendersTheDerivedNames(t *testing.T) {
 		"ReadWritePaths=" + i.ChannelDir(),
 		"StateDirectory=" + path.Base(i.StateDir()),
 		"ConfigurationDirectory=" + path.Base(i.ConfigDir()),
-		"Environment=DOCKER_CONFIG=" + path.Join(i.StateDir(), "docker"),
 		"ExecStart=/usr/local/bin/" + Program + " deploy-service run --instance " + i.User(),
 		"User=" + i.User(),
 	} {

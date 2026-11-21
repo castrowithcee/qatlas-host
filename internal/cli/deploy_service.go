@@ -99,11 +99,11 @@ func newDeployRunCommand() *cobra.Command {
 			}
 			ctx, stop := signal.NotifyContext(c.Context(), syscall.SIGTERM, syscall.SIGINT)
 			defer stop()
-			backups := backup.NewManager(filepath.Join(target.stateDir, "backups"), target.socket)
+			backups := backup.NewManager(filepath.Join(target.stateDir, "backups"), target.stateDir, target.socket)
 			backups.Image = backupImage
 			return service.Run(ctx, slog.New(slog.NewTextHandler(c.ErrOrStderr(), nil)).With("pid", os.Getpid()),
 				service.Config{Version: version, Endpoint: target.endpoint, StateDir: target.stateDir,
-					Deployer: compose.New(backups.ForRuns(), target.socket), Backups: backups, DockerSocket: target.socket})
+					Deployer: compose.New(backups.ForRuns(), target.stateDir, target.socket), Backups: backups, DockerSocket: target.socket})
 		},
 	}
 	cmd.Flags().StringVar(&instance, "instance", "", "run the instance for the rootless engine of this user")
