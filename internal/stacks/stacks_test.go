@@ -365,8 +365,8 @@ func TestInvalidRules(t *testing.T) {
 		want       []string
 	}{
 		{"empty", "", []string{"stack settings", "empty"}},
-		{"no version", "update: {mode: manual}\n", []string{"version: required"}},
-		{"bad version", "version: 2\n", []string{"version: unsupported"}},
+		{"no version", "update: {mode: manual}\n", []string{"no format number", "qatlas/qhost/demo-stack.yaml"}},
+		{"bad version", "version: 2\n", []string{"format number 2 is newer", "qatlas/qhost/demo-stack.yaml"}},
 		{"unknown top", "version: 1\nfoo: 1\n", []string{"unknown field foo"}},
 		{"unknown nested", "version: 1\nupdate: {modee: manual}\n", []string{"unknown field modee"}},
 		{"bad mode", "version: 1\nupdate: {mode: sometimes}\n", []string{"update.mode", "automatic, manual"}},

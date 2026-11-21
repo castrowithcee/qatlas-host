@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"sort"
 	"time"
+
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 const (
@@ -72,6 +74,9 @@ type Meta struct {
 	Images     []ImageVersion `json:"images,omitempty"`
 	Items      []Item         `json:"items"`
 	Incomplete bool           `json:"-"`
+	// Unsupported is the refusal of a metadata file whose format number is not read; such a backup is
+	// Incomplete for display but is never removed.
+	Unsupported error `json:"-"`
 }
 
 // Size is the sum of the item sizes.
@@ -204,13 +209,16 @@ func readMeta(dir, stack, id string) (Meta, error) {
 	if err != nil {
 		return Meta{}, err
 	}
+	if err := formatnum.CheckJSON(path, "schema", data, metaSchema); err != nil {
+		return Meta{}, err
+	}
 	var meta Meta
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&meta); err != nil {
 		return Meta{}, err
 	}
-	if meta.Schema != metaSchema || meta.ID != id || meta.Stack != stack {
+	if meta.ID != id || meta.Stack != stack {
 		return Meta{}, errors.New("metadata does not belong to this backup")
 	}
 	for _, it := range meta.Items {
@@ -256,6 +264,9 @@ func (m *Manager) List(stack string) ([]Meta, error) {
 		meta, err := readMeta(filepath.Join(sd, e.Name()), stack, e.Name())
 		if err != nil {
 			meta = Meta{ID: e.Name(), Stack: stack, Incomplete: true}
+			if formatnum.Is(err) {
+				meta.Unsupported = err
+			}
 		}
 		out = append(out, meta)
 	}
@@ -263,7 +274,8 @@ func (m *Manager) List(stack string) ([]Meta, error) {
 	return out, nil
 }
 
-// retain removes the backups beyond the limits of the rules and the incomplete ones, except current. A backup
+// retain removes the backups beyond the limits of the rules and the incomplete ones, except current and the
+// ones with a format number this version does not read, which it never touches. A backup
 // is kept only while it satisfies every limit that is set; the newest complete backup is never removed.
 func (m *Manager) retain(stack string, keep, maxAgeDays int, current string) (removed []string, err error) {
 	list, err := m.List(stack)
@@ -276,6 +288,8 @@ func (m *Manager) retain(stack string, keep, maxAgeDays int, current string) (re
 	for _, meta := range list {
 		drop := false
 		switch {
+		case meta.Unsupported != nil:
+			continue
 		case meta.ID == current:
 			rank++
 		case meta.Incomplete:

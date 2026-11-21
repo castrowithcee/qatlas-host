@@ -30,6 +30,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/configfile"
 
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
@@ -260,8 +261,15 @@ func New(cfg Config) (*Engine, error) {
 		cfg.Redact = func(s string) string { return s }
 	}
 	dir := filepath.Join(cfg.StateDir, engineDir)
-	store, err := configfile.NewStore(filepath.Join(dir, stateFile), configfile.Codec[State]{
-		Validate: validateState, Encode: encodeState, Decode: decodeState,
+	statePath := filepath.Join(dir, stateFile)
+	store, err := configfile.NewStore(statePath, configfile.Codec[State]{
+		Validate: validateState, Encode: encodeState,
+		Decode: func(b []byte) (State, error) {
+			if err := formatnum.CheckJSON(statePath, "schema", b, stateSchema); err != nil {
+				return State{}, err
+			}
+			return decodeState(b)
+		},
 	})
 	if err != nil {
 		return nil, err

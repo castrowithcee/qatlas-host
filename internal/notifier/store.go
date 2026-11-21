@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/castrowithcee/qatlas-kit/configfile"
+
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 const (
@@ -45,9 +47,13 @@ func strictDecode(b []byte, into any) error {
 
 // OpenSettings prepares the settings file in stateDir; nothing is written before the first change.
 func OpenSettings(stateDir string) (*Settings, error) {
-	st, err := configfile.NewStore(filepath.Join(stateDir, settingsFile), configfile.Codec[settingsDoc]{
+	path := filepath.Join(stateDir, settingsFile)
+	st, err := configfile.NewStore(path, configfile.Codec[settingsDoc]{
 		Validate: func(d settingsDoc) error {
-			if d.Schema != fileSchema || len(d.Channels) > MaxChannels {
+			if err := formatnum.Check(path, "schema", d.Schema, fileSchema); err != nil {
+				return err
+			}
+			if len(d.Channels) > MaxChannels {
 				return errors.New("unsupported settings")
 			}
 			seen := map[string]bool{}
@@ -65,6 +71,9 @@ func OpenSettings(stateDir string) (*Settings, error) {
 		Encode: func(d settingsDoc) ([]byte, error) { return json.MarshalIndent(d, "", "  ") },
 		Decode: func(b []byte) (settingsDoc, error) {
 			var d settingsDoc
+			if err := formatnum.CheckJSON(path, "schema", b, fileSchema); err != nil {
+				return d, err
+			}
 			return d, strictDecode(b, &d)
 		},
 	})
@@ -145,16 +154,15 @@ type Seen struct {
 
 // OpenSeen prepares the record in stateDir.
 func OpenSeen(stateDir string) (*Seen, error) {
-	st, err := configfile.NewStore(filepath.Join(stateDir, seenFile), configfile.Codec[seenDoc]{
-		Validate: func(d seenDoc) error {
-			if d.Schema != fileSchema {
-				return errors.New("unsupported record")
-			}
-			return nil
-		},
-		Encode: func(d seenDoc) ([]byte, error) { return json.MarshalIndent(d, "", "  ") },
+	path := filepath.Join(stateDir, seenFile)
+	st, err := configfile.NewStore(path, configfile.Codec[seenDoc]{
+		Validate: func(d seenDoc) error { return formatnum.Check(path, "schema", d.Schema, fileSchema) },
+		Encode:   func(d seenDoc) ([]byte, error) { return json.MarshalIndent(d, "", "  ") },
 		Decode: func(b []byte) (seenDoc, error) {
 			var d seenDoc
+			if err := formatnum.CheckJSON(path, "schema", b, fileSchema); err != nil {
+				return d, err
+			}
 			return d, strictDecode(b, &d)
 		},
 	})

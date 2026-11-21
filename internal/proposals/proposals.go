@@ -28,6 +28,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/configfile"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 const (
@@ -40,6 +41,8 @@ const (
 	keep      = 2 * control.ProposalLifetime
 	// maxTextChars bounds the text of a reason or a failure that is shown to others.
 	maxTextChars = 300
+	// recordSchema is the format number of a proposal file.
+	recordSchema = 1
 )
 
 // prefixRe is the form of an id prefix: lower-case letters and a dash.
@@ -52,6 +55,7 @@ type Normalizer func(kind string, content json.RawMessage) (any, *control.Error)
 // record is the file of one proposal. Content is the normalized content of its kind, the one the fingerprint
 // covers.
 type record struct {
+	Schema        int             `json:"schema"`
 	ID            string          `json:"id"`
 	Kind          string          `json:"kind"`
 	Content       json.RawMessage `json:"content"`
@@ -447,6 +451,9 @@ func readRecord(path string) (record, error) {
 	if err != nil {
 		return record{}, err
 	}
+	if err := formatnum.CheckJSON(path, "schema", data, recordSchema); err != nil {
+		return record{}, err
+	}
 	var r record
 	if err := DecodeStrict(data, &r); err != nil {
 		return record{}, err
@@ -476,7 +483,7 @@ func (s *Store) load() ([]record, error) {
 		}
 		r, err := readRecord(filepath.Join(s.dir, e.Name()))
 		if err != nil || r.ID != id {
-			s.log.Warn("proposals: skipped an unreadable file", "file", e.Name())
+			s.log.Warn("proposals: skipped an unreadable file", "file", e.Name(), "error", err)
 			continue
 		}
 		all = append(all, r)
@@ -509,6 +516,12 @@ func (s *Store) save(r record) error {
 	if err := os.Chmod(s.dir, 0o700); err != nil {
 		return err
 	}
+	if old, err := os.ReadFile(s.path(r.ID)); err == nil {
+		if err := formatnum.CheckJSON(s.path(r.ID), "schema", old, recordSchema); err != nil {
+			return err
+		}
+	}
+	r.Schema = recordSchema
 	data, err := json.Marshal(r)
 	if err != nil {
 		return err

@@ -13,6 +13,8 @@ import (
 	"os"
 	"regexp"
 	"syscall"
+
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 const (
@@ -67,7 +69,7 @@ func LoadConfig(path string, ownerUID uint32) (Config, error) {
 	if len(data) > maxConfigBytes {
 		return Config{}, errors.New("hook configuration: file too large")
 	}
-	return parseConfig(data)
+	return parseConfig(path, data)
 }
 
 func checkOwnerOnlyWritable(f *os.File, ownerUID uint32) error {
@@ -91,10 +93,14 @@ func checkOwnerOnlyWritable(f *os.File, ownerUID uint32) error {
 	return nil
 }
 
-// ParseConfig validates the content of a configuration file; the setup uses it to keep the stored hooks.
-func ParseConfig(data []byte) (Config, error) { return parseConfig(data) }
+// ParseConfig validates the content of the configuration file at path, which the refusal of an unknown format
+// number names; the setup uses it to keep the stored hooks.
+func ParseConfig(path string, data []byte) (Config, error) { return parseConfig(path, data) }
 
-func parseConfig(data []byte) (Config, error) {
+func parseConfig(path string, data []byte) (Config, error) {
+	if err := formatnum.CheckJSON(path, "version", data, configVersion); err != nil {
+		return Config{}, fmt.Errorf("hook configuration: %w", err)
+	}
 	var c Config
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
@@ -103,9 +109,6 @@ func parseConfig(data []byte) (Config, error) {
 	}
 	if _, err := dec.Token(); err != io.EOF {
 		return Config{}, errors.New("hook configuration: data after the JSON object")
-	}
-	if c.Version != configVersion {
-		return Config{}, fmt.Errorf("hook configuration: version %d, want %d", c.Version, configVersion)
 	}
 	if c.Listen == "" {
 		return Config{}, errors.New("hook configuration: listen is empty")

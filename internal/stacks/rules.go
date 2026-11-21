@@ -17,6 +17,7 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/castrowithcee/qatlas-host/internal/changelog"
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 // Update modes, ceilings and major strategies.
@@ -181,6 +182,9 @@ var (
 // settingsLabel starts every error about the settings of a stack.
 const settingsLabel = "stack settings"
 
+// settingsVersion is the format number of the settings file.
+const settingsVersion = 1
+
 // readSettings loads the settings of the stack called name from the working copy at root; nil, nil when the
 // stack has none.
 func readSettings(root, name string) (*Rules, error) {
@@ -191,13 +195,34 @@ func readSettings(root, name string) (*Rules, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", settingsLabel, err)
 	}
-	return ParseSettings(data)
+	return parseSettings(SettingsPath(name), data)
 }
 
 // ParseSettings decodes and validates settings given as YAML or JSON, which is YAML too: one document, no
 // unknown field, no repeated key. Errors start with "stack settings" and name the field path. The checks
 // that need the stack itself, such as image variables and compose files, are made when the stack is read.
-func ParseSettings(data []byte) (*Rules, error) {
+func ParseSettings(data []byte) (*Rules, error) { return parseSettings("the given settings", data) }
+
+// CheckSettingsFormat refuses settings whose format number this version does not read, without looking at any
+// other field. Empty or malformed content passes: the full parse reports it.
+func CheckSettingsFormat(file string, data []byte) error {
+	var head struct {
+		Version *int `yaml:"version"`
+	}
+	if yaml.Unmarshal(data, &head) != nil || len(bytes.TrimSpace(data)) == 0 {
+		return nil
+	}
+	n := 0
+	if head.Version != nil {
+		n = *head.Version
+	}
+	return formatnum.Check(file, "version", n, settingsVersion)
+}
+
+func parseSettings(file string, data []byte) (*Rules, error) {
+	if err := CheckSettingsFormat(file, data); err != nil {
+		return nil, fmt.Errorf("%s: %w", settingsLabel, err)
+	}
 	var raw Settings
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
@@ -222,7 +247,7 @@ func ParseSettings(data []byte) (*Rules, error) {
 // Settings returns the rules in their file form with every default written out, so that equal rules give
 // equal settings and ParseSettings gives the rules back.
 func (r *Rules) Settings() Settings {
-	one := 1
+	one := settingsVersion
 	s := Settings{Version: &one, Update: &UpdateSettings{
 		Mode: ptr(r.Update.Mode), Trigger: ptr(r.Update.Trigger), Ceiling: ptr(r.Update.Ceiling), Major: ptr(r.Update.Major),
 		Observe: ptr(int(r.Update.Observe / time.Minute)),
@@ -287,11 +312,8 @@ func oneOf(path, got string, allowed ...string) error {
 }
 
 func validateRules(raw Settings) (*Rules, error) {
-	if raw.Version == nil {
-		return nil, errors.New("version: required (use 1)")
-	}
-	if *raw.Version != 1 {
-		return nil, fmt.Errorf("version: unsupported value %d (use 1)", *raw.Version)
+	if raw.Version == nil || *raw.Version != settingsVersion {
+		return nil, errors.New("version: must be 1")
 	}
 	r := &Rules{Update: Update{Mode: ModeManual, Trigger: TriggerWindow, Interval: DefaultIntervalSeconds * time.Second, Ceiling: CeilingMinor, Major: MajorStepwise, Observe: DefaultObserveMinutes * time.Minute},
 		Check: Check{Containers: true}}

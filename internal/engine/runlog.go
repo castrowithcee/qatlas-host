@@ -7,18 +7,25 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 	"unicode"
+
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 const (
 	maxLogBytes = 256 << 10
 	maxLogLine  = 2 << 10
 	logExt      = ".log"
+	// runLogSchema is the format number a run log starts with, on a line of its own: "schema 1".
+	runLogSchema = 1
 )
+
+var runLogHeader = fmt.Sprintf("schema %d\n", runLogSchema)
 
 // ErrLogFull means a run log has reached its size bound and takes no further entry.
 var ErrLogFull = errors.New("run log is full")
@@ -120,7 +127,43 @@ func (s logStore) create(id string) (io.WriteCloser, error) {
 	if err := os.MkdirAll(s.dir, 0o700); err != nil {
 		return nil, err
 	}
-	return os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := io.WriteString(f, runLogHeader); err != nil {
+		_ = f.Close()
+		_ = os.Remove(p)
+		return nil, err
+	}
+	return f, nil
+}
+
+// checkHeader refuses a log that does not start with the format number this version reads.
+func checkHeader(p string, data []byte) error {
+	line, _, _ := strings.Cut(string(data), "\n")
+	n := 0
+	if v, ok := strings.CutPrefix(line, "schema "); ok {
+		if i, err := strconv.Atoi(v); err == nil && i > 0 {
+			n = i
+		}
+	}
+	return formatnum.Check(p, "schema", n, runLogSchema)
+}
+
+// headerOf reads the start of the log at p, without following a link, and checks its format number.
+func headerOf(p string) error {
+	f, err := os.OpenFile(p, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	buf := make([]byte, 64)
+	n, err := io.ReadFull(f, buf)
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return err
+	}
+	return checkHeader(p, buf[:n])
 }
 
 func (s logStore) read(id string) (string, error) {
@@ -140,13 +183,20 @@ func (s logStore) read(id string) (string, error) {
 		return "", err
 	}
 	defer f.Close()
-	data, err := io.ReadAll(io.LimitReader(f, maxLogBytes+maxLogLine))
-	return string(data), err
+	data, err := io.ReadAll(io.LimitReader(f, maxLogBytes+maxLogLine+int64(len(runLogHeader))))
+	if err != nil {
+		return "", err
+	}
+	if err := checkHeader(p, data); err != nil {
+		return "", err
+	}
+	return string(data[len(runLogHeader):]), nil
 }
 
+// remove deletes the logs of the ids. A log whose format number this version does not read stays.
 func (s logStore) remove(ids ...string) {
 	for _, id := range ids {
-		if p, err := s.path(id); err == nil {
+		if p, err := s.path(id); err == nil && headerOf(p) == nil {
 			_ = os.Remove(p)
 		}
 	}
@@ -174,6 +224,9 @@ func (s logStore) appendLine(id, stamp, kind, text string) error {
 		return err
 	}
 	defer f.Close()
+	if err := headerOf(p); err != nil {
+		return err
+	}
 	if fi, err = f.Stat(); err != nil {
 		return err
 	}

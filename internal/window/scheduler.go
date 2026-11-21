@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-kit/configfile"
+
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 const (
@@ -104,14 +106,15 @@ func New(cfg Config) (*Scheduler, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.New(slog.DiscardHandler)
 	}
-	store, err := configfile.NewStore(filepath.Join(cfg.StateDir, fileName), configfile.Codec[record]{
+	path := filepath.Join(cfg.StateDir, fileName)
+	store, err := configfile.NewStore(path, configfile.Codec[record]{
 		Validate: func(r record) error {
 			if r.Window.check() != nil {
 				return errMalformed
 			}
 			return nil
 		},
-		Encode: encodeRecord, Decode: decodeRecord,
+		Encode: encodeRecord, Decode: func(b []byte) (record, error) { return decodeRecord(path, b) },
 	})
 	if err != nil {
 		return nil, err
@@ -129,23 +132,26 @@ func encodeRecord(r record) ([]byte, error) {
 // errMalformed is a stored setting that does not decode; it is no *InvalidError, which answers a request.
 var errMalformed = errors.New("the stored window setting is malformed")
 
-func decodeRecord(b []byte) (record, error) {
-	r, err := decodeFile(b)
+func decodeRecord(path string, b []byte) (record, error) {
+	r, err := decodeFile(path, b)
+	if formatnum.Is(err) {
+		return record{}, err
+	}
 	if err != nil {
 		return record{}, errMalformed
 	}
 	return r, nil
 }
 
-func decodeFile(b []byte) (record, error) {
+func decodeFile(path string, b []byte) (record, error) {
+	if err := formatnum.CheckJSON(path, "schema", b, fileSchema); err != nil {
+		return record{}, err
+	}
 	var f recordFile
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&f); err != nil {
 		return record{}, err
-	}
-	if f.Schema != fileSchema {
-		return record{}, errors.New("unsupported schema")
 	}
 	days, err := ParseDays(f.Days)
 	if err != nil {

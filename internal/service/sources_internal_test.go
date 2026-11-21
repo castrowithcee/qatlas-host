@@ -43,7 +43,7 @@ func TestSourceIDFollowsThePath(t *testing.T) {
 // A start that ended after the sources file was written resumes the migration at the next start.
 func TestMigrationResumesAndRepeats(t *testing.T) {
 	state := t.TempDir()
-	store, err := configfile.NewStore(filepath.Join(state, sourcesFile), sourcesCodec)
+	store, err := configfile.NewStore(filepath.Join(state, sourcesFile), sourcesCodecAt(filepath.Join(state, sourcesFile)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestMigrationResumesAndRepeats(t *testing.T) {
 // State that would have to replace other state is never moved, and the old binding stays until it can be.
 func TestMigrationLeavesConflictingStateInPlace(t *testing.T) {
 	state := t.TempDir()
-	store, err := configfile.NewStore(filepath.Join(state, sourcesFile), sourcesCodec)
+	store, err := configfile.NewStore(filepath.Join(state, sourcesFile), sourcesCodecAt(filepath.Join(state, sourcesFile)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func twoSources(t *testing.T, states map[string]string) *sourceSet {
 			put(t, filepath.Join(state, sourcesDir, sourceID(dir), "deploy", "state.json"), body)
 		}
 	}
-	store, err := configfile.NewStore(filepath.Join(state, sourcesFile), sourcesCodec)
+	store, err := configfile.NewStore(filepath.Join(state, sourcesFile), sourcesCodecAt(filepath.Join(state, sourcesFile)))
 	if err != nil {
 		t.Fatal(err)
 	}
