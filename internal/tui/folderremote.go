@@ -43,7 +43,8 @@ func (m *Model) compareFolder(flow *addFlow) tea.Cmd {
 		return nil
 	}
 	args := control.SourceCompareArgs{Path: flow.res.Path, URL: flow.url, Fingerprint: flow.probe.Fingerprint}
-	return m.writeCall(opCompare, args.Path, func(b Backend) (any, error) { return b.SourceCompare(m.ctx, args) })
+	ctx := m.engineCtx(m.folderEngineOf(args.Path))
+	return m.writeCall(opCompare, args.Path, func(b Backend) (any, error) { return b.SourceCompare(ctx, args) })
 }
 
 // showComparison shows how the repository relates to the folder and asks for the step of that state. A secret
@@ -141,5 +142,6 @@ func (m *Model) connectRemote(flow *addFlow) tea.Cmd {
 	}
 	args := control.SourceRemoteArgs{Path: flow.res.Path, URL: flow.url, Fingerprint: flow.probe.Fingerprint,
 		ExpectState: cmp.State, ExpectCommit: cmp.Commit}
-	return m.writeCall(opRemote, args.Path, func(b Backend) (any, error) { return b.SourceRemote(m.ctx, args) })
+	ctx := m.engineCtx(m.folderEngineOf(args.Path))
+	return m.writeCall(opRemote, args.Path, func(b Backend) (any, error) { return b.SourceRemote(ctx, args) })
 }

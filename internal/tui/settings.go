@@ -50,13 +50,15 @@ func settingsTabs() []kittui.Tab {
 // gen separates the answers of a page that was left from those of the page shown.
 type settingsState struct {
 	page settingsPage
-	gen  int
+	// engine is the instance chosen for the pages of credentials and notification channels; empty before a choice.
+	engine string
+	gen    int
 	// busy is set while a write is under way; the interface takes no key but quit then.
 	busy bool
 	form *settingsForm
 
 	// folderData are the bound stack folders by path; add is the one being added, nil while none is.
-	folderData map[string]control.SourceStatus
+	folderData map[stackRef]control.SourceStatus
 	add        *addFlow
 
 	// keyOpen says the Stacks area shows the deploy key of the folder keyFor.
@@ -85,8 +87,10 @@ type settingsState struct {
 type settingsLoadMsg struct {
 	gen  int
 	page settingsPage
-	res  any
-	err  error
+	// engine is the instance the page was read from.
+	engine string
+	res    any
+	err    error
 }
 
 // settingOp tells which write an answer belongs to.
@@ -228,7 +232,11 @@ func (m *Model) leaveGeneral(leave func() tea.Cmd) tea.Cmd {
 // loadPage reads what the page shows. The folder page shows the status the refresh reads.
 func (m *Model) loadPage(force bool) tea.Cmd {
 	s := m.set
-	ctx, b, page := m.ctx, m.backend, s.page
+	if perInstance(s.page) && !m.instanceChosen() {
+		return nil
+	}
+	engine := m.settingsEngine()
+	ctx, b, page := m.engineCtx(engine), m.backend, s.page
 	read := func(p *part, fn func() (any, error)) tea.Cmd {
 		if p.loading || p.loaded && !force {
 			return nil
@@ -238,7 +246,7 @@ func (m *Model) loadPage(force bool) tea.Cmd {
 		gen := s.gen
 		return func() tea.Msg {
 			res, err := fn()
-			return settingsLoadMsg{gen: gen, page: page, res: res, err: err}
+			return settingsLoadMsg{gen: gen, page: page, engine: engine, res: res, err: err}
 		}
 	}
 	switch page {
@@ -268,6 +276,10 @@ func (s *settingsState) pagePart(p settingsPage) *part {
 func (m *Model) applySettingsLoad(msg settingsLoadMsg) {
 	s := m.set
 	p := s.pagePart(msg.page)
+	if perInstance(msg.page) && msg.engine != m.settingsEngine() {
+		// The answer of an instance the page no longer shows; the read of the one shown is its own.
+		return
+	}
 	if p == nil || msg.page != s.page {
 		if p != nil {
 			p.loading = false
@@ -364,6 +376,12 @@ func (m *Model) selectedChannel() (control.NotifyChannelInfo, bool) {
 // settingsKey acts on the key of an action of the Settings area; handled is false for a key that is none.
 func (m *Model) settingsAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 	s := m.set
+	if id == actInstance {
+		return m.nextInstance(), perInstance(s.page)
+	}
+	if perInstance(s.page) && (id == actAdd || id == actRemove || id == actTest) && m.needInstance() {
+		return nil, true
+	}
 	switch {
 	case id == actAdd && s.page == pageCreds:
 		return m.openForm(m.credentialForm()), true
@@ -682,10 +700,11 @@ func (m *Model) askCredentialDelete() tea.Cmd {
 		m.warn(m.text.Lookup(textChooseOne))
 		return nil
 	}
+	ctx := m.settingsCtx()
 	m.askSetting(settingChange{title: textPageCreds, question: m.text.Lookup(textAskCredDelete, c.Name),
 		consequence: m.text.Lookup(textWhatCredDelete), danger: true, op: opCredDelete, name: c.Name,
-		direct: func(b Backend) (any, error) { return nil, b.CredentialDelete(m.ctx, c.Name) },
-		args:   []string{"credential", "delete", "--output", "json", "--", c.Name},
+		direct: func(b Backend) (any, error) { return nil, b.CredentialDelete(ctx, c.Name) },
+		args:   m.settingsArgs([]string{"credential", "delete", "--output", "json", "--", c.Name}),
 		decode: decodeFlag("deleted")})
 	return nil
 }
@@ -696,10 +715,11 @@ func (m *Model) askNotifyRemove() tea.Cmd {
 		m.warn(m.text.Lookup(textChooseOne))
 		return nil
 	}
+	ctx := m.settingsCtx()
 	m.askSetting(settingChange{title: textPageNotify, question: m.text.Lookup(textAskNotifyRemove, c.Name),
 		consequence: m.text.Lookup(textWhatNotifyRemove), danger: true, op: opNotifyRemove, name: c.Name,
-		direct: func(b Backend) (any, error) { return nil, b.NotifyRemove(m.ctx, c.Name) },
-		args:   []string{"notify", "remove", "--output", "json", "--", c.Name},
+		direct: func(b Backend) (any, error) { return nil, b.NotifyRemove(ctx, c.Name) },
+		args:   m.settingsArgs([]string{"notify", "remove", "--output", "json", "--", c.Name}),
 		decode: decodeFlag("removed")})
 	return nil
 }
@@ -710,10 +730,11 @@ func (m *Model) askNotifyTest() tea.Cmd {
 		m.warn(m.text.Lookup(textChooseOne))
 		return nil
 	}
+	ctx := m.settingsCtx()
 	m.askSetting(settingChange{title: textPageNotify, question: m.text.Lookup(textAskNotifyTest, c.Name),
 		consequence: m.text.Lookup(textWhatNotifyTest), op: opNotifyTest, name: c.Name,
-		direct: func(b Backend) (any, error) { return b.NotifyTest(m.ctx, c.Name) },
-		args:   []string{"notify", "test", "--output", "json", "--", c.Name},
+		direct: func(b Backend) (any, error) { return b.NotifyTest(ctx, c.Name) },
+		args:   m.settingsArgs([]string{"notify", "test", "--output", "json", "--", c.Name}),
 		decode: decodeSudo[control.NotifyTestResult](func(r control.NotifyTestResult) bool { return r.Name != "" })})
 	return nil
 }
@@ -737,10 +758,12 @@ func (m *Model) settingsFooter(common, nav []kittui.Hint) []kittui.Hint {
 	}
 	switch s.page {
 	case pageCreds:
+		own = append(own, m.instanceHints()...)
 		own = append(own, kittui.Hint{Action: actAdd, Label: textKeyAdd, Priority: 3}, kittui.Hint{Action: actRemove, Label: textKeyRemove, Priority: 3})
 	case pageWindow:
 		own = append(own, kittui.Hint{Action: actEdit, Label: textKeyEdit, Priority: 3})
 	case pageNotify:
+		own = append(own, m.instanceHints()...)
 		own = append(own, kittui.Hint{Action: actAdd, Label: textKeyAdd, Priority: 3}, kittui.Hint{Action: actTest, Label: textKeyTest, Priority: 3},
 			kittui.Hint{Action: actRemove, Label: textKeyRemove, Priority: 3})
 	}
@@ -759,11 +782,17 @@ func (m *Model) settingsView(width, height int) string {
 		return m.formView(width, height)
 	}
 	if list := s.activeList(); list != nil {
-		if p := s.pagePart(s.page); p != nil && (!p.loaded || p.err != nil) {
-			lines := m.partLines(*p, width)
-			return strings.Join(lines[:min(len(lines), height)], "\n")
+		head := m.instanceLines(width)
+		height -= len(head)
+		if !m.instanceChosen() {
+			return strings.Join(head[:min(len(head), height+len(head))], "\n")
 		}
-		return m.listView(list, width, height, 0)
+		if p := s.pagePart(s.page); p != nil && (!p.loaded || p.err != nil) {
+			lines := append(head, m.partLines(*p, width)...)
+			return strings.Join(lines[:min(len(lines), height+len(head))], "\n")
+		}
+		view := m.listView(list, width, height, len(head))
+		return strings.Join(append(head, view), "\n")
 	}
 	lines := m.pageLines(width, height)
 	return strings.Join(lines[:min(len(lines), height)], "\n")

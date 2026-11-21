@@ -82,8 +82,9 @@ func checkChangelog(m *Model, e listEntry) []kittui.FormProblem {
 
 // stackInfo is the listed stack of that name.
 func (m *Model) stackInfo(stack string) (control.StackInfo, bool) {
+	engine := m.stackEngineOf(stack)
 	for _, s := range m.snap.stacks.Stacks {
-		if s.Name == stack {
+		if s.Name == stack && inEngine(s.Engine, engine) {
 			return s, true
 		}
 	}
@@ -110,7 +111,7 @@ func (m *Model) sourceKind(stack string) string {
 	}
 	sources := m.snap.status.Engine.Sources
 	for _, s := range sources {
-		if s.ID == info.Source {
+		if s.ID == info.Source && inEngine(s.Engine, info.Engine) {
 			return s.Kind
 		}
 	}
@@ -158,7 +159,8 @@ func (m *Model) openUpdateForm() tea.Cmd {
 	if !ok || m.detailBusy() {
 		return nil
 	}
-	return m.writeCall(opStackSettings, stack, func(b Backend) (any, error) { return b.StackSettings(m.ctx, stack) })
+	ctx := m.engineCtx(m.stackEngineOf(stack))
+	return m.writeCall(opStackSettings, stack, func(b Backend) (any, error) { return b.StackSettings(ctx, stack) })
 }
 
 // updateFormFor builds the form from the stored rules, or from the defaults for a stack without any.

@@ -166,6 +166,8 @@ func (m *Model) relocalize(lang i18n.Lang) tea.Cmd {
 		*l = fresh[i]
 	}
 	m.lang, m.text, m.frame = lang, text, kittui.NewFrame(m.keys, text)
+	// The lists of the sections hold the old translator; they are built again from what was read.
+	m.secs, m.secLists, m.baseList = nil, nil, nil
 	if m.loaded {
 		m.fillStacks()
 	}

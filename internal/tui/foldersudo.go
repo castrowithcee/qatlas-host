@@ -87,13 +87,23 @@ func (m *Model) askProbeSudo(flow *addFlow) {
 // with the host key confirmed before.
 func (m *Model) askCompareSudo(flow *addFlow) {
 	t, path, url, fp := m.text, flow.res.Path, flow.url, flow.probe.Fingerprint
+	ctx := m.engineCtx(m.folderEngineOf(path))
 	m.askSetting(settingChange{title: flow.title(), question: t.Lookup(textAskCompare, path, url), remote: t.Lookup(textSudoRemoteGit),
 		consequence: t.Lookup(textWhatCompare), op: opCompare, name: path,
 		direct: func(b Backend) (any, error) {
-			return b.SourceCompare(m.ctx, control.SourceCompareArgs{Path: path, URL: url, Fingerprint: fp})
+			return b.SourceCompare(ctx, control.SourceCompareArgs{Path: path, URL: url, Fingerprint: fp})
 		},
-		args:   []string{"source", "compare", "--fingerprint", fp, "--output", "json", "--", path, url},
+		args:   m.engineArgs(m.folderEngineOf(path), []string{"source", "compare", "--fingerprint", fp, "--output", "json", "--", path, url}),
 		decode: decodeSudo[control.SourceCompareResult](func(r control.SourceCompareResult) bool { return r.State != "" })})
+}
+
+// flowArgs are sudoArgs of the flow; the remote of a bound folder names its engine, as the other commands about a
+// bound folder do. Adding a folder is the one thing that names none.
+func (m *Model) flowArgs(f *addFlow) []string {
+	if f.remote {
+		return m.engineArgs(m.folderEngineOf(f.res.Path), f.sudoArgs())
+	}
+	return f.sudoArgs()
 }
 
 // sudoArgs are the arguments after qhost of the command that applies what the flow showed.
@@ -143,7 +153,7 @@ func (m *Model) sudoLines(flow *addFlow, width int) []string {
 	if m.euid() == 0 {
 		return nil
 	}
-	return m.commandLines(flow.sudoArgs(), width)
+	return m.commandLines(m.flowArgs(flow), width)
 }
 
 // commandLines is the command sudo runs for args, dimmed, below an empty line.
@@ -194,7 +204,7 @@ func (m *Model) applySudo(flow *addFlow) tea.Cmd {
 		op = opRemote
 	}
 	gen := m.beginSetting()
-	return m.runSudo(flow.sudoArgs(), func(r sudoRun) tea.Cmd {
+	return m.runSudo(m.flowArgs(flow), func(r sudoRun) tea.Cmd {
 		msg := settingMsg{gen: gen, op: op, name: path}
 		res, ok := decodeApplied(flow, r)
 		switch {

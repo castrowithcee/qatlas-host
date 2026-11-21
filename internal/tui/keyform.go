@@ -50,15 +50,16 @@ type keyGenerateAsk struct {
 func (m *Model) askKeyGenerate(k keyGenerateAsk) {
 	t := m.text
 	args := []string{"key", "generate", "--dir", k.dir}
+	ctx := m.engineCtx(m.folderEngineOf(k.dir))
 	c := settingChange{title: textTitleKey, question: t.Lookup(textAskKeyGenerate, k.dir), consequence: t.Lookup(textWhatKeyGenerate),
 		details: k.details, op: opKeyGenerate, name: k.dir,
-		direct: func(b Backend) (any, error) { return b.KeyGenerate(m.ctx, k.dir, k.exists) },
+		direct: func(b Backend) (any, error) { return b.KeyGenerate(ctx, k.dir, k.exists) },
 		decode: decodeSudo[control.KeyResult](func(r control.KeyResult) bool { return r.Fingerprint != "" })}
 	if k.exists {
 		args = append(args, "--replace")
 		c.question, c.consequence, c.danger = t.Lookup(textAskKeyReplace), t.Lookup(textWhatKeyReplace), true
 	}
-	c.args = m.folderArgs(k.dir, append(args, "--output", "json"))
+	c.args = m.engineArgs(m.folderEngineOf(k.dir), append(args, "--output", "json"))
 	m.askSetting(c)
 }
 
@@ -74,16 +75,17 @@ type keySetAsk struct {
 func (m *Model) askKeySet(k keySetAsk) {
 	t := m.text
 	args := []string{"key", "set", "--dir", k.dir}
+	ctx := m.engineCtx(m.folderEngineOf(k.dir))
 	c := settingChange{title: textTitleKey, question: t.Lookup(textAskKeySet, k.dir), consequence: t.Lookup(textWhatKeySet),
 		details: k.details, op: opKeySet, name: k.dir,
-		direct: func(b Backend) (any, error) { return b.KeySet(m.ctx, k.dir, k.key, k.exists) },
+		direct: func(b Backend) (any, error) { return b.KeySet(ctx, k.dir, k.key, k.exists) },
 		input:  secretInput(k.key),
 		decode: decodeSudo[control.KeyResult](func(r control.KeyResult) bool { return r.Fingerprint != "" })}
 	if k.exists {
 		args = append(args, "--replace")
 		c.question, c.consequence, c.danger = t.Lookup(textAskKeyReplace), t.Lookup(textWhatKeyReplace), true
 	}
-	c.args = m.folderArgs(k.dir, append(args, "--output", "json"))
+	c.args = m.engineArgs(m.folderEngineOf(k.dir), append(args, "--output", "json"))
 	m.askSetting(c)
 }
 
@@ -160,18 +162,19 @@ func (m *Model) keyWrite(f *settingsForm, dir, label, key string, generate bool)
 	if generate {
 		op = opKeyGenerate
 	}
+	ctx := m.engineCtx(m.folderEngineOf(dir))
 	send := func(b Backend, replace bool) (control.KeyResult, error) {
 		if generate {
-			return b.KeyGenerate(m.ctx, dir, replace)
+			return b.KeyGenerate(ctx, dir, replace)
 		}
-		return b.KeySet(m.ctx, dir, key, replace)
+		return b.KeySet(ctx, dir, key, replace)
 	}
 	var details []string
 	if label != "" {
 		details = []string{m.text.Lookup(textDetailKeyFolder, label)}
 	}
 	return m.writeCall(op, dir, func(b Backend) (any, error) {
-		_, err := b.KeyShow(m.ctx, dir)
+		_, err := b.KeyShow(ctx, dir)
 		var remote *control.Error
 		if m.euid() != 0 {
 			// Without root the command asks, and says whether it replaces a key; reading the key needs no root.

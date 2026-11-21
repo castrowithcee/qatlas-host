@@ -76,18 +76,19 @@ type settingsEdit func(s *control.StackSettings)
 
 // askSettingsSet asks for the replacement of the settings of stack by what edit makes of the ones held now.
 func (m *Model) askSettingsSet(title kittui.TextID, question, consequence string, details []string, stack string, edit settingsEdit) {
+	ctx := m.engineCtx(m.stackEngineOf(stack))
 	m.askSetting(settingChange{title: title, question: question, consequence: consequence, details: details,
 		op: opStackSettingsSet, name: stack,
 		direct: func(b Backend) (any, error) {
-			s, err := currentSettings(m.ctx, b, stack)
+			s, err := currentSettings(ctx, b, stack)
 			if err != nil {
 				return control.StackSettingsSetResult{}, err
 			}
 			edit(&s)
-			return b.StackSettingsSet(m.ctx, stack, s)
+			return b.StackSettingsSet(ctx, stack, s)
 		},
-		args: m.stackArgs(stack, []string{"stack", "settings", "set", "--file", "-", "--output", "json", "--", stack}),
-		input: func(ctx context.Context, b Backend) ([]byte, error) {
+		args: m.engineArgs(m.stackEngineOf(stack), []string{"stack", "settings", "set", "--file", "-", "--output", "json", "--", stack}),
+		input: func(_ context.Context, b Backend) ([]byte, error) {
 			s, err := currentSettings(ctx, b, stack)
 			if err != nil {
 				return nil, err

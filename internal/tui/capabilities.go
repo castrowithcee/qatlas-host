@@ -66,8 +66,9 @@ func capabilitiesGerman() map[kittui.TextID]string {
 func (m *Model) capabilityLines(stack string, width int) []string {
 	t := m.text
 	var rep *control.StackReport
+	engine := m.stackEngineOf(stack)
 	for i := range m.snap.check.Stacks {
-		if m.snap.check.Stacks[i].Stack == stack {
+		if m.snap.check.Stacks[i].Stack == stack && inEngine(m.snap.check.Stacks[i].Engine, engine) {
 			rep = &m.snap.check.Stacks[i]
 		}
 	}

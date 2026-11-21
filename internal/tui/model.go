@@ -128,8 +128,14 @@ type Model struct {
 	width, height  int
 	area           kittui.AreaID
 	// zone is the focus zone the person chose; focus falls back to the content zone when the screen has no such zone.
-	zone            kittui.FocusZone
-	list            *kittui.List
+	zone kittui.FocusZone
+	list *kittui.List
+	// With several engines the Stacks area has a section, with a list, for each; list is the marked section's.
+	// listEngine is its engine (empty with one engine), baseList the list of a host with one engine.
+	secs            []*stackSection
+	secLists        map[string]*kittui.List
+	listEngine      string
+	baseList        *kittui.List
 	tones           map[string]kittui.TextStyle
 	rows            map[kittui.ItemID]stackRow
 	snap            snapshot
@@ -460,19 +466,27 @@ func (m *Model) apply(msg refreshMsg) {
 // fillStacks sets the rows of the stacks list and of the runs list from the snapshot read last.
 func (m *Model) fillStacks() {
 	rows := buildRows(m.snap)
-	// The rows go under their stack folder, and a folder has its row even without a stack.
-	grouped := len(m.snap.status.Engine.Sources) > 0
-	m.list.SetGrouped(grouped)
 	ids := itemIDs(rows)
 	clear(m.tones)
 	clear(m.rows)
+	for i, r := range rows {
+		m.rows[ids[i]] = r
+	}
+	if m.multiEngine() {
+		m.fillSections(rows, ids)
+		m.rebuildRuns()
+		return
+	}
+	m.leaveSections()
+	// The rows go under their stack folder, and a folder has its row even without a stack.
+	grouped := len(m.snap.status.Engine.Sources) > 0
+	m.list.SetGrouped(grouped)
 	items := make([]kittui.ListItem, len(rows))
 	for i, r := range rows {
 		items[i] = kittui.ListItem{ID: ids[i], Cells: cells(r, m.text, m.loc, m.tones)}
 		if grouped {
 			items[i].Group = r.folder
 		}
-		m.rows[ids[i]] = r
 	}
 	if err := m.list.SetItems(items); err != nil {
 		m.failure = m.text.Lookup(kittui.TextError, m.text.Lookup(textErrUnshownStacks, err.Error()))
@@ -577,7 +591,7 @@ func (m *Model) typed(msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool) {
 	case m.area == areaStacks && m.set.keyOpen:
 		return nil, false
 	case m.area == areaStacks:
-		open, handled := m.list.Update(msg)
+		open, handled := m.stackUpdate(msg)
 		return m.open(open), handled
 	case m.area == areaSettings:
 		return m.settingsTyped(msg)
@@ -659,6 +673,12 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 		case actSetupDeploy:
 			if m.setupOffered() {
 				return m.beginSetup()
+			}
+		case actInstance:
+			if m.area == areaSettings {
+				if cmd, handled := m.settingsAction(id); handled {
+					return cmd
+				}
 			}
 		case actStackOnly:
 			if m.area == areaRuns && !m.log.open {
@@ -804,7 +824,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 	case m.area == areaStacks && m.set.keyOpen:
 		m.topEdge(false, msg)
 	case m.area == areaStacks:
-		open, handled := m.list.Update(msg)
+		open, handled := m.stackUpdate(msg)
 		m.topEdge(handled, msg)
 		return m.open(open)
 	case m.area == areaContainers && !m.ctv.open:
@@ -954,7 +974,7 @@ func (m *Model) focus() kittui.FocusZone {
 // setZone moves the focus; a list shows its marked row as focused only outside the tab and sub-tab lines.
 func (m *Model) setZone(z kittui.FocusZone) {
 	m.zone = z
-	lists := []*kittui.List{m.list, m.runsList, m.ctList, m.propList}
+	lists := append(m.stackLists(), m.runsList, m.ctList, m.propList)
 	if m.set != nil {
 		lists = append(lists, m.set.credList, m.set.notifyList)
 	}
@@ -1432,7 +1452,12 @@ func (m *Model) stacksView(width, height int) string {
 			detail = m.folderDetail(f, width, room)
 		}
 	}
-	view := m.listView(m.list, width, height-len(detail), 0)
+	var view string
+	if len(m.secs) > 0 {
+		view = m.stackSectionsView(width, height-len(detail))
+	} else {
+		view = m.listView(m.list, width, height-len(detail), 0)
+	}
 	return strings.Join(append([]string{view}, detail...), "\n")
 }
 

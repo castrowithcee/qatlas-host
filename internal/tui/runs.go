@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"cmp"
 	"slices"
 	"strings"
 	"time"
@@ -25,30 +26,32 @@ const runIDLayout = "20060102T150405Z"
 // runRow is one run as the Runs area shows it: a recorded one, or an active one that only the status knows.
 type runRow struct {
 	id, stack, trigger, result, err string
-	started                         time.Time
-	duration                        time.Duration
-	active                          bool
+	// engine is the engine of the deploy service that has the run; run IDs are only unique within it.
+	engine   string
+	started  time.Time
+	duration time.Duration
+	active   bool
 }
 
 // runRows joins the recorded runs with the active runs of the status, newest first. An active run is not
 // recorded before it ends; one that is both keeps its record's values and counts as active.
 func runRows(s snapshot) []runRow {
 	var rows []runRow
-	byID := map[string]int{}
+	byID := map[stackRef]int{}
 	for _, r := range s.runs.Runs {
-		byID[r.ID] = len(rows)
-		rows = append(rows, runRow{id: r.ID, stack: r.Stack, trigger: r.Trigger, result: r.Result, err: r.Error,
+		byID[stackRef{r.Engine, r.ID}] = len(rows)
+		rows = append(rows, runRow{id: r.ID, engine: r.Engine, stack: r.Stack, trigger: r.Trigger, result: r.Result, err: r.Error,
 			started: r.Started, duration: time.Duration(r.DurationMS) * time.Millisecond})
 	}
 	for _, st := range s.status.Engine.Stacks {
 		if st.ActiveRun == "" {
 			continue
 		}
-		i, ok := byID[st.ActiveRun]
+		i, ok := byID[stackRef{st.Engine, st.ActiveRun}]
 		if !ok {
 			i = len(rows)
 			started, _ := time.Parse(runIDLayout, st.ActiveRun[:min(len(st.ActiveRun), len(runIDLayout))])
-			rows = append(rows, runRow{id: st.ActiveRun, stack: st.Name, started: started})
+			rows = append(rows, runRow{id: st.ActiveRun, engine: st.Engine, stack: st.Name, started: started})
 		}
 		rows[i].active = true
 	}
@@ -56,7 +59,7 @@ func runRows(s snapshot) []runRow {
 		if c := b.started.Compare(a.started); c != 0 {
 			return c
 		}
-		return strings.Compare(b.id, a.id)
+		return cmp.Or(strings.Compare(b.id, a.id), strings.Compare(a.engine, b.engine))
 	})
 	return rows
 }
@@ -117,7 +120,11 @@ func (m *Model) runCells(r runRow) []string {
 	}
 	result, tone := m.runResult(r)
 	m.runTones[result] = tone
-	return []string{r.stack, started, result, trigger, duration, r.id}
+	id := r.id
+	if m.multiEngine() && r.engine != "" {
+		id += " (" + r.engine + ")"
+	}
+	return []string{r.stack, started, result, trigger, duration, id}
 }
 
 // rebuildRuns fills the runs list from the runs read last, limited to the chosen stack when the limit is on.
@@ -129,7 +136,7 @@ func (m *Model) rebuildRuns() {
 	if m.runsOnly {
 		shown = nil
 		for _, r := range m.runData {
-			if r.stack == m.chosenName() {
+			if r.stack == m.chosenName() && inEngine(r.engine, m.chosenEngine()) {
 				shown = append(shown, r)
 			}
 		}
@@ -150,7 +157,7 @@ func (m *Model) rebuildRuns() {
 	if m.log.open {
 		// The record of a run that has ended replaces what the status alone knew; the log keeps its own view of
 		// whether the run is active.
-		if i := slices.IndexFunc(m.runData, func(r runRow) bool { return r.id == m.log.row.id }); i >= 0 {
+		if i := slices.IndexFunc(m.runData, func(r runRow) bool { return r.id == m.log.row.id && r.engine == m.log.row.engine }); i >= 0 {
 			m.log.row = m.runData[i]
 			m.log.row.active = m.log.active
 		}
@@ -242,13 +249,15 @@ func (m *Model) refeedFilteredLog() {
 // readLog reads the status and then the log of the open run. The status comes first: a run that is not active
 // in it has written its last line before the log is read.
 func (m *Model) readLog() tea.Cmd {
-	ctx, b, gen, id := m.ctx, m.backend, m.log.gen, m.log.row.id
+	ctx, b, gen, id, engine := m.engineCtx(m.log.row.engine), m.backend, m.log.gen, m.log.row.id, m.log.row.engine
 	return func() tea.Msg {
 		st, err := b.Status(ctx)
 		if err != nil {
 			return logMsg{gen: gen, err: err}
 		}
-		active := slices.ContainsFunc(st.Engine.Stacks, func(s control.StackStatus) bool { return s.ActiveRun == id })
+		active := slices.ContainsFunc(st.Engine.Stacks, func(s control.StackStatus) bool {
+			return s.ActiveRun == id && inEngine(s.Engine, engine)
+		})
 		res, err := b.Log(ctx, id)
 		return logMsg{gen: gen, text: res.Text, active: active, err: err}
 	}
@@ -366,7 +375,11 @@ func (m *Model) runsView(width, height int) string {
 func (m *Model) logPane(width, height int) string {
 	l := &m.log
 	state, _ := m.runResult(l.row)
-	lines := []string{"  " + m.styles.TitleLine(l.row.stack, state+"  "+l.row.id, max(width-2, 1))}
+	id := l.row.id
+	if m.multiEngine() && l.row.engine != "" {
+		id += " (" + l.row.engine + ")"
+	}
+	lines := []string{"  " + m.styles.TitleLine(l.row.stack, state+"  "+id, max(width-2, 1))}
 	switch {
 	case l.err != nil:
 		lines = append(lines, m.wrapped(2, kittui.StyleFail, m.errorText(l.err), width)...)
