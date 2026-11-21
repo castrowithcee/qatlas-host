@@ -31,7 +31,7 @@ func newKeyCommand(program *cobracli.Program, state *notRunning, secrets *redact
 			"administrator in the group qhost; generate and set need sudo.",
 	}
 	var replace bool
-	var dir string
+	var dir, engine string
 	generate := &cobra.Command{
 		Use:   "generate",
 		Short: "Generate the Ed25519 deploy key and show its public part",
@@ -40,11 +40,15 @@ func newKeyCommand(program *cobracli.Program, state *notRunning, secrets *redact
 			"replaces it, and the old key stops working at once.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
+			if err := routeKey(c, state, engine, dir); err != nil {
+				return err
+			}
 			return keyCall(c, program, state, control.KeyGenerateCommand, control.KeyGenerateArgs{Replace: replace, Dir: dir})
 		},
 	}
 	generate.Flags().BoolVar(&replace, "replace", false, "replace an existing deploy key")
 	generate.Flags().StringVar(&dir, "dir", "", "stack folder the key is for (absolute path)")
+	addEngineFlag(generate, &engine, optionalFolderEngineUsage, keyEngineNote)
 	var file string
 	set := &cobra.Command{
 		Use:   "set",
@@ -58,6 +62,9 @@ func newKeyCommand(program *cobracli.Program, state *notRunning, secrets *redact
 			"stops working at once.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
+			if err := routeKey(c, state, engine, dir); err != nil {
+				return err
+			}
 			text, err := readKey(c, file)
 			if err != nil {
 				return err
@@ -69,6 +76,7 @@ func newKeyCommand(program *cobracli.Program, state *notRunning, secrets *redact
 	set.Flags().BoolVar(&replace, "replace", false, "replace an existing deploy key")
 	set.Flags().StringVar(&dir, "dir", "", "stack folder the key is for (absolute path)")
 	set.Flags().StringVar(&file, "file", "", "read the private key from this file instead of the terminal or stdin")
+	addEngineFlag(set, &engine, optionalFolderEngineUsage, keyEngineNote)
 	show := &cobra.Command{
 		Use:   "show",
 		Short: "Show the public part of the deploy key",
@@ -76,21 +84,25 @@ func newKeyCommand(program *cobracli.Program, state *notRunning, secrets *redact
 			"fingerprint, for entry in the git platform.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
+			if err := routeKey(c, state, engine, dir); err != nil {
+				return err
+			}
 			return keyCall(c, program, state, control.KeyShowCommand, control.KeyShowArgs{Dir: dir})
 		},
 	}
 	show.Flags().StringVar(&dir, "dir", "", "stack folder the key is for (absolute path)")
+	addEngineFlag(show, &engine, optionalFolderEngineUsage, keyEngineNote)
 	key.AddCommand(generate, set, show)
 	return key
 }
 
 func keyCall(c *cobra.Command, program *cobracli.Program, state *notRunning, command string, args any) error {
 	var res control.KeyResult
-	if err := call(c.Context(), serviceEndpoint(), command, args, &res); err != nil {
+	if err := call(c.Context(), targetOf(c.Context()).endpoint(), command, args, &res); err != nil {
 		if errors.Is(err, client.ErrNotRunning) {
 			state.seen = true
 		}
-		f := failureOf(err)
+		f := targetFailure(c.Context(), err)
 		var fail *cli.Failure
 		if command == control.KeySetCommand && errors.As(f, &fail) && fail.Code == output.CodeConfirmationRequired {
 			fail.NextStep = "Run 'qhost key set --replace' to replace it; the old key stops working at once."
@@ -101,6 +113,15 @@ func keyCall(c *cobra.Command, program *cobracli.Program, state *notRunning, com
 		{Name: "public_key", Value: res.PublicKey},
 		{Name: "fingerprint", Value: res.Fingerprint},
 	}})
+}
+
+// routeKey makes the deploy service that keeps the key the target: the one that has the stack folder bound, and
+// without --dir the deploy service of the whole engine.
+func routeKey(c *cobra.Command, state *notRunning, engine, dir string) error {
+	if dir != "" {
+		return routeFolderKey(c, state, engine, dir)
+	}
+	return routeInstance(c, engine)
 }
 
 // readKey reads the private key from file, from the terminal without echo, or from standard input. Its errors

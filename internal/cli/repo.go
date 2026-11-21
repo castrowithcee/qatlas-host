@@ -77,7 +77,7 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 		"expected SHA256 fingerprint of the server's host key; required without a terminal")
 	set.Flags().StringVar(&engine, "engine", "", "Docker engine of the stack folder: system (default) or rootless:<user>")
 	gate = program.AddGate(set, cobracli.Gates{Question: true})
-	var fetchDir string
+	var fetchDir, fetchEngine string
 	fetch := &cobra.Command{
 		Use:   "fetch [--dir <path>]",
 		Short: "Fetch new commits of the stacks repositories",
@@ -89,6 +89,13 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 		RunE: func(c *cobra.Command, _ []string) error {
 			if fetchDir != "" && (!filepath.IsAbs(fetchDir) || filepath.Clean(fetchDir) != fetchDir) {
 				return usageFailure("--dir must be an absolute, clean path", "Pass the absolute path of the stack folder.")
+			}
+			if fetchDir != "" {
+				if err := routeFolder(c, state, fetchEngine, fetchDir); err != nil {
+					return err
+				}
+			} else if err := routeInstance(c, fetchEngine); err != nil {
+				return err
 			}
 			var res control.RepoFetchResult
 			if err := repoCall(c, state, control.RepoFetchCommand, control.RepoFetchArgs{Dir: fetchDir}, &res); err != nil {
@@ -115,6 +122,8 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 		},
 	}
 	fetch.Flags().StringVar(&fetchDir, "dir", "", "fetch only this bound stack folder (absolute path)")
+	addEngineFlag(fetch, &fetchEngine, optionalFolderEngineUsage, fetchEngineNote)
+	var probeEngine string
 	probe := &cobra.Command{
 		Use:   "probe <ssh-url>",
 		Short: "Show the host key a git server presents and whether it is pinned; stores nothing",
@@ -131,9 +140,13 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeInstance(c, probeEngine); err != nil {
+				return err
+			}
 			return runRepoProbe(c, program, state, args[0])
 		},
 	}
+	addEngineFlag(probe, &probeEngine, instanceEngineUsage, probeEngineNote)
 	group.AddCommand(set, fetch, probe)
 	return group
 }

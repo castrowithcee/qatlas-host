@@ -14,7 +14,8 @@ import (
 )
 
 func newCheckCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	cmd := &cobra.Command{
 		Use:   "check [stack]",
 		Short: "Show per stack which functions work with its files, and why not",
 		Long: "check reports per stack of the bound stacks repository's working copy whether deploy, update (with\n" +
@@ -35,6 +36,11 @@ func newCheckCommand(program *cobracli.Program, state *notRunning) *cobra.Comman
 			var req control.StacksCheckArgs
 			if len(args) == 1 {
 				req.Stack = args[0]
+				if err := routeStacks(c, state, engine, req.Stack); err != nil {
+					return err
+				}
+			} else if err := routeInstance(c, engine); err != nil {
+				return err
 			}
 			var res control.StacksCheckResult
 			if err := credentialCall(c, state, control.StacksCheckCommand, req, &res); err != nil {
@@ -51,6 +57,8 @@ func newCheckCommand(program *cobracli.Program, state *notRunning) *cobra.Comman
 			return nil
 		},
 	}
+	addEngineFlag(cmd, &engine, optionalStackEngineUsage, stackEngineNote+" "+wholeEngineNote)
+	return cmd
 }
 
 // encodeCheck writes the report: in JSON and TOON the result as it is, as text one row per function and per

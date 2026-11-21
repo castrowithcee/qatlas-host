@@ -188,7 +188,7 @@ func TestStatusFieldsAreUniqueAcrossSources(t *testing.T) {
 		},
 	}
 	got := map[string]any{}
-	for _, f := range engineFields(e) {
+	for _, f := range engineFields(control.EngineSystem, e) {
 		if _, dup := got[f.Name]; dup {
 			t.Fatalf("duplicate field %s", f.Name)
 		}
@@ -232,7 +232,7 @@ func TestObservationInStatusFields(t *testing.T) {
 	until := time.Date(2026, 5, 4, 3, 2, 1, 0, time.UTC)
 	commit := strings.Repeat("b", 40)
 	got := map[string]any{}
-	for _, f := range engineFields(control.EngineStatus{Stacks: []control.StackStatus{
+	for _, f := range engineFields(control.EngineSystem, control.EngineStatus{Stacks: []control.StackStatus{
 		{Name: "web", Source: "srv", Observe: &control.ObserveInfo{Commit: commit, Until: until}},
 	}}) {
 		got[f.Name] = f.Value

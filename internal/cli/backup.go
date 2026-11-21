@@ -27,6 +27,7 @@ func newBackupCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"no sudo for an administrator in the group qhost; create and restore need sudo.",
 	}
 	var gate *cobracli.Gate
+	var createEngine, listEngine, restoreEngine string
 	create := &cobra.Command{
 		Use:   "create <stack>",
 		Short: "Stop a stack, back up its data and start it again",
@@ -37,6 +38,9 @@ func newBackupCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"again. The command waits until the backup is finished.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, createEngine, args[0]); err != nil {
+				return err
+			}
 			var res control.BackupCreateResult
 			if err := backupCall(c, state, control.BackupCreateCommand, control.BackupArgs{Stack: args[0]}, &res); err != nil {
 				return err
@@ -58,6 +62,9 @@ func newBackupCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"directory of the store without valid metadata shows as incomplete.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, listEngine, args[0]); err != nil {
+				return err
+			}
 			var res control.BackupListResult
 			if err := backupCall(c, state, control.BackupListCommand, control.BackupArgs{Stack: args[0]}, &res); err != nil {
 				return err
@@ -101,18 +108,24 @@ func newBackupCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runBackupRestore(c, program, gate, state, args[0], args[1])
+			return runBackupRestore(c, program, gate, state, args[0], args[1], restoreEngine)
 		},
 	}
+	addEngineFlag(create, &createEngine, stackEngineUsage, stackEngineNote)
+	addEngineFlag(list, &listEngine, stackEngineUsage, stackEngineNote)
+	addEngineFlag(restore, &restoreEngine, stackEngineUsage, stackEngineNote)
 	gate = program.AddGate(restore, cobracli.Gates{Question: true})
 	group.AddCommand(create, list, restore)
 	return group
 }
 
-func runBackupRestore(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, stack, id string) error {
+func runBackupRestore(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, stack, id, engine string) error {
 	if !runIDShape.MatchString(id) {
 		return &cli.Failure{Code: output.CodeNotFound, Message: "no such backup",
 			NextStep: "List the backups with 'qhost stack backup list " + stack + "'.", Cause: fmt.Errorf("malformed backup id")}
+	}
+	if err := routeStacks(c, state, engine, stack); err != nil {
+		return err
 	}
 	question := fmt.Sprintf("Restore backup %s of stack %s? The stack is stopped and its current data is overwritten.", id, stack)
 	return gate.Run(cobracli.Request{Question: question}, func() error {

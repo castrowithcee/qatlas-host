@@ -163,50 +163,29 @@ func overlapping(a, b string) bool {
 // peerLimit bounds the question to one other deploy service.
 const peerLimit = 10 * time.Second
 
-// peerAnswer is what the deploy service of another engine said about its stack folders and stacks; err is set
-// when it could not be asked.
-type peerAnswer struct {
-	engine string
-	status control.StatusResult
-	err    error
-}
-
 // askPeers asks the deploy services of every other engine once. Only root may ask all of them, and the client
 // runs as root here. A service that cannot be asked is kept with its error: the operator decides.
-func (h folderHost) askPeers(ctx context.Context, t engineTarget) ([]peerAnswer, error) {
-	type peer struct {
-		engine string
-		ep     localipc.ServiceEndpoint
-	}
-	var peers []peer
-	if t.inst != nil && deployInstalled() {
-		peers = append(peers, peer{control.EngineSystem, serviceEndpoint()})
-	}
-	list, err := h.instances()
+func (h folderHost) askPeers(ctx context.Context, t engineTarget) ([]engineAnswer, error) {
+	all, err := h.engineTargets()
 	if err != nil {
-		return nil, folderFailure("cannot list the deploy service instances", err)
+		return nil, err
 	}
-	for _, inst := range list {
-		if t.inst == nil || inst.User() != t.inst.User() {
-			peers = append(peers, peer{rootlessPrefix + inst.User(), instanceEndpoint(inst)})
+	var peers []engineTarget
+	for _, p := range all {
+		if p.id() != t.id() {
+			peers = append(peers, p)
 		}
 	}
-	sort.SliceStable(peers, func(a, b int) bool { return peers[a].engine < peers[b].engine })
-	out := make([]peerAnswer, 0, len(peers))
-	for _, p := range peers {
-		a := peerAnswer{engine: p.engine}
-		a.err = callFor(ctx, peerLimit, p.ep, control.StatusCommand, nil, &a.status)
-		out = append(out, a)
-	}
-	return out, nil
+	sort.SliceStable(peers, func(a, b int) bool { return peers[a].id() < peers[b].id() })
+	return askEngines(ctx, peers), nil
 }
 
 // checkPath refuses a folder that is or contains a stack folder of another engine, or lies inside one.
-func checkPath(peers []peerAnswer, path string) error {
+func checkPath(peers []engineAnswer, path string) error {
 	for _, p := range peers {
 		for _, src := range p.status.Engine.Sources {
 			if p.err == nil && overlapping(path, src.Path) {
-				return usageFailure(fmt.Sprintf("the folder %s overlaps the stack folder %s of the %s engine", path, src.Path, p.engine),
+				return usageFailure(fmt.Sprintf("the folder %s overlaps the stack folder %s of the %s engine", path, src.Path, p.engine()),
 					"Choose a folder that does not overlap a stack folder that is in use.")
 			}
 		}
@@ -215,12 +194,12 @@ func checkPath(peers []peerAnswer, path string) error {
 }
 
 // checkStacks refuses a stack name that another engine already has.
-func checkStacks(peers []peerAnswer, stacks []control.SourceStack) error {
+func checkStacks(peers []engineAnswer, stacks []control.SourceStack) error {
 	for _, p := range peers {
 		for _, mine := range stacks {
 			for _, theirs := range p.status.Engine.Stacks {
 				if p.err == nil && mine.Name == theirs.Name {
-					return usageFailure(fmt.Sprintf("the %s engine already has a stack named %s", p.engine, mine.Name),
+					return usageFailure(fmt.Sprintf("the %s engine already has a stack named %s", p.engine(), mine.Name),
 						"Rename the stack in the folder, or take the folder over into that engine.")
 				}
 			}
@@ -230,12 +209,11 @@ func checkStacks(peers []peerAnswer, stacks []control.SourceStack) error {
 }
 
 // uncheckedPeers describes the services that could not be asked, one line each.
-func uncheckedPeers(peers []peerAnswer) []string {
+func uncheckedPeers(peers []engineAnswer) []string {
 	var out []string
 	for _, p := range peers {
 		if p.err != nil {
-			out = append(out, fmt.Sprintf("the deploy service of the %s engine could not be asked (%s); its stack folders and stacks are unknown",
-				p.engine, briefReason(p.err)))
+			out = append(out, uncheckedText(p))
 		}
 	}
 	return out

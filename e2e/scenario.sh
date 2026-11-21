@@ -2504,6 +2504,8 @@ scenario_stacks_repo() {
 
 	scenario_source_rootless
 
+	scenario_source_engine
+
 	scenario_key_set
 
 	scenario_observe_end
@@ -2839,11 +2841,81 @@ scenario_source_rootless() {
 	wait_for 'the stack to run in the rootless engine' 180 sr_stack_runs
 
 	step 'the system engine neither lists the folder nor runs the stack'
-	if list_has_path "$sr_base"; then fail 'the system service lists the folder of the instance'; fi
+	sr_listed=$(qd --output json source list | jq -r --arg p "$sr_base" '[.sources[] | select(.path == $p) | .engine] | join(",")')
+	[ "$sr_listed" = "$sr_engine" ] || fail "source list does not show the folder once, with the engine $sr_engine, but as: $sr_listed"
 	if docker exec "$host" grep -qF "$sr_base" "$sr_sysdropin"; then fail 'the drop-in of the system service names the folder of the instance'; fi
 	[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=demo-rootless)" ] ||
 		fail 'the system engine runs the stack of the instance'
 	log "scenario: the folder $sr_base belongs to $sr_unit; demo-rootless runs in the rootless engine only"
+}
+
+# sr_run_done succeeds when the instance of $rootless_user records the run $1 of demo-rootless as succeeded.
+sr_run_done() {
+	qd --output json stack runs demo-rootless --engine "rootless:$rootless_user" |
+		jq -e --arg r "$1" 'any(.[]; .run == $r and .result == "succeeded")' >/dev/null
+}
+
+# sr_idle succeeds when the instance of $rootless_user has no run of demo-rootless in progress and has finished one.
+sr_idle() {
+	qd --output json status | jq -e --arg p "instance.$rootless_user.stack.demo-rootless." '
+		(.[$p + "active_run"] // "") == "" and (.[$p + "last_run"] // "") != ""' >/dev/null
+}
+
+# scenario_source_engine proves that commands reach the deploy service of the engine that has the stack, on the
+# folder scenario_source_rootless bound: stack list without sudo names both engines, a deploy and a change of the
+# settings under sudo act in the rootless instance and not in the system service, and a credential set with --engine
+# is listed by that instance only. The credential is deleted again; the stack, its settings and its run stay.
+scenario_source_engine() {
+	se_engine=rootless:$rootless_user
+	se_cred=registry.qhost-e2e-rootless.test
+
+	step 'stack list without sudo shows the stacks of the system service and of the instance, each with its engine'
+	out=$(as_admin 'qhost --output json stack list') || fail "qhost stack list without sudo failed: $out"
+	printf '%s' "$out" | jq -e '[.[] | select(.stack == "demo-stack") | .engine] | index("system") != null' >/dev/null ||
+		fail "stack list does not show demo-stack with the engine system: $out"
+	printf '%s' "$out" | jq -e --arg e "$se_engine" '[.[] | select(.stack == "demo-rootless") | .engine] == [$e]' >/dev/null ||
+		fail "stack list does not show demo-rootless once, with the engine $se_engine: $out"
+
+	step 'sudo qhost stack deploy reaches the instance: the run is recorded there and the stack runs in the rootless engine'
+	wait_for 'the first run of demo-rootless in the instance' 180 sr_idle
+	runs_before=$(qd --output json stack runs --engine system | jq 'length')
+	out=$(as_admin 'sudo qhost --output json stack deploy demo-rootless') || fail "sudo qhost stack deploy demo-rootless failed: $out"
+	se_run=$(printf '%s' "$out" | jq -r '.run') || fail "unexpected deploy result: $out"
+	[ -n "$se_run" ] && [ "$se_run" != null ] || fail "the deploy names no run: $out"
+	wait_for "the run $se_run of demo-rootless to succeed in the instance" 180 sr_run_done "$se_run"
+	qd --output json stack runs --engine system | jq -e --arg r "$se_run" 'any(.[]; .run == $r) | not' >/dev/null ||
+		fail "the system service recorded the run $se_run"
+	[ "$(qd --output json stack runs --engine system | jq 'length')" = "$runs_before" ] || fail 'the deploy changed the runs of the system service'
+	sr_stack_runs || fail 'demo-rootless does not run in the rootless engine after the deploy'
+	[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=demo-rootless)" ] ||
+		fail 'the deploy started demo-rootless in the system engine'
+
+	step 'sudo qhost stack settings set changes the settings held by the instance'
+	out=$(qd --output json stack settings demo-rootless) || fail "stack settings of demo-rootless failed: $out"
+	printf '%s' "$out" | jq -e '.configured == false' >/dev/null || fail "demo-rootless already has settings: $out"
+	out=$(printf 'version: 1\ncheck:\n  containers: false\n' |
+		docker exec -i -u "$admin" "$host" sh -ec 'sudo qhost --output json stack settings set demo-rootless --file - 2>&1') ||
+		fail "sudo qhost stack settings set demo-rootless failed: $out"
+	printf '%s' "$out" | jq -e '.changed == true' >/dev/null || fail "settings set reports no change: $out"
+	out=$(qd --output json stack settings demo-rootless) || fail "stack settings of demo-rootless failed after the change: $out"
+	printf '%s' "$out" | jq -e '.configured == true and .settings.check.containers == false' >/dev/null ||
+		fail "the instance does not hold the new settings: $out"
+	docker exec "$host" git -c "safe.directory=$sr_base" -C "$sr_base" log --format=%s | grep -qx 'qhost: settings of demo-rootless' ||
+		fail 'the stack folder of the instance has no settings commit'
+	out=$(qd_fails stack settings demo-rootless --engine system) || fail "the system service answered for demo-rootless: $out"
+
+	step "a credential set with --engine $se_engine is listed by that instance only"
+	out=$(printf '%s' 'demo-user:demo-token-e2e' |
+		docker exec -i -u "$admin" "$host" sh -ec "sudo qhost credential set $se_cred --engine $se_engine 2>&1") ||
+		fail "credential set --engine $se_engine failed: $out"
+	qd --output json credential list --engine "$se_engine" | jq -e --arg n "$se_cred" 'any(.[]; .name == $n)' >/dev/null ||
+		fail "the instance does not list the credential: $(qd credential list --engine "$se_engine")"
+	qd --output json credential list | jq -e --arg n "$se_cred" 'any(.[]; .name == $n) | not' >/dev/null ||
+		fail "the system service lists the credential of the instance: $(qd credential list)"
+	out=$(as_admin "sudo qhost credential delete $se_cred --engine $se_engine 2>&1") || fail "credential delete --engine $se_engine failed: $out"
+	qd --output json credential list --engine "$se_engine" | jq -e --arg n "$se_cred" 'any(.[]; .name == $n) | not' >/dev/null ||
+		fail 'the credential is still listed by the instance after its deletion'
+	log "scenario: stack list, deploy, settings and credential reached the instance of $rootless_user and not the system service"
 }
 
 # local_tree prints mode, owner, group and size of every path below /srv/qd-local except .git, which the service

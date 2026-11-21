@@ -39,6 +39,7 @@ func newCredentialCommand(program *cobracli.Program, state *notRunning, secrets 
 		Long: "Credentials are stored by the service and never shown again. list reads and needs no sudo for an\n" +
 			"administrator in the group qhost; set and delete need sudo.",
 	}
+	var setEngine, listEngine, delEngine string
 	set := &cobra.Command{
 		Use:   "set <name>",
 		Short: "Store a credential read from the terminal or stdin",
@@ -58,6 +59,9 @@ func newCredentialCommand(program *cobracli.Program, state *notRunning, secrets 
 			name := args[0]
 			if !credentials.ValidName(name) {
 				return usageFailure(credentials.ErrInvalidName.Error(), "Choose another name and run the command again.")
+			}
+			if err := routeInstance(c, setEngine); err != nil {
+				return err
 			}
 			value, err := readValue(c, name)
 			if err != nil {
@@ -82,6 +86,9 @@ func newCredentialCommand(program *cobracli.Program, state *notRunning, secrets 
 		Long:  "list shows the names and the modification times of the stored credentials, never their values.",
 		Args:  cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
+			if err := routeInstance(c, listEngine); err != nil {
+				return err
+			}
 			var res control.CredentialListResult
 			if err := credentialCall(c, state, control.CredentialListCommand, nil, &res); err != nil {
 				return err
@@ -103,6 +110,9 @@ func newCredentialCommand(program *cobracli.Program, state *notRunning, secrets 
 			if !credentials.ValidName(args[0]) {
 				return usageFailure(credentials.ErrInvalidName.Error(), "Check the names with 'qhost credential list'.")
 			}
+			if err := routeInstance(c, delEngine); err != nil {
+				return err
+			}
 			if err := credentialCall(c, state, control.CredentialDeleteCommand, control.CredentialNameArgs{Name: args[0]}, nil); err != nil {
 				return err
 			}
@@ -111,6 +121,9 @@ func newCredentialCommand(program *cobracli.Program, state *notRunning, secrets 
 			}})
 		},
 	}
+	addEngineFlag(set, &setEngine, instanceEngineUsage, credentialEngineNote)
+	addEngineFlag(list, &listEngine, instanceEngineUsage, credentialEngineNote)
+	addEngineFlag(del, &delEngine, instanceEngineUsage, credentialEngineNote)
 	group.AddCommand(set, list, del)
 	return group
 }
