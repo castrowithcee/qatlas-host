@@ -23,17 +23,19 @@ func testRegistry(t *testing.T) (*control.Registry, map[string]string) {
 func TestEveryCommandIsClassifiedWithTheHostScope(t *testing.T) {
 	reg, actions := testRegistry(t)
 	want := map[string]control.Class{
-		control.StatusCommand:           control.ClassRead,
-		control.HostLogListCommand:      control.ClassRead,
-		control.HostLogVerifyCommand:    control.ClassRead,
-		control.ProposalListCommand:     control.ClassRead,
-		control.ProposalShowCommand:     control.ClassRead,
-		control.ProposalSubmitCommand:   control.ClassPropose,
-		control.ProposalWithdrawCommand: control.ClassPropose,
-		control.HostRecordCommand:       control.ClassChange,
-		control.ProposalApproveCommand:  control.ClassChange,
-		control.ProposalRejectCommand:   control.ClassChange,
-		control.ProposalResultCommand:   control.ClassChange,
+		control.StatusCommand:             control.ClassRead,
+		control.HostLogListCommand:        control.ClassRead,
+		control.HostLogVerifyCommand:      control.ClassRead,
+		control.ProposalListCommand:       control.ClassRead,
+		control.ProposalShowCommand:       control.ClassRead,
+		control.ProposalSubmitCommand:     control.ClassPropose,
+		control.ProposalWithdrawCommand:   control.ClassPropose,
+		control.HostRecordCommand:         control.ClassChange,
+		control.HostCommandsSetCommand:    control.ClassChange,
+		control.HostCommandsStatusCommand: control.ClassRead,
+		control.ProposalApproveCommand:    control.ClassChange,
+		control.ProposalRejectCommand:     control.ClassChange,
+		control.ProposalResultCommand:     control.ClassChange,
 	}
 	entries := reg.Entries()
 	if len(entries) != len(want) {

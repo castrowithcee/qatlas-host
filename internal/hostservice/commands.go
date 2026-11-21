@@ -65,6 +65,8 @@ func (s *server) registry(store *proposals.Store) (*control.Registry, map[string
 		{control.HostLogVerifyCommand, auditlog.OperationLogRead, control.ClassRead, s.logVerify},
 		// The sudo call that made the change is the proof, so only root may report one.
 		{control.HostRecordCommand, auditlog.OperationHostChange, control.ClassChange, hostRecord},
+		{control.HostCommandsSetCommand, auditlog.OperationProposalCommands, control.ClassChange, s.commandsSet},
+		{control.HostCommandsStatusCommand, auditlog.OperationProposalRead, control.ClassRead, s.commandsStatus},
 	} {
 		if err := add(c.name, c.action, c.class, handler(c.handle)); err != nil {
 			return nil, nil, err

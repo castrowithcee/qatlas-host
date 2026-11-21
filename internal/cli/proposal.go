@@ -36,14 +36,15 @@ func newProposalCommand(program *cobracli.Program, state *notRunning, secrets *r
 	}
 	group.AddCommand(newProposalSubmit(program, state), newProposalList(program, state),
 		newProposalShow(program, state), newProposalWithdraw(program, state),
-		newProposalApprove(program, state, secrets), newProposalReject(program, state))
+		newProposalApprove(program, state, secrets), newProposalReject(program, state),
+		newProposalCommandsCommand(program, state))
 	return group
 }
 
 func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var kind, file string
 	c := &cobra.Command{
-		Use:   "submit --kind source-add|stack-settings|window|notify-channel|host-change [--file <path>|-]",
+		Use:   "submit --kind source-add|stack-settings|window|notify-channel|host-change|command [--file <path>|-]",
 		Short: "Submit a proposal read as JSON from a file or standard input",
 		Long: "submit sends the content of a proposal to the service of its kind, which checks and stores it, and prints its id. The\n" +
 			"content is a JSON object in the schema of the kind, read from --file or, without it or with '-', from\n" +
@@ -56,7 +57,10 @@ func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Comm
 			"host service and takes one action of 'qhost help host-admin' with its arguments and, for user.create and\n" +
 			"user.add-key, public SSH keys: {\"action\": \"user.create\", \"args\": [\"anna\", \"group=dev\"], \"keys\": [\"ssh-ed25519 ...\"]}.\n" +
 			"It never holds a password; user.set-password, user.set-admin, user.create with admin and member changes of\n" +
-			"the groups sudo and qhost are refused. See 'qhost help proposals'.",
+			"the groups sudo and qhost are refused. The kind command goes to the host service as well and takes\n" +
+			"{\"commands\": [\"touch /srv/example/ready\"], \"reason\": \"why\"}: one to 10 commands, each one printable line of at\n" +
+			"most 1000 characters, and a reason of at most 1000 characters. It is accepted only while an administrator has\n" +
+			"turned it on with 'sudo qhost proposal commands enable'. See 'qhost help proposals'.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if kind == "" {
@@ -67,14 +71,14 @@ func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Comm
 				return err
 			}
 			var res control.ProposalInfo
-			if err := proposalCallTo(c, state, kind == control.ProposalKindHostChange, control.ProposalSubmitCommand,
+			if err := proposalCallTo(c, state, hostKind(kind), control.ProposalSubmitCommand,
 				control.ProposalSubmitArgs{Kind: kind, Content: content}, &res); err != nil {
 				return err
 			}
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: proposalFields(program.Format(), res)})
 		},
 	}
-	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add, stack-settings, window, notify-channel or host-change")
+	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add, stack-settings, window, notify-channel, host-change or command")
 	c.Flags().StringVar(&file, "file", "", "file with the content as JSON, or - for standard input (default)")
 	return c
 }
@@ -170,13 +174,20 @@ func listProposals(c *cobra.Command, state *notRunning) ([]listedProposal, error
 // hostProposalID reports whether id names a proposal of the host service.
 func hostProposalID(id string) bool { return strings.HasPrefix(id, control.HostProposalIDPrefix) }
 
+// hostKind reports whether the host service keeps proposals of kind.
+func hostKind(kind string) bool {
+	return kind == control.ProposalKindHostChange || kind == control.ProposalKindCommand
+}
+
 func newProposalShow(program *cobracli.Program, state *notRunning) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show one proposal with its content",
 		Long: "show prints a proposal with its fingerprint, the submitter and the content as it was submitted. For a proposal\n" +
 			"of the host it also prints the sentence and the commands of the change, as 'sudo qhost host apply --proposal'\n" +
-			"would run them, and the type, fingerprint and comment of each proposed SSH key.",
+			"would run them, and the type, fingerprint and comment of each proposed SSH key. For a proposal of the kind\n" +
+			"command it prints the commands and the reason word for word as text of the submitter, with control\n" +
+			"characters replaced, and the notice: unchecked, no computed effect, no undo.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			var res control.ProposalShowResult
@@ -188,13 +199,16 @@ func newProposalShow(program *cobracli.Program, state *notRunning) *cobra.Comman
 			if res.Kind == control.ProposalKindHostChange {
 				fields = append(fields, hostChangeFields(program, res)...)
 			}
+			if res.Kind == control.ProposalKindCommand {
+				fields = append(fields, commandProposalFields(format, res)...)
+			}
 			var content map[string]any
 			if err := json.Unmarshal(res.Content, &content); err != nil {
 				content = map[string]any{}
 			}
 			if structuredFormat(format) {
 				fields = append(fields, output.Field{Name: "content", Value: content})
-			} else {
+			} else if res.Kind != control.ProposalKindCommand {
 				keys := make([]string, 0, len(content))
 				for k := range content {
 					keys = append(keys, k)
@@ -310,6 +324,8 @@ func proposalFailure(err error) error {
 		case control.CodeProposalChanged:
 			return &cli.Failure{Code: output.CodeInvalidRequest, Message: remote.Message + "; nothing was applied", Usage: true,
 				NextStep: "Show the proposal with 'qhost proposal show <id>' and review it again.", Cause: remote}
+		case control.CodeCommandsDisabled:
+			return commandProposalFailure(remote)
 		case control.CodeNotFound:
 			return &cli.Failure{Code: output.CodeNotFound, Message: remote.Message,
 				NextStep: "List the proposals with 'qhost proposal list'.", Cause: remote}

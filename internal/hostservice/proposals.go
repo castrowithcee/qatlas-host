@@ -3,6 +3,9 @@ package hostservice
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/host/auditlog"
@@ -36,14 +39,18 @@ func proposalCommands(add func(name, action string, class control.Class, h contr
 	return nil
 }
 
-// normalizeProposal is the check of the only kind of the host service, ProposalKindHostChange. It decodes the
+// normalizeProposal is the check of the kinds of the host service. For ProposalKindHostChange it decodes the
 // content strictly, refuses a password by name, and checks the action, its arguments and keys with check, which
-// reads nothing from the host and runs nothing.
-func normalizeProposal(check hostproposal.Checker) proposals.Normalizer {
+// reads nothing from the host and runs nothing. ProposalKindCommand is accepted only while commandsEnabled
+// says the switch is on.
+func normalizeProposal(check hostproposal.Checker, commandsEnabled func() (bool, error)) proposals.Normalizer {
 	return func(kind string, content json.RawMessage) (any, *control.Error) {
+		if kind == control.ProposalKindCommand {
+			return normalizeCommandProposal(content, commandsEnabled)
+		}
 		if kind != control.ProposalKindHostChange {
-			return nil, proposals.Invalid("the host service keeps proposals of the kind %s only, not %q",
-				control.ProposalKindHostChange, proposals.Printable(kind))
+			return nil, proposals.Invalid("the host service keeps proposals of the kinds %s and %s only, not %q",
+				control.ProposalKindHostChange, control.ProposalKindCommand, proposals.Printable(kind))
 		}
 		var members map[string]json.RawMessage
 		if err := json.Unmarshal(content, &members); err != nil {
@@ -67,4 +74,45 @@ func normalizeProposal(check hostproposal.Checker) proposals.Normalizer {
 		}
 		return control.ProposalHostChange{Action: c.Action, Args: args, Keys: keys}, nil
 	}
+}
+
+// normalizeCommandProposal checks a proposal of kind ProposalKindCommand. The switch is read first, so a refusal
+// names it whatever the content is. The commands are only checked for their shape, never run or interpreted.
+func normalizeCommandProposal(content json.RawMessage, enabled func() (bool, error)) (any, *control.Error) {
+	on, err := enabled()
+	if err != nil {
+		return nil, control.NewError(control.CodeInternal, "internal error")
+	}
+	if !on {
+		return nil, control.NewError(control.CodeCommandsDisabled,
+			"proposals of commands are switched off; an administrator turns them on with 'sudo qhost proposal commands enable'")
+	}
+	var c control.ProposalCommand
+	if err := proposals.DecodeStrict(content, &c); err != nil {
+		return nil, proposals.Invalid("the content of a %s proposal must be a JSON object with the fields commands and reason only",
+			control.ProposalKindCommand)
+	}
+	if n := len(c.Commands); n < 1 || n > control.ProposalCommandMax {
+		return nil, proposals.Invalid("a %s proposal holds 1 to %d commands", control.ProposalKindCommand, control.ProposalCommandMax)
+	}
+	for _, line := range c.Commands {
+		if !printableLine(line, control.ProposalCommandMaxChars) {
+			return nil, proposals.Invalid("each command must be one non-empty line of printable characters, at most %d characters",
+				control.ProposalCommandMaxChars)
+		}
+	}
+	if !printableLine(c.Reason, control.ProposalReasonMaxChars) {
+		return nil, proposals.Invalid("the reason is required and must be one line of printable characters, at most %d characters",
+			control.ProposalReasonMaxChars)
+	}
+	return c, nil
+}
+
+// printableLine reports whether s is valid UTF-8 with printable characters only, so no line break, tab or
+// control character, holds something besides spaces, and has at most max characters.
+func printableLine(s string, max int) bool {
+	if !utf8.ValidString(s) || strings.TrimSpace(s) == "" || utf8.RuneCountInString(s) > max {
+		return false
+	}
+	return !strings.ContainsFunc(s, func(r rune) bool { return !unicode.IsPrint(r) })
 }
