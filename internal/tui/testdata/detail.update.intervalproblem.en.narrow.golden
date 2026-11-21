@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                    [esc] back
+  1 Stacks [2 Stack detail] 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+  Update rules of a stack                                                       
+                                                                                
+  Rules of the stack demo-stack. Backup, check and compose files stay as they   
+  are.                                                                          
+                                                                                
+  …                                                                             
+                         ╔═════════════════════════════════════════════════════╗
+> Interval (seconds)     ║ 29_                                                 ║
+                         ╚═════════════════════════════════════════════════════╝
+                         between two polls, 30 to 86400; used with Polling only,
+                         ignored otherwise                                      
+                         [!] The interval is a whole number of seconds from 30  
+                         to 86400. - Correct the field.                         
+                         ╭─────────────────────────────────────────────────────╮
+  Tag filters            │ APP_VERSION → ^1\.[0-9.]+$                          │
+                         ╰─────────────────────────────────────────────────────╯
+  …                                                                             
+                                                                                
+                                                                                
+[ F2 save ]  [ esc discard ]                                                    
+F2 save  esc discard                    tab next field  shift+tab previous field

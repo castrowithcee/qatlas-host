@@ -2,15 +2,15 @@
   1 [2 Stack-Details] 3 4 5 6 7                                                 
 ────────────────────────────────────────────────────────────────────────────────
   Update-Regeln eines Stacks                                                    
-                                                                                
-  Regeln╔═ Update-Regeln eines Stacks ═════════════════════════════════╗ben     
-  unverä║ ⚠ Die Update-Regeln des Stacks demo-stack speichern?         ║        
-        ║                                                              ║        
-        ║ Im Stack-Repository entsteht ein Commit mit den neuen Regeln ║═══════╗
-> Modus ║ und wird zum Remote gepusht. Die Regeln wirken beim nächsten ║     ▾ ║
-        ║ Update.                                                      ║═══════╝
-        ║ Modus: automatisch, Obergrenze: patch, Major-Sprung: direct  ║nuell   
-        ║ Beobachtung: 15 Min.                                         ║        
+        ╔═ Update-Regeln eines Stacks ═════════════════════════════════╗        
+  Regeln║ ⚠ Die Update-Regeln des Stacks demo-stack speichern?         ║ben     
+  unverä║                                                              ║        
+        ║ Im Stack-Repository entsteht ein Commit mit den neuen Regeln ║        
+        ║ und wird zum Remote gepusht. Die Regeln wirken beim nächsten ║═══════╗
+> Modus ║ Update.                                                      ║     ▾ ║
+        ║ Modus: automatisch, Obergrenze: patch, Major-Sprung: direct  ║═══════╝
+        ║ Beobachtung: 15 Min.                                         ║nuell   
+        ║ Auslöser: Wartungsfenster                                    ║        
         ║ Tag-Filter APP_VERSION: ^1\.[0-9.]+$                         ║───────╮
   Obergr║ Changelog APP_VERSION: example/app                           ║     ▾ │
         ║ $ sudo qhost stack settings set --file - --output json --    ║───────╯

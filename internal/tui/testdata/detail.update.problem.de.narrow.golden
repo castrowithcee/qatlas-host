@@ -15,7 +15,7 @@
                          [!] Die Beobachtungszeit ist eine ganze Zahl von       
                          Minuten von 0 bis 1440. - Korrigiere das Feld.         
                          ╭─────────────────────────────────────────────────────╮
-  Tag-Filter             │ APP_VERSION → ^1\.[0-9.]+$                          │
+  Auslöser               │ Wartungsfenster                                   ▾ │
                          ╰─────────────────────────────────────────────────────╯
   …                                                                             
                                                                                 

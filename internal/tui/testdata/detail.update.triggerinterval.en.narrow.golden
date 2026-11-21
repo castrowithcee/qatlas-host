@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks [2 Stack detail] 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+  Update rules of a stack                                                       
+                                                                                
+  Rules of the stack demo-stack. Backup, check and compose files stay as they   
+  are.                                                                          
+                                                                                
+  …                                                                             
+                         ╭─────────────────────────────────────────────────────╮
+  Observation (minutes)  │ 15                                                  │
+                         ╰─────────────────────────────────────────────────────╯
+                         ╔═════════════════════════════════════════════════════╗
+> Trigger                ║ Polling                                           ▾ ║
+                         ╚═════════════════════════════════════════════════════╝
+                         what makes qhost look for updates: the maintenance     
+                         window, a regular poll or only a webhook               
+                         ╭─────────────────────────────────────────────────────╮
+  Interval (seconds)     │ 45                                                  │
+                         ╰─────────────────────────────────────────────────────╯
+  …                                                                             
+                                                                                
+[ F2 save ]  [ esc discard ]                                                    
+enter choose  F2 save  esc discard      tab next field  shift+tab previous field
