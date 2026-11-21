@@ -265,18 +265,26 @@ func newSelfUpdateCommand(program *cobracli.Program) *cobra.Command {
 		Long: "status asks the release server for the newest stable release and compares it with the running\n" +
 			"version. It changes nothing and does not need root.",
 		RunE: func(c *cobra.Command, _ []string) error {
-			res, err := selfUpdate.client().Check(c.Context())
+			result, err := updateStatusResult(c.Context())
 			if err != nil {
-				return selfUpdateFailure(err)
+				return err
 			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
-				{Name: "installed", Value: res.Current},
-				{Name: "latest", Value: res.Latest},
-				{Name: "update_available", Value: res.UpdateAvailable},
-			}})
+			return output.Encode(c.OutOrStdout(), program.Format(), result)
 		},
 	})
 	return cmd
+}
+
+func updateStatusResult(ctx context.Context) (output.Object, error) {
+	res, err := selfUpdate.client().Check(ctx)
+	if err != nil {
+		return output.Object{}, selfUpdateFailure(err)
+	}
+	return output.Object{Fields: []output.Field{
+		{Name: "installed", Value: res.Current},
+		{Name: "latest", Value: res.Latest},
+		{Name: "update_available", Value: res.UpdateAvailable},
+	}}, nil
 }
 
 func runSelfUpdate(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, tag string) error {

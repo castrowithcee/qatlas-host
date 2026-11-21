@@ -1,0 +1,185 @@
+package tools
+
+// Class and scope of an entry that a service runs are those of its command in the registry of the service;
+// the tests of the services fail when they differ.
+
+func deployCmd(command string, class Class, scope Scope, desc string, schema []byte, cli ...string) Entry {
+	return Entry{Name: command, Command: command, Class: class, Scope: scope, Exec: ExecDeployService,
+		Description: desc, Schema: schema, CLI: cli}
+}
+
+func hostCmd(command string, class Class, desc string, schema []byte, cli ...string) Entry {
+	name := command
+	if len(name) < 5 || name[:5] != "host." {
+		name = "host." + command
+	}
+	return Entry{Name: name, Command: command, Class: class, Scope: ScopeHost, Exec: ExecHostService,
+		Description: desc, Schema: schema, CLI: cli}
+}
+
+func local(name string, class Class, scope Scope, desc string, schema []byte, cli ...string) Entry {
+	return Entry{Name: name, Class: class, Scope: scope, Exec: ExecLocal, Description: desc, Schema: schema, CLI: cli}
+}
+
+var (
+	stackArg    = object([]string{"stack"}, props{"stack": str()})
+	nameArg     = object([]string{"name"}, props{"name": str()})
+	idArg       = object([]string{"id"}, props{"id": str()})
+	pathArg     = object([]string{"path"}, props{"path": str()})
+	proposalArg = idArg
+)
+
+var entries = []Entry{
+	// Commands of the deploy service.
+	deployCmd("status", ClassRead, ScopeDeploy, "Show the state of the deploy service, its sources and stacks.", none, "status"),
+	deployCmd("deploy", ClassChange, ScopeStack, "Start a manual run of a stack.", stackArg, "stack deploy", "stack datadir"),
+	deployCmd("runs", ClassRead, ScopeStack, "List the recorded runs, newest first.",
+		object(nil, props{"stack": str()}), "stack runs"),
+	deployCmd("log", ClassRead, ScopeDeploy, "Show the protocol of one run.", object([]string{"id"}, props{"id": str()}), "stack log"),
+	deployCmd("resume", ClassChange, ScopeStack, "Clear the pause after a failed rollback or a halted repair.", stackArg, "stack resume"),
+	deployCmd("pause", ClassChange, ScopeStack, "Keep the maintenance window from running a stack.", stackArg, "stack pause"),
+	deployCmd("unpause", ClassChange, ScopeStack, "Let the maintenance window run a stack again.", stackArg, "stack unpause"),
+	deployCmd("pin", ClassChange, ScopeStack, "Hold the image versions of a stack.", stackArg, "stack pin"),
+	deployCmd("unpin", ClassChange, ScopeStack, "Release the image versions of a stack.", stackArg, "stack unpin"),
+	deployCmd("stack.start", ClassChange, ScopeStack, "Start a stopped stack.", stackArg, "stack start"),
+	deployCmd("stack.stop", ClassChange, ScopeStack, "Stop a stack and keep it stopped.", stackArg, "stack stop"),
+	deployCmd("stack.restart", ClassChange, ScopeStack, "Restart a stack.", stackArg, "stack restart"),
+	deployCmd("stack.settings.get", ClassRead, ScopeStack, "Read the settings of a stack.", stackArg),
+	deployCmd("stack.settings.set", ClassChange, ScopeStack, "Replace the settings of a stack.",
+		object([]string{"stack", "settings"}, props{"stack": str(), "settings": anyObject()}), "stack settings set"),
+	deployCmd("stack.settings.remove", ClassChange, ScopeStack, "Remove the settings of a stack.", stackArg, "stack settings remove"),
+	deployCmd("key.generate", ClassChange, ScopeDeploy, "Generate the deploy key.",
+		object(nil, props{"replace": boolean(), "dir": str()}), "key generate"),
+	deployCmd("key.show", ClassRead, ScopeDeploy, "Show the public part of the deploy key.",
+		object(nil, props{"dir": str()}), "key show"),
+	deployCmd("key.set", ClassChange, ScopeDeploy, "Store an existing private key as the deploy key.",
+		object([]string{"key"}, props{"key": str(), "replace": boolean(), "dir": str()}), "key set"),
+	deployCmd("credential.set", ClassChange, ScopeDeploy, "Store a credential.",
+		object([]string{"name", "value"}, props{"name": str(), "value": str()}), "credential set"),
+	deployCmd("credential.list", ClassRead, ScopeDeploy, "List the stored credentials by name.", none, "credential list"),
+	deployCmd("credential.delete", ClassChange, ScopeDeploy, "Delete a stored credential.", nameArg, "credential delete"),
+	deployCmd("repo.probe", ClassChange, ScopeDeploy, "Show the host key a git server presents.",
+		object([]string{"url"}, props{"url": str()}), "repo probe"),
+	deployCmd("repo.set", ClassChange, ScopeDeploy, "Bind a stacks repository to a stack folder and clone it.",
+		object([]string{"url", "dir", "fingerprint"}, props{"url": str(), "dir": str(), "fingerprint": str()}), "repo set"),
+	deployCmd("repo.fetch", ClassChange, ScopeDeploy, "Fetch new commits of the stacks repositories.",
+		object(nil, props{"dir": str()}), "repo fetch"),
+	deployCmd("stacks.list", ClassRead, ScopeDeploy, "List the stacks of the working copies.", none, "stack list"),
+	deployCmd("stacks.check", ClassRead, ScopeStack, "Check which functions work with the files of a stack.",
+		object(nil, props{"stack": str()}), "stack check"),
+	deployCmd("source.inspect", ClassChange, ScopeDeploy, "Classify a folder before it is taken over as a stack folder.",
+		object([]string{"path"}, props{"path": str(), "url": str()}), "source inspect"),
+	deployCmd("source.add", ClassChange, ScopeDeploy, "Take over a folder as a stack folder.",
+		object([]string{"path"}, props{"path": str(), "files": strList(), "url": str(), "fingerprint": str(),
+			"expect_state": str(), "expect_commit": str()}), "source add"),
+	deployCmd("source.compare", ClassChange, ScopeDeploy, "Compare a folder with a remote repository.",
+		object([]string{"path", "url", "fingerprint"}, props{"path": str(), "url": str(), "fingerprint": str()}), "source compare"),
+	deployCmd("source.remote", ClassChange, ScopeDeploy, "Give a local source a remote repository.",
+		object([]string{"path", "url", "fingerprint", "expect_state"}, props{"path": str(), "url": str(), "fingerprint": str(),
+			"expect_state": str(), "expect_commit": str()}), "source remote"),
+	deployCmd("source.list", ClassRead, ScopeDeploy, "List the bound stack folders.", none, "source list"),
+	deployCmd("source.remove", ClassChange, ScopeDeploy, "Release a bound stack folder.", pathArg, "source remove"),
+	deployCmd("backup.create", ClassChange, ScopeStack, "Stop a stack, back up its data and start it again.", stackArg, "stack backup create"),
+	deployCmd("backup.list", ClassRead, ScopeStack, "List the backups of a stack.", stackArg, "stack backup list"),
+	deployCmd("backup.restore", ClassChange, ScopeStack, "Replace the data of a stack with a backup.",
+		object([]string{"stack", "id", "confirm"}, props{"stack": str(), "id": str(), "confirm": boolean()}), "stack backup restore"),
+	deployCmd("secret.set", ClassChange, ScopeStack, "Write a secret of a stack.",
+		object([]string{"stack", "key", "value"}, props{"stack": str(), "key": str(), "value": str()}), "stack secret set"),
+	deployCmd("secret.list", ClassRead, ScopeStack, "List the secret keys of a stack.", stackArg, "stack secret list"),
+	deployCmd("secret.delete", ClassChange, ScopeStack, "Remove a secret of a stack.",
+		object([]string{"stack", "key"}, props{"stack": str(), "key": str()}), "stack secret delete"),
+	deployCmd("updates.list", ClassRead, ScopeStack, "Show the current and available image versions.",
+		object(nil, props{"stack": str(), "refresh": boolean(), "changelog": boolean()}), "stack updates"),
+	deployCmd("update.run", ClassChange, ScopeStack, "Update the image versions of stacks.",
+		object([]string{"stacks"}, props{"stacks": strList(), "version": str(), "variable": str()}), "stack update"),
+	deployCmd("changelog.show", ClassChange, ScopeStack, "Show the release notes of an available update.", stackArg, "stack changelog"),
+	deployCmd("window.show", ClassRead, ScopeDeploy, "Show the maintenance window.", none, "window show"),
+	deployCmd("window.set", ClassChange, ScopeDeploy, "Change the maintenance window.",
+		object(nil, props{"days": strList(), "start": str(), "duration": str(), "zone": str()}), "window set"),
+	deployCmd("notify.list", ClassRead, ScopeDeploy, "List the notification channels.", none, "notify list"),
+	deployCmd("notify.add", ClassChange, ScopeDeploy, "Add a notification channel.",
+		object([]string{"name", "type"}, props{"name": str(), "type": str(), "events": strList(), "secret": str(), "key": str(),
+			"host": str(), "port": integer(), "security": str(), "user": str(), "from": str(), "to": strList(),
+			"chat_id": str(), "base_url": str()}), "notify add"),
+	deployCmd("notify.remove", ClassChange, ScopeDeploy, "Remove a notification channel.", nameArg, "notify remove"),
+	deployCmd("notify.test", ClassChange, ScopeDeploy, "Send a test message through a channel.", nameArg, "notify test"),
+	deployCmd("container.list", ClassRead, ScopeDeploy, "List the containers of the host.",
+		object(nil, props{"metrics": boolean()}), "container list"),
+	deployCmd("container.get", ClassRead, ScopeDeploy, "Show the details of one container.", nameArg, "container show"),
+	deployCmd("container.start", ClassChange, ScopeDeploy, "Start a container.",
+		object([]string{"name"}, props{"name": str(), "grace_seconds": integer()}), "container start"),
+	deployCmd("container.stop", ClassChange, ScopeDeploy, "Stop a container.",
+		object([]string{"name"}, props{"name": str(), "grace_seconds": integer()}), "container stop"),
+	deployCmd("container.restart", ClassChange, ScopeDeploy, "Restart a container.",
+		object([]string{"name"}, props{"name": str(), "grace_seconds": integer()}), "container restart"),
+	deployCmd("container.logs", ClassRead, ScopeDeploy, "Show the output of a container or of a stack.",
+		object(nil, props{"name": str(), "stack": str(), "since": timestamp(), "until": timestamp(), "tail": integer(),
+			"cursor": timestamp()}), "container logs"),
+	deployCmd("service.log", ClassRead, ScopeDeploy, "Show the log of the deploy service.",
+		object(nil, props{"source": str(), "since": timestamp(), "level": str(), "tail": integer(), "cursor": str()}), "service log"),
+	deployCmd("proposal.submit", ClassPropose, ScopeDeploy, "Submit a proposal of a change to the setup.",
+		object([]string{"kind", "content"}, props{"kind": str(), "content": anyObject()}), "proposal submit"),
+	deployCmd("proposal.list", ClassRead, ScopeDeploy, "List the proposals of the deploy service.", none, "proposal list"),
+	deployCmd("proposal.show", ClassRead, ScopeDeploy, "Show one proposal with its content.", proposalArg, "proposal show"),
+	deployCmd("proposal.withdraw", ClassPropose, ScopeDeploy, "Withdraw an open proposal.", proposalArg, "proposal withdraw"),
+	deployCmd("proposal.approve", ClassChange, ScopeDeploy, "Approve an open proposal and apply it.",
+		object([]string{"id", "fingerprint"}, props{"id": str(), "fingerprint": str()}), "proposal approve"),
+	deployCmd("proposal.reject", ClassChange, ScopeDeploy, "Reject an open proposal.",
+		object([]string{"id"}, props{"id": str(), "reason": str()}), "proposal reject"),
+	deployCmd("proposal.result", ClassChange, ScopeDeploy, "Record the result of applying a proposal.",
+		object([]string{"id", "fingerprint", "applied"}, props{"id": str(), "fingerprint": str(), "applied": boolean(), "message": str()}),
+		"proposal approve"),
+
+	// Commands of the host service.
+	hostCmd("status", ClassRead, "Show the state of the host service.", none, "status"),
+	hostCmd("log.list", ClassRead, "List the entries of the action log, newest first.",
+		object(nil, props{"from": timestamp(), "to": timestamp(), "action": str(), "result": oneOf("success", "failure"),
+			"limit": integer(), "after": str()}), "audit"),
+	hostCmd("log.verify", ClassRead, "Check the hash chain of the action log.", none, "audit verify"),
+	hostCmd("host.record", ClassChange, "Record a change of the host that root made.",
+		object([]string{"action", "result", "sudo_uid", "journal_id"}, props{"action": str(), "result": str(),
+			"sudo_uid": integer(), "journal_id": str(), "undo_of": str()}), "host apply", "host undo"),
+	hostCmd("proposal.submit", ClassPropose, "Submit a proposal of a change to the host.",
+		object([]string{"kind", "content"}, props{"kind": str(), "content": anyObject()}), "proposal submit"),
+	hostCmd("proposal.list", ClassRead, "List the proposals of the host service.", none, "proposal list"),
+	hostCmd("proposal.show", ClassRead, "Show one proposal of the host with its content.", proposalArg, "proposal show", "host apply"),
+	hostCmd("proposal.withdraw", ClassPropose, "Withdraw an open proposal of the host.", proposalArg, "proposal withdraw"),
+	hostCmd("proposal.approve", ClassChange, "Approve an open proposal of the host.",
+		object([]string{"id", "fingerprint"}, props{"id": str(), "fingerprint": str()}), "host apply"),
+	hostCmd("proposal.reject", ClassChange, "Reject an open proposal of the host.",
+		object([]string{"id"}, props{"id": str(), "reason": str()}), "proposal reject"),
+	hostCmd("proposal.result", ClassChange, "Record the result of applying a proposal of the host.",
+		object([]string{"id", "fingerprint", "applied"}, props{"id": str(), "fingerprint": str(), "applied": boolean(), "message": str()}),
+		"host apply"),
+
+	// Functions the calling process runs itself.
+	local("host.users.list", ClassRead, ScopeHost, "List the local users.", none, "host users"),
+	local("host.users.show", ClassRead, ScopeHost, "Show one local user.", nameArg, "host user"),
+	local("host.groups.list", ClassRead, ScopeHost, "List the local groups.", none, "host groups"),
+	local("host.groups.show", ClassRead, ScopeHost, "Show one local group.", nameArg, "host group"),
+	local("host.folder.show", ClassRead, ScopeHost, "Show owner, group and permissions of a folder or file.", pathArg, "host folder"),
+	local("host.file.read", ClassRead, ScopeHost, "List a folder or show a file of the host.", pathArg, "host file"),
+	local("host.diagnose", ClassRead, ScopeHost, "Write a diagnostic package.", object(nil, props{"out": str()}), "diagnose"),
+	local("host.update.status", ClassRead, ScopeHost, "Show the installed version and the latest stable release.", none, "update status"),
+
+	local("host.apply", ClassRoot, ScopeHost, "Change the host with a registered action or an approved proposal.",
+		object(nil, props{"action": str(), "args": strList(), "proposal": str(), "fingerprint": str()}), "host apply"),
+	local("host.undo", ClassRoot, ScopeHost, "Undo a journaled change of the host.",
+		object([]string{"journal_id"}, props{"journal_id": str()}), "host undo"),
+	local("host.journal", ClassRoot, ScopeHost, "List the latest changes of the host.", none, "host journal"),
+	local("host.file.write", ClassRoot, ScopeHost, "Write, create, copy, move or remove files and folders of the host, as the file actions of host.apply.",
+		object([]string{"action"}, props{"action": str(), "args": strList()}), "host apply"),
+	local("host.deploy-service.setup", ClassRoot, ScopeHost, "Set up the deploy service as its own system user or for a rootless engine.",
+		object(nil, props{"rootless": str()}), "deploy-service setup"),
+	local("host.deploy-service.refresh", ClassRoot, ScopeHost, "Bring the deploy service instances to the template of this program.",
+		none, "deploy-service refresh-instances"),
+	local("host.hook-service.setup", ClassRoot, ScopeHost, "Set up the webhook receiver or change its address.",
+		object(nil, props{"listen": str()}), "hook-service setup"),
+	local("host.hook-service.refresh", ClassRoot, ScopeHost, "Bring the webhook receiver to the unit of this program.", none, "hook-service refresh"),
+	local("host.uninstall", ClassRoot, ScopeHost, "Remove qhost and the deploy service from this host.",
+		object(nil, props{"purge": boolean()}), "uninstall"),
+	local("host.update.install", ClassRoot, ScopeHost, "Update qhost to the latest stable release or to a given newer one.",
+		object(nil, props{"version": str()}), "update"),
+	local("source.grant", ClassRoot, ScopeDeploy, "Create a stack folder and give the deploy service the access it needs.",
+		object([]string{"path"}, props{"path": str(), "create": boolean()}), "source add", "repo set"),
+}

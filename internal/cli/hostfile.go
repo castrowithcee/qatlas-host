@@ -25,37 +25,46 @@ func newHostFileCommand(program *cobracli.Program) *cobra.Command {
 			hostchange.MaxFileContent),
 		Args: exactlyOne("path"),
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := requireRoot("host file"); err != nil {
+			result, err := fileResult(args[0])
+			if err != nil {
 				return err
 			}
-			read, err := hostchange.ReadPath(args[0])
-			if err != nil {
-				return hostError("host file", err)
-			}
-			names := newOwnerNames()
-			if read.Entries != nil || read.Entry.Kind == hostchange.KindFolder {
-				result := output.Collection{Columns: fileColumns}
-				for _, e := range read.Entries {
-					result.Rows = append(result.Rows, names.row(e))
-				}
-				return output.Encode(c.OutOrStdout(), program.Format(), result)
-			}
-			e := read.Entry
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
-				{Name: "path", Value: args[0]},
-				{Name: "kind", Value: e.Kind},
-				{Name: "size", Value: e.Size},
-				{Name: "owner", Value: names.user(e.UID)},
-				{Name: "group", Value: names.group(e.GID)},
-				{Name: "mode", Value: modeText(e.Mode)},
-				{Name: "modified", Value: e.ModTime.Format(time.RFC3339)},
-				{Name: "target", Value: e.Target},
-				{Name: "too_large", Value: read.TooLarge},
-				{Name: "binary", Value: read.Binary},
-				{Name: "content", Value: string(read.Content)},
-			}})
+			return output.Encode(c.OutOrStdout(), program.Format(), result)
 		},
 	}
+}
+
+// fileResult lists a folder or reads a file as root.
+func fileResult(path string) (output.Result, error) {
+	if err := requireRoot("host file"); err != nil {
+		return nil, err
+	}
+	read, err := hostchange.ReadPath(path)
+	if err != nil {
+		return nil, hostError("host file", err)
+	}
+	names := newOwnerNames()
+	if read.Entries != nil || read.Entry.Kind == hostchange.KindFolder {
+		result := output.Collection{Columns: fileColumns}
+		for _, e := range read.Entries {
+			result.Rows = append(result.Rows, names.row(e))
+		}
+		return result, nil
+	}
+	e := read.Entry
+	return output.Object{Fields: []output.Field{
+		{Name: "path", Value: path},
+		{Name: "kind", Value: e.Kind},
+		{Name: "size", Value: e.Size},
+		{Name: "owner", Value: names.user(e.UID)},
+		{Name: "group", Value: names.group(e.GID)},
+		{Name: "mode", Value: modeText(e.Mode)},
+		{Name: "modified", Value: e.ModTime.Format(time.RFC3339)},
+		{Name: "target", Value: e.Target},
+		{Name: "too_large", Value: read.TooLarge},
+		{Name: "binary", Value: read.Binary},
+		{Name: "content", Value: string(read.Content)},
+	}}, nil
 }
 
 var fileColumns = []string{"name", "kind", "size", "owner", "group", "mode", "modified", "target"}
