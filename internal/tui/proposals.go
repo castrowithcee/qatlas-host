@@ -129,6 +129,10 @@ func (m *Model) proposalKindWord(kind string) string {
 		return m.text.Lookup(textPropKindWindow)
 	case control.ProposalKindNotifyChannel:
 		return m.text.Lookup(textPropKindChannel)
+	case control.ProposalKindHostChange:
+		return m.text.Lookup(textPropKindHostChange)
+	case control.ProposalKindCommand:
+		return m.text.Lookup(textPropKindFree)
 	}
 	return proposalShort(kind)
 }
