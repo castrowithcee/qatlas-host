@@ -48,7 +48,6 @@ const (
 	textProblemDataOwner     kittui.TextID = "problem.dataowner"
 	textProblemDataMode      kittui.TextID = "problem.datamode"
 	textDataDirsNone         kittui.TextID = "datadirs.none"
-	textDataDirsNeedRoot     kittui.TextID = "datadirs.needroot"
 	textDataDirsNoFolder     kittui.TextID = "datadirs.nofolder"
 	textAskDataDirs          kittui.TextID = "ask.datadirs"
 	textWhatDataDirs         kittui.TextID = "what.datadirs"
@@ -139,7 +138,6 @@ func detailEnglish() map[kittui.TextID]string {
 		textProblemDataOwner:     "The owner must be UID:GID with decimal numbers, for example 1000:1000.",
 		textProblemDataMode:      "The mode must be octal permission bits such as 0750; setuid, setgid and sticky are not allowed.",
 		textDataDirsNone:         "This stack has no missing data directories.",
-		textDataDirsNeedRoot:     "Creating data directories needs root; start the interface with sudo.",
 		textDataDirsNoFolder:     "The stacks folder is not known yet; reload and try again.",
 		textAskDataDirs:          "Create the missing data directories of the stack %s and deploy it?",
 		textWhatDataDirs:         "Only the directories below are created, with this owner and mode. Existing directories stay as they are. Then a run of the stack is started.",
@@ -216,7 +214,6 @@ func detailGerman() map[kittui.TextID]string {
 		textProblemDataOwner:     "Der Besitzer muss UID:GID mit Dezimalzahlen sein, z. B. 1000:1000.",
 		textProblemDataMode:      "Der Modus muss aus oktalen Zugriffsrechten wie 0750 bestehen; setuid, setgid und Sticky-Bit sind nicht erlaubt.",
 		textDataDirsNone:         "Diesem Stack fehlen keine Datenordner.",
-		textDataDirsNeedRoot:     "Datenordner anzulegen braucht root; die Oberfläche muss mit sudo gestartet werden.",
 		textDataDirsNoFolder:     "Der Stacks-Ordner ist noch nicht bekannt; neu laden und erneut versuchen.",
 		textAskDataDirs:          "Die fehlenden Datenordner des Stacks %s anlegen und ihn ausrollen?",
 		textWhatDataDirs:         "Es werden nur die unten genannten Ordner mit diesem Besitzer und Modus angelegt. Vorhandene Ordner bleiben unverändert. Danach wird ein Lauf des Stacks gestartet.",

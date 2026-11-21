@@ -83,7 +83,7 @@ func TestStackSettingsSetFromFileAndStdin(t *testing.T) {
 		t.Fatalf("pushed = %v", p)
 	}
 	written, err := os.ReadFile(filepath.Join(e.dir, filepath.FromSlash(servicetest.Settings("plain-stack"))))
-	if err != nil || !strings.Contains(string(written), "update:\n  mode: automatic\n  ceiling: patch\n") {
+	if err != nil || !strings.Contains(string(written), "update:\n  mode: automatic\n  trigger: window\n  ceiling: patch\n") {
 		t.Fatalf("file = %q, %v", written, err)
 	}
 	code, out, _ = run(t, "stack", "settings", "plain-stack", "--output", "json")
@@ -102,6 +102,35 @@ func TestStackSettingsSetFromFileAndStdin(t *testing.T) {
 	}
 }
 
+func TestStackListShowsTheUpdateTrigger(t *testing.T) {
+	startSettingsService(t)
+	in := "version: 1\nupdate:\n  mode: automatic\n  trigger: interval\n  interval: 45\n"
+	if code, _, stderr := runWithStdin(t, in, "stack", "settings", "set", "plain-stack", "--file", "-"); code != 0 {
+		t.Fatalf("set: %d %s", code, stderr)
+	}
+	code, out, stderr := run(t, "stack", "list", "--output", "json")
+	if code != 0 {
+		t.Fatalf("list: %d %s", code, stderr)
+	}
+	got := map[string]map[string]any{}
+	for _, r := range rowsOf(t, out) {
+		got[r["stack"].(string)] = r
+	}
+	if r := got["plain-stack"]; r["trigger"] != "interval" || r["interval"] != float64(45) {
+		t.Fatalf("plain-stack = %v", r)
+	}
+	if r := got["demo-stack"]; r["trigger"] != "window" || r["interval"] != nil && r["interval"] != "" && r["interval"] != float64(0) {
+		t.Fatalf("demo-stack = %v", r)
+	}
+	if code, out, _ := run(t, "stack", "list"); code != 0 || !strings.Contains(out, "TRIGGER") || !strings.Contains(out, "interval") {
+		t.Fatalf("table: %d %q", code, out)
+	}
+	code, out, _ = run(t, "stack", "settings", "plain-stack", "--output", "json")
+	if update, _ := settingsOfOutput(t, out)["update"].(map[string]any); code != 0 || update["trigger"] != "interval" || update["interval"] != float64(45) {
+		t.Fatalf("settings: %d %q", code, out)
+	}
+}
+
 func TestStackSettingsSetRefusals(t *testing.T) {
 	e := startSettingsService(t)
 	for _, tc := range []struct {
@@ -117,6 +146,9 @@ func TestStackSettingsSetRefusals(t *testing.T) {
 		{"empty", "", []string{"plain-stack", "--file", "-"}, 2, "empty"},
 		{"bad mode", "version: 1\nupdate: {mode: sometimes}\n", []string{"plain-stack", "--file", "-"}, 2, "update.mode"},
 		{"observe too long", "version: 1\nupdate: {observe: 1441}\n", []string{"plain-stack", "--file", "-"}, 2, "update.observe"},
+		{"interval without trigger", "version: 1\nupdate: {interval: 60}\n", []string{"plain-stack", "--file", "-"}, 2, "update.interval"},
+		{"interval too short", "version: 1\nupdate: {trigger: interval, interval: 29}\n", []string{"plain-stack", "--file", "-"}, 2, "update.interval"},
+		{"unknown trigger", "version: 1\nupdate: {trigger: cron}\n", []string{"plain-stack", "--file", "-"}, 2, "update.trigger"},
 		{"unknown variable", "version: 1\nupdate:\n  tags:\n    OTHER_VERSION: '.*'\n", []string{"plain-stack", "--file", "-"}, 2, "no service image"},
 		{"no version", "update: {mode: manual}\n", []string{"plain-stack", "--file", "-"}, 2, "version"},
 		{"unknown stack", "version: 1\n", []string{"missing-stack", "--file", "-"}, 1, "no such stack"},

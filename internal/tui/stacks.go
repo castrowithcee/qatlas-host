@@ -110,6 +110,8 @@ type stackRow struct {
 	avail     availability
 	available []string
 	mode      string
+	trigger   string
+	interval  int
 	state     stackState
 	// lastResult is the result of the last finished run, lastAt its start; zero when only the status knew it.
 	lastResult string
@@ -169,7 +171,7 @@ func buildRows(s snapshot) []stackRow {
 		if _, ok := source[si.Name]; !ok {
 			source[si.Name] = si.Source
 		}
-		r.mode = si.Update
+		r.mode, r.trigger, r.interval = si.Update, si.Trigger, si.Interval
 		if si.Error != "" {
 			unreadable[si.Name] = true
 		}
@@ -396,6 +398,12 @@ func cells(r stackRow, t kittui.Translator, loc *time.Location, tones map[string
 		mode = t.Lookup(id)
 	} else if mode == "" {
 		mode = none
+	}
+	switch r.trigger {
+	case "interval":
+		mode = t.Lookup(textCellInterval, mode, r.interval)
+	case "webhook":
+		mode = t.Lookup(textCellWebhook, mode)
 	}
 	state := t.Lookup(stateTexts[r.state])
 	tones[state] = stateTones[r.state]

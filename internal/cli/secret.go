@@ -23,6 +23,7 @@ func newSecretCommand(program *cobracli.Program, state *notRunning, secrets *red
 			"at the next deployment, so run 'qhost stack deploy <stack>' afterwards. Values are never shown or\n" +
 			"logged. list reads and needs no sudo for an administrator in the group qhost; set and delete need sudo.",
 	}
+	var setEngine, listEngine, delEngine string
 	set := &cobra.Command{
 		Use:   "set <stack> <KEY>",
 		Short: "Write a secret read from the terminal or stdin to secrets.env",
@@ -44,6 +45,9 @@ func newSecretCommand(program *cobracli.Program, state *notRunning, secrets *red
 			stack, key := args[0], args[1]
 			if !stacks.ValidSecretKey(key) {
 				return usageFailure(stacks.ErrInvalidSecretKey.Error(), "Choose another key and run the command again.")
+			}
+			if err := routeStacks(c, state, setEngine, stack); err != nil {
+				return err
 			}
 			value, err := readValue(c, key)
 			if err != nil {
@@ -67,6 +71,9 @@ func newSecretCommand(program *cobracli.Program, state *notRunning, secrets *red
 		Long:  "list shows the keys in the stack's secrets.env, never their values.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, listEngine, args[0]); err != nil {
+				return err
+			}
 			var res control.SecretListResult
 			if err := secretCall(c, state, control.SecretListCommand, control.SecretListArgs{Stack: args[0]}, &res); err != nil {
 				return err
@@ -88,6 +95,9 @@ func newSecretCommand(program *cobracli.Program, state *notRunning, secrets *red
 			if !stacks.ValidSecretKey(args[1]) {
 				return usageFailure(stacks.ErrInvalidSecretKey.Error(), "Check the keys with 'qhost stack secret list "+args[0]+"'.")
 			}
+			if err := routeStacks(c, state, delEngine, args[0]); err != nil {
+				return err
+			}
 			var res control.SecretResult
 			if err := secretCall(c, state, control.SecretDeleteCommand,
 				control.SecretKeyArgs{Stack: args[0], Key: args[1]}, &res); err != nil {
@@ -98,6 +108,9 @@ func newSecretCommand(program *cobracli.Program, state *notRunning, secrets *red
 			}})
 		},
 	}
+	addEngineFlag(set, &setEngine, stackEngineUsage, stackEngineNote)
+	addEngineFlag(list, &listEngine, stackEngineUsage, stackEngineNote)
+	addEngineFlag(del, &delEngine, stackEngineUsage, stackEngineNote)
 	group.AddCommand(set, list, del)
 	return group
 }

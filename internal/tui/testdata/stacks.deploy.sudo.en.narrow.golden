@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                      [?] help
+  [1 Stacks] 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+      STACK        CURRENT      AVAILABLE      MODE       STATE     FINDINGS    
+> [ ] demo-stack   1.4.2        1.5.0          automatic  deployed  1 warning   
+  [ ] mail-relay   3.1          up to date     manual     pending   none        
+  [ ] ol╔═ deploy ═════════════════════════════════════════════════════╗        
+  [ ] ph║ ⚠ Deploy demo-stack?                                         ║ror     
+  [ ] we║                                                              ║        
+  [ ] wi║ Starts a run at once: a stack with backup rules is stopped   ║rnings  
+        ║ and backed up first, then it pulls, starts and checks the    ║        
+        ║ stack, and rolls back if a step fails. Without backup rules  ║        
+        ║ the stack keeps running and only changed containers are      ║        
+        ║ recreated.                                                   ║        
+        ║ $ sudo qhost stack deploy --output json -- demo-stack        ║        
+        ║                                                              ║        
+        ║ [ yes, with sudo ]  > cancel <                               ║        
+        ║ y yes, with sudo  n/esc/enter cancel                         ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                             1/6

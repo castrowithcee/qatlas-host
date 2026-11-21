@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe  [4 ⚙ Einstellungen]  5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+   Allgemein   Zugangsdaten   Wartungsfenster  [Benachrichtigungen]                                                     
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  NAME      TYP      EREIGNISSE          ZIEL                                                                           
+> ops-hook  webhook  failed,rolled-back  -                                                                              
+  ops-mail  smtp     alle                mail.example.test:587 -> ops@example.test                                      
+                                                                                                                        
+                            ╔═ Benachrichtigungen ═════════════════════════════════════════╗                            
+                            ║ ⚠ Eine Testnachricht über ops-hook senden?                   ║                            
+                            ║                                                              ║                            
+                            ║ Eine kurze Nachricht geht einmal an den Kanal, ohne          ║                            
+                            ║ Wiederholung.                                                ║                            
+                            ║ $ sudo qhost notify test --output json -- ops-hook           ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                     1/2

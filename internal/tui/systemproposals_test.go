@@ -373,9 +373,13 @@ func TestRejectingThatFailsIsExplained(t *testing.T) {
 }
 
 // noticeModel is a model whose start reads the proposals of both services; order says which answer comes first.
-func noticeModel(t *testing.T, deploy *fakeBackend, host HostProposals, hostFirst bool) *Model {
+func noticeModel(t *testing.T, deploy *fakeBackend, host HostProposals, hostFirst bool, langs ...i18n.Lang) *Model {
 	t.Helper()
-	m, err := newModel(config{ctx: context.Background(), backend: deploy, deploy: newFakeDeploy(), lang: i18n.English, theme: kittui.ThemeTerminal,
+	lang := i18n.English
+	if len(langs) > 0 {
+		lang = langs[0]
+	}
+	m, err := newModel(config{ctx: context.Background(), backend: deploy, deploy: newFakeDeploy(), lang: lang, theme: kittui.ThemeTerminal,
 		profile: kittui.ProfileNone, charset: kittui.CharsetUnicode, loc: time.UTC, hostProps: host,
 		prefs: uiprefs.Prefs{Theme: kittui.ThemeTerminal, Start: string(areaStacks), Icons: uiprefs.IconsUnicode,
 			Language: uiprefs.LanguageEnglish, MouseEnabled: true}, accounts: testAccounts(false)})
@@ -426,5 +430,66 @@ func TestStartNoticeCountsTheOtherServiceWhenOneIsUnreachable(t *testing.T) {
 	both.statusErr = errors.New("down")
 	if m := noticeModel(t, both, down, false); m.notice != "" {
 		t.Fatalf("a notice with both services down: %q", m.notice)
+	}
+}
+
+// hostOnlyProposals keeps the open proposals of the host service, first only the given count of them.
+func hostOnlyProposals(t *testing.T, open int) *fakeHostProposals {
+	h := demoHostProposals(t)
+	h.list = h.list[:open]
+	return h
+}
+
+func TestStartNoticeNamesTheKeyOfEachKind(t *testing.T) {
+	noDeploy := func() *fakeBackend { b := proposalBackend(); b.proposals = nil; return b }
+	oneDeploy := func() *fakeBackend { b := proposalBackend(); b.proposals = b.proposals[2:3]; return b }
+	twoDeploy := func() *fakeBackend { b := proposalBackend(); b.proposals = b.proposals[:2]; return b }
+	cases := []struct {
+		name   string
+		deploy *fakeBackend
+		host   HostProposals
+		en, de string
+	}{
+		{"deploy plural", proposalBackend(), nil, "3 open proposals wait for you. Press 6 to review them.", "3 offene Vorschläge warten auf dich. Mit 6 prüfst du sie."},
+		{"deploy singular", oneDeploy(), nil, "1 open proposal waits for you. Press 6 to review it.", "1 offener Vorschlag wartet auf dich. Mit 6 prüfst du ihn."},
+		{"host plural", noDeploy(), hostOnlyProposals(t, 2), "2 open proposals wait for you. Press 7 to review them.", "2 offene Vorschläge warten auf dich. Mit 7 prüfst du sie."},
+		{"host singular", noDeploy(), hostOnlyProposals(t, 1), "1 open proposal waits for you. Press 7 to review it.", "1 offener Vorschlag wartet auf dich. Mit 7 prüfst du ihn."},
+		{"both", twoDeploy(), hostOnlyProposals(t, 1), "3 open proposals wait for you: 2 under 6 (Proposals), 1 under 7 (System).",
+			"3 offene Vorschläge warten auf dich: 2 unter 6 (Vorschläge), 1 unter 7 (System)."},
+	}
+	for _, c := range cases {
+		for lang, want := range map[i18n.Lang]string{i18n.English: c.en, i18n.German: c.de} {
+			m := noticeModel(t, c.deploy, c.host, false, lang)
+			if !strings.Contains(m.notice, want) {
+				t.Errorf("%s (%v): notice %q lacks %q", c.name, lang, m.notice, want)
+			}
+		}
+	}
+}
+
+func TestNoticeKeysOpenTheirAreas(t *testing.T) {
+	if k := areaKey(areaProposals); k != "6" {
+		t.Fatalf("key of the proposals area %q", k)
+	}
+	for id, key := range map[kittui.AreaID]string{areaProposals: areaKey(areaProposals), areaSystem: areaKey(areaSystem)} {
+		m := newTestModel(t, i18n.English, demoBackend(), wideWidth, goldenRows)
+		send(m, key)
+		if m.area != id {
+			t.Errorf("key %s opens %s, want %s", key, m.area, id)
+		}
+	}
+}
+
+func TestGoldenStartNoticeOfBothKinds(t *testing.T) {
+	for name, lang := range goldenLangs {
+		for size, dim := range goldenFormSizes {
+			t.Run(name+"."+size, func(t *testing.T) {
+				m := noticeModel(t, proposalBackend(), demoHostProposals(t), false, lang)
+				m.Update(tea.WindowSizeMsg{Width: dim[0], Height: dim[1]})
+				screen := m.render()
+				checkScreen(t, screen, dim[0], dim[1])
+				checkGolden(t, "proposals.notice.both."+name+"."+size+".golden", screen+"\n")
+			})
+		}
 	}
 }

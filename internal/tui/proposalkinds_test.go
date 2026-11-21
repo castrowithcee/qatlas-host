@@ -95,17 +95,10 @@ func TestKindSettingsViewNeverCutsTheBackupCommandOrAnAddress(t *testing.T) {
 	}
 }
 
-func TestKindSettingsViewWithoutSudoReadsButOffersNoKeys(t *testing.T) {
+func TestKindSettingsViewWithoutRootReadsAndOffersTheKeys(t *testing.T) {
 	b := kindsBackend()
 	m := proposalOpen(t, b, false, kindSettingsRow)
-	contains(t, m, "These settings would change:", "!! backup.command[0]")
-	if screen := m.render(); strings.Contains(screen, "approve") || strings.Contains(screen, "reject") {
-		t.Fatalf("keys offered without sudo:\n%s", screen)
-	}
-	send(m, "A", "N")
-	if m.modal != nil || m.set.form != nil || len(b.proposalActs) != 0 {
-		t.Fatal("a key worked without sudo")
-	}
+	contains(t, m, "These settings would change:", "!! backup.command[0]", "approve", "reject")
 }
 
 func TestKindSettingsApproveReadsAgainApprovesWritesAndKeepsTheResult(t *testing.T) {

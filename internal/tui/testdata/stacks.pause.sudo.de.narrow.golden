@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                            [?] Hilfe
+  [1 Stacks] 2 3 4 5 6 7                                                        
+────────────────────────────────────────────────────────────────────────────────
+      STACK        VERSION      VERFÜGBAR      ZUSTAND   BEFUNDE                
+  [x] demo-stack   1.4.2        1.5.0          deployt   1 Warnung              
+> [x] mail-relay   3.1          aktuell        offen     keine                  
+  [ ] ol╔═ pause ══════════════════════════════════════════════════════╗        
+  [ ] ph║ ⚠ Pause für 2 Stacks setzen?                                 ║        
+  [ ] we║                                                              ║        
+  [ ] wi║ Das Wartungsfenster startet keinen Lauf des Stacks, bis du   ║        
+        ║ die Pause aufhebst. Manuelle Läufe bleiben möglich.          ║        
+        ║ demo-stack                                                   ║        
+        ║ mail-relay                                                   ║        
+        ║ $ sudo qhost stack pause --output json -- demo-stack         ║        
+        ║ $ sudo qhost stack pause --output json -- mail-relay         ║        
+        ║                                                              ║        
+        ║ [ ja, mit sudo ]  > abbrechen <                              ║        
+        ║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                             2/6

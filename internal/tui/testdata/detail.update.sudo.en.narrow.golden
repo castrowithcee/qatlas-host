@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks [2 Stack detail] 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+  Update rules of a stack                                                       
+        ╔═ Update rules of a stack ════════════════════════════════════╗        
+  Rules ║ ⚠ Save the update rules of the stack demo-stack?             ║ they   
+  are.  ║                                                              ║        
+        ║ A commit with the new rules is created in the stack          ║        
+        ║ repository and pushed to its remote. The rules act on the    ║═══════╗
+> Mode  ║ next update.                                                 ║     ▾ ║
+        ║ mode: automatic, ceiling: patch, major jump: direct          ║═══════╝
+        ║ observation: 15 min                                          ║nual    
+        ║ trigger: Maintenance window                                  ║        
+        ║ tag filter APP_VERSION: ^1\.[0-9.]+$                         ║───────╮
+  Ceilin║ changelog APP_VERSION: example/app                           ║     ▾ │
+        ║ $ sudo qhost stack settings set --file - --output json --    ║───────╯
+        ║   demo-stack                                                 ║───────╮
+  Major ║                                                              ║     ▾ │
+        ║ [ yes, with sudo ]  > cancel <                               ║───────╯
+  …     ║ y yes, with sudo  n/esc/enter cancel                         ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+[ F2 save ]  [ esc discard ]                                                    
+                                                                                

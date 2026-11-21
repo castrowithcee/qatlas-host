@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/castrowithcee/qatlas-host/internal/credhelper"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
@@ -48,19 +49,22 @@ var projectName = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 // DefaultDockerSocket is the socket of the container engine unless the configuration names another.
 const DefaultDockerSocket = "/var/run/docker.sock"
 
-// ProductionEnv is the environment of every docker call in the service: a fixed PATH and C locale, DOCKER_HOST
-// pointing at socket (DefaultDockerSocket when empty), plus HOME and DOCKER_CONFIG when the service has them,
-// because docker reads its registry credentials from there. A DOCKER_HOST of the service itself, COMPOSE_*
-// and proxy variables are not passed on.
-func ProductionEnv(getenv func(string) string, socket string) []string {
+// ProductionEnv is the environment of every docker call in the service: a fixed PATH behind the helper folder
+// of the service's own Docker configuration, C locale, DOCKER_HOST pointing at socket (DefaultDockerSocket when
+// empty), DOCKER_CONFIG and the state directory the credential helper reads its logins from, plus HOME when
+// the service has it. Registry logins come only from the service's own store: a DOCKER_CONFIG of the service
+// itself, a DOCKER_HOST, COMPOSE_* and proxy variables are not passed on. stateDir is absolute.
+func ProductionEnv(getenv func(string) string, stateDir, socket string) []string {
 	if socket == "" {
 		socket = DefaultDockerSocket
 	}
-	env := []string{"PATH=" + fixedPath, "LC_ALL=C", "DOCKER_HOST=unix://" + socket}
-	for _, k := range []string{"HOME", "DOCKER_CONFIG"} {
-		if v := getenv(k); v != "" && !strings.ContainsAny(v, "\x00\n") {
-			env = append(env, k+"="+v)
-		}
+	conf := filepath.Join(stateDir, "docker")
+	env := []string{
+		"PATH=" + filepath.Join(conf, "bin") + ":" + fixedPath, "LC_ALL=C", "DOCKER_HOST=unix://" + socket,
+		"DOCKER_CONFIG=" + conf, credhelper.StateDirEnv + "=" + stateDir,
+	}
+	if v := getenv("HOME"); v != "" && !strings.ContainsAny(v, "\x00\n") {
+		env = append(env, "HOME="+v)
 	}
 	return env
 }
@@ -83,12 +87,12 @@ func orDefault(d, def time.Duration) time.Duration {
 
 // Pull pulls the images of the stack.
 func (x *Executor) Pull(ctx context.Context, st stacks.Stack, log Logger) error {
-	return x.step(ctx, st, log, orDefault(x.PullTimeout, DefaultPullTimeout), "pull", "pull")
+	return x.pulling(ctx, st, log, orDefault(x.PullTimeout, DefaultPullTimeout), "pull", "pull")
 }
 
 // Up starts the stack detached and removes containers of services that are gone.
 func (x *Executor) Up(ctx context.Context, st stacks.Stack, log Logger) error {
-	return x.step(ctx, st, log, orDefault(x.UpTimeout, DefaultUpTimeout), "up", "up", "-d", "--remove-orphans")
+	return x.pulling(ctx, st, log, orDefault(x.UpTimeout, DefaultUpTimeout), "up", "up", "-d", "--remove-orphans")
 }
 
 // Stop stops the containers of the stack without removing them.
@@ -113,6 +117,21 @@ func (x *Executor) step(ctx context.Context, st stacks.Stack, log Logger, timeou
 	}
 	res, err := x.run(ctx, log, c, timeout, label)
 	logOutput(log, res)
+	return err
+}
+
+// pulling is step for a call that may pull images: a refusal by the registry gets a cause that names the
+// login to store.
+func (x *Executor) pulling(ctx context.Context, st stacks.Stack, log Logger, timeout time.Duration, label string, words ...string) error {
+	c, err := x.command(st, st.Name, 0, words...)
+	if err != nil {
+		return err
+	}
+	res, err := x.run(ctx, log, c, timeout, label)
+	logOutput(log, res)
+	if err != nil {
+		err = explainDenied(st, string(res.Output), err)
+	}
 	return err
 }
 

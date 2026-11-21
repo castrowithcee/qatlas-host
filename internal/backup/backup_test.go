@@ -558,7 +558,7 @@ exec tar --numeric-owner -xpf "/backup/$1" -C /data sh `
 
 func TestNewManagerPassesTheSocket(t *testing.T) {
 	for socket, want := range map[string]string{"/run/demo/docker.sock": "DOCKER_HOST=unix:///run/demo/docker.sock", "": "DOCKER_HOST=unix:///var/run/docker.sock"} {
-		m := NewManager(t.TempDir(), socket)
+		m := NewManager(t.TempDir(), t.TempDir(), socket)
 		if !strings.Contains(strings.Join(m.Exec.Env, " "), want) {
 			t.Errorf("socket %q: env = %q", socket, m.Exec.Env)
 		}
@@ -567,7 +567,7 @@ func TestNewManagerPassesTheSocket(t *testing.T) {
 
 func TestBackupAndRestoreCallsCarryTheSocket(t *testing.T) {
 	e := newEnv(t, rulesYAML)
-	e.m.Exec.Env = compose.ProductionEnv(func(string) string { return "" }, "/run/demo/docker.sock")
+	e.m.Exec.Env = compose.ProductionEnv(func(string) string { return "" }, "/var/lib/demo", "/run/demo/docker.sock")
 	res, err := e.create()
 	if err != nil {
 		t.Fatal(err)

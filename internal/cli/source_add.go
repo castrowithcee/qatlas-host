@@ -18,7 +18,7 @@ import (
 )
 
 func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	var url, fingerprint string
+	var url, fingerprint, engine, expectEffect, expectState, expectCommit string
 	var gate *cobracli.Gate
 	add := &cobra.Command{
 		Use:   "add <path>",
@@ -26,7 +26,7 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 		Long: "add inspects the folder like 'source inspect', shows the case, the answer and the changes it would make,\n" +
 			"and applies them only after you confirm: at a terminal by answering the question, without a terminal\n" +
 			"with --yes. It never overwrites silently. A folder that is missing or empty is cloned from --url like\n" +
-			"'repo set' (and created with owner qhost-deploy:qhost-deploy and mode 0755 when missing); a clone with an origin\n" +
+			"'repo set' (and created with the owner and group of the service account and mode 0755 when missing); a clone with an origin\n" +
 			"remote is taken over with that address; a repository without a remote is bound as a local source; a\n" +
 			"folder with files and no repository gets a repository with a first commit of the files its stacks refer\n" +
 			"to (compose files, .env, env_file, configs, build contexts, include and extends, read-only mounts; also\n" +
@@ -55,7 +55,16 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			"files in .git, and core.sharedRepository group. The owner never changes. Bind-mount sources of the stacks and everything below, unversioned\n" +
 			"files and folders, symbolic links and paths outside the folder stay as they are. The folder is then added\n" +
 			"to the systemd drop-in and the service restarts once. --yes does not confirm a server's host key: that\n" +
-			"takes the terminal or --fingerprint. Run it with sudo.",
+			"takes the terminal or --fingerprint. Run it with sudo.\n" +
+			"--engine names the Docker engine the folder belongs to: system (the default) or rootless:<user>, for a\n" +
+			"user whose deploy service instance is set up ('qhost deploy-service setup --rootless <user>'). Everything\n" +
+			"above then concerns that instance: it inspects and binds the folder, the group of the folder is the\n" +
+			"primary group of its user, a created folder gets that user as owner, and the drop-in and the restart are\n" +
+			"those of its unit. The system engine does not start the stacks. Before it changes anything, add asks\n" +
+			"the deploy services of all other engines and refuses a folder that overlaps one of their stack folders and\n" +
+			"a stack name that one of them already has. A service that cannot be asked is named in the question,\n" +
+			"which you confirm like the rest. When containers of the folder run in another engine, add suggests it\n" +
+			"with the option; the engine never changes silently.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return usageFailure("source add takes exactly one argument, the path of the folder",
@@ -64,20 +73,38 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSourceAdd(c, program, gate, state, args[0], url, fingerprint)
+			return runSourceAdd(c, program, gate, state, args[0], url, fingerprint, engine, expectEffect, expectState, expectCommit)
 		},
 	}
 	add.Flags().StringVar(&url, "url", "", "SSH address of the repository to clone, to expect as origin, or to join a folder of files with")
 	add.Flags().StringVar(&fingerprint, "fingerprint", "",
 		"expected SHA256 fingerprint of the server's host key; required without a terminal")
+	add.Flags().StringVar(&engine, "engine", "", "Docker engine of the stack folder: system (default) or rootless:<user>")
+	add.Flags().StringVar(&expectEffect, "expect-effect", "",
+		"effect fingerprint from 'source inspect'; refuses with state-changed, changing nothing, when the effect differs now")
+	remoteFlags(add, &expectState, &expectCommit)
 	gate = program.AddGate(add, cobracli.Gates{Question: true})
 	return add
 }
 
-func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, path, url, fingerprint string) error {
-	plan, err := prepareSourceAdd(c, program, state, c.ErrOrStderr(), path, url, fingerprint,
-		"Run 'qhost source add "+path+" --url <ssh-url>'.")
+func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, path, url, fingerprint, engine,
+	expectEffect, expectState, expectCommit string) error {
+	if err := folders.requireRoot(); err != nil {
+		return err
+	}
+	expect, err := expectedRemoteOf(expectState, expectCommit)
 	if err != nil {
+		return err
+	}
+	if _, err := folders.selectEngine(c, engine); err != nil {
+		return err
+	}
+	plan, err := prepareSourceAdd(c, program, state, c.ErrOrStderr(), path, url, fingerprint,
+		"Run 'qhost source add "+path+" --url <ssh-url>'.", expect)
+	if err != nil {
+		return err
+	}
+	if err := checkExpectedEffect(c.Context(), expectEffect, plan); err != nil {
 		return err
 	}
 	return gate.Run(cobracli.Request{Question: plan.question}, func() error {
@@ -88,23 +115,33 @@ func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Ga
 // sourceAdd is everything that is known about adding a folder before anything is changed: the inspection, what
 // the service needs, the comparison with the remote and the question to confirm.
 type sourceAdd struct {
-	res      control.SourceInspectResult
-	repoURL  string
-	perms    *permPlan
-	remote   *filesRemote
-	question string
+	res control.SourceInspectResult
+	// inspected is the inspection; it differs from res only for a folder of files that joins a remote, whose
+	// plan is the one of the comparison.
+	inspected control.SourceInspectResult
+	repoURL   string
+	perms     *permPlan
+	remote    *filesRemote
+	question  string
 }
 
 // prepareSourceAdd inspects the folder, shows the case and the changes on notice and returns what applying
 // would do. It changes nothing. needURL is the advice when the case needs an address that was not given.
 func prepareSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRunning, notice io.Writer,
-	path, url, fingerprint, needURL string) (*sourceAdd, error) {
+	path, url, fingerprint, needURL string, expect *expectedRemote) (*sourceAdd, error) {
 	if err := folders.requireRoot(); err != nil {
 		return nil, err
 	}
 	if fingerprint != "" && !strings.HasPrefix(fingerprint, "SHA256:") {
 		return nil, usageFailure("--fingerprint must look like SHA256:..., as ssh-keygen -l prints it",
 			"Copy the fingerprint of the server's host key.")
+	}
+	peers, err := folders.askPeers(c.Context(), targetOf(c.Context()))
+	if err != nil {
+		return nil, err
+	}
+	if err := checkPath(peers, path); err != nil {
+		return nil, err
 	}
 	res, err := inspectSource(c, state, path, url)
 	if err != nil {
@@ -140,35 +177,45 @@ func prepareSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 		return nil, usageFailure("this folder needs the SSH address of its repository; nothing was changed", needURL)
 	}
 
+	if expect != nil && (res.Case != control.SourceCaseFiles || url == "") {
+		return nil, usageFailure("--expect-state and --expect-commit apply only to a folder of files with --url; this folder is case "+res.Case,
+			"Leave out --expect-state and --expect-commit.")
+	}
+	inspected := res
 	var remote *filesRemote
 	if res.Case == control.SourceCaseFiles && url != "" {
 		var err error
-		if remote, err = compareFiles(c, state, notice, path, url, fingerprint); err != nil {
+		if remote, err = compareFiles(c, state, notice, path, url, fingerprint, expect); err != nil {
 			return nil, err
 		}
 		// The folder joins the remote with the plan of the comparison, which keeps what the remote versions.
 		res = remote.plan(res)
 	}
 
+	if err := checkStacks(peers, res.Stacks); err != nil {
+		return nil, err
+	}
+	unchecked := uncheckedPeers(peers)
 	perms, err := planAccess(c.Context(), res)
 	if err != nil {
 		return nil, err
 	}
-	question := previewSourceAdd(notice, res, repoURL, perms, remote)
-	return &sourceAdd{res: res, repoURL: repoURL, perms: perms, remote: remote, question: question}, nil
+	question := previewSourceAdd(notice, targetOf(c.Context()), res, repoURL, perms, remote, unchecked)
+	return &sourceAdd{res: res, inspected: inspected, repoURL: repoURL, perms: perms, remote: remote, question: question}, nil
 }
 
 // planAccess works out what must change so that the service can write the folder of res: nil when nothing
 // needs to. It changes nothing.
 func planAccess(ctx context.Context, res control.SourceInspectResult) (*permPlan, error) {
 	path, a := res.Path, res.Access
+	t := targetOf(ctx)
 	if res.Case == control.SourceCaseClone {
 		if a == nil || !a.SetsPermissions || a.ModePath != path {
 			return nil, nil
 		}
-		_, gid, err := folders.owner()
+		_, gid, err := folders.owner(t.account())
 		if err != nil {
-			return nil, folderFailure("cannot find the service account "+serviceAccount, err)
+			return nil, folderFailure("cannot find the service account "+t.account(), err)
 		}
 		return planFolder(path, gid)
 	}
@@ -182,15 +229,15 @@ func planAccess(ctx context.Context, res control.SourceInspectResult) (*permPlan
 		if !a.SetsPermissions {
 			return nil, nil
 		}
-		_, gid, err := folders.owner()
+		_, gid, err := folders.owner(t.account())
 		if err != nil {
-			return nil, folderFailure("cannot find the service account "+serviceAccount, err)
+			return nil, folderFailure("cannot find the service account "+t.account(), err)
 		}
 		return planListedFiles(path, gid, res.PlannedFiles, bindMounts(res))
 	case a.SetsPermissions || (a.GitWritable != nil && !*a.GitWritable):
-		_, gid, err := folders.owner()
+		_, gid, err := folders.owner(t.account())
 		if err != nil {
-			return nil, folderFailure("cannot find the service account "+serviceAccount, err)
+			return nil, folderFailure("cannot find the service account "+t.account(), err)
 		}
 		return planPermissions(ctx, path, gid, bindMounts(res))
 	}
@@ -323,7 +370,7 @@ func (r *filesRemote) plan(res control.SourceInspectResult) control.SourceInspec
 // compareFiles confirms the host key, compares the folder of files with the remote and shows the result. It
 // stops at secret-like files in what a push would publish, and at a remote without commit. Nothing in the
 // folder has changed by then.
-func compareFiles(c *cobra.Command, state *notRunning, w io.Writer, path, url, fingerprint string) (*filesRemote, error) {
+func compareFiles(c *cobra.Command, state *notRunning, w io.Writer, path, url, fingerprint string, expect *expectedRemote) (*filesRemote, error) {
 	probe, err := trustHostKey(c, state, url, fingerprint)
 	if err != nil {
 		return nil, err
@@ -337,6 +384,9 @@ func compareFiles(c *cobra.Command, state *notRunning, w io.Writer, path, url, f
 	}
 	_, _ = fmt.Fprintf(w, "Compare %s with %s:\n", path, url)
 	printLines(w, compareLines(cmp))
+	if err := expect.check(cmp, path, url); err != nil {
+		return nil, err
+	}
 	if err := refuseSecrets(cmp); err != nil {
 		return nil, err
 	}
@@ -447,12 +497,12 @@ func bindMounts(res control.SourceInspectResult) []string {
 
 // previewSourceAdd shows what will change and returns the question for the confirmation. Without a terminal
 // the confirmation needs --yes; --yes never confirms a host key. Nothing has been changed by then.
-func previewSourceAdd(w io.Writer, res control.SourceInspectResult, url string, plan *permPlan, remote *filesRemote) string {
+func previewSourceAdd(w io.Writer, t engineTarget, res control.SourceInspectResult, url string, plan *permPlan, remote *filesRemote, unchecked []string) string {
 	var lines []string
 	switch res.Case {
 	case control.SourceCaseClone:
 		lines = append(lines, fmt.Sprintf("Clone %s into %s; a missing folder is created with owner %s:%s and mode %04o.",
-			url, res.Path, serviceAccount, serviceAccount, folderMode))
+			url, res.Path, t.account(), t.account(), folderMode))
 	case control.SourceCaseAdopt:
 		lines = append(lines, fmt.Sprintf("Take over the clone %s with the address %s.", res.Path, url))
 	case control.SourceCaseFiles:
@@ -467,7 +517,9 @@ func previewSourceAdd(w io.Writer, res control.SourceInspectResult, url string, 
 	if plan != nil {
 		lines = append(lines, plan.summary()...)
 	}
-	lines = append(lines, fmt.Sprintf("The folder is added to %s and the %s service restarts.", folders.dropIn(), serviceAccount))
+	lines = append(lines, "The first run deploys every stack: containers whose configuration and image are unchanged keep running, and a stack stopped by hand is started.")
+	lines = append(lines, fmt.Sprintf("The folder belongs to the %s engine, is added to %s and the %s service restarts.",
+		t.id(), folders.dropIn(t), t.unit()))
 	_, _ = fmt.Fprintf(w, "Case %s, folder %s:\n", res.Case, res.Path)
 	for _, l := range lines {
 		_, _ = fmt.Fprintln(w, "  "+l)
@@ -476,6 +528,12 @@ func previewSourceAdd(w io.Writer, res control.SourceInspectResult, url string, 
 	if warn != "" {
 		_, _ = fmt.Fprintln(w, "  "+warn)
 		warn += " "
+	}
+	for _, u := range unchecked {
+		_, _ = fmt.Fprintln(w, "  warning: "+u)
+	}
+	if len(unchecked) > 0 {
+		warn = uncheckedQuestion + warn
 	}
 	if remote != nil {
 		return warn + filesRemoteQuestion(remote)

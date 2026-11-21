@@ -28,6 +28,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/configfile"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 const (
@@ -40,6 +41,8 @@ const (
 	keep      = 2 * control.ProposalLifetime
 	// maxTextChars bounds the text of a reason or a failure that is shown to others.
 	maxTextChars = 300
+	// recordSchema is the format number of a proposal file.
+	recordSchema = 1
 )
 
 // prefixRe is the form of an id prefix: lower-case letters and a dash.
@@ -52,6 +55,7 @@ type Normalizer func(kind string, content json.RawMessage) (any, *control.Error)
 // record is the file of one proposal. Content is the normalized content of its kind, the one the fingerprint
 // covers.
 type record struct {
+	Schema        int             `json:"schema"`
 	ID            string          `json:"id"`
 	Kind          string          `json:"kind"`
 	Content       json.RawMessage `json:"content"`
@@ -109,13 +113,13 @@ func New(stateDir, passwd string, now func() time.Time, log *slog.Logger, normal
 // Commands returns the commands of the store with the access each needs, by command name.
 func (s *Store) Commands() map[string]control.Command {
 	return map[string]control.Command{
-		control.ProposalSubmitCommand:   {Access: control.AccessPropose, Handle: s.Submit},
-		control.ProposalWithdrawCommand: {Access: control.AccessPropose, Handle: s.Withdraw},
-		control.ProposalApproveCommand:  {Access: control.AccessWrite, Handle: s.Approve},
-		control.ProposalRejectCommand:   {Access: control.AccessWrite, Handle: s.Reject},
-		control.ProposalResultCommand:   {Access: control.AccessWrite, Handle: s.Result},
-		control.ProposalListCommand:     {Access: control.AccessRead, Handle: s.List},
-		control.ProposalShowCommand:     {Access: control.AccessRead, Handle: s.Show},
+		control.ProposalSubmitCommand:   {Class: control.ClassPropose, Scope: control.ScopeDeploy, Handle: s.Submit},
+		control.ProposalWithdrawCommand: {Class: control.ClassPropose, Scope: control.ScopeDeploy, Handle: s.Withdraw},
+		control.ProposalApproveCommand:  {Class: control.ClassChange, Scope: control.ScopeDeploy, Handle: s.Approve},
+		control.ProposalRejectCommand:   {Class: control.ClassChange, Scope: control.ScopeDeploy, Handle: s.Reject},
+		control.ProposalResultCommand:   {Class: control.ClassChange, Scope: control.ScopeDeploy, Handle: s.Result},
+		control.ProposalListCommand:     {Class: control.ClassRead, Scope: control.ScopeDeploy, Handle: s.List},
+		control.ProposalShowCommand:     {Class: control.ClassRead, Scope: control.ScopeDeploy, Handle: s.Show},
 	}
 }
 
@@ -216,7 +220,7 @@ func (s *Store) Submit(ctx context.Context, raw json.RawMessage) (any, error) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	all, err := s.load()
+	all, _, err := s.load()
 	if err != nil {
 		return nil, s.internal("read the proposals", err)
 	}
@@ -250,7 +254,7 @@ func (s *Store) List(_ context.Context, raw json.RawMessage) (any, error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	all, err := s.load()
+	all, bad, err := s.load()
 	if err != nil {
 		return nil, s.internal("read the proposals", err)
 	}
@@ -260,7 +264,7 @@ func (s *Store) List(_ context.Context, raw json.RawMessage) (any, error) {
 		}
 		return strings.Compare(b.ID, a.ID)
 	})
-	res := control.ProposalListResult{Proposals: make([]control.ProposalInfo, 0, len(all))}
+	res := control.ProposalListResult{Proposals: make([]control.ProposalInfo, 0, len(all)), Unreadable: bad}
 	for _, r := range all {
 		res.Proposals = append(res.Proposals, s.info(r))
 	}
@@ -447,6 +451,9 @@ func readRecord(path string) (record, error) {
 	if err != nil {
 		return record{}, err
 	}
+	if err := formatnum.CheckJSON(path, "schema", data, recordSchema); err != nil {
+		return record{}, err
+	}
 	var r record
 	if err := DecodeStrict(data, &r); err != nil {
 		return record{}, err
@@ -459,16 +466,17 @@ func readRecord(path string) (record, error) {
 	return record{}, errors.New("unknown state")
 }
 
-// load reads every proposal; a file that cannot be read is logged and skipped.
-func (s *Store) load() ([]record, error) {
+// load reads every proposal; a file that cannot be read is logged, skipped and named in the second result.
+func (s *Store) load() ([]record, []control.UnreadableInfo, error) {
 	entries, err := os.ReadDir(s.dir)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var all []record
+	var bad []control.UnreadableInfo
 	for _, e := range entries {
 		id, ok := strings.CutSuffix(e.Name(), ".json")
 		if !ok || !s.idRe.MatchString(id) {
@@ -476,12 +484,18 @@ func (s *Store) load() ([]record, error) {
 		}
 		r, err := readRecord(filepath.Join(s.dir, e.Name()))
 		if err != nil || r.ID != id {
-			s.log.Warn("proposals: skipped an unreadable file", "file", e.Name())
+			s.log.Warn("proposals: skipped an unreadable file", "file", e.Name(), "error", err)
+			path := filepath.Join(s.dir, e.Name())
+			msg := path + ": the file cannot be read"
+			if formatnum.Is(err) {
+				msg = err.Error()
+			}
+			bad = append(bad, control.UnreadableInfo{File: path, Error: msg})
 			continue
 		}
 		all = append(all, r)
 	}
-	return all, nil
+	return all, bad, nil
 }
 
 // prune removes the proposals that are no longer open and are old, and leftovers of interrupted writes, from the
@@ -509,6 +523,12 @@ func (s *Store) save(r record) error {
 	if err := os.Chmod(s.dir, 0o700); err != nil {
 		return err
 	}
+	if old, err := os.ReadFile(s.path(r.ID)); err == nil {
+		if err := formatnum.CheckJSON(s.path(r.ID), "schema", old, recordSchema); err != nil {
+			return err
+		}
+	}
+	r.Schema = recordSchema
 	data, err := json.Marshal(r)
 	if err != nil {
 		return err

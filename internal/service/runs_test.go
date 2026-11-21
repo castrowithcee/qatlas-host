@@ -20,6 +20,7 @@ type fakeDeployer struct {
 	entered   chan struct{}
 	failCheck bool
 	calls     []string
+	pulled    []string
 }
 
 // hold makes the next deployments wait until the returned function is called.
@@ -49,6 +50,7 @@ func (d *fakeDeployer) Backup(context.Context, stacks.Stack, string, *engine.Log
 func (d *fakeDeployer) Pull(ctx context.Context, st stacks.Stack, log *engine.Log) error {
 	log.Step("deploy " + st.Name)
 	d.mu.Lock()
+	d.pulled = append(d.pulled, st.Name)
 	block, entered := d.block, d.entered
 	d.mu.Unlock()
 	if entered != nil {
@@ -85,6 +87,13 @@ func (d *fakeDeployer) callsOf(stack string) []string {
 		}
 	}
 	return out
+}
+
+// pullsOf counts the pulls of the stack, one per deployment.
+func (d *fakeDeployer) pullsOf(stack string) int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return strings.Count(","+strings.Join(d.pulled, ",")+",", ","+stack+",")
 }
 
 func (d *fakeDeployer) record(call string) {

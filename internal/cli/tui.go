@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
@@ -89,7 +90,11 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"repository without a commit receives the history, an equal one is taken over, and for a different one\n" +
 			"the paths are listed and the state of the host is put on it as one commit after your answer. Secret-like\n" +
 			"files in what would be pushed stop it, with no way around. Adding a folder of files offers the same\n" +
-			"comparison with an address.\n\n" +
+			"comparison with an address. Without sudo, adding a folder, adding a remote and taking over a foreign\n" +
+			"project in Containers run through sudo: the folder is read with sudo qhost source inspect at once, the host\n" +
+			"key and the comparison ask the git server and are asked first with their command, and the last question\n" +
+			"shows the exact sudo qhost source add or source remote with the confirmed fingerprint. That command\n" +
+			"changes nothing and says so when the folder or its remote changed since it was shown.\n\n" +
 			"System lists the local users and groups of the host, read from its account files, so it works without the\n" +
 			"deploy service; Users, Groups, Folders, Proposals, Changes and Log are its sub-tabs. On Users, a creates a user with an initial\n" +
 			"password that must be changed at the first login, e or enter offers the changes of the marked user\n" +
@@ -117,9 +122,11 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"chooses them under Icons: unicode (the default), nerdfont (needs a Nerd Font patched terminal font) or\n" +
 			"none. A terminal without Unicode shows no icons.\n\n" +
 			"It needs a terminal on both standard input and output and the running deploy service. Root and administrators in\n" +
-			"the group qhost may open it; without sudo it only reads, and a change says that it needs sudo qhost. A deploy\n" +
-			"service that is not set up is no failure: the areas that need it say so and, with y after a question, set it up\n" +
-			"(D; as root, otherwise it says that it needs sudo qhost). A set up deploy service that is not running ends with exit code 3 before it draws\n" +
+			"the group qhost may open it. Without sudo a change shows the command sudo qhost ... and runs it after y;\n" +
+			"sudo asks for the password itself. This covers data folders, setting up the deploy service and deciding a proposal of the deploy\n" +
+			"service as well. A deploy service that is not set up is no failure: the areas that need it say so and, with y\n" +
+			"after a question, set it up\n" +
+			"(G; without sudo through sudo qhost deploy-service setup). A set up deploy service that is not running ends with exit code 3 before it draws\n" +
 			"anything. Device-local preferences are read from ~/.qatlas/qhost/tui.yaml; a missing file means\n" +
 			"the defaults. Change them in Settings under General (theme, start area, language, icons and mouse)\n" +
 			"instead of editing the file by hand.",
@@ -176,31 +183,30 @@ var (
 	regroupArgs       = func() []string { return os.Args[1:] }
 )
 
-// hostRunner builds `sudo <this program> host ...` (`proposal ...` for a request about a proposal) for the System area of the interface. sudo prompts on the
-// terminal, so the password never reaches this program. Standard input belongs to that prompt, so a request with
-// a secret runs in two steps: the interface first runs the Validate request (sudo -v) on the terminal, then this
-// one with sudo -n, which never prompts, and the secret on the standard input of the command. The secret goes into
-// no argument and no environment variable; the C locale is for the interface to recognise the answer of sudo when
-// it holds no password. An interface that runs as root runs the command itself and needs no password check.
+// hostRunner builds `sudo <this program> <command> ...` for the changes the interface makes as root, such as `host
+// apply` in the System area or `container restart` in the Containers area. sudo prompts on the terminal, so the
+// password never reaches this program. Standard input belongs to that prompt, so a request with a secret runs in
+// two steps: the interface first runs the Validate request (sudo -v) on the terminal, then this one with sudo -n,
+// which never prompts, and the secret on the standard input of the command. The secret goes into no argument and no
+// environment variable. Every sudo runs with the C locale, so the interface recognises what sudo answers. An
+// interface that runs as root runs the command itself and needs no password check.
 func hostRunner(req tui.HostRequest) (*exec.Cmd, error) {
+	if !req.Validate && (len(req.Args) == 0 || strings.HasPrefix(req.Args[0], "-")) {
+		return nil, errors.New("no qhost command to run")
+	}
 	exe, err := thisProgram()
 	if err != nil {
 		return nil, fmt.Errorf("cannot find this program: %w", err)
-	}
-	group := "host"
-	if req.Proposal {
-		group = "proposal"
 	}
 	if tuiEuid() == 0 {
 		if req.Validate {
 			return nil, nil
 		}
-		cmd := exec.Command(exe, append([]string{group}, req.Args...)...)
+		cmd := exec.Command(exe, req.Args...)
 		switch {
 		case len(req.Secret) > 0:
 			cmd.Stdin = bytes.NewReader(req.Secret)
-		case req.Proposal:
-			// Rejecting a proposal wants a terminal on standard input; the command only checks for one.
+		case req.Terminal:
 			cmd.Stdin = os.Stdin
 		}
 		return cmd, nil
@@ -209,14 +215,16 @@ func hostRunner(req tui.HostRequest) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, tui.ErrNoSudo
 	}
-	if req.Validate {
-		return exec.Command(sudo, "-v"), nil
+	var cmd *exec.Cmd
+	switch {
+	case req.Validate:
+		cmd = exec.Command(sudo, "-v")
+	case len(req.Secret) == 0:
+		cmd = exec.Command(sudo, append([]string{exe}, req.Args...)...)
+	default:
+		cmd = exec.Command(sudo, append([]string{"-n", exe}, req.Args...)...)
+		cmd.Stdin = bytes.NewReader(req.Secret)
 	}
-	if len(req.Secret) == 0 {
-		return exec.Command(sudo, append([]string{exe, group}, req.Args...)...), nil
-	}
-	cmd := exec.Command(sudo, append([]string{"-n", exe, group}, req.Args...)...)
-	cmd.Stdin = bytes.NewReader(req.Secret)
 	cmd.Env = append(os.Environ(), "LC_ALL=C")
 	return cmd, nil
 }

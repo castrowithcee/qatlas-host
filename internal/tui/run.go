@@ -26,7 +26,8 @@ type Options struct {
 	PrefsWarnings []string
 	// SavePrefs writes the preferences to the device; nil when this device has no place for them.
 	SavePrefs func(uiprefs.Prefs) error
-	// HostRun builds the commands that change the host as root for the System area; nil offers no change.
+	// HostRun builds the qhost commands the interface runs as root, as the changes of the System area and, without
+	// root, the changes the deploy service would refuse; nil offers no such change.
 	HostRun HostRunner
 	// HostLog reads the action log of the host service for the System area; nil shows that it cannot be read.
 	HostLog HostLog

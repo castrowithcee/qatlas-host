@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  1 2 3 [4 Einstellungen] 5 6 7                         
+  [Wartungsfenster]                                     
+────────────────────────────────────────────────────────
+  Wartungsfenster ändern                                
+                                                        
+           ╭───────────────────────────────────────────╮
+  Tage     │ sun                                       │
+  ╔═ Wartungsfenster ändern ═════════════════════════╗─╯
+  ║ ⚠ Das Wartungsfenster ändern?                    ║═╗
+> ║                                                  ║ ║
+  ║ Der laufende Dienst folgt sofort.                ║═╝
+  ║ Beginn: 04:30                                    ║  
+  ║ $ sudo qhost window set --start 04:30 --output   ║─╮
+  ║   json                                           ║ │
+  ║                                                  ║─╯
+  ║ [ ja, mit sudo ]  > abbrechen <                  ║─╮
+  ║ y ja, mit sudo  n/esc/enter abbrechen            ║ │
+  ╚══════════════════════════════════════════════════╝─╯
+                                                        
+                                                        
+                                                        
+[ F2 speichern ]  [ esc Verwerfen ]                     
+                                                        

@@ -53,6 +53,9 @@ type selfUpdateHost struct {
 	// refresh runs the internal command of the newly installed program at exe that brings the deploy service
 	// instances to its template; nil starts that program.
 	refresh func(ctx context.Context, exe string, stderr io.Writer) error
+	// refreshHook runs the internal command of the newly installed program that renews the unit of the webhook
+	// receiver and restarts it; nil starts that program.
+	refreshHook func(ctx context.Context, exe string, stderr io.Writer) error
 }
 
 var selfUpdate = selfUpdateHost{
@@ -76,6 +79,10 @@ func (h selfUpdateHost) options() []sysservice.Option {
 // deployInstalled reports whether the setup of the deploy service installed its unit. An update never installs
 // that unit by itself.
 func (h selfUpdateHost) deployInstalled() bool { return deploysetup.Installed(h.root) }
+
+// hookInstalled reports whether the setup of the webhook receiver installed its unit. An update never installs
+// that unit by itself, and the archive does not carry it: the new program replaces it.
+func (h selfUpdateHost) hookInstalled() bool { return deploysetup.HookInstalled(h.root) }
 
 func (h selfUpdateHost) companions() []selfupdate.Companion {
 	opts := h.options()
@@ -105,6 +112,34 @@ func (h selfUpdateHost) restart(ctx context.Context, services []string, result s
 		}
 	}
 	return nil
+}
+
+// planText says what an update replaces and restarts, from what is known without the release server: the target
+// version is checked only when the update runs.
+func (h selfUpdateHost) planText(exe, tag string) string {
+	target := "the newest stable release"
+	if tag != "" {
+		target = "release " + tag
+	}
+	if exe == "" {
+		exe = "the running program"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Update qhost from %s to %s. The release server is asked, and the version checked, only with --confirm.\n", version, target)
+	b.WriteString("These files are replaced:\n  " + exe + "\n")
+	for _, c := range h.companions() {
+		if c.Path != "" {
+			b.WriteString("  " + c.Path + "\n")
+		}
+	}
+	b.WriteString("These services restart: " + strings.Join(h.services(), ", ") + "\n")
+	if h.hookInstalled() {
+		b.WriteString("The unit qhost-hook.service is renewed where it differs, and the webhook receiver qhost-hook restarts.\n")
+	}
+	if h.instances() {
+		b.WriteString("The template unit qhost-deploy@.service is renewed where it differs, and every deploy service instance restarts.\n")
+	}
+	return b.String()
 }
 
 // shadowed returns the services whose unit an administrator's own unit in /etc/systemd/system overrides.
@@ -145,6 +180,26 @@ func (h selfUpdateHost) refreshInstances(ctx context.Context, exe string, stderr
 	}
 }
 
+// refreshHookService lets the newly installed program renew the unit of the webhook receiver and restart it,
+// where it is set up. A failure is a warning, like that of the instances.
+func (h selfUpdateHost) refreshHookService(ctx context.Context, exe string, stderr io.Writer) {
+	if !h.hookInstalled() {
+		return
+	}
+	run := h.refreshHook
+	if run == nil {
+		run = func(ctx context.Context, exe string, stderr io.Writer) error {
+			cmd := exec.CommandContext(ctx, exe, "hook-service", refreshHookCommand)
+			cmd.Stdout, cmd.Stderr = io.Discard, stderr
+			return cmd.Run()
+		}
+	}
+	if err := run(ctx, exe, stderr); err != nil {
+		_, _ = fmt.Fprintf(stderr, "warning: the webhook receiver was not renewed and restarted: %v\n"+
+			"Run 'sudo qhost hook-service %s' to retry.\n", err, refreshHookCommand)
+	}
+}
+
 func (h selfUpdateHost) client() *selfupdate.Client {
 	return &selfupdate.Client{
 		RepositoryAPI:  strings.TrimRight(h.apiURL, "/"),
@@ -175,16 +230,19 @@ func newSelfUpdateCommand(program *cobracli.Program) *cobra.Command {
 			"release, and the unit of the deploy service if it is set up, and restarts the services; drop-ins of the unit stay as they are.\n" +
 			"If deploy service instances for rootless engines are set up, the newly installed program then replaces the\n" +
 			"template unit qhost-deploy@.service where it differs, reloads systemd and restarts every instance; a failure there is a\n" +
-			"warning and does not undo the update, and 'sudo qhost deploy-service refresh-instances' repeats that step. A unit of\n" +
+			"warning and does not undo the update, and 'sudo qhost deploy-service refresh-instances' repeats that step. Where the\n" +
+			"webhook receiver is set up, the newly installed program likewise replaces qhost-hook.service where it differs and\n" +
+			"restarts it, which is not in the release archive; a failure is a warning, and 'sudo qhost hook-service refresh' repeats it. A unit of\n" +
 			"the same name in /etc/systemd/system overrides the installed one, and the update warns about it. Without an argument it\n" +
 			"installs the newest stable release if that is newer than the running version; with a version such as\n" +
 			"v1.2.3 it installs exactly that release, which must be newer than the running one. Updating never\n" +
 			"installs an older release.\n" +
 			"The signature over the release's checksums.txt is verified against the release key built into\n" +
 			"qhost, then the archive's SHA-256 checksum; any failure leaves the installation unchanged.\n" +
-			"Installing needs root. The service restarts afterwards, so installing needs --confirm and asks for\n" +
-			"confirmation on a terminal; --yes answers the question. To update the image versions of stacks use\n" +
-			"'qhost stack update'.",
+			"Installing needs root. The service restarts afterwards. It first shows on standard error what it would\n" +
+			"replace and restart, without asking the release server; without --confirm it stops there with exit\n" +
+			"code 2 and changes nothing. With --confirm it asks for confirmation on a terminal, and --yes answers\n" +
+			"the question. To update the image versions of stacks use 'qhost stack update'.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return usageFailure("update takes at most one argument, the release version",
@@ -207,18 +265,26 @@ func newSelfUpdateCommand(program *cobracli.Program) *cobra.Command {
 		Long: "status asks the release server for the newest stable release and compares it with the running\n" +
 			"version. It changes nothing and does not need root.",
 		RunE: func(c *cobra.Command, _ []string) error {
-			res, err := selfUpdate.client().Check(c.Context())
+			result, err := updateStatusResult(c.Context())
 			if err != nil {
-				return selfUpdateFailure(err)
+				return err
 			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
-				{Name: "installed", Value: res.Current},
-				{Name: "latest", Value: res.Latest},
-				{Name: "update_available", Value: res.UpdateAvailable},
-			}})
+			return output.Encode(c.OutOrStdout(), program.Format(), result)
 		},
 	})
 	return cmd
+}
+
+func updateStatusResult(ctx context.Context) (output.Object, error) {
+	res, err := selfUpdate.client().Check(ctx)
+	if err != nil {
+		return output.Object{}, selfUpdateFailure(err)
+	}
+	return output.Object{Fields: []output.Field{
+		{Name: "installed", Value: res.Current},
+		{Name: "latest", Value: res.Latest},
+		{Name: "update_available", Value: res.UpdateAvailable},
+	}}, nil
 }
 
 func runSelfUpdate(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, tag string) error {
@@ -226,13 +292,14 @@ func runSelfUpdate(c *cobra.Command, program *cobracli.Program, gate *cobracli.G
 		return &cli.Failure{Code: output.CodePermission, Message: "updating qhost needs root; run with sudo",
 			NextStep: "Run the same command with sudo."}
 	}
-	// A request without --confirm fails before the release server is asked.
+	// A request without --confirm shows the plan and fails before the release server is asked.
+	exe, exeErr := selfUpdate.executable()
 	if err := gate.Run(cobracli.Request{Changes: true}, func() error { return nil }); err != nil {
+		_, _ = fmt.Fprint(c.ErrOrStderr(), selfUpdate.planText(exe, tag))
 		return err
 	}
-	exe, err := selfUpdate.executable()
-	if err != nil {
-		return selfUpdateFailure(fmt.Errorf("cannot find the running program: %w", err))
+	if exeErr != nil {
+		return selfUpdateFailure(fmt.Errorf("cannot find the running program: %w", exeErr))
 	}
 	// The set of units is fixed before the archive is read, so what is replaced is what is restarted.
 	services := selfUpdate.services()
@@ -284,6 +351,7 @@ func runSelfUpdate(c *cobra.Command, program *cobracli.Program, gate *cobracli.G
 			return selfUpdateFailure(err)
 		}
 		selfUpdate.refreshInstances(ctx, exe, c.ErrOrStderr())
+		selfUpdate.refreshHookService(ctx, exe, c.ErrOrStderr())
 		return emitSelfUpdate(c, program, result.Current, result.Latest, true, true)
 	})
 }

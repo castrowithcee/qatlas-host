@@ -4,31 +4,34 @@ import kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 // The texts of the proposal kinds stack-settings and window.
 const (
-	textPropKindStackSettings kittui.TextID = "prop.kind.stacksettings"
-	textPropKindWindow        kittui.TextID = "prop.kind.window"
-	textPropStack             kittui.TextID = "prop.stack"
-	textPropBackupCommand     kittui.TextID = "prop.backupcommand"
-	textPropSettingsNew       kittui.TextID = "prop.settings.new"
-	textPropSettingsChanges   kittui.TextID = "prop.settings.changes"
-	textPropSettingsSame      kittui.TextID = "prop.settings.same"
-	textPropWindowChanges     kittui.TextID = "prop.window.changes"
-	textPropWindowSame        kittui.TextID = "prop.window.same"
-	textPropBefore            kittui.TextID = "prop.before"
-	textPropAfter             kittui.TextID = "prop.after"
-	textPropNoStack           kittui.TextID = "prop.nostack"
-	textAskProposalSettings   kittui.TextID = "ask.propsettings"
-	textAskProposalWindow     kittui.TextID = "ask.propwindow"
-	textWhatProposalSettings  kittui.TextID = "what.propsettings"
-	textWhatProposalWindow    kittui.TextID = "what.propwindow"
-	textDonePropSettings      kittui.TextID = "done.propsettings"
-	textDonePropSettingsSame  kittui.TextID = "done.propsettingssame"
-	textPropKindChannel       kittui.TextID = "prop.kind.channel"
-	textPropChannelNew        kittui.TextID = "prop.channel.new"
-	textPropChannelTaken      kittui.TextID = "prop.channel.taken"
-	textAskProposalChannel    kittui.TextID = "ask.propchannel"
-	textWhatProposalChannel   kittui.TextID = "what.propchannel"
-	textDonePropChannel       kittui.TextID = "done.propchannel"
-	textTitleProposalSecrets  kittui.TextID = "title.propsecrets"
+	textPropKindStackSettings    kittui.TextID = "prop.kind.stacksettings"
+	textPropKindWindow           kittui.TextID = "prop.kind.window"
+	textPropStack                kittui.TextID = "prop.stack"
+	textPropBackupCommand        kittui.TextID = "prop.backupcommand"
+	textPropSettingsNew          kittui.TextID = "prop.settings.new"
+	textPropSettingsChanges      kittui.TextID = "prop.settings.changes"
+	textPropSettingsSame         kittui.TextID = "prop.settings.same"
+	textPropWindowChanges        kittui.TextID = "prop.window.changes"
+	textPropWindowSame           kittui.TextID = "prop.window.same"
+	textPropBefore               kittui.TextID = "prop.before"
+	textPropAfter                kittui.TextID = "prop.after"
+	textPropNoStack              kittui.TextID = "prop.nostack"
+	textAskProposalSettings      kittui.TextID = "ask.propsettings"
+	textAskProposalWindow        kittui.TextID = "ask.propwindow"
+	textWhatProposalSettings     kittui.TextID = "what.propsettings"
+	textWhatProposalWindow       kittui.TextID = "what.propwindow"
+	textDonePropSettings         kittui.TextID = "done.propsettings"
+	textDonePropSettingsSame     kittui.TextID = "done.propsettingssame"
+	textPropKindChannel          kittui.TextID = "prop.kind.channel"
+	textPropChannelNew           kittui.TextID = "prop.channel.new"
+	textPropChannelTaken         kittui.TextID = "prop.channel.taken"
+	textAskProposalChannel       kittui.TextID = "ask.propchannel"
+	textWhatProposalChannel      kittui.TextID = "what.propchannel"
+	textDonePropChannel          kittui.TextID = "done.propchannel"
+	textTitleProposalSecrets     kittui.TextID = "title.propsecrets"
+	textWhatProposalSettingsSudo kittui.TextID = "what.propsettings.sudo"
+	textWhatProposalWindowSudo   kittui.TextID = "what.propwindow.sudo"
+	textWhatProposalChannelSudo  kittui.TextID = "what.propchannel.sudo"
 )
 
 func proposalKindEnglish() map[kittui.TextID]string {
@@ -60,6 +63,12 @@ func proposalKindEnglish() map[kittui.TextID]string {
 		textWhatProposalChannel: "Yes marks the proposal as approved and then adds the channel with the secret parts you entered, the way the channel form and qhost notify add add it. " +
 			"Right before that the proposal and the channels are read again, and nothing is applied if either differs from what you saw. " +
 			"The secret parts are never kept on the proposal.",
+		textWhatProposalSettingsSudo: "Yes runs the command shown. It marks the proposal as approved and then saves the settings shown, the way qhost stack settings set saves them. " +
+			"It refuses and applies nothing if the proposal is not the one you see. The result is kept on the proposal.",
+		textWhatProposalWindowSudo: "Yes runs the command shown. It marks the proposal as approved and then sets the window shown, the way qhost window set sets it. " +
+			"It refuses and applies nothing if the proposal is not the one you see. The result is kept on the proposal.",
+		textWhatProposalChannelSudo: "Yes runs the command shown. It marks the proposal as approved and then adds the channel with the secret parts you entered, the way qhost notify add adds it. " +
+			"The secret parts go to the command on standard input only, never into the command line, and are never kept on the proposal. It refuses and applies nothing if the proposal is not the one you see.",
 		textDonePropChannel:      "The channel %s is added.",
 		textTitleProposalSecrets: "Secret parts of the channel",
 		textDonePropSettings:     "The settings of the stack %s are saved.",
@@ -96,6 +105,12 @@ func proposalKindGerman() map[kittui.TextID]string {
 		textWhatProposalChannel: "Ja markiert den Vorschlag als freigegeben und legt dann den Kanal mit den eingegebenen geheimen Teilen an, so wie das Kanalformular und qhost notify add ihn anlegen. " +
 			"Direkt davor werden der Vorschlag und die Kanäle neu gelesen, und nichts wird angewendet, wenn eines von beiden vom Gezeigten abweicht. " +
 			"Die geheimen Teile bleiben nie am Vorschlag.",
+		textWhatProposalSettingsSudo: "Ja führt den gezeigten Befehl aus. Er markiert den Vorschlag als freigegeben und speichert dann die gezeigten Einstellungen, so wie qhost stack settings set sie speichert. " +
+			"Er lehnt ab und wendet nichts an, wenn der Vorschlag nicht der gezeigte ist. Das Ergebnis bleibt am Vorschlag.",
+		textWhatProposalWindowSudo: "Ja führt den gezeigten Befehl aus. Er markiert den Vorschlag als freigegeben und setzt dann das gezeigte Fenster, so wie qhost window set es setzt. " +
+			"Er lehnt ab und wendet nichts an, wenn der Vorschlag nicht der gezeigte ist. Das Ergebnis bleibt am Vorschlag.",
+		textWhatProposalChannelSudo: "Ja führt den gezeigten Befehl aus. Er markiert den Vorschlag als freigegeben und legt dann den Kanal mit den eingegebenen geheimen Teilen an, so wie qhost notify add ihn anlegt. " +
+			"Die geheimen Teile gehen nur über die Standardeingabe an den Befehl, nie in die Befehlszeile, und bleiben nie am Vorschlag. Er lehnt ab und wendet nichts an, wenn der Vorschlag nicht der gezeigte ist.",
 		textDonePropChannel:      "Der Kanal %s ist angelegt.",
 		textTitleProposalSecrets: "Geheime Teile des Kanals",
 		textDonePropSettings:     "Die Einstellungen des Stacks %s sind gespeichert.",

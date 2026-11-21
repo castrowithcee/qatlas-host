@@ -30,6 +30,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-kit/configfile"
 
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
@@ -115,9 +116,10 @@ func (b Binding) blocked(name string) error {
 	return nil
 }
 
-// Deployer carries out the steps of a run on one stack. A run calls Stop, Backup, Pull, Up and Check in this
-// order and stops at the first error; its rollback calls Stop, Restore, Up and Check. While a step runs, the
-// working copy is not moved, so the stack folder is the one the step was given.
+// Deployer carries out the steps of a run on one stack. A run calls Stop and Backup only when a backup follows
+// (see BackupPlanner), then Pull, Up and Check in this order and stops at the first error; its rollback calls
+// Stop, Restore, Up and Check. While a step runs, the working copy is not moved, so the stack folder is the one
+// the step was given.
 type Deployer interface {
 	// Stop stops the containers of the stack; a stack that does not run is no error.
 	Stop(ctx context.Context, stack stacks.Stack, log *Log) error
@@ -146,6 +148,13 @@ type DataDirChecker interface {
 	// relative to the stack folder is tracked in the working copy; such a path is never a candidate. It
 	// creates nothing.
 	MissingDataDirs(ctx context.Context, stack stacks.Stack, versioned func(ctx context.Context, rel string) (bool, error), log *Log) ([]MissingDir, error)
+}
+
+// BackupPlanner is implemented by a Deployer that can tell before a run whether Backup will save data. A run
+// stops the stack only when a backup follows; a Deployer without it makes every run of a deployed stack stop.
+type BackupPlanner interface {
+	// WillBackup reports whether Backup would save the data of the stack rather than return ErrNoBackup.
+	WillBackup(stack stacks.Stack) bool
 }
 
 // Clock is the time source of the poll loop.
@@ -252,8 +261,15 @@ func New(cfg Config) (*Engine, error) {
 		cfg.Redact = func(s string) string { return s }
 	}
 	dir := filepath.Join(cfg.StateDir, engineDir)
-	store, err := configfile.NewStore(filepath.Join(dir, stateFile), configfile.Codec[State]{
-		Validate: validateState, Encode: encodeState, Decode: decodeState,
+	statePath := filepath.Join(dir, stateFile)
+	store, err := configfile.NewStore(statePath, configfile.Codec[State]{
+		Validate: validateState, Encode: encodeState,
+		Decode: func(b []byte) (State, error) {
+			if err := formatnum.CheckJSON(statePath, "schema", b, stateSchema); err != nil {
+				return State{}, err
+			}
+			return decodeState(b)
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -1011,6 +1027,19 @@ func (e *Engine) Runs(stack string) ([]RunRecord, error) {
 // Log returns the run log of a run id; ErrNoSuchRun when the id is malformed or has no log.
 func (e *Engine) Log(id string) (string, error) { return e.logs.read(id) }
 
+// LogFormat returns the refusal of the log of run id when its format number is not one this version reads, and
+// nil in every other case. It changes nothing.
+func (e *Engine) LogFormat(id string) error {
+	p, err := e.logs.path(id)
+	if err != nil {
+		return nil
+	}
+	if err := headerOf(p); formatnum.Is(err) {
+		return err
+	}
+	return nil
+}
+
 // AppendLog adds one info entry to the log of an existing run, for facts that arise after the run has ended,
 // such as a notification that was not delivered. The text is redacted like every other entry. It fails with
 // ErrNoSuchRun when the id is malformed or the log is missing or not a regular file, and with ErrLogFull
@@ -1124,4 +1153,10 @@ func (e *Engine) finish(held bool) {
 		e.releaseHold()
 	}
 	e.wg.Done()
+}
+
+// CheckFormat checks the format number of the engine state below stateDir, the state directory the engine is
+// given, without changing it.
+func CheckFormat(stateDir string) error {
+	return formatnum.CheckFile(filepath.Join(stateDir, engineDir, stateFile), "schema", stateSchema)
 }

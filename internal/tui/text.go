@@ -227,6 +227,8 @@ func catalog() i18n.Catalogs[kittui.TextID] {
 	maps.Copy(c[i18n.German], containerGerman())
 	maps.Copy(c[i18n.English], deployEnglish())
 	maps.Copy(c[i18n.German], deployGerman())
+	maps.Copy(c[i18n.English], sudoEnglish())
+	maps.Copy(c[i18n.German], sudoGerman())
 	maps.Copy(c[i18n.English], proposalEnglish())
 	maps.Copy(c[i18n.English], proposalDecideEnglish())
 	maps.Copy(c[i18n.German], proposalGerman())
@@ -391,7 +393,7 @@ func baseCatalog() i18n.Catalogs[kittui.TextID] {
 			textAskStart:    "Start %s?",
 			textAskStop:     "Stop %s and keep it stopped until it is started?",
 			textAskRestart:  "Restart %s?",
-			textWhatDeploy:  "Starts a run at once: it stops the stack, backs up its data, pulls, starts and checks it, and rolls back if a step fails.",
+			textWhatDeploy:  "Starts a run at once: a stack with backup rules is stopped and backed up first, then it pulls, starts and checks the stack, and rolls back if a step fails. Without backup rules the stack keeps running and only changed containers are recreated.",
 			textWhatUpdate:  "Each stack is backed up, committed and deployed step by step, one stack after another; a failed step is rolled back. The versions shown are from the last check, the service asks the registries again.",
 			textWhatPause:   "The maintenance window starts no run of the stack until you unpause it. Manual runs are not affected.",
 			textWhatUnpause: "The maintenance window may run the stack again.",
@@ -586,7 +588,7 @@ func baseCatalog() i18n.Catalogs[kittui.TextID] {
 			textAskStart:    "%s starten (start)?",
 			textAskStop:     "%s stoppen (stop) und gestoppt lassen, bis er gestartet wird?",
 			textAskRestart:  "%s neu starten (restart)?",
-			textWhatDeploy:  "Startet sofort einen Lauf: er stoppt den Stack, sichert seine Daten, lädt, startet und prüft ihn und macht bei einem fehlgeschlagenen Schritt einen Rollback.",
+			textWhatDeploy:  "Startet sofort einen Lauf: ein Stack mit Backup-Regeln wird zuerst gestoppt und gesichert, dann lädt, startet und prüft der Lauf den Stack und macht bei einem fehlgeschlagenen Schritt einen Rollback. Ohne Backup-Regeln läuft der Stack weiter und nur geänderte Container werden neu erzeugt.",
 			textWhatUpdate:  "Jeder Stack wird gesichert, per Commit geändert und Schritt für Schritt ausgerollt, ein Stack nach dem anderen; ein fehlgeschlagener Schritt wird zurückgerollt. Die gezeigten Versionen stammen aus der letzten Prüfung, der Dienst fragt die Registries erneut ab.",
 			textWhatPause:   "Das Wartungsfenster startet keinen Lauf des Stacks, bis du die Pause aufhebst. Manuelle Läufe bleiben möglich.",
 			textWhatUnpause: "Das Wartungsfenster darf den Stack wieder ausführen.",

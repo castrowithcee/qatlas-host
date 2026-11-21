@@ -74,3 +74,32 @@ func TestGoldenUpdateConfirmLocal(t *testing.T) {
 func TestGoldenUpdateDone(t *testing.T) {
 	goldenUpdate(t, "detail.update.done", updateBackend, seq(toObserve, keys("backspace", "backspace", "3", "0", "f2", "y"))...)
 }
+
+func triggerBackend(trigger string, interval *int) func() *fakeBackend {
+	return func() *fakeBackend {
+		b := updateBackend()
+		u := b.stackSettings["demo-stack"].Update
+		u.Trigger, u.Interval = trigger, interval
+		return b
+	}
+}
+
+func TestGoldenUpdateTriggerWindow(t *testing.T) {
+	goldenUpdate(t, "detail.update.triggerwindow", triggerBackend("window", nil), toTrigger...)
+}
+
+func TestGoldenUpdateTriggerInterval(t *testing.T) {
+	goldenUpdate(t, "detail.update.triggerinterval", triggerBackend("interval", intp(45)), toTrigger...)
+}
+
+func TestGoldenUpdateTriggerWebhook(t *testing.T) {
+	goldenUpdate(t, "detail.update.triggerwebhook", triggerBackend("webhook", nil), toTrigger...)
+}
+
+func TestGoldenUpdateIntervalProblem(t *testing.T) {
+	goldenUpdate(t, "detail.update.intervalproblem", triggerBackend("interval", intp(45)), seq(toTrigger, keys("down", "backspace", "backspace", "2", "9", "f2"))...)
+}
+
+func TestGoldenStacksTrigger(t *testing.T) {
+	goldenUpdate(t, "stacks.trigger", updateBackend)
+}

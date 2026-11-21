@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 const (
@@ -52,9 +54,26 @@ func (c *Client) readCache(repo Repo) (cacheFile, bool) {
 	return cf, true
 }
 
+// unreadableFormatError is the refusal for a file at path that exists with a format number this version does
+// not read. Such a file is neither replaced nor removed.
+func unreadableFormatError(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, maxCacheBytes))
+	if err != nil {
+		return nil
+	}
+	return formatnum.CheckJSON(path, "version", data, cacheVersion)
+}
+
+func unreadableFormat(path string) bool { return unreadableFormatError(path) != nil }
+
 // writeCache stores the cache atomically. A failure only costs the cache, so it is not reported.
 func (c *Client) writeCache(repo Repo, cf cacheFile) {
-	if c.opts.CacheDir == "" {
+	if c.opts.CacheDir == "" || unreadableFormat(c.cachePath(repo)) {
 		return
 	}
 	data, err := json.Marshal(cf)
@@ -99,6 +118,9 @@ func CleanCache(dir string, maxAge time.Duration, now time.Time) int {
 		}
 		info, err := e.Info()
 		if err != nil || now.Sub(info.ModTime()) <= maxAge {
+			continue
+		}
+		if strings.HasSuffix(name, cacheSuffix) && unreadableFormat(filepath.Join(dir, name)) {
 			continue
 		}
 		if os.Remove(filepath.Join(dir, name)) == nil {

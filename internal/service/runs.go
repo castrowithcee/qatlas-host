@@ -11,6 +11,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 // runsAnswer maps an engine error to a fixed answer. Text from the engine's error is never passed on: it may
@@ -60,7 +61,7 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 			}
 			return control.StatusResult{Version: version, StartedAt: started, Engine: engineStatus(snaps), Window: window()}, nil
 		}),
-		control.DeployCommand: writing(func(ctx context.Context, raw json.RawMessage) (any, error) {
+		control.DeployCommand: inStack(changing(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.DeployArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -70,8 +71,8 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 				return nil, runsAnswer(err)
 			}
 			return control.DeployResult{ID: printable(info.ID), Stack: printable(info.Stack), Commit: printable(info.Commit)}, nil
-		}),
-		control.RunsCommand: reading(func(_ context.Context, raw json.RawMessage) (any, error) {
+		}), stackField),
+		control.RunsCommand: inStack(reading(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.RunsArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -82,15 +83,19 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 			}
 			res := control.RunsResult{Runs: make([]control.RunInfo, 0, len(runs))}
 			for _, rec := range runs {
+				var unreadable string
+				if err := eng.LogFormat(rec.ID); err != nil {
+					unreadable = printable(err.Error())
+				}
 				res.Runs = append(res.Runs, control.RunInfo{
 					ID: printable(rec.ID), Stack: printable(rec.Stack), Commit: printable(rec.Commit),
 					Trigger: printable(rec.Trigger), Started: rec.Started, DurationMS: rec.Duration.Milliseconds(),
-					Result: printable(rec.Result), Error: printable(rec.Error),
+					Result: printable(rec.Result), Error: printable(rec.Error), LogUnreadable: unreadable,
 				})
 			}
 			return res, nil
-		}),
-		control.ResumeCommand: writing(func(_ context.Context, raw json.RawMessage) (any, error) {
+		}), stackField),
+		control.ResumeCommand: inStack(changing(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.ResumeArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -108,11 +113,11 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 				res.Pause = &info
 			}
 			return res, nil
-		}),
-		control.PauseCommand:   writing(holdHandler(eng.SetPause, true)),
-		control.UnpauseCommand: writing(holdHandler(eng.SetPause, false)),
-		control.PinCommand:     writing(holdHandler(eng.SetPin, true)),
-		control.UnpinCommand:   writing(holdHandler(eng.SetPin, false)),
+		}), stackField),
+		control.PauseCommand:   inStack(changing(holdHandler(eng.SetPause, true)), stackField),
+		control.UnpauseCommand: inStack(changing(holdHandler(eng.SetPause, false)), stackField),
+		control.PinCommand:     inStack(changing(holdHandler(eng.SetPin, true)), stackField),
+		control.UnpinCommand:   inStack(changing(holdHandler(eng.SetPin, false)), stackField),
 		control.LogCommand: reading(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.LogArgs
 			if err := decodeArgs(raw, &a); err != nil {
@@ -122,6 +127,9 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 			if err != nil {
 				if errors.Is(err, engine.ErrNoSuchRun) {
 					return nil, runsAnswer(err)
+				}
+				if formatnum.Is(err) {
+					return nil, control.NewError(control.CodeInternal, printable(err.Error()))
 				}
 				return nil, errors.New("the run log cannot be read")
 			}

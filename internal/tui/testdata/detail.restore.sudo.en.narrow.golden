@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks [2 Stack detail] 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+  demo-stack                                                                    
+                                                                                
+  mode  ╔═ Restore a backup ═══════════════════════════════════════════╗        
+  state ║ ⚠ Restore the backup 20261023T031000Z-4567cdef of the stack  ║        
+  findin║   demo-stack?                                                ║        
+        ║                                                              ║        
+╭─ Image║ The stack is stopped and its current data is overwritten     ║───────╮
+│ APP_VE║ with the backup. The stack is started again afterwards. This ║       │
+│   1.4.║ cannot be undone.                                            ║       │
+╰───────║ 10-23 03:10                                                  ║───────╯
+╭─ Conta║ 11.0 MiB                                                     ║───────╮
+│ No con║ $ sudo qhost stack backup restore --yes --output json --     ║       │
+╰───────║   demo-stack 20261023T031000Z-4567cdef                       ║───────╯
+╭─ Chang║                                                              ║───────╮
+│ APP_VE║ [ yes, with sudo ]  > cancel <                               ║       │
+│   sour║ y yes, with sudo  n/esc/enter cancel                         ║       │
+│   1.5.╚══════════════════════════════════════════════════════════════╝       │
+│     Adds a dark theme.                                                       │
+│                                                                              │
+│     - faster start                                                           │
+                                                                           20/60

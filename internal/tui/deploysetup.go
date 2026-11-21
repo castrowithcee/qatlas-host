@@ -54,10 +54,6 @@ func (m *Model) setupShown() bool {
 func (m *Model) setupView(width, height int) string {
 	var lines []string
 	lines = append(lines, m.wrapped(2, kittui.StyleHint, m.text.Lookup(textSetupBody), width)...)
-	if m.euid() != 0 {
-		lines = append(lines, "")
-		lines = append(lines, m.wrapped(2, kittui.StyleWarn, m.text.Lookup(textSetupNeedsRoot), width)...)
-	}
 	lines = lines[:min(len(lines), max(height, 1))]
 	m.parts = append(m.parts, mousePart{rect: kittui.Rect{Width: width, Height: len(lines)},
 		targets: []kittui.Target{{Rect: kittui.Rect{Width: width, Height: len(lines)}, Zone: kittui.ZoneRows, Action: actSetupDeploy}}})
@@ -70,13 +66,9 @@ func (m *Model) setupOffered() bool {
 	return m.setupShown() || (m.deploy != nil && m.area == areaStacks && !m.notSetUp && m.set.form == nil && !m.set.keyOpen)
 }
 
-// beginSetup asks which deploy service to set up. Without root it only says what is needed.
+// beginSetup asks which deploy service to set up.
 func (m *Model) beginSetup() tea.Cmd {
 	if m.deploy == nil {
-		return nil
-	}
-	if m.euid() != 0 {
-		m.warn(m.text.Lookup(textSetupNeedsRoot))
 		return nil
 	}
 	spec := kittui.DialogSpec{Title: textSetupTitle, Question: m.text.Lookup(textAskSetupWhich), Consequence: m.text.Lookup(textWhatSetupWhich),
@@ -156,6 +148,10 @@ func (m *Model) askSetup(user string) tea.Cmd {
 	if user != "" {
 		question, consequence = m.text.Lookup(textAskSetupFor, user), m.text.Lookup(textWhatSetupFor, user)
 	}
+	if m.euid() != 0 {
+		m.askSetupSudo(user, question, consequence, details)
+		return nil
+	}
 	spec := kittui.DialogSpec{Title: textSetupTitle, Question: question, Consequence: consequence, Details: details,
 		Answers: []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}},
 		Default: actNo, Keys: kittui.DialogKeys{Enter: actEnter}}
@@ -173,4 +169,33 @@ func (m *Model) askSetup(user string) tea.Cmd {
 		})
 	}}
 	return nil
+}
+
+// askSetupSudo asks to set up with `sudo qhost deploy-service setup`; the steps of the plan are the lead, and the
+// command runs them as root itself.
+func (m *Model) askSetupSudo(user, question, consequence string, lead []kittui.DialogLine) {
+	if m.settingsBusy() {
+		m.warn(m.text.Lookup(textActionBusy))
+		return
+	}
+	args := []string{"deploy-service", "setup"}
+	if user != "" {
+		args = append(args, "--rootless", user)
+	}
+	args = append(args, "--confirm", "--yes", "--output", "json")
+	var gen int
+	m.askSudo(sudoAsk{title: textSetupTitle, question: question, consequence: consequence, lead: lead, args: args,
+		begin: func() { gen = m.beginSetting() },
+		done: func(r sudoRun) tea.Cmd {
+			msg := settingMsg{gen: gen, op: opDeploySetup, name: user}
+			var v struct {
+				SetUp bool `json:"set_up"`
+			}
+			if !r.decode(&v) || !v.SetUp {
+				msg.err = sudoProblem(r.problem)
+				return m.applySetting(msg)
+			}
+			msg.res = deploySetUp{user: user}
+			return m.applySetting(msg)
+		}})
 }

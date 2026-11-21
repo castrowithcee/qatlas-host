@@ -44,9 +44,14 @@ type addFlow struct {
 	readOnly bool
 	// missing says a clone goes into a folder that does not exist yet.
 	missing bool
-	plan    PermPlan
-	url     string
-	probe   control.RepoProbeResult
+	// plan is what the permissions of the folder need. Without root it is only shown: the command plans again and
+	// applies its own plan, so the plan has no handle then.
+	plan PermPlan
+	// effect is the fingerprint of what adding changes, as the inspection through sudo showed it; the last command
+	// takes it along so that it changes nothing when the folder differs by then.
+	effect string
+	url    string
+	probe  control.RepoProbeResult
 	// foreign is set when the folder is that of a foreign Compose project the person chose in the Containers
 	// area; the flow is the same, with the labels shown and compared.
 	foreign *foreignSource
@@ -183,9 +188,11 @@ func (m *Model) askFolderFetch() tea.Cmd {
 		m.warn(m.text.Lookup(textFolderLocalFetch))
 		return nil
 	}
-	m.ask(textTitleFolders, m.text.Lookup(textAskFetch, f.Path), m.text.Lookup(textWhatFetch), nil, false, func() tea.Cmd {
-		return m.writeCall(opFetch, f.Path, func(b Backend) (any, error) { return b.RepoFetch(m.ctx, f.Path) })
-	})
+	m.askSetting(settingChange{title: textTitleFolders, question: m.text.Lookup(textAskFetch, f.Path),
+		consequence: m.text.Lookup(textWhatFetch), op: opFetch, name: f.Path,
+		direct: func(b Backend) (any, error) { return b.RepoFetch(m.ctx, f.Path) },
+		args:   []string{"repo", "fetch", "--dir", f.Path, "--output", "json"},
+		decode: decodeSudo[control.RepoFetchResult](func(r control.RepoFetchResult) bool { return r.Dir != "" })})
 	return nil
 }
 
@@ -214,9 +221,11 @@ func (m *Model) askFolderRemove() tea.Cmd {
 		m.warn(m.text.Lookup(textChooseOne))
 		return nil
 	}
-	m.ask(textTitleFolders, m.text.Lookup(textAskRelease, f.Path), m.text.Lookup(textWhatRelease), nil, false, func() tea.Cmd {
-		return m.writeCall(opSourceRemove, f.Path, func(b Backend) (any, error) { return b.SourceRemove(m.ctx, f.Path) })
-	})
+	m.askSetting(settingChange{title: textTitleFolders, question: m.text.Lookup(textAskRelease, f.Path),
+		consequence: m.text.Lookup(textWhatRelease), op: opSourceRemove, name: f.Path,
+		direct: func(b Backend) (any, error) { return b.SourceRemove(m.ctx, f.Path) },
+		args:   []string{"source", "remove", "--yes", "--output", "json", "--", f.Path},
+		decode: decodeSudo[control.SourceRemoveResult](func(r control.SourceRemoveResult) bool { return r.Path != "" })})
 	return nil
 }
 
@@ -320,6 +329,8 @@ func (m *Model) submitFolder(f *settingsForm, path string) tea.Cmd {
 	case !filepath.IsAbs(path) || filepath.Clean(path) != path:
 		f.problems(m.bad("path", textProblemDir))
 		return nil
+	case m.euid() != 0:
+		return m.inspectSudo(path, nil)
 	case m.folders == nil:
 		f.problem(m.text.Lookup(textFoldersNone), m.text.Lookup(textFormRetry))
 		return nil
@@ -366,6 +377,8 @@ func inspectFolder(ctx context.Context, b Backend, host Folders, path string) (a
 func (m *Model) showInspection(flow *addFlow) {
 	t, res, title := m.text, flow.res, flow.title()
 	body := func(width int) []string { return m.inspectionLines(flow, width) }
+	// The last question shows the command that yes runs without root.
+	final := func(width int) []string { return append(m.inspectionLines(flow, width), m.sudoLines(flow, width)...) }
 	cont := []kittui.Answer{{Action: actYes, Label: textAnswerContinue}, {Action: actNo, Label: textAnswerCancel}}
 	yes := []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}}
 	if flow.foreign != nil {
@@ -383,17 +396,25 @@ func (m *Model) showInspection(flow *addFlow) {
 		m.askSheet(title, t.Lookup(textAskFolderAdopt, res.Path, res.URL), t.Lookup(textWhatFolderAdopt), body, cont,
 			m.probeFolder)
 	case control.SourceCaseLocal:
-		m.askSheet(title, m.finalQuestion(flow, t.Lookup(textAskFolderLocal, res.Path)), m.finalConsequence(flow, textWhatFolderApply), body, yes,
-			func() tea.Cmd { return m.addFolder(flow) })
+		m.askSheet(title, m.finalQuestion(flow, t.Lookup(textAskFolderLocal, res.Path)), m.finalConsequence(flow, textWhatFolderApply), final, yes,
+			m.lastStep(flow, func() tea.Cmd { return m.addFolder(flow) }))
 	case control.SourceCaseFiles:
 		if len(res.PlannedFiles) == 0 {
 			m.askSheet(title, t.Lookup(textAskFolderNoFiles, res.Path), t.Lookup(textWhatFolderNoFiles), body, nil, nil)
 			return
 		}
+		if flow.proposal != nil && flow.proposal.url != "" && m.euid() != 0 {
+			// The command takes the address of the proposal along, so a folder without remote is not offered:
+			// the command would refuse it every time. The only way on is with the remote, as for a clone.
+			m.askSheet(title, m.finalQuestion(flow, t.Lookup(textAskFolderFiles, res.Path)), m.finalConsequence(flow, textWhatFolderFiles), body,
+				[]kittui.Answer{{Action: actYes, Label: textAnswerWithRemote}, {Action: actNo, Label: textAnswerCancel}},
+				func() tea.Cmd { return m.openForm(m.folderURLForm()) })
+			return
+		}
 		files := []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actWithRemote, Label: textAnswerWithRemote},
 			{Action: actNo, Label: textAnswerCancel}}
-		m.askSheet(title, m.finalQuestion(flow, t.Lookup(textAskFolderFiles, res.Path)), m.finalConsequence(flow, textWhatFolderFiles), body, files,
-			func() tea.Cmd { return m.addFolder(flow) })
+		m.askSheet(title, m.finalQuestion(flow, t.Lookup(textAskFolderFiles, res.Path)), m.finalConsequence(flow, textWhatFolderFiles), final, files,
+			m.lastStep(flow, func() tea.Cmd { return m.addFolder(flow) }))
 		if m.modal != nil {
 			// The same comparison as for a local folder, with the repository that already holds content.
 			m.modal.alt = func() tea.Cmd { return m.openForm(m.folderURLForm()) }
@@ -436,6 +457,10 @@ func (m *Model) probeFolder() tea.Cmd {
 		return nil
 	}
 	url := flow.url
+	if m.euid() != 0 {
+		m.askProbeSudo(flow)
+		return nil
+	}
 	return m.writeCall(opProbe, "", func(b Backend) (any, error) { return b.RepoProbe(m.ctx, url) })
 }
 
@@ -515,11 +540,12 @@ func (m *Model) keyDone(checked keyChecked) tea.Cmd {
 			lines = append(lines, m.wrapped(detailIndent, kittui.StyleText, d, width)...)
 		}
 		lines = append(lines, m.warnLines(flow, width)...)
-		return append(lines, m.changeLines(flow, width)...)
+		lines = append(lines, m.changeLines(flow, width)...)
+		return append(lines, m.sudoLines(flow, width)...)
 	}
 	m.askSheet(flow.title(), m.finalQuestion(flow, question), m.finalConsequence(flow, textWhatFolderFinal), body,
 		[]kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}},
-		func() tea.Cmd { return m.addFolder(flow) })
+		m.lastStep(flow, func() tea.Cmd { return m.addFolder(flow) }))
 	return nil
 }
 
@@ -635,7 +661,7 @@ func (m *Model) inspectionLines(flow *addFlow, width int) []string {
 		}
 		lines = append(lines, text(kittui.StyleText, t.Lookup(textDetailOwner, nameOrID(a.Owner, a.OwnerID), nameOrID(a.Group, a.GroupID), a.Mode))...)
 		lines = append(lines, text(kittui.StyleText, t.Lookup(textDetailServiceWrites, yesNo(t, a.ServiceCanWrite)))...)
-		lines = append(lines, text(kittui.StyleText, t.Lookup(textDetailSetsPerms, yesNo(t, !flow.plan.Empty())))...)
+		lines = append(lines, text(kittui.StyleText, t.Lookup(textDetailSetsPerms, yesNo(t, !flow.noPermissions())))...)
 		if a.GitWritable != nil {
 			lines = append(lines, text(kittui.StyleText, t.Lookup(textDetailGitWritable, yesNo(t, *a.GitWritable)))...)
 		}
@@ -751,7 +777,7 @@ func (m *Model) changeLines(flow *addFlow, width int) []string {
 	default:
 		lines = append(lines, text(t.Lookup(textChangeLocal))...)
 	}
-	if flow.plan.Empty() {
+	if flow.noPermissions() {
 		lines = append(lines, text(t.Lookup(textChangeNoPerms))...)
 	}
 	// The plan is the host side's own words; they stay as it wrote them.

@@ -13,12 +13,12 @@
     Adresse: keine vorgeschlagen                                                
                                                                                 
   Wirkung bei Anwendung jetzt                                                   
-    Die Wirkung und die Freigabe eines Vorschlags brauchen sudo. Starte qhost   
-    mit sudo, um zu sehen, was die Anwendung ändert.                            
+    Die Wirkung dieses Vorschlags wird bei der Freigabe berechnet. Dafür fragt  
+    sudo nach deinem Passwort, und bis zu deiner Bestätigung ändert sich nichts.
                                                                                 
                                                                                 
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-esc Zurück  r Neu laden  1-7 Bereich  q Beenden                     ↑/↓ Scrollen
+esc Zurück  A freigeben  N ablehnen  r Neu laden  1-7 Bereich  q Beenden        
+                                                                    ↑/↓ Scrollen

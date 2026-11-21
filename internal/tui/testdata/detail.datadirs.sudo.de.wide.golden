@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks  [2 ▣ Stack-Details]  3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Datenordner anlegen                                                                                                   
+                            ╔═ Datenordner anlegen ════════════════════════════════════════╗                            
+  Fehlend unter /srv/stacks/║ ⚠ Die fehlenden Datenordner des Stacks demo-stack anlegen    ║                            
+    data/db                 ║   und ihn ausrollen?                                         ║                            
+    data/files              ║                                                              ║                            
+                            ║ Es werden nur die unten genannten Ordner mit diesem Besitzer ║                            
+           ╔════════════════║ und Modus angelegt. Vorhandene Ordner bleiben unverändert.   ║═══════════════════════════╗
+> Besitzer ║ 1000:1000_     ║ Danach wird ein Lauf des Stacks gestartet.                   ║                           ║
+           ╚════════════════║ Stack-Ordner: /srv/stacks/demo-stack                         ║═══════════════════════════╝
+           UID:GID des Benut║ Besitzer: 1000:1000                                          ║                            
+           ╭────────────────║ Modus: 0750                                                  ║───────────────────────────╮
+  Modus    │ 0750           ║   data/db                                                    ║                           │
+           ╰────────────────║   data/files                                                 ║───────────────────────────╯
+                            ║ $ sudo qhost stack datadir --owner 1000:1000 --mode 0750     ║                            
+                            ║   --yes --output json -- demo-stack                          ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+[ F2 speichern ]  [ esc Verwerfen ]                                                                                     
+                                                                                                                        

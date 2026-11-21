@@ -70,6 +70,9 @@ func (i Instance) TmpfilesConf() string { return tmpfilesDir + "/" + i.name() + 
 // DropInDir is the drop-in directory of the instance's unit.
 func (i Instance) DropInDir() string { return "/etc/systemd/system/" + i.Unit() + ".d" }
 
+// StackFoldersDropIn is the drop-in that lists the stack folders the instance may write.
+func (i Instance) StackFoldersDropIn() string { return i.DropInDir() + "/10-stack-folders.conf" }
+
 // Endpoint is the channel of the instance. Like the deploy service of the system engine it admits root and the
 // group qhost, which its user is not a member of.
 func (i Instance) Endpoint() localipc.ServiceEndpoint {
@@ -300,6 +303,9 @@ func (h Host) PlanInstance(ctx context.Context, user string) (Plan, error) {
 	if templateChanged || h.run(ctx, "systemctl", "is-enabled", "--quiet", inst.Unit()) != nil ||
 		h.run(ctx, "systemctl", "is-active", "--quiet", inst.Unit()) != nil {
 		command("systemctl", "enable", "--now", inst.Unit())
+	}
+	if err := h.planHookInstances(&plan, user); err != nil {
+		return Plan{}, err
 	}
 	return plan, nil
 }

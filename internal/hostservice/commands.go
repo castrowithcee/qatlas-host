@@ -1,6 +1,7 @@
 package hostservice
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,14 +14,6 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/host/auditlog"
 	"github.com/castrowithcee/qatlas-host/internal/proposals"
 )
-
-// command is one command of the host service. action is the log action its requests are recorded under;
-// rootOnly refuses every peer but root with control.CodeNotRoot before handle runs.
-type command struct {
-	action   string
-	rootOnly bool
-	handle   func(*call) (any, error)
-}
 
 // call is one request as a handler sees it. A handler that records a change of the host sets change, changeUID
 // and changeCode; the entry then names that change and that user instead of the peer, and carries changeCode as
@@ -35,16 +28,52 @@ type call struct {
 	changeCode string
 }
 
-func (s *server) registry(store *proposals.Store) map[string]command {
-	commands := map[string]command{
-		control.StatusCommand:        {action: auditlog.OperationControlStatus, handle: s.status},
-		control.HostLogListCommand:   {action: auditlog.OperationLogRead, handle: s.logList},
-		control.HostLogVerifyCommand: {action: auditlog.OperationLogRead, handle: s.logVerify},
-		// The sudo call that made the change is the proof, so only root may report one.
-		control.HostRecordCommand: {action: auditlog.OperationHostChange, rootOnly: true, handle: hostRecord},
+type callKey struct{}
+
+// withCall returns ctx carrying c, so a handler of the registry can reach the request it serves.
+func withCall(ctx context.Context, c *call) context.Context {
+	return context.WithValue(ctx, callKey{}, c)
+}
+
+// handler adapts h to a registry handler; the request comes from the context dispatch built.
+func handler(h func(*call) (any, error)) control.Handler {
+	return func(ctx context.Context, _ json.RawMessage) (any, error) {
+		c, _ := ctx.Value(callKey{}).(*call)
+		if c == nil {
+			return nil, errors.New("no request in the context")
+		}
+		return h(c)
 	}
-	proposalCommands(commands, store)
-	return commands
+}
+
+// registry returns the commands of the host service, each with its class and scope host, and the log action
+// each one's requests are recorded under.
+func (s *server) registry(store *proposals.Store) (*control.Registry, map[string]string, error) {
+	reg := control.NewRegistry()
+	actions := map[string]string{}
+	add := func(name, action string, class control.Class, h control.Handler) error {
+		actions[name] = action
+		return reg.Register(name, control.Command{Class: class, Scope: control.ScopeHost, Handle: h})
+	}
+	for _, c := range []struct {
+		name, action string
+		class        control.Class
+		handle       func(*call) (any, error)
+	}{
+		{control.StatusCommand, auditlog.OperationControlStatus, control.ClassRead, s.status},
+		{control.HostLogListCommand, auditlog.OperationLogRead, control.ClassRead, s.logList},
+		{control.HostLogVerifyCommand, auditlog.OperationLogRead, control.ClassRead, s.logVerify},
+		// The sudo call that made the change is the proof, so only root may report one.
+		{control.HostRecordCommand, auditlog.OperationHostChange, control.ClassChange, hostRecord},
+	} {
+		if err := add(c.name, c.action, c.class, handler(c.handle)); err != nil {
+			return nil, nil, err
+		}
+	}
+	if err := proposalCommands(add, store); err != nil {
+		return nil, nil, err
+	}
+	return reg, actions, nil
 }
 
 func badRequest() *control.Error {

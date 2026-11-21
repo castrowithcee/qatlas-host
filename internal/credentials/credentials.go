@@ -161,6 +161,10 @@ func (s *Store) ensureDir(path string) error {
 		}
 		info, err = os.Lstat(path)
 	}
+	return s.checkDir(path, info, err)
+}
+
+func (s *Store) checkDir(path string, info fs.FileInfo, err error) error {
 	if err != nil {
 		return fmt.Errorf("inspect %s: %w", path, err)
 	}
@@ -447,6 +451,40 @@ func (s *Store) Value(name string) (string, error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	data, err := s.read(filepath.Join(s.values, name))
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+// ReadValue returns the value of the credential name from the store in dir without changing anything: it
+// creates no directory and removes no leftover, so it never disturbs a write of the service that owns the
+// store. The directories and the file face the checks of Open and Value; anything else than a missing dir
+// fails closed with ErrUnsafe. Only a missing dir is ErrNotFound, since then nothing was ever stored; a
+// missing credential is ErrNotFound too. The caller must keep the value out of errors, logs and results.
+func ReadValue(dir, name string) (string, error) {
+	if dir == "" || !filepath.IsAbs(dir) {
+		return "", errors.New("the state directory must be an absolute path")
+	}
+	if !ValidName(name) {
+		return "", ErrInvalidName
+	}
+	s := &Store{dir: dir, values: filepath.Join(dir, valuesDir), uid: uint32(os.Geteuid())}
+	info, err := os.Lstat(s.dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", ErrNotFound
+	}
+	if err := s.checkDir(s.dir, info, err); err != nil {
+		return "", err
+	}
+	info, err = os.Lstat(s.values)
+	if err := s.checkDir(s.values, info, err); err != nil {
+		return "", err
+	}
 	data, err := s.read(filepath.Join(s.values, name))
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", ErrNotFound

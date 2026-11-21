@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed              [?] help
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+        STACK                      CURRENT  AVAILABLE  S
+> ▾ [ ] ■ /srv/stacks-example (6)  clone               …
+    [ ] demo-stack                 1.4.2    1.5.0      …
+  ╔═ Stack folders ══════════════════════════════════╗ …
+  ║ ⚠ Release the stack folder /srv/stacks-example?  ║ …
+  ║                                                  ║ …
+  ║ qhost no longer deploys from it. Nothing is      ║ …
+  ║ deleted and no container is stopped; the         ║ …
+  ║ permissions, the systemd drop-in entry and the   ║  
+  ║ deploy key stay.                                 ║  
+  ║ $ sudo qhost source remove --yes --output json   ║  
+  ║   -- /srv/stacks-example                         ║  
+  ║                                                  ║  
+  ║ [ yes, with sudo ]  > cancel <                   ║  
+  ║ y yes, with sudo  n/esc/enter cancel             ║  
+  ╚══════════════════════════════════════════════════╝  
+╭─ /srv/stacks-example ────────────────────────────────╮
+│ address: ssh://git.example.test/ops/stacks.git       │
+│ last poll: Fri 2026-10-30 14:30                      │
+╰──────────────────────────────────────────────────────╯
+                                                     1/6

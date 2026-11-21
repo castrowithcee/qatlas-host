@@ -94,7 +94,9 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 	}
 	store := proposals.New(cfg.StateDir, cmp.Or(cfg.PasswdFile, admins.DefaultPasswdFile), now, log, normalizeProposal(hostproposal.Default()),
 		proposals.IDPrefix(control.HostProposalIDPrefix))
-	s.commands = s.registry(store)
+	if s.commands, s.actions, err = s.registry(store); err != nil {
+		return err
+	}
 	l, err := cfg.Endpoint.ListenWith(localipc.ListenOptions{Refused: s.refused})
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
@@ -118,7 +120,8 @@ type server struct {
 	audit    auditLogger
 	logDir   string
 	db       admins.Database
-	commands map[string]command
+	commands *control.Registry
+	actions  map[string]string
 
 	mu    sync.Mutex
 	conns map[net.Conn]struct{}
@@ -280,15 +283,20 @@ func (s *server) dispatch(uid uint32, raw []byte) (fields auditlog.Fields, code 
 		return fail(control.NewError(control.CodeVersion,
 			fmt.Sprintf("protocol version %d is not supported; this service speaks version %d", req.V, control.Version)), false)
 	}
-	cmd, ok := s.commands[req.Command]
+	cmd, ok := s.commands.Lookup(req.Command)
 	if !ok {
 		return fail(control.NewError(control.CodeUnknownCommand, "unknown command"), true)
 	}
-	if cmd.rootOnly && uid != 0 {
+	// The peer was admitted for this request already, so only the class of the command is left to decide.
+	if err := admins.Authorize(uid, true, cmd.AccessFor(req.Args)); err != nil {
+		var ce *control.Error
+		if !errors.As(err, &ce) {
+			ce = control.ErrNoAccess()
+		}
 		fields.Action = auditlog.OperationControlRefuse
-		return fail(control.ErrNotRoot(), true)
+		return fail(ce, true)
 	}
-	fields.Action = cmd.action
+	fields.Action = s.actions[req.Command]
 	c := &call{uid: uid, args: req.Args}
 	if resp = s.run(cmd, c); resp.Error != nil {
 		return fields, resp.Error.Code, resp, true
@@ -300,14 +308,14 @@ func (s *server) dispatch(uid uint32, raw []byte) (fields auditlog.Fields, code 
 	return fields, code, resp, true
 }
 
-func (s *server) run(cmd command, c *call) (resp control.Response) {
+func (s *server) run(cmd control.Command, c *call) (resp control.Response) {
 	defer func() {
 		if r := recover(); r != nil {
 			s.log.Error("command panicked", "panic", fmt.Sprint(r))
 			resp = failure(control.NewError(control.CodeInternal, "internal error"))
 		}
 	}()
-	value, err := cmd.handle(c)
+	value, err := cmd.Handle(withCall(control.WithPeer(context.Background(), c.uid), c), c.args)
 	if err != nil {
 		var ce *control.Error
 		if errors.As(err, &ce) {

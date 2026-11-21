@@ -114,6 +114,7 @@ func startApproveEnv(t *testing.T, env *approveEnv) *fakeService {
 
 func TestProposalApproveAndRejectRefuseAnAgentAndNoTerminal(t *testing.T) {
 	useFolderHost(t)
+	useControllingTerminal(t, false)
 	env := &approveEnv{dir: t.TempDir()}
 	svc := startApproveEnv(t, env)
 	for name, setup := range map[string]func(){

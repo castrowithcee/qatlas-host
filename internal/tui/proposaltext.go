@@ -12,10 +12,11 @@ const (
 	textColSubmitted kittui.TextID = "col.submitted"
 	textColExpires   kittui.TextID = "col.expires"
 
-	textPropEmpty     kittui.TextID = "prop.empty"
-	textPropLoading   kittui.TextID = "prop.loading"
-	textPropNotice    kittui.TextID = "prop.notice"
-	textPropNoticeOne kittui.TextID = "prop.notice.one"
+	textPropEmpty      kittui.TextID = "prop.empty"
+	textPropLoading    kittui.TextID = "prop.loading"
+	textPropNotice     kittui.TextID = "prop.notice"
+	textPropNoticeOne  kittui.TextID = "prop.notice.one"
+	textPropNoticeBoth kittui.TextID = "prop.notice.both"
 
 	textPropKindSourceAdd kittui.TextID = "prop.kind.sourceadd"
 	textPropOpen          kittui.TextID = "prop.state.open"
@@ -40,7 +41,7 @@ const (
 	textPropNoAddress      kittui.TextID = "prop.noaddress"
 	textPropKindUnknown    kittui.TextID = "prop.kind.unknown"
 	textPropContentBad     kittui.TextID = "prop.contentbad"
-	textPropNeedsSudo      kittui.TextID = "prop.needssudo"
+	textPropEffectLater    kittui.TextID = "prop.effectlater"
 	textPropEffectFailed   kittui.TextID = "prop.effectfailed"
 )
 
@@ -53,10 +54,11 @@ func proposalEnglish() map[kittui.TextID]string {
 		textColSubmitted: "submitted",
 		textColExpires:   "expires",
 
-		textPropEmpty:     "No proposals.",
-		textPropLoading:   "Reading the proposals…",
-		textPropNotice:    "%d open proposals wait for you. Press %s to review them.",
-		textPropNoticeOne: "%d open proposal waits for you. Press %s to review it.",
+		textPropEmpty:      "No proposals.",
+		textPropLoading:    "Reading the proposals…",
+		textPropNotice:     "%d open proposals wait for you. Press %s to review them.",
+		textPropNoticeOne:  "%d open proposal waits for you. Press %s to review it.",
+		textPropNoticeBoth: "%d open proposals wait for you: %d under %s (%s), %d under %s (%s).",
 
 		textPropKindSourceAdd: "stack folder",
 		textPropOpen:          "open",
@@ -81,7 +83,7 @@ func proposalEnglish() map[kittui.TextID]string {
 		textPropNoAddress:      "none proposed",
 		textPropKindUnknown:    "This version cannot show or apply this kind of proposal.",
 		textPropContentBad:     "The content of the proposal cannot be read.",
-		textPropNeedsSudo:      "The effect and approving a proposal need sudo. Run qhost with sudo to see what applying it changes.",
+		textPropEffectLater:    "The effect of this proposal is worked out when you approve it. It asks for your sudo password and changes nothing until you confirm.",
 		textPropEffectFailed:   "The effect could not be worked out: %s",
 	}
 }
@@ -95,10 +97,11 @@ func proposalGerman() map[kittui.TextID]string {
 		textColSubmitted: "eingereicht",
 		textColExpires:   "läuft ab",
 
-		textPropEmpty:     "Keine Vorschläge.",
-		textPropLoading:   "Vorschläge werden gelesen…",
-		textPropNotice:    "%d offene Vorschläge warten auf dich. Mit %s prüfst du sie.",
-		textPropNoticeOne: "%d offener Vorschlag wartet auf dich. Mit %s prüfst du ihn.",
+		textPropEmpty:      "Keine Vorschläge.",
+		textPropLoading:    "Vorschläge werden gelesen…",
+		textPropNotice:     "%d offene Vorschläge warten auf dich. Mit %s prüfst du sie.",
+		textPropNoticeOne:  "%d offener Vorschlag wartet auf dich. Mit %s prüfst du ihn.",
+		textPropNoticeBoth: "%d offene Vorschläge warten auf dich: %d unter %s (%s), %d unter %s (%s).",
 
 		textPropKindSourceAdd: "Stack-Ordner",
 		textPropOpen:          "offen",
@@ -123,7 +126,7 @@ func proposalGerman() map[kittui.TextID]string {
 		textPropNoAddress:      "keine vorgeschlagen",
 		textPropKindUnknown:    "Diese Version kann diese Art von Vorschlag weder anzeigen noch anwenden.",
 		textPropContentBad:     "Der Inhalt des Vorschlags ist nicht lesbar.",
-		textPropNeedsSudo:      "Die Wirkung und die Freigabe eines Vorschlags brauchen sudo. Starte qhost mit sudo, um zu sehen, was die Anwendung ändert.",
+		textPropEffectLater:    "Die Wirkung dieses Vorschlags wird bei der Freigabe berechnet. Dafür fragt sudo nach deinem Passwort, und bis zu deiner Bestätigung ändert sich nichts.",
 		textPropEffectFailed:   "Die Wirkung konnte nicht berechnet werden: %s",
 	}
 }

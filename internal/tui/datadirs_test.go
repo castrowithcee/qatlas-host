@@ -150,16 +150,6 @@ func TestDataDirsCancelAtEveryStepCreatesNothing(t *testing.T) {
 	}
 }
 
-func TestDataDirsWithoutRootOnlySaySo(t *testing.T) {
-	b := dataDirBackend()
-	m, d := dataDirModel(t, b, 1000)
-	send(m, toDataDirs...)
-	contains(t, m, "needs root")
-	if m.set.form != nil || m.modal != nil || len(d.reqs) != 0 || len(b.actions()) != 0 {
-		t.Fatal("something was opened or created without root")
-	}
-}
-
 func TestDataDirsCreationFailureStaysInTheForm(t *testing.T) {
 	b := dataDirBackend()
 	m, d := dataDirModel(t, b, 0)
@@ -184,3 +174,58 @@ func TestDataDirsDeployFailureKeepsTheCreationVisible(t *testing.T) {
 type errTest string
 
 func (e errTest) Error() string { return string(e) }
+
+// sudoDataDirModel is the interface without root on the stack that waits for data directories, with a fake sudo.
+func sudoDataDirModel(t *testing.T, b *fakeBackend, report string) (*Model, *dirMaker, *fakeRoot) {
+	t.Helper()
+	m, d := dataDirModel(t, b, 1000)
+	f := &fakeRoot{report: report}
+	m.root = f.hook()
+	return m, d, f
+}
+
+const dataDirsJSON = `{"stack":"demo-stack","owner":"1000:1000","mode":"0750","created":"data/db","parents":"data",` +
+	`"existing":"data/files","run":"20261031T100000Z-demo-stack","commit":"0123456789abcdef"}`
+
+func TestDataDirsWithoutRootRunTheCommandWithTheShownValues(t *testing.T) {
+	m, d, f := sudoDataDirModel(t, dataDirBackend(), dataDirsJSON)
+	send(m, toDataDirs...)
+	// The owner and the mode are changed in the form; the command takes the changed values.
+	send(m, "ctrl+u")
+	send(m, keys("2", "0", "0", "0", ":", "2", "0", "0", "0")...)
+	send(m, "f2")
+	contains(t, m, "$ sudo qhost stack datadir --owner 2000:2000 --mode 0750", "--yes --output json -- demo-stack")
+	if len(f.reqs) != 0 {
+		t.Fatalf("sudo ran before the answer: %+v", f.reqs)
+	}
+	send(m, "y")
+	want := []string{"stack", "datadir", "--owner", "2000:2000", "--mode", "0750", "--yes", "--output", "json", "--", "demo-stack"}
+	if len(f.reqs) != 1 || !slices.Equal(f.reqs[0].Args, want) {
+		t.Fatalf("requests %+v, want arguments %v", f.reqs, want)
+	}
+	if len(d.reqs) != 0 {
+		t.Fatalf("the interface made directories itself: %v", d.reqs)
+	}
+	contains(t, m, "Data directories created for the stack demo-stack", "created: data/db", "parent directories: data",
+		"already existing: data/files", "run 20261031T100000Z-demo-stack started")
+}
+
+func TestDataDirsWithoutRootCancelChangesNothing(t *testing.T) {
+	m, d, f := sudoDataDirModel(t, dataDirBackend(), dataDirsJSON)
+	send(m, toDataDirs...)
+	send(m, "f2", "n")
+	send(m, "f2", "enter")
+	if len(f.reqs) != 0 || len(d.reqs) != 0 || m.modal != nil {
+		t.Fatalf("a cancelled question ran something: %+v %v", f.reqs, d.reqs)
+	}
+}
+
+func TestDataDirsWithoutRootFailureStaysInTheForm(t *testing.T) {
+	m, _, f := sudoDataDirModel(t, dataDirBackend(), "")
+	f.runErr = errTest("exit status 1")
+	send(m, toDataDirs...)
+	send(m, "f2", "y")
+	if m.set.form == nil {
+		t.Fatal("the form was closed after a failure")
+	}
+}

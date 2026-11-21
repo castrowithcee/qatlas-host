@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/compose"
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
@@ -68,11 +69,11 @@ type Manager struct {
 	Clock func() time.Time
 }
 
-// NewManager returns the production manager: docker through os/exec, against the engine at socket
-// (compose.DefaultDockerSocket when empty).
-func NewManager(root, socket string) *Manager {
+// NewManager returns the production manager: docker through os/exec with the Docker configuration of
+// stateDir, against the engine at socket (compose.DefaultDockerSocket when empty).
+func NewManager(root, stateDir, socket string) *Manager {
 	return &Manager{
-		Exec: &compose.Executor{Runner: &compose.ExecRunner{}, Env: compose.ProductionEnv(os.Getenv, socket)},
+		Exec: &compose.Executor{Runner: &compose.ExecRunner{}, Env: compose.ProductionEnv(os.Getenv, stateDir, socket)},
 		Root: root,
 	}
 }
@@ -225,6 +226,9 @@ func (m *Manager) Restore(ctx context.Context, st stacks.Stack, id string, log L
 		return Meta{}, err
 	}
 	meta, err = readMeta(dir, st.Name, id)
+	if formatnum.Is(err) {
+		return Meta{}, err
+	}
 	if err != nil {
 		return Meta{}, ErrNoSuchBackup
 	}

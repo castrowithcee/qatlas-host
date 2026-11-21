@@ -70,6 +70,12 @@ func (d redactingDeployer) MissingDataDirs(ctx context.Context, st stacks.Stack,
 	return c.MissingDataDirs(ctx, st, versioned, log)
 }
 
+// WillBackup implements engine.BackupPlanner; a deployer that cannot tell is assumed to back up.
+func (d redactingDeployer) WillBackup(st stacks.Stack) bool {
+	p, ok := d.next.(engine.BackupPlanner)
+	return !ok || p.WillBackup(st)
+}
+
 func (d redactingDeployer) Start(ctx context.Context, st stacks.Stack, log *engine.Log) error {
 	registerStackSecrets(d.r, st)
 	return d.next.Start(ctx, st, log)
@@ -126,7 +132,7 @@ func registerSecretCommands(r *control.Registry, eng *sourceSet,
 	}
 
 	commands := map[string]control.Command{
-		control.SecretSetCommand: writing(func(ctx context.Context, raw json.RawMessage) (any, error) {
+		control.SecretSetCommand: inStack(changing(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.SecretSetArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -147,8 +153,8 @@ func registerSecretCommands(r *control.Registry, eng *sourceSet,
 				return nil, answer(a.Stack, err)
 			}
 			return control.SecretResult{Stack: a.Stack, Key: a.Key, Replaced: replaced}, nil
-		}),
-		control.SecretDeleteCommand: writing(func(ctx context.Context, raw json.RawMessage) (any, error) {
+		}), stackField),
+		control.SecretDeleteCommand: inStack(changing(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.SecretKeyArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -163,8 +169,8 @@ func registerSecretCommands(r *control.Registry, eng *sourceSet,
 				return nil, answer(a.Stack, err)
 			}
 			return control.SecretResult{Stack: a.Stack, Key: a.Key}, nil
-		}),
-		control.SecretListCommand: reading(func(_ context.Context, raw json.RawMessage) (any, error) {
+		}), stackField),
+		control.SecretListCommand: inStack(reading(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.SecretListArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -198,7 +204,7 @@ func registerSecretCommands(r *control.Registry, eng *sourceSet,
 				keys = []string{}
 			}
 			return control.SecretListResult{Stack: a.Stack, Keys: keys}, nil
-		}),
+		}), stackField),
 	}
 	for name, h := range commands {
 		if err := r.Register(name, h); err != nil {

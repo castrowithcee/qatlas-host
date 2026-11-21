@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container  [6 ◈ Vorschläge]  7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Vorschlag p-0013 freigeben und den Kanal deploy-hook (webhook) anlegen?                                             
+                                                                                                                        
+  Ja führt den gezeigten Befehl aus. Er markiert den Vorschlag als freigegeben und legt dann den Kanal mit den          
+  eingegebenen geheimen Teilen an, so wie qhost notify add ihn anlegt. Die geheimen Teile gehen nur über die            
+  Standardeingabe an den Befehl, nie in die Befehlszeile, und bleiben nie am Vorschlag. Er lehnt ab und wendet nichts   
+  an, wenn der Vorschlag nicht der gezeigte ist.                                                                        
+    Der Kanal würde angelegt, einen Kanal dieses Namens gibt es jetzt nicht. Der Vorschlag enthält keine geheimen Teile:
+    Du gibst sie bei der Freigabe ein.                                                                                  
+                                                                                                                        
+    $ sudo qhost proposal approve p-0013 --fingerprint fp-p-0013 --confirm --output json                                
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+y ja, ausführen  n/esc/enter abbrechen                                                                      ↑/↓ Scrollen

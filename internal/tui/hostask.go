@@ -109,11 +109,17 @@ func (m *Model) confirmHost(p hostPlanned) {
 // drop where it is set. danger makes the yes red.
 func (m *Model) askChange(question, consequence string, irreversible, danger bool, lead []kittui.DialogLine, commands []string,
 	yes func() tea.Cmd, drop func()) {
+	m.askCommands(textTitleHostChange, question, consequence, irreversible, danger, lead, commands, yes, drop)
+}
+
+// askCommands is askChange under the title of the action.
+func (m *Model) askCommands(title kittui.TextID, question, consequence string, irreversible, danger bool, lead []kittui.DialogLine,
+	commands []string, yes func() tea.Cmd, drop func()) {
 	details := append([]kittui.DialogLine{}, lead...)
 	for _, c := range commands {
 		details = append(details, kittui.DialogLine{Prefix: "$ ", Text: c, Style: kittui.StyleHint})
 	}
-	spec := kittui.DialogSpec{Title: textTitleHostChange, Question: question, Consequence: consequence, Details: details,
+	spec := kittui.DialogSpec{Title: title, Question: question, Consequence: consequence, Details: details,
 		Irreversible: irreversible, Answers: []kittui.Answer{{Action: actYes, Label: textAnswerRunChange}, {Action: actNo, Label: textAnswerCancel}},
 		Default: actNo, Keys: kittui.DialogKeys{Enter: actEnter}}
 	if danger {
@@ -133,9 +139,9 @@ func (m *Model) askChange(question, consequence string, irreversible, danger boo
 // runHostChange runs host apply and shows what it reported. The lists are read again afterwards: the host may
 // have changed even when the run failed and was restored.
 func (m *Model) runHostChange(a hostAsk) tea.Cmd {
-	argv := append([]string{"apply", "--confirm", "--output", "json", "--", a.id}, a.args...)
+	argv := append([]string{"host", "apply", "--confirm", "--output", "json", "--", a.id}, a.args...)
 	if a.apply != nil {
-		argv = a.apply
+		argv = append([]string{"host"}, a.apply...)
 	}
 	req := HostRequest{Args: argv, Secret: a.secret}
 	after := func(out []byte, err error) tea.Cmd {
@@ -227,8 +233,12 @@ func (m *Model) hostFailed(out []byte, err error, change bool) {
 	}
 	var text string
 	switch {
-	case noCredential(reason):
+	case noCredential(reason) && ranWithoutPrompt(err):
 		text = t.Lookup(textHostErrNoCredential)
+	case noCredential(reason):
+		// With the terminal sudo asked itself, so the words mean that the prompt was given up before the command
+		// started: nothing was changed, whatever was asked for.
+		text = t.Lookup(textHostErrAbortedRead)
 	case change && reason != "" && !strings.HasPrefix(reason, "sudo:") && (kind == failDenied || kind == failExit):
 		// A line of sudo itself ("sudo: 3 incorrect password attempts") keeps the message about sudo; anything else
 		// is the reason qhost gave.
@@ -262,7 +272,7 @@ func (m *Model) hostFailed(out []byte, err error, change bool) {
 // readUserKeys reads the SSH keys of a user as root with `host user`, for an interface that cannot read them
 // itself; then is given the user with the keys read.
 func (m *Model) readUserKeys(u hostadmin.User, then func(hostadmin.User) tea.Cmd) tea.Cmd {
-	return m.runHost(HostRequest{Args: []string{"user", "--output", "json", "--", u.Name}}, func(out []byte, err error) tea.Cmd {
+	return m.runHost(HostRequest{Args: []string{"host", "user", "--output", "json", "--", u.Name}}, func(out []byte, err error) tea.Cmd {
 		var read struct {
 			SSHKeys []hostadmin.SSHKey `json:"ssh_keys"`
 		}

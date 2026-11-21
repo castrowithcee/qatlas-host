@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                         [esc] Zurück
+  1 [2 Stack-Details] 3 4 5 6 7                                                 
+────────────────────────────────────────────────────────────────────────────────
+  Update-Regeln eines Stacks                                                    
+                                                                                
+  Regeln des Stacks demo-stack. Backup, Prüfung und Compose-Dateien bleiben     
+  unverändert.                                                                  
+                                                                                
+  …                                                                             
+                         ╔═════════════════════════════════════════════════════╗
+> Abstand (Sekunden)     ║ 29_                                                 ║
+                         ╚═════════════════════════════════════════════════════╝
+                         zwischen zwei Abfragen, 30 bis 86400; gilt nur bei     
+                         Abfrage, sonst ignoriert                               
+                         [!] Der Abstand ist eine ganze Zahl von Sekunden von 30
+                         bis 86400. - Korrigiere das Feld.                      
+                         ╭─────────────────────────────────────────────────────╮
+  Tag-Filter             │ APP_VERSION → ^1\.[0-9.]+$                          │
+                         ╰─────────────────────────────────────────────────────╯
+  …                                                                             
+                                                                                
+                                                                                
+[ F2 speichern ]  [ esc Verwerfen ]                                             
+F2 Speichern  esc verwerfen            tab Nächstes Feld  shift+tab Voriges Feld

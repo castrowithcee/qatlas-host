@@ -67,7 +67,7 @@ func keyName(set *sourceSet, dir string) (string, error) {
 
 func registerCredentialCommands(r *control.Registry, st *credentials.Store, set *sourceSet) error {
 	commands := map[string]control.Command{
-		control.KeyGenerateCommand: writing(func(_ context.Context, raw json.RawMessage) (any, error) {
+		control.KeyGenerateCommand: changing(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.KeyGenerateArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -82,7 +82,7 @@ func registerCredentialCommands(r *control.Registry, st *credentials.Store, set 
 			}
 			return keyResult(k), nil
 		}),
-		control.KeySetCommand: writing(func(_ context.Context, raw json.RawMessage) (any, error) {
+		control.KeySetCommand: changing(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.KeySetArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -112,7 +112,7 @@ func registerCredentialCommands(r *control.Registry, st *credentials.Store, set 
 			}
 			return keyResult(k), nil
 		}),
-		control.CredentialSetCommand: writing(func(_ context.Context, raw json.RawMessage) (any, error) {
+		control.CredentialSetCommand: changing(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.CredentialSetArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -133,7 +133,7 @@ func registerCredentialCommands(r *control.Registry, st *credentials.Store, set 
 			}
 			return res, nil
 		}),
-		control.CredentialDeleteCommand: writing(func(_ context.Context, raw json.RawMessage) (any, error) {
+		control.CredentialDeleteCommand: changing(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.CredentialNameArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err

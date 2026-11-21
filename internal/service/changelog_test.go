@@ -326,7 +326,7 @@ func TestChangelogCacheCleanedAtStart(t *testing.T) {
 		}
 		stale, fresh, foreign = filepath.Join(dir, "old-org_old-app.json"), filepath.Join(dir, "new-org_new-app.json"), filepath.Join(dir, "notes.txt")
 		for _, p := range []string{stale, fresh, foreign} {
-			if err := os.WriteFile(p, []byte("{}"), 0o600); err != nil {
+			if err := os.WriteFile(p, []byte(`{"version":2}`), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}

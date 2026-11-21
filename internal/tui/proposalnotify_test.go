@@ -70,17 +70,10 @@ func TestChannelViewShowsEveryFieldInFullAndNoSecret(t *testing.T) {
 	}
 }
 
-func TestChannelViewWithoutSudoReadsButOffersNoKeys(t *testing.T) {
+func TestChannelViewWithoutRootReadsAndOffersTheKeys(t *testing.T) {
 	b := channelBackend()
 	m := proposalOpen(t, b, false, channelHookRow)
-	contains(t, m, "notification channel", "deploy-hook", "no channel of this name exists now")
-	if screen := m.render(); strings.Contains(screen, "approve") || strings.Contains(screen, "reject") {
-		t.Fatalf("keys offered without sudo:\n%s", screen)
-	}
-	send(m, "A", "N")
-	if m.modal != nil || m.set.form != nil || len(b.proposalActs) != 0 {
-		t.Fatal("a key worked without sudo")
-	}
+	contains(t, m, "notification channel", "deploy-hook", "no channel of this name exists now", "approve", "reject")
 }
 
 func TestChannelApproveAsksForTheSecretsThenAddsAndKeepsTheResult(t *testing.T) {

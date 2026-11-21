@@ -23,9 +23,11 @@ func selectContainer(t *testing.T, m *Model, name string) {
 	t.Fatalf("container %s is not reachable in the list", name)
 }
 
+// ctModel is the Containers area of an interface that runs as root, which calls the service directly.
 func ctModel(t *testing.T, b *fakeBackend) *Model {
 	t.Helper()
 	m := newTestModel(t, i18n.English, b, ctWide, ctWideRows)
+	m.euid = func() int { return 0 }
 	send(m, "5")
 	return m
 }
@@ -180,14 +182,22 @@ func TestContainerActionIsRefusedWhileAnotherRuns(t *testing.T) {
 	}
 }
 
-// goldenContainerAction marks the container name in the Containers list, since the order of the groups depends on
-// the language, then sends keys.
+// goldenContainerAction marks the container name in the Containers list of an interface that runs as root, since
+// the order of the groups depends on the language, then sends keys.
 func goldenContainerAction(t *testing.T, prefix string, setup func() *fakeBackend, name string, keys ...string) {
+	t.Helper()
+	goldenContainerActionAs(t, 0, prefix, setup, name, keys...)
+}
+
+// goldenContainerActionAs is goldenContainerAction for an interface that runs as euid, with a fake sudo.
+func goldenContainerActionAs(t *testing.T, euid int, prefix string, setup func() *fakeBackend, name string, keys ...string) {
 	t.Helper()
 	for lname, lang := range goldenLangs {
 		for size, dim := range map[string][2]int{"narrow": {ctNarrow, ctNarrowRows}, "wide": {ctWide, ctWideRows}} {
 			t.Run(lname+"."+size, func(t *testing.T) {
 				m := newTestModel(t, lang, setup(), dim[0], dim[1])
+				m.euid = func() int { return euid }
+				m.root = (&fakeRoot{report: ctReport("example-cache")}).hook()
 				send(m, "5")
 				selectContainer(t, m, name)
 				send(m, keys...)

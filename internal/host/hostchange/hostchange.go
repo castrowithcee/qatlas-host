@@ -1,7 +1,8 @@
 // Package hostchange is the framework for changes to the host that run as root: an action describes itself
 // in plain words and exact commands, the runner records the previous state in a root-only journal before it
 // changes anything, checks the result, and restores the previous state when the change or its check fails.
-// Default registers the production actions: the user actions of users.go and the folder action of folder.go.
+// Default registers the production actions: the user actions of users.go, the folder action of folder.go and
+// the file actions of file.go and filemove.go.
 package hostchange
 
 import (
@@ -100,6 +101,9 @@ type Definition struct {
 	ID string
 	// WantsSecret makes the CLI read the secret input from standard input and pass it to Plan.
 	WantsSecret bool
+	// PreviewSecret stands in for the secret input where a plan is only shown, never run; empty means
+	// DefaultPreviewSecret. Set it when Plan rejects that default, as for a structured input.
+	PreviewSecret []byte
 	// Plan validates the arguments and builds the plan. It reads nothing from the host: the TUI calls it to
 	// show the confirmation before it asks for root.
 	Plan func(args []string, secret []byte) (Plan, error)
@@ -179,6 +183,26 @@ func (r *Registry) IDs() []string {
 	return ids
 }
 
+// DefaultPreviewSecret is the secret input of an action whose plan is shown without a real secret.
+const DefaultPreviewSecret = "preview-only-secret"
+
+// Preview builds the plan of an action to show it before anything is asked or read: an action that wants a secret
+// gets its preview placeholder, which never reaches a command that runs.
+func (r *Registry) Preview(id string, args []string) (Plan, error) {
+	d, ok := r.defs[id]
+	if !ok {
+		return Plan{}, fmt.Errorf("unknown action %q", id)
+	}
+	var secret []byte
+	if d.WantsSecret {
+		secret = d.PreviewSecret
+		if len(secret) == 0 {
+			secret = []byte(DefaultPreviewSecret)
+		}
+	}
+	return d.Plan(args, secret)
+}
+
 // Describe builds the plan of an action without running or reading anything.
 func (r *Registry) Describe(id string, args []string, secret []byte) (Plan, error) {
 	d, ok := r.defs[id]
@@ -195,6 +219,9 @@ func Default() *Registry {
 		panic(err)
 	}
 	if err := RegisterFolderActions(r, DefaultFolderHost()); err != nil {
+		panic(err)
+	}
+	if err := RegisterFileActions(r); err != nil {
 		panic(err)
 	}
 	return r

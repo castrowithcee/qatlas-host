@@ -250,6 +250,14 @@ func (m *Model) approveKind() tea.Cmd {
 	if eff.kind == control.ProposalKindWindow {
 		question, consequence = t.Lookup(textAskProposalWindow, kittui.Escape(proposalShort(v.id))), textWhatProposalWindow
 	}
+	if m.euid() != 0 {
+		sudoWhat := textWhatProposalSettingsSudo
+		if eff.kind == control.ProposalKindWindow {
+			sudoWhat = textWhatProposalWindowSudo
+		}
+		m.askKindSudo(eff, shown, question, sudoWhat, nil)
+		return nil
+	}
 	body := func(width int) []string { return m.kindEffectLines(eff, width) }
 	m.askSheet(textTitleProposalApprove, question, t.Lookup(consequence), body,
 		[]kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}},

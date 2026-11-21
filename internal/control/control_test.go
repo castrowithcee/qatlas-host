@@ -46,7 +46,7 @@ func TestWriteFrameLimit(t *testing.T) {
 func TestRegistry(t *testing.T) {
 	r := NewRegistry()
 	h := func(context.Context, json.RawMessage) (any, error) { return nil, nil }
-	read, write := Command{Access: AccessRead, Handle: h}, Command{Access: AccessWrite, Handle: h}
+	read, write := Command{Class: ClassRead, Scope: ScopeDeploy, Handle: h}, Command{Class: ClassChange, Scope: ScopeDeploy, Handle: h}
 	if err := r.Register("status", read); err != nil {
 		t.Fatal(err)
 	}
@@ -58,18 +58,21 @@ func TestRegistry(t *testing.T) {
 			t.Errorf("name %q accepted", bad)
 		}
 	}
-	if r.Register("status", read) == nil || r.Register("other", Command{Access: AccessRead}) == nil {
+	if r.Register("status", read) == nil || r.Register("other", Command{Class: ClassRead, Scope: ScopeDeploy}) == nil {
 		t.Error("duplicate or nil handler accepted")
 	}
-	for _, unmarked := range []Command{{Handle: h}, {Access: 4, Handle: h}} {
+	for _, unmarked := range []Command{
+		{Handle: h}, {Class: 4, Scope: ScopeDeploy, Handle: h}, {Class: ClassRead, Handle: h}, {Class: ClassRead, Scope: 4, Handle: h},
+		{Class: ClassRead, Scope: ScopeStack, Handle: h}, {Class: ClassRead, Scope: ScopeDeploy, Stack: one, Handle: h},
+	} {
 		if r.Register("unmarked", unmarked) == nil {
-			t.Errorf("command with access %v accepted", unmarked.Access)
+			t.Errorf("command %+v accepted", unmarked)
 		}
 	}
-	if r.Register("raised", Command{Access: AccessWrite, Handle: h, Writes: func(json.RawMessage) bool { return true }}) == nil {
+	if r.Register("raised", Command{Class: ClassChange, Scope: ScopeDeploy, Handle: h, Writes: func(json.RawMessage) bool { return true }}) == nil {
 		t.Error("a write command with Writes accepted")
 	}
-	if c, ok := r.Lookup("status"); !ok || c.Access != AccessRead {
+	if c, ok := r.Lookup("status"); !ok || c.Class != ClassRead {
 		t.Error("registered command not found")
 	}
 	if _, ok := r.Lookup("missing"); ok {
@@ -78,24 +81,40 @@ func TestRegistry(t *testing.T) {
 	if got := strings.Join(r.Names(), ","); got != "stacks.list,status" {
 		t.Errorf("names = %s", got)
 	}
+	if got := r.Entries(); len(got) != 2 || got[0] != (Entry{"stacks.list", ClassChange, ScopeDeploy}) || got[1] != (Entry{"status", ClassRead, ScopeDeploy}) {
+		t.Errorf("entries = %+v", got)
+	}
+}
+
+func one(args json.RawMessage) []string {
+	var a struct{ Stack string }
+	if json.Unmarshal(args, &a) != nil {
+		return nil
+	}
+	return []string{a.Stack}
 }
 
 func TestAccessForRaisesOnlyAReadWithASideEffect(t *testing.T) {
 	h := func(context.Context, json.RawMessage) (any, error) { return nil, nil }
 	refresh := func(args json.RawMessage) bool { return string(args) != `{}` }
+	deploy := func(c Class) Access { return Access{Class: c, Scope: ScopeDeploy} }
 	for _, tc := range []struct {
 		c    Command
 		args string
 		want Access
 	}{
-		{Command{Access: AccessRead, Handle: h}, `{"refresh":true}`, AccessRead},
-		{Command{Access: AccessRead, Handle: h, Writes: refresh}, `{}`, AccessRead},
-		{Command{Access: AccessRead, Handle: h, Writes: refresh}, `{"refresh":true}`, AccessWrite},
-		{Command{Access: AccessWrite, Handle: h}, `{}`, AccessWrite},
-		{Command{Handle: h}, `{}`, AccessWrite},
+		{Command{Class: ClassRead, Scope: ScopeDeploy, Handle: h}, `{"refresh":true}`, deploy(ClassRead)},
+		{Command{Class: ClassRead, Scope: ScopeDeploy, Handle: h, Writes: refresh}, `{}`, deploy(ClassRead)},
+		{Command{Class: ClassRead, Scope: ScopeDeploy, Handle: h, Writes: refresh}, `{"refresh":true}`, deploy(ClassChange)},
+		{Command{Class: ClassChange, Scope: ScopeDeploy, Handle: h}, `{}`, deploy(ClassChange)},
+		{Command{Class: ClassPropose, Scope: ScopeDeploy, Handle: h}, `{}`, deploy(ClassPropose)},
+		{Command{Handle: h}, `{}`, deploy(ClassChange)},
+		{Command{Class: ClassChange, Scope: ScopeStack, Stack: one, Handle: h}, `{"stack":"demo"}`, Access{ClassChange, ScopeStack, "demo"}},
+		{Command{Class: ClassChange, Scope: ScopeStack, Stack: one, Handle: h}, `{}`, deploy(ClassChange)},
+		{Command{Class: ClassRead, Scope: ScopeStack, Stack: one, Handle: h, Writes: refresh}, `{"stack":"demo","x":1}`, Access{ClassChange, ScopeStack, "demo"}},
 	} {
 		if got := tc.c.AccessFor(json.RawMessage(tc.args)); got != tc.want {
-			t.Errorf("access of %v with %s = %v, want %v", tc.c.Access, tc.args, got, tc.want)
+			t.Errorf("access of %+v with %s = %+v, want %+v", tc.c.Class, tc.args, got, tc.want)
 		}
 	}
 }

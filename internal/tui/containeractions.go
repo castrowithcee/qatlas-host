@@ -24,6 +24,9 @@ var ctActionTexts = map[actionKind]struct{ ask, consequence kittui.TextID }{
 	kindRestart: {textAskCtRestart, textWhatCtRestart},
 }
 
+// ctVerbs are the verbs of `qhost container` of each action.
+var ctVerbs = map[actionKind]string{kindStart: "start", kindStop: "stop", kindRestart: "restart"}
+
 var ctDoneTexts = map[actionKind]kittui.TextID{
 	kindStart: textDoneCtStart, kindStop: textDoneCtStop, kindRestart: textDoneCtRestart,
 }
@@ -41,13 +44,15 @@ type ctReadMsg struct {
 	err  error
 }
 
-// ctDoneMsg carries the answer of the confirmed action.
+// ctDoneMsg carries the answer of the confirmed action. problem is the plain words of a run through sudo that gave
+// no answer.
 type ctDoneMsg struct {
-	gen    int
-	kind   actionKind
-	detail control.ContainerDetail
-	res    control.ContainerActionResult
-	err    error
+	gen     int
+	kind    actionKind
+	detail  control.ContainerDetail
+	res     control.ContainerActionResult
+	err     error
+	problem string
 }
 
 // containerAction takes S, X and Z in the Containers area; ok is false when the key means nothing there.
@@ -97,6 +102,10 @@ func (m *Model) applyContainerRead(msg ctReadMsg) {
 		m.warn(m.containerActionError(msg.err))
 		return
 	}
+	if m.euid() != 0 {
+		m.askSudo(m.containerSudo(msg.kind, msg.res))
+		return
+	}
 	dialog, err := m.containerDialog(msg.kind, msg.res)
 	if err != nil {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
@@ -128,11 +137,11 @@ func (m *Model) stateText(s control.ContainerSummary) string {
 	return word
 }
 
-// containerDialog is the question. Cancel is the default answer, so a stray enter does nothing.
-func (m *Model) containerDialog(kind actionKind, d control.ContainerDetail) (*kittui.Dialog, error) {
+// containerQuestion is the question of an action, what follows and the state before.
+func (m *Model) containerQuestion(kind actionKind, d control.ContainerDetail) (question, consequence string, lead []kittui.DialogLine) {
 	t := m.text
 	info := ctActionTexts[kind]
-	consequence := t.Lookup(info.consequence)
+	consequence = t.Lookup(info.consequence)
 	if kind == kindStop {
 		what := textWhatCtStop
 		if d.Kind == control.ContainerKindOwn {
@@ -140,23 +149,55 @@ func (m *Model) containerDialog(kind actionKind, d control.ContainerDetail) (*ki
 		}
 		consequence = t.Lookup(what, control.ContainerDefaultGraceSeconds)
 	}
-	return kittui.NewDialog(kittui.DialogSpec{Title: kindTexts[kind].word,
-		Question:    t.Lookup(info.ask, kittui.Escape(d.Name), m.containerKindText(d)),
-		Consequence: consequence, Details: dialogLines([]string{t.Lookup(textCtStateBefore, m.stateText(d.ContainerSummary))}),
-		Answers: []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}},
-		Default: actNo, Keys: kittui.DialogKeys{Enter: actEnter}}, m.keys, t)
+	return t.Lookup(info.ask, kittui.Escape(d.Name), m.containerKindText(d)), consequence,
+		dialogLines([]string{t.Lookup(textCtStateBefore, m.stateText(d.ContainerSummary))})
 }
 
-// startContainerAction makes the confirmed call by ID, so a name given to another container meanwhile cannot hit
-// that one. The plan is borrowed for the busy mark of the header and the guard against a second action.
-func (m *Model) startContainerAction(kind actionKind, d control.ContainerDetail) tea.Cmd {
+// containerDialog is the question. Cancel is the default answer, so a stray enter does nothing.
+func (m *Model) containerDialog(kind actionKind, d control.ContainerDetail) (*kittui.Dialog, error) {
+	question, consequence, lead := m.containerQuestion(kind, d)
+	return kittui.NewDialog(kittui.DialogSpec{Title: kindTexts[kind].word, Question: question, Consequence: consequence, Details: lead,
+		Answers: []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}},
+		Default: actNo, Keys: kittui.DialogKeys{Enter: actEnter}}, m.keys, m.text)
+}
+
+// containerSudo is the question of an interface without root, which runs `sudo qhost container <verb>`; the answer
+// is read as the service gives it.
+func (m *Model) containerSudo(kind actionKind, d control.ContainerDetail) sudoAsk {
+	question, consequence, lead := m.containerQuestion(kind, d)
+	var gen int
+	return sudoAsk{title: kindTexts[kind].word, question: question, consequence: consequence, lead: lead,
+		args:  []string{"container", ctVerbs[kind], "--yes", "--output", "json", "--", containerRef(d)},
+		begin: func() { gen = m.beginContainerRun(kind, d) },
+		done: func(r sudoRun) tea.Cmd {
+			msg := ctDoneMsg{gen: gen, kind: kind, detail: d}
+			if !r.decode(&msg.res) || msg.res.Name == "" {
+				msg.res, msg.problem = control.ContainerActionResult{}, r.problem
+			}
+			return m.applyContainerDone(msg)
+		}}
+}
+
+// containerRef names the container by ID, so a name given to another container meanwhile cannot hit that one.
+func containerRef(d control.ContainerDetail) string {
+	if d.ID != "" {
+		return d.ID
+	}
+	return d.Name
+}
+
+// beginContainerRun borrows the plan for the busy mark of the header and the guard against a second action; it
+// returns the generation of the run.
+func (m *Model) beginContainerRun(kind actionKind, d control.ContainerDetail) int {
 	m.runGen++
 	m.run = &running{gen: m.runGen, plan: plan{kind: kind, stacks: []string{d.Name}}}
-	target := d.ID
-	if target == "" {
-		target = d.Name
-	}
-	ctx, b, gen := m.ctx, m.backend, m.runGen
+	return m.runGen
+}
+
+// startContainerAction makes the confirmed call.
+func (m *Model) startContainerAction(kind actionKind, d control.ContainerDetail) tea.Cmd {
+	gen := m.beginContainerRun(kind, d)
+	ctx, b, target := m.ctx, m.backend, containerRef(d)
 	return func() tea.Msg {
 		var res control.ContainerActionResult
 		var err error
@@ -202,6 +243,11 @@ func (m *Model) applyContainerDone(msg ctDoneMsg) tea.Cmd {
 func (m *Model) containerOutcome(msg ctDoneMsg) outcome {
 	t := m.text
 	o := outcome{stack: msg.detail.Name}
+	if msg.problem != "" {
+		o.failed = true
+		o.lines = []string{msg.problem}
+		return o
+	}
 	if msg.err != nil {
 		o.failed = true
 		o.lines = []string{m.containerActionError(msg.err)}

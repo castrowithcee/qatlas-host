@@ -1,10 +1,13 @@
 package admins
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // An invented group database: example-admin is an administrator in the service group, example-primary the same
@@ -79,5 +82,35 @@ func TestDatabaseReadsTheFilesOnEveryCall(t *testing.T) {
 	}
 	if ok, err := db.Admin(4100); ok || err != nil {
 		t.Fatalf("admin after the revocation = %v, %v", ok, err)
+	}
+}
+
+func TestAuthorizeDecidesByClass(t *testing.T) {
+	for name, tc := range map[string]struct {
+		uid   uint32
+		admin bool
+		class control.Class
+		want  string
+	}{
+		"root reads":         {0, false, control.ClassRead, ""},
+		"root proposes":      {0, false, control.ClassPropose, ""},
+		"root changes":       {0, false, control.ClassChange, ""},
+		"admin reads":        {4100, true, control.ClassRead, ""},
+		"admin proposes":     {4100, true, control.ClassPropose, ""},
+		"admin changes":      {4100, true, control.ClassChange, control.CodeNotRoot},
+		"admin, unmarked":    {4100, true, 0, control.CodeNotRoot},
+		"other user reads":   {4102, false, control.ClassRead, control.CodeNoAccess},
+		"other user changes": {4102, false, control.ClassChange, control.CodeNoAccess},
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := Authorize(tc.uid, tc.admin, control.Access{Class: tc.class, Scope: control.ScopeHost})
+			var ce *control.Error
+			switch {
+			case tc.want == "" && err != nil:
+				t.Fatalf("err = %v", err)
+			case tc.want != "" && (!errors.As(err, &ce) || ce.Code != tc.want):
+				t.Fatalf("err = %v, want %s", err, tc.want)
+			}
+		})
 	}
 }

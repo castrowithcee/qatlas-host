@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                                    [?] Hilfe
+  [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Das Repository /srv/repo-example als lokalen Stack-Ordner übernehmen?                                               
+                                                                                                                        
+  Ja nimmt die unten aufgeführten Änderungen vor.                                                                       
+                                                                                                                        
+    Ordner: /srv/repo-example                                                                                           
+    Fall: local (ein Repository ohne Remote, das so ausgerollt wird)                                                    
+    Eigentümer: qhost, Gruppe: qhost, Modus: 0755                                                                       
+    der Dienst kann ihn schreiben: ja                                                                                   
+    Rechte werden gesetzt: nein                                                                                         
+                                                                                                                        
+  Änderungen nach Ja                                                                                                    
+    Das Repository wird als lokaler Stack-Ordner übernommen.                                                            
+    Keine Rechteänderung: Der Dienst kann bereits schreiben.                                                            
+    Der Ordner wird in das systemd-Drop-in des Dienstes eingetragen, der einmal neu startet.                            
+                                                                                                                        
+    $ sudo qhost source add --expect-effect sha256:example-effect-for-tests-only-0000000000000000000000000000 --yes     
+      --output json -- /srv/repo-example                                                                                
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+y ja, ausführen  n/esc/enter abbrechen                                                                      ↑/↓ Scrollen

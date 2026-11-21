@@ -388,6 +388,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applyHostProposals(msg)
 	case hostProposalMsg:
 		return m, m.applyHostProposal(msg)
+	case sudoInputMsg:
+		return m, m.applySudoInput(msg)
 	case hostRanMsg:
 		m.sys.busy = false
 		return m, msg.after(msg.out, msg.err)
@@ -497,7 +499,10 @@ func (m *Model) serviceText(err error) string {
 	t := m.text
 	var remote *control.Error
 	var text string
+	var problem sudoProblem
 	switch {
+	case errors.As(err, &problem):
+		text = string(problem)
 	case errors.Is(err, client.ErrNotRunning) && m.notSetUp:
 		text = t.Lookup(textErrNotSetUp)
 	case errors.Is(err, client.ErrNotRunning):

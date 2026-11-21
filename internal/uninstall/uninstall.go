@@ -1,4 +1,4 @@
-// Package uninstall removes both services and every instance of the deploy service from the host. It runs as root, deletes only the fixed paths named
+// Package uninstall removes both services, the webhook receiver and every instance of the deploy service from the host. It runs as root, deletes only the fixed paths named
 // below and the paths deploysetup derives for the instances, and starts programs without a shell; nothing it
 // deletes or runs is built from input. The users, their homes and rootless engines, the stack folders, their
 // data and the containers are never part of it.
@@ -25,6 +25,7 @@ import (
 const (
 	hostService   = "qhost"
 	deployService = "qhost-deploy"
+	hookService   = deploysetup.HookService
 )
 
 // What the installer and the setup of the deploy service put on the host, and what the services create.
@@ -85,6 +86,8 @@ type Step struct {
 type Plan struct {
 	Steps []Step
 	Purge bool
+	// Hook reports that the webhook receiver is on the host: its unit or its configuration is there.
+	Hook bool
 	// Instances are the units of the deploy service instances the removal covers.
 	Instances []string
 	// Leftover are the units of instances removed earlier whose state or configuration the purge deletes.
@@ -125,6 +128,14 @@ func (p Plan) Sentence() string {
 	if p.Purge && len(p.Leftover) > 0 {
 		s += " The state and configuration of the instances " + strings.Join(p.Leftover, ", ") + " removed earlier are deleted too."
 	}
+	if p.Hook {
+		s += " The webhook receiver qhost-hook is stopped and disabled, and its unit, the rule of its marker folders and /run/qhost-hook are deleted."
+		if p.Purge {
+			s += " Its configuration /etc/qhost-hook with the hooks, the system user and the group qhost-hook are deleted too."
+		} else {
+			s += " Its configuration, the user and the group qhost-hook stay."
+		}
+	}
 	return s + keep + " The stack folders, their data and the containers, and the users, their homes and rootless engines are not touched."
 }
 
@@ -143,7 +154,8 @@ func (p Plan) Apply(ctx context.Context) error {
 // the program. It is the only list of what is deleted.
 // instances are the instances of the host; their paths come from deploysetup.
 func Targets(purge bool, pages []string, instances ...deploysetup.Instance) []string {
-	out := []string{hostUnitPath, deployUnitPath, dropInFile, dropInDir, tmpfilesPath, channelDir}
+	out := []string{hostUnitPath, deployUnitPath, dropInFile, dropInDir, tmpfilesPath, channelDir,
+		deploysetup.HookUnitPath(), deploysetup.HookTmpfilesConf, deploysetup.HookRunDir}
 	for _, i := range instances {
 		out = append(out, i.DropInDir(), i.TmpfilesConf(), i.ChannelDir())
 	}
@@ -155,7 +167,7 @@ func Targets(purge bool, pages []string, instances ...deploysetup.Instance) []st
 	}
 	out = append(out, binaryPath)
 	if purge {
-		out = append(out, hostStateDir, deployStateDir, journalDir)
+		out = append(out, hostStateDir, deployStateDir, journalDir, deploysetup.HookConfigDir)
 		for _, i := range instances {
 			out = append(out, i.StateDir(), i.ConfigDir())
 		}
@@ -194,12 +206,12 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 		purged = append(slices.Clone(instances), leftover...)
 	}
 	// Only the directories go with everything in them, so only they can reach a stack folder.
-	recursive := []string{channelDir}
+	recursive := []string{channelDir, deploysetup.HookRunDir}
 	for _, i := range instances {
 		recursive = append(recursive, i.ChannelDir())
 	}
 	if purge {
-		recursive = append(recursive, hostStateDir, deployStateDir, journalDir)
+		recursive = append(recursive, hostStateDir, deployStateDir, journalDir, deploysetup.HookConfigDir)
 		for _, i := range purged {
 			recursive = append(recursive, i.StateDir(), i.ConfigDir())
 		}
@@ -212,6 +224,16 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 		}
 	}
 	plan := Plan{Purge: purge}
+	for _, p := range []string{deploysetup.HookUnitPath(), deploysetup.HookTmpfilesConf, deploysetup.HookRunDir} {
+		if _, err := os.Lstat(h.path(p)); err == nil {
+			plan.Hook = true
+		}
+	}
+	if purge {
+		if _, err := os.Lstat(h.path(deploysetup.HookConfigDir)); err == nil {
+			plan.Hook = true
+		}
+	}
 	for _, i := range instances {
 		plan.Instances = append(plan.Instances, i.Unit())
 	}
@@ -252,9 +274,9 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 		return nil
 	}
 
-	units := map[string]string{hostService: hostUnitPath, deployService: deployUnitPath}
+	units := map[string]string{hostService: hostUnitPath, deployService: deployUnitPath, hookService: deploysetup.HookUnitPath()}
 	var reload bool
-	for _, name := range []string{deployService, hostService} {
+	for _, name := range []string{hookService, deployService, hostService} {
 		ok, err := exists(units[name])
 		if err != nil {
 			return Plan{}, err
@@ -264,7 +286,7 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 			reload = true
 		}
 	}
-	for _, p := range []string{hostUnitPath, deployUnitPath, dropInFile} {
+	for _, p := range []string{hostUnitPath, deployUnitPath, deploysetup.HookUnitPath(), dropInFile} {
 		if err := file(p); err != nil {
 			return Plan{}, err
 		}
@@ -281,6 +303,12 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 	if err := h.dir(&plan, channelDir, "rm -r "+channelDir, exists); err != nil {
 		return Plan{}, err
 	}
+	if err := file(deploysetup.HookTmpfilesConf); err != nil {
+		return Plan{}, err
+	}
+	if err := h.dir(&plan, deploysetup.HookRunDir, "rm -r "+deploysetup.HookRunDir, exists); err != nil {
+		return Plan{}, err
+	}
 	if len(instances) > 0 {
 		reload = true
 	}
@@ -289,6 +317,9 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 		// earlier finds the instance again.
 		command("systemctl", "disable", "--now", i.Unit())
 		if err := h.dir(&plan, i.ChannelDir(), "rm -r "+i.ChannelDir(), exists); err != nil {
+			return Plan{}, err
+		}
+		if err := file(i.StackFoldersDropIn()); err != nil {
 			return Plan{}, err
 		}
 		dropIn := i.DropInDir()
@@ -336,7 +367,7 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 	}
 
 	if purge {
-		for _, d := range []string{hostStateDir, deployStateDir, journalDir} {
+		for _, d := range []string{hostStateDir, deployStateDir, journalDir, deploysetup.HookConfigDir} {
 			if err := h.dir(&plan, d, "rm -r "+d, exists); err != nil {
 				return Plan{}, err
 			}
@@ -356,12 +387,15 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 		if err != nil {
 			return Plan{}, err
 		}
-		for _, name := range []string{deployService, hostService} {
+		if users[hookService] || groups[hookService] {
+			plan.Hook = true
+		}
+		for _, name := range []string{hookService, deployService, hostService} {
 			if users[name] {
 				command("userdel", name)
 			}
 		}
-		for _, name := range []string{deployService, hostService} {
+		for _, name := range []string{hookService, deployService, hostService} {
 			if groups[name] {
 				name := name
 				add("groupdel "+name+" if userdel did not remove it", func(ctx context.Context) error {
