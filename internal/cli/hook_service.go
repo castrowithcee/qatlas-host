@@ -8,6 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/castrowithcee/qatlas-kit/cobracli"
+
 	"github.com/castrowithcee/qatlas-host/internal/hookservice"
 )
 
@@ -17,7 +19,7 @@ var hookServiceOptions = func() hookservice.Options {
 	return hookservice.Options{ConfigPath: hookservice.DefaultConfigPath, RunDir: hookservice.DefaultRunDir, OwnerUID: 0}
 }
 
-func newHookServiceCommand() *cobra.Command {
+func newHookServiceCommand(program *cobracli.Program) *cobra.Command {
 	run := &cobra.Command{
 		Use:   "run",
 		Short: "Run the webhook receiver in the foreground",
@@ -33,14 +35,16 @@ func newHookServiceCommand() *cobra.Command {
 			return hookservice.Run(ctx, opts)
 		},
 	}
-	// The unit starts run, so nobody needs the command in a listing.
+	// The unit starts run, so nobody needs it in a listing; setup is the visible part.
+	run.Hidden = true
 	cmd := &cobra.Command{
-		Use:    "hook-service",
-		Short:  "Run the webhook receiver",
-		Hidden: true,
-		Args:   cobra.NoArgs,
-		RunE:   func(c *cobra.Command, _ []string) error { return c.Help() },
+		Use:   "hook-service",
+		Short: "Set up the webhook receiver",
+		Long: "The webhook receiver is its own service, set up on request, that turns a call of a secret address into an\n" +
+			"empty marker for a stack. See 'qhost help hook-setup'.",
+		Args: cobra.NoArgs,
+		RunE: func(c *cobra.Command, _ []string) error { return c.Help() },
 	}
-	cmd.AddCommand(run)
+	cmd.AddCommand(run, newHookSetupCommand(program))
 	return cmd
 }

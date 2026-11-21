@@ -304,5 +304,8 @@ func (h Host) PlanInstance(ctx context.Context, user string) (Plan, error) {
 		h.run(ctx, "systemctl", "is-active", "--quiet", inst.Unit()) != nil {
 		command("systemctl", "enable", "--now", inst.Unit())
 	}
+	if err := h.planHookInstances(&plan, user); err != nil {
+		return Plan{}, err
+	}
 	return plan, nil
 }
