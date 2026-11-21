@@ -62,7 +62,7 @@ func TestRegistry(t *testing.T) {
 		t.Error("duplicate or nil handler accepted")
 	}
 	for _, unmarked := range []Command{
-		{Handle: h}, {Class: 4, Scope: ScopeDeploy, Handle: h}, {Class: ClassRead, Handle: h}, {Class: ClassRead, Scope: 3, Handle: h},
+		{Handle: h}, {Class: 4, Scope: ScopeDeploy, Handle: h}, {Class: ClassRead, Handle: h}, {Class: ClassRead, Scope: 4, Handle: h},
 		{Class: ClassRead, Scope: ScopeStack, Handle: h}, {Class: ClassRead, Scope: ScopeDeploy, Stack: one, Handle: h},
 	} {
 		if r.Register("unmarked", unmarked) == nil {
