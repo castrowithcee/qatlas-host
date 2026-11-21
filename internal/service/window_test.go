@@ -319,13 +319,14 @@ func TestWindowOnlyReportsAManualStack(t *testing.T) {
 }
 
 func TestWindowLeavesStacksWithOtherTriggersAlone(t *testing.T) {
-	dep := &sequentialDeployer{}
-	h, clock, notices := windowHarness(t, dep, map[string]string{
+	r, dep := pollHarness(t, map[string]string{
 		servicetest.Settings("demo-stack"):  "version: 1\nupdate:\n  mode: automatic\n  trigger: webhook\n",
-		servicetest.Settings("plain-stack"): "version: 1\nupdate:\n  mode: manual\n  trigger: interval\n  interval: 30\n",
+		servicetest.Settings("plain-stack"): intervalRules("manual", 86400),
 	})
-	dep.reset(nil)
-	before := runCount(t, h)
+	h, clock, notices := r.harness, r.clock, r.notices
+	// the regular check takes plain-stack first and then leaves it for a day
+	r.step(t)
+	before, reported := runCount(t, h), len(notices.all())
 	checked := map[string]time.Time{"demo-stack": storedUpdates(t, h, "demo-stack").Checked, "plain-stack": storedUpdates(t, h, "plain-stack").Checked}
 
 	openWindow(t, h, clock)
@@ -340,7 +341,7 @@ func TestWindowLeavesStacksWithOtherTriggersAlone(t *testing.T) {
 			t.Fatalf("%s was checked in the window: %+v", name, s)
 		}
 	}
-	if len(notices.all()) != 0 {
+	if len(notices.all()) != reported {
 		t.Fatalf("notices = %+v", notices.all())
 	}
 }

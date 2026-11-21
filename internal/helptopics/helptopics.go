@@ -196,7 +196,7 @@ Fields (all optional except version):
 - version: 1
 - compose.files: the compose files of the stack as a list of relative paths inside the stack folder, in merge order like COMPOSE_FILE; it takes precedence over COMPOSE_FILE in .env and over the default names
 - update.mode: manual (default) or automatic
-- update.trigger: window (default, the maintenance window checks the stack), interval (qhost queries the registries of the stack regularly, also outside the window) or webhook (an external call starts the check); the maintenance window handles only stacks with the trigger window
+- update.trigger: window (default, the maintenance window checks the stack), interval (qhost queries the registries of the stack regularly, also outside the window) or webhook (an external call starts the check); the maintenance window handles only stacks with the trigger window. With interval or webhook, a check that finds an update updates a stack in automatic mode at once, outside the window and kept back by the same marks as in it, and reports a stack in manual mode once per newly available version. A registry that limits requests or cannot be reached doubles the wait of its stacks after each such check, up to 30 minutes (a longer interval stays as it is), until a check of it succeeds
 - update.interval: seconds between two registry queries, from 30 to 86400 (default 60); allowed only with update.trigger: interval and refused otherwise
 - update.ceiling: patch, minor (default) or major; the largest version step taken; versions are MAJOR.MINOR.PATCH (SemVer or CalVer), and with CalVer the first part, for example the year, counts as major
 - update.major: stepwise (default, one major version at a time) or direct

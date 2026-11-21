@@ -66,7 +66,8 @@ type Config struct {
 	ContainerWait time.Duration
 	// PollInterval is the time between repository polls; zero means engine.DefaultInterval.
 	PollInterval time.Duration
-	// Clock drives the poll loop and the maintenance window; nil means the system clock. Tests inject their own.
+	// Clock drives the poll loop, the maintenance window and the regular registry check; nil means the system
+	// clock. Tests inject their own.
 	Clock engine.Clock
 	// Notify configures the notification sender; tests give it the roots of a local server and short waits. Its
 	// Redactor is ignored: the service's own redactor is used.
@@ -76,12 +77,14 @@ type Config struct {
 	// OnMonitorEvent, when set, is told every failed and recovered transition of an own stack's containers and
 	// every halted repair. It runs in the monitor's goroutine and must return quickly.
 	OnMonitorEvent func(MonitorEvent)
-	// OnUpdateAvailable, when set, is told every stack in manual mode the maintenance window found an update
-	// for. It runs in the window's goroutine and must return quickly.
+	// OnUpdateAvailable, when set, is told every stack in manual mode the maintenance window or the regular
+	// registry check found an update for. It runs in their goroutine and must return quickly.
 	OnUpdateAvailable func(UpdateNotice)
 
 	// registryHook, when set, sees the registry once every command is registered. Tests only.
 	registryHook func(*control.Registry)
+	// pollHook, when set, sees the regular registry check before it starts. Tests only.
+	pollHook func(*pollService)
 }
 
 // Run serves the channel until ctx ends and then returns nil: a stop request is the normal way for the service
@@ -236,6 +239,16 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 		win.sched.Run(ctx)
 	}()
 	defer func() { <-windowDone }()
+	poll := newPollService(win, cfg.Clock)
+	if cfg.pollHook != nil {
+		cfg.pollHook(poll)
+	}
+	pollDone := make(chan struct{})
+	go func() {
+		defer close(pollDone)
+		poll.run(ctx)
+	}()
+	defer func() { <-pollDone }()
 	if cfg.registryHook != nil {
 		cfg.registryHook(registry)
 	}

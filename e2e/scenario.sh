@@ -33,7 +33,8 @@
 # stack without a run, and they act on the next update: one direct step, a stepwise major jump and a jump whose
 # middle step fails. The maintenance window follows on a real, short window: a stack in automatic mode is updated
 # without a human, a stack in manual mode is only reported, a paused and a pinned stack stay as they are, and a change with
-# window set takes effect in the running service. The terminal interface follows: sudo qhost opens it in a
+# window set takes effect in the running service; outside the window, a stack in automatic mode with the update trigger
+# interval is updated within two minutes. The terminal interface follows: sudo qhost opens it in a
 # tmux pane, an update shows its changelog before it is confirmed and then runs, and two ticked stacks are updated
 # one after another with one confirmation. An update that fails after its start is rolled back in its observation time. Notification channels (webhook, Slack, Telegram, e-mail) are
 # added with qhost notify: a webhook hears of a deployed and of a rolled-back run, and every channel
@@ -5088,6 +5089,8 @@ window_done() {
 
 # scenario_window proves the maintenance window with the real service and a real, short window. demo-stack is in
 # automatic mode, demo-cache in manual mode, demo-paused is paused and demo-pinned is pinned, all four offer 1.1.0.
+# Afterwards demo-stack, reset to 1.0.1, is updated by the regular check with the update trigger interval and then
+# waits for the window again.
 scenario_window() {
 	image=registry.$domain/demo/app
 	win_stacks='demo-stack demo-cache demo-paused demo-pinned'
@@ -5200,6 +5203,42 @@ scenario_window() {
 	qd stack unpin demo-pinned >/dev/null || fail 'unpin failed'
 	out=$(window_far_away) || fail "window set failed: $out"
 	[ "$(window_field open)" = false ] || fail "the window is still open after it was moved: $(qd --output json window show)"
+
+	step 'demo-stack is reset to 1.0.1 while it waits for the window'
+	prev=$(newest_run demo-stack)
+	admin_commit demo-stack/.env 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.0.1/' 'Reset demo-stack to 1.0.1'
+	restart_service
+	run=$(next_run demo-stack "$prev") || fail 'no run of demo-stack started for the reset to 1.0.1'
+	wait_for "the run $run" 240 run_finished demo-stack "$run"
+	qd stack log "$run" | grep -q ' result succeeded' || fail "the run for the reset to 1.0.1 did not succeed: $(qd stack log "$run")"
+	[ "$(stack_images demo-stack)" = "$image:1.0.1" ] || fail "demo-stack does not run 1.0.1: $(stack_images demo-stack)"
+
+	step 'with the update trigger interval, the automatic stack is updated outside the window within two minutes'
+	settings_set demo-stack "$(demo_stack_settings 'update:\n  mode: automatic\n  trigger: interval\n  interval: 30\n')"
+	head_before=$(as_admin 'cd ~/stacks && git pull -q --ff-only && git rev-parse HEAD')
+	runs_before=$(stack_run_count demo-stack)
+	since=$(date +%s)
+	wait_for 'the update check to update demo-stack' 120 interval_updated 1.1.0
+	took=$(($(date +%s) - since))
+	[ "$took" -le 120 ] || fail "the update check took $took seconds to update demo-stack"
+	[ "$(window_field open)" = false ] || fail "the window opened meanwhile: $(qd --output json window show)"
+	stack_healthy demo-stack || fail 'demo-stack is not healthy after the update check'
+	as_admin 'cd ~/stacks && git pull -q --ff-only'
+	[ "$(as_admin "cd ~/stacks && git rev-list --count $head_before..HEAD")" = 1 ] || fail 'the update check did not make exactly one commit'
+	update_commit_only_version "$(as_admin 'cd ~/stacks && git rev-parse HEAD')" 1.0.1 1.1.0
+	[ "$(stack_run_count demo-stack)" = "$((runs_before + 1))" ] || fail 'the update check did not make exactly one run of demo-stack'
+	line=$(window_log | grep 'update check: update step finished' | grep 'stack=demo-stack' || true)
+	[ -n "$line" ] || fail "the service log has no update step of the update check: $(window_log | tail -n 20)"
+	log "scenario: update check updated demo-stack to 1.1.0 in $took seconds: $(printf '%s' "$line" | tail -n 1)"
+
+	step 'demo-stack waits for the window again'
+	settings_set demo-stack "$(demo_stack_settings 'update:\n  mode: automatic\n')"
+	[ "$(stack_images demo-stack)" = "$image:1.1.0" ] || fail "demo-stack does not run 1.1.0: $(stack_images demo-stack)"
+}
+
+# interval_updated succeeds once demo-stack runs the version $1 and has no run in progress.
+interval_updated() {
+	[ "$(stack_images demo-stack)" = "registry.$domain/demo/app:$1" ] && [ -z "$(stack_field demo-stack active_run)" ]
 }
 
 # The terminal interface is driven in a tmux pane of the administrator, 120 columns by 40 rows. The command

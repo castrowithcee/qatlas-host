@@ -123,6 +123,15 @@ func TestErrorsAreRecordedPerVariable(t *testing.T) {
 			t.Errorf("%s: %+v", v, it)
 		}
 	}
+	// only an unreachable or rate-limiting registry makes the regular check wait longer
+	for v, it := range by {
+		if Throttled(it) != (v == "DOWN") {
+			t.Errorf("%s throttled = %v", v, Throttled(it))
+		}
+	}
+	if !Throttled(engine.UpdateItem{Status: engine.UpdateError, Error: textRateLimited}) {
+		t.Error("rate-limited is not throttled")
+	}
 }
 
 func TestOneListingPerRepositoryAndRun(t *testing.T) {

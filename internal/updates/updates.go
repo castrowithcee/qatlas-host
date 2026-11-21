@@ -81,6 +81,11 @@ func (d *Detector) Check(ctx context.Context, list []stacks.Stack) (map[string]e
 	return out, nil
 }
 
+// Throttled tells whether the item failed because its registry limited the requests or could not be reached.
+func Throttled(it engine.UpdateItem) bool {
+	return it.Status == engine.UpdateError && (it.Error == textRateLimited || it.Error == textUnreachable)
+}
+
 type tagResult struct {
 	tags []string
 	text string // set when the listing failed
