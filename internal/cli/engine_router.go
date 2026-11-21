@@ -30,6 +30,9 @@ const (
 	// optionalFolderEngineUsage is for a command whose --dir may be left out.
 	optionalFolderEngineUsage = "Docker engine: " + engineIDs + "; with --dir needed only for a folder no engine has bound, " +
 		"without --dir it names the deploy service " + instanceDefault
+	// compareEngineUsage is for a command whose folder may not be bound yet.
+	compareEngineUsage = "Docker engine: " + engineIDs + "; otherwise the engine that has the folder bound, for a folder " +
+		"no engine has bound " + instanceDefault
 	runEngineUsage      = "Docker engine whose deploy service recorded the run: " + engineIDs + "; needed only when several engines know the run"
 	instanceEngineUsage = "Docker engine whose deploy service is meant: " + engineIDs + " " + instanceDefault
 
@@ -45,6 +48,11 @@ const (
 	keyEngineNote = "Every deploy service keeps its own deploy keys. With --dir the command reaches the deploy service of the " +
 		"engine that has the folder bound; for a folder no engine has bound yet, and without --dir, it reaches " +
 		instanceRule + " A key never reaches another engine."
+	compareEngineNote = "Every deploy service pins its own host keys. The command reaches the deploy service of the engine that " +
+		"has the folder bound; for a folder no engine has bound yet it reaches " + instanceRule + " Name the engine that " +
+		"'source add' will use, so that the key confirmed here is pinned there."
+	probeEngineNote = "Every deploy service pins its own host keys; pinned tells whether the deploy service the command reaches " +
+		"has this key pinned: " + instanceRule
 	fetchEngineNote = "With --dir the command reaches the deploy service of the engine that has the folder bound. Without " +
 		"--dir it fetches the folders of one deploy service: " + instanceRule
 	credentialEngineNote = "Every deploy service keeps its own credentials: the one of the system engine and the instance of each " +

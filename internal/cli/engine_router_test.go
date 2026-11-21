@@ -349,3 +349,63 @@ func TestKeyOfAnUnboundFolderIsNotSentWhenAnInstanceCannotBeAsked(t *testing.T) 
 		t.Fatal("a key request fell back to another engine")
 	}
 }
+
+func hostKeyHandlers() fakeHandlers {
+	return fakeHandlers{
+		control.RepoProbeCommand: func(json.RawMessage) any {
+			return control.RepoProbeResult{Host: "git.example.test", Port: "22", KeyType: "ssh-ed25519",
+				PublicKey: "AAAAdemo", Fingerprint: remoteKeyPrint}
+		},
+		control.SourceCompareCommand: func(json.RawMessage) any {
+			return control.SourceCompareResult{Case: control.SourceCaseFiles, State: "empty", Branch: "main"}
+		},
+	}
+}
+
+func TestSourceCompareReachesTheEngineThatPinsTheKey(t *testing.T) {
+	d := useFolderHost(t)
+	eps := engineHost(t, d, "alice")
+	system := startFakeService(t, withStatus(hostKeyHandlers(), []string{"/srv/system"}, "web"))
+	alice := serveFake(t, eps["alice"], withStatus(hostKeyHandlers(), []string{"/srv/alice"}, "demo"))
+	compare := func(args ...string) {
+		t.Helper()
+		args = append([]string{"source", "compare"}, args...)
+		if code, _, stderr := run(t, append(args, "--fingerprint", remoteKeyPrint)...); code != 0 {
+			t.Fatalf("%v: code %d, stderr %q", args, code, stderr)
+		}
+	}
+
+	compare("/srv/alice", remoteURL)
+	if alice.count(control.SourceCompareCommand) != 1 || alice.count(control.RepoProbeCommand) != 1 ||
+		system.count(control.SourceCompareCommand)+system.count(control.RepoProbeCommand) != 0 {
+		t.Fatal("the comparison of a bound folder did not reach only the instance that has it bound")
+	}
+	compare("/srv/new", remoteURL)
+	if system.count(control.SourceCompareCommand) != 1 || alice.count(control.SourceCompareCommand) != 1 {
+		t.Fatal("the comparison of an unbound folder did not follow the system engine")
+	}
+	compare("/srv/new", remoteURL, "--engine", "rootless:alice")
+	if alice.count(control.SourceCompareCommand) != 2 || system.count(control.SourceCompareCommand) != 1 {
+		t.Fatal("--engine did not choose the instance for an unbound folder")
+	}
+}
+
+func TestRepoProbeReachesTheNamedEngine(t *testing.T) {
+	d := useFolderHost(t)
+	eps := engineHost(t, d, "alice")
+	system := startFakeService(t, withStatus(hostKeyHandlers(), nil))
+	alice := serveFake(t, eps["alice"], withStatus(hostKeyHandlers(), nil))
+
+	if code, _, stderr := run(t, "repo", "probe", remoteURL); code != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if system.count(control.RepoProbeCommand) != 1 || alice.count(control.RepoProbeCommand) != 0 {
+		t.Fatal("repo probe without --engine did not reach the system engine")
+	}
+	if code, _, stderr := run(t, "repo", "probe", remoteURL, "--engine", "rootless:alice"); code != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if alice.count(control.RepoProbeCommand) != 1 || system.count(control.RepoProbeCommand) != 1 {
+		t.Fatal("repo probe --engine did not reach only the named instance")
+	}
+}

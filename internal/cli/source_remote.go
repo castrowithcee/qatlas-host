@@ -56,7 +56,7 @@ func newSourceRemoteCommand(program *cobracli.Program, state *notRunning) *cobra
 }
 
 func newSourceCompareCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	var fingerprint string
+	var fingerprint, engine string
 	compare := &cobra.Command{
 		Use:   "compare <path> <ssh-url>",
 		Short: "Compare a folder with a remote repository and show how they relate; changes nothing in the folder",
@@ -79,11 +79,12 @@ func newSourceCompareCommand(program *cobracli.Program, state *notRunning) *cobr
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSourceCompare(c, program, state, args[0], args[1], fingerprint)
+			return runSourceCompare(c, program, state, args[0], args[1], fingerprint, engine)
 		},
 	}
 	compare.Flags().StringVar(&fingerprint, "fingerprint", "",
 		"expected SHA256 fingerprint of the server's host key; required without a terminal")
+	addEngineFlag(compare, &engine, compareEngineUsage, compareEngineNote)
 	return compare
 }
 
@@ -103,11 +104,14 @@ func checkRemoteInput(path, url, fingerprint string) error {
 	return nil
 }
 
-func runSourceCompare(c *cobra.Command, program *cobracli.Program, state *notRunning, path, url, fingerprint string) error {
+func runSourceCompare(c *cobra.Command, program *cobracli.Program, state *notRunning, path, url, fingerprint, engine string) error {
 	if err := folders.requireRoot(); err != nil {
 		return err
 	}
 	if err := checkRemoteInput(path, url, fingerprint); err != nil {
+		return err
+	}
+	if err := routeFolderKey(c, state, engine, path); err != nil {
 		return err
 	}
 	probe, err := trustHostKey(c, state, url, fingerprint)

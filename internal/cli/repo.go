@@ -123,6 +123,7 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 	}
 	fetch.Flags().StringVar(&fetchDir, "dir", "", "fetch only this bound stack folder (absolute path)")
 	addEngineFlag(fetch, &fetchEngine, optionalFolderEngineUsage, fetchEngineNote)
+	var probeEngine string
 	probe := &cobra.Command{
 		Use:   "probe <ssh-url>",
 		Short: "Show the host key a git server presents and whether it is pinned; stores nothing",
@@ -139,9 +140,13 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeInstance(c, probeEngine); err != nil {
+				return err
+			}
 			return runRepoProbe(c, program, state, args[0])
 		},
 	}
+	addEngineFlag(probe, &probeEngine, instanceEngineUsage, probeEngineNote)
 	group.AddCommand(set, fetch, probe)
 	return group
 }
