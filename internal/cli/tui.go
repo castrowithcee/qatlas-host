@@ -90,7 +90,11 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"repository without a commit receives the history, an equal one is taken over, and for a different one\n" +
 			"the paths are listed and the state of the host is put on it as one commit after your answer. Secret-like\n" +
 			"files in what would be pushed stop it, with no way around. Adding a folder of files offers the same\n" +
-			"comparison with an address.\n\n" +
+			"comparison with an address. Without sudo, adding a folder, adding a remote and taking over a foreign\n" +
+			"project in Containers run through sudo: the folder is read with sudo qhost source inspect at once, the host\n" +
+			"key and the comparison ask the git server and are asked first with their command, and the last question\n" +
+			"shows the exact sudo qhost source add or source remote with the confirmed fingerprint. That command\n" +
+			"changes nothing and says so when the folder or its remote changed since it was shown.\n\n" +
 			"System lists the local users and groups of the host, read from its account files, so it works without the\n" +
 			"deploy service; Users, Groups, Folders, Proposals, Changes and Log are its sub-tabs. On Users, a creates a user with an initial\n" +
 			"password that must be changed at the first login, e or enter offers the changes of the marked user\n" +
@@ -119,11 +123,10 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"none. A terminal without Unicode shows no icons.\n\n" +
 			"It needs a terminal on both standard input and output and the running deploy service. Root and administrators in\n" +
 			"the group qhost may open it. Without sudo a change shows the command sudo qhost ... and runs it after y;\n" +
-			"sudo asks for the password itself. These still need sudo qhost, and the interface says so: forms with a\n" +
-			"secret (stack secret, credential, notification channel, deploy key), adding or taking over a stack folder,\n" +
-			"data folders, setting up the deploy service and approving a proposal of the deploy service. A deploy\n" +
-			"service that is not set up is no failure: the areas that need it say so and, with y after a question, set it up\n" +
-			"(D; as root, otherwise it says that it needs sudo qhost). A set up deploy service that is not running ends with exit code 3 before it draws\n" +
+			"sudo asks for the password itself. This covers data folders, setting up the deploy service and deciding a proposal of the deploy\n" +
+			"service as well. A deploy service that is not set up is no failure: the areas that need it say so and, with y\n" +
+			"after a question, set it up\n" +
+			"(G; without sudo through sudo qhost deploy-service setup). A set up deploy service that is not running ends with exit code 3 before it draws\n" +
 			"anything. Device-local preferences are read from ~/.qatlas/qhost/tui.yaml; a missing file means\n" +
 			"the defaults. Change them in Settings under General (theme, start area, language, icons and mouse)\n" +
 			"instead of editing the file by hand.",

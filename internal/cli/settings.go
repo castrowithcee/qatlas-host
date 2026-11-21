@@ -24,7 +24,9 @@ import (
 const settingsFields = "The settings are one object with these members, each optional except version:\n\n" +
 	"  version: 1\n" +
 	"  compose.files: the compose files in merge order, relative to the stack folder\n" +
-	"  update.mode: automatic or manual (manual); update.ceiling: patch, minor or major (minor);\n" +
+	"  update.mode: automatic or manual (manual); update.trigger: window, interval or webhook (window);\n" +
+	"  update.interval: seconds from 30 to 86400 between two registry queries (60), only with update.trigger: interval;\n" +
+	"  update.ceiling: patch, minor or major (minor);\n" +
 	"  update.major: direct or stepwise (stepwise); update.observe: minutes, 0 off, at most 1440 (60); update.tags: image version variable to a regular\n" +
 	"  expression its tags must match; update.changelog: image version variable to a GitHub repository\n" +
 	"  backup.paths, backup.volumes, backup.command: data directories below the stack folder, named volumes\n" +
@@ -214,6 +216,12 @@ func settingsOutput(format output.Format, s control.StackSettings) []output.Fiel
 	}
 	if u := s.Update; u != nil {
 		add("update.mode", u.Mode)
+		if u.Trigger != "" {
+			add("update.trigger", u.Trigger)
+		}
+		if u.Interval != nil {
+			add("update.interval", *u.Interval)
+		}
 		add("update.ceiling", u.Ceiling)
 		add("update.major", u.Major)
 		if u.Observe != nil {

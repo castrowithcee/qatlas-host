@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed  [esc] back  [?] help
+  1 2 3 4 5 [6 Proposals] 7                             
+────────────────────────────────────────────────────────
+  ⚠ Approve proposal p-0013 and add the channel deploy- 
+    hook (webhook)?                                     
+                                                        
+  Yes runs the command shown. It marks the proposal as  
+  approved and then adds the channel with the secret    
+  parts you entered, the way qhost notify add adds it.  
+  The secret parts go to the command on standard input  
+  only, never into the command line, and are never kept 
+  on the proposal. It refuses and applies nothing if the
+  proposal is not the one you see.                      
+    The channel would be added; no channel of this name 
+    exists now. The proposal holds no secret parts: you 
+    enter them on approving.                            
+                                                        
+    $ sudo qhost proposal approve p-0013 --fingerprint  
+      fp-p-0013 --confirm --output json                 
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+y yes, do it  n/esc/enter cancel              ↑/↓ scroll

@@ -6,49 +6,22 @@ import (
 	"errors"
 	"path/filepath"
 	"slices"
-	"strings"
 
 	"github.com/castrowithcee/qatlas-host/internal/changelog"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/credentials"
 	"github.com/castrowithcee/qatlas-host/internal/engine"
 	"github.com/castrowithcee/qatlas-host/internal/registry"
+	"github.com/castrowithcee/qatlas-host/internal/registrylogin"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 	"github.com/castrowithcee/qatlas-host/internal/updates"
 )
-
-// dockerHubAPIHost is the host registry.ParseRepo gives Docker Hub images.
-const dockerHubAPIHost = "registry-1.docker.io"
-
-// registryCredentialName derives the credential name for a registry host: "registry." plus the lowercase
-// host with the port separator written as '-'. Docker Hub uses "registry.docker.io". ok is false when the
-// result is no valid credential name.
-func registryCredentialName(host string) (string, bool) {
-	host = strings.ToLower(host)
-	if host == dockerHubAPIHost {
-		host = "docker.io"
-	}
-	name := "registry." + strings.ReplaceAll(host, ":", "-")
-	return name, credentials.ValidName(name)
-}
-
-var errRegistryLogin = errors.New("the stored registry login is malformed")
-
-// parseRegistryLogin splits "<user>:<token>" at the first ':'; both parts must be non-empty. The error
-// never contains the value.
-func parseRegistryLogin(value string) (registry.Credential, error) {
-	user, token, ok := strings.Cut(value, ":")
-	if !ok || user == "" || token == "" {
-		return registry.Credential{}, errRegistryLogin
-	}
-	return registry.Credential{User: user, Token: token}, nil
-}
 
 // registryCredentialFrom returns the lookup that decides which credential a registry host gets: none stored
 // or no valid name means anonymous; an unreadable or malformed credential is an error.
 func registryCredentialFrom(store *credentials.Store) func(string) (registry.Credential, error) {
 	return func(host string) (registry.Credential, error) {
-		name, ok := registryCredentialName(host)
+		name, ok := registrylogin.Name(host)
 		if !ok {
 			return registry.Credential{}, nil
 		}
@@ -59,7 +32,7 @@ func registryCredentialFrom(store *credentials.Store) func(string) (registry.Cre
 		if err != nil {
 			return registry.Credential{}, err
 		}
-		return parseRegistryLogin(value)
+		return registrylogin.Parse(value)
 	}
 }
 
@@ -76,13 +49,14 @@ func registerUpdateCommands(r *control.Registry, repo *repoService, eng *sourceS
 	s := &updatesService{repo: repo, eng: eng, detector: &updates.Detector{Credential: registryCredentialFrom(store), Options: opts}, changelog: cs}
 	// A refresh asks the registries and records their answer, and changelogs ask GitHub and fill a cache: both
 	// make the listing a write. changelog.show always asks GitHub.
-	list := reading(s.handleList)
+	list := inStack(reading(s.handleList), stackField)
 	list.Writes = func(raw json.RawMessage) bool {
 		var a control.UpdatesArgs
 		return decodeArgs(raw, &a) != nil || a.Refresh || a.Changelog
 	}
 	for name, h := range map[string]control.Command{
-		control.UpdatesListCommand: list, control.UpdateRunCommand: writing(s.handleRun), control.ChangelogShowCommand: writing(s.handleChangelog),
+		control.UpdatesListCommand: list, control.UpdateRunCommand: inStack(changing(s.handleRun), stackList),
+		control.ChangelogShowCommand: inStack(changing(s.handleChangelog), stackField),
 	} {
 		if err := r.Register(name, h); err != nil {
 			return nil, err

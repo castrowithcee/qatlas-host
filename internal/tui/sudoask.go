@@ -38,6 +38,9 @@ type sudoAsk struct {
 	// also are further commands of the same form that done runs one after another once the first one ended, as
 	// one per stack; the question shows them with the first.
 	also [][]string
+	// body, where set, gives lines to read above the command for a width; the question is then a sheet that fills
+	// the workspace, as for a change whose effect is longer than a dialog holds.
+	body func(width int) []string
 	// input, where set, gives the standard input of args. It runs before the command, off the event loop.
 	input func(ctx context.Context, b Backend) ([]byte, error)
 	// begin, where set, runs on y before the command, as to mark the action busy.
@@ -49,10 +52,12 @@ type sudoAsk struct {
 }
 
 // sudoRun is the end of a run through sudo. out is what the command printed on standard output; problem is what
-// to say when out holds no usable answer: why the run failed, or that its answer could not be read.
+// to say when out holds no usable answer: why the run failed, or that its answer could not be read. code is the
+// code of the failure qhost reported, as state-changed; empty when it reported none.
 type sudoRun struct {
 	out     []byte
 	problem string
+	code    string
 }
 
 // decode reads the JSON answer of the command into v; false when it printed none.
@@ -94,7 +99,7 @@ func (m *Model) askSudo(a sudoAsk) {
 		}
 		commands = append(commands, sudoCommand(more))
 	}
-	m.askCommands(a.title, a.question, consequence, false, a.danger, a.lead, commands, func() tea.Cmd {
+	yes := func() tea.Cmd {
 		if a.begin != nil {
 			a.begin()
 		}
@@ -102,7 +107,19 @@ func (m *Model) askSudo(a sudoAsk) {
 			return m.readSudoInput(a)
 		}
 		return m.runSudo(a.args, a.done)
-	}, a.drop)
+	}
+	if a.body != nil {
+		body := func(width int) []string { return append(a.body(width), m.commandLines(a.args, width)...) }
+		m.askSheet(a.title, a.question, consequence, body,
+			[]kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}}, yes)
+		if m.modal != nil && m.modal.kind == modalSheet && m.modal.question == a.question {
+			m.modal.drop = a.drop
+		} else if a.drop != nil {
+			a.drop()
+		}
+		return
+	}
+	m.askCommands(a.title, a.question, consequence, false, a.danger, a.lead, commands, yes, a.drop)
 }
 
 // runSudo hands the terminal to `sudo qhost args` and gives done the answer.
@@ -114,7 +131,7 @@ func (m *Model) runSudo(args []string, done func(sudoRun) tea.Cmd) tea.Cmd {
 // so the run goes in two steps, as one with a secret does: the password first, then the command without a prompt.
 func (m *Model) runSudoInput(args []string, input []byte, done func(sudoRun) tea.Cmd) tea.Cmd {
 	return m.runHost(HostRequest{Args: args, Secret: input}, func(out []byte, err error) tea.Cmd {
-		return done(sudoRun{out: out, problem: m.sudoProblem(out, err)})
+		return done(sudoRun{out: out, problem: m.sudoProblem(out, err), code: commandCode(err)})
 	})
 }
 
@@ -171,21 +188,33 @@ func (m *Model) sudoProblem(out []byte, err error) string {
 // commandMessage is the message of the failure qhost wrote to standard error ("qhost: <code>: <message>"), without
 // the name and the code; empty when there is none, as when sudo did not run it.
 func commandMessage(err error) string {
+	_, msg := commandFailure(err)
+	return msg
+}
+
+// commandCode is the code of the failure qhost wrote to standard error, as state-changed; empty when there is none.
+func commandCode(err error) string {
+	code, _ := commandFailure(err)
+	return code
+}
+
+// commandFailure is the code and the message of the first failure qhost wrote to standard error.
+func commandFailure(err error) (code, msg string) {
 	var re *hostRunError
 	if !errors.As(err, &re) {
-		return ""
+		return "", ""
 	}
 	for _, l := range strings.Split(re.stderr, "\n") {
 		rest, ok := strings.CutPrefix(strings.TrimSpace(ansi.Strip(l)), "qhost: ")
 		if !ok || rest == "" {
 			continue
 		}
-		if code, msg, found := strings.Cut(rest, ": "); found && isErrorCode(code) {
-			rest = msg
+		if c, m, found := strings.Cut(rest, ": "); found && isErrorCode(c) {
+			code, rest = c, m
 		}
-		return ansi.Truncate(rest, 200, "…")
+		return code, ansi.Truncate(rest, 200, "…")
 	}
-	return ""
+	return "", ""
 }
 
 // isErrorCode reports whether s has the form of the code of a qhost failure, as not-found.

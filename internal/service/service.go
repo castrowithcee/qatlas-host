@@ -5,6 +5,7 @@ package service
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/credentials"
 	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 	registryclient "github.com/castrowithcee/qatlas-host/internal/registry"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
@@ -43,6 +45,9 @@ type Config struct {
 	// Git is the git layer of the repository commands. Nil means the system git through internal/gitrepo;
 	// tests inject their own.
 	Git Git
+	// Executable is the program the credential helper link points at; empty means the running program. Tests
+	// inject their own.
+	Executable string
 	// Deployer brings a stack to a commit. Nil means the engine only polls, updates the working copy and
 	// reports pending stacks; it never deploys.
 	Deployer engine.Deployer
@@ -66,27 +71,35 @@ type Config struct {
 	ContainerWait time.Duration
 	// PollInterval is the time between repository polls; zero means engine.DefaultInterval.
 	PollInterval time.Duration
-	// Clock drives the poll loop and the maintenance window; nil means the system clock. Tests inject their own.
+	// Clock drives the poll loop, the maintenance window and the regular registry check; nil means the system
+	// clock. Tests inject their own.
 	Clock engine.Clock
 	// Notify configures the notification sender; tests give it the roots of a local server and short waits. Its
 	// Redactor is ignored: the service's own redactor is used.
 	Notify notify.Options
+	// HookDir is the folder the webhook receiver leaves its markers for this instance in, one file per stack to
+	// check at once. Empty means no markers are taken. A folder that does not exist is no error.
+	HookDir string
+	// HookInterval is the time between looks into HookDir; zero means two seconds. Tests shorten it.
+	HookInterval time.Duration
 	// MonitorInterval is the time between container readings of the failure monitor; zero means 30 seconds.
 	MonitorInterval time.Duration
 	// OnMonitorEvent, when set, is told every failed and recovered transition of an own stack's containers and
 	// every halted repair. It runs in the monitor's goroutine and must return quickly.
 	OnMonitorEvent func(MonitorEvent)
-	// OnUpdateAvailable, when set, is told every stack in manual mode the maintenance window found an update
-	// for. It runs in the window's goroutine and must return quickly.
+	// OnUpdateAvailable, when set, is told every stack in manual mode the maintenance window or the regular
+	// registry check found an update for. It runs in their goroutine and must return quickly.
 	OnUpdateAvailable func(UpdateNotice)
 
 	// registryHook, when set, sees the registry once every command is registered. Tests only.
 	registryHook func(*control.Registry)
+	// pollHook, when set, sees the regular registry check before it starts. Tests only.
+	pollHook func(*pollService)
 }
 
 // Run serves the channel until ctx ends and then returns nil: a stop request is the normal way for the service
 // to end. It fails if the channel cannot be opened.
-func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
+func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 	secrets := &redact.Redactor{}
 	next := log.Handler()
 	var logs *logStore
@@ -98,6 +111,13 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 		logs = newLogStore("")
 	}
 	log = slog.New(redactHandler{next: next, r: secrets})
+	// The service does not start on a file it must not read, and says which file in its log.
+	defer func() {
+		var fe *formatnum.Error
+		if errors.As(err, &fe) {
+			log.Error("the service does not start: a state file has an unsupported format number", "file", fe.File, "error", fe.Error())
+		}
+	}()
 	// The channel's lock must keep a second instance away before opening the store sweeps the temporary
 	// files of a write the first instance may be doing.
 	l, err := cfg.Endpoint.Listen()
@@ -108,6 +128,17 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 	store, err := credentials.Open(cfg.StateDir, secrets.Add)
 	if err != nil {
 		return fmt.Errorf("open the credential store: %w", err)
+	}
+	if cfg.Deployer != nil {
+		exe := cfg.Executable
+		if exe == "" {
+			if exe, err = resolvedExecutable(); err != nil {
+				return fmt.Errorf("find the running program: %w", err)
+			}
+		}
+		if err := prepareDockerConfig(cfg.StateDir, exe, log); err != nil {
+			return fmt.Errorf("prepare the docker configuration: %w", err)
+		}
 	}
 	registry := control.NewRegistry()
 	if err := registerServiceLogCommands(registry, logs, secrets); err != nil {
@@ -236,6 +267,25 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 		win.sched.Run(ctx)
 	}()
 	defer func() { <-windowDone }()
+	poll := newPollService(win, cfg.Clock)
+	if cfg.pollHook != nil {
+		cfg.pollHook(poll)
+	}
+	pollDone := make(chan struct{})
+	go func() {
+		defer close(pollDone)
+		poll.run(ctx)
+	}()
+	defer func() { <-pollDone }()
+	if cfg.HookDir != "" {
+		marks := newMarkerService(cfg.HookDir, cfg.Clock, cfg.HookInterval, poll.CheckStack, log)
+		marksDone := make(chan struct{})
+		go func() {
+			defer close(marksDone)
+			marks.run(ctx)
+		}()
+		defer func() { <-marksDone }()
+	}
 	if cfg.registryHook != nil {
 		cfg.registryHook(registry)
 	}

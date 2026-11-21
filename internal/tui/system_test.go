@@ -487,6 +487,35 @@ func TestAddGroupsTicksSeveral(t *testing.T) {
 	}
 }
 
+// A prompt of sudo given up on the terminal ends a change or a read with the words sudo uses for a missing
+// password; the run was interrupted and changed nothing.
+func TestAbortedSudoPromptIsAnInterruption(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		row  string
+		keys []string
+	}{
+		{"change", chgUnlock, []string{"y"}},
+		{"read", chgRemoveKey, nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			m, f := systemModel(t, i18n.English, wideWidth, 40)
+			f.report, f.runErr, f.stderr = "", exitError(t, 1), "sudo: a password is required"
+			toUser(t, m, "cleo")
+			pickChangeRow(t, m, tt.row)
+			send(m, tt.keys...)
+			screen := flat(m.render())
+			if len(f.execs) == 0 || len(f.bgs) != 0 {
+				t.Fatalf("not run on the terminal: execs %d, background %d", len(f.execs), len(f.bgs))
+			}
+			if !strings.Contains(screen, "interrupted") || !strings.Contains(screen, "Nothing was changed") ||
+				strings.Contains(screen, "no longer holds") {
+				t.Fatalf("no interruption:\n%s", screen)
+			}
+		})
+	}
+}
+
 // A run without a prompt that finds no password held by sudo says so; what it wrote never shows the secret.
 func TestSecretRunWithoutHeldPasswordIsExplained(t *testing.T) {
 	for _, tt := range []struct{ stderr, want string }{

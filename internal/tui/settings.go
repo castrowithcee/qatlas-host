@@ -461,6 +461,13 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		s.add = nil
 		m.failure = t.Lookup(kittui.TextError, t.Lookup(textFolderListChanged, res.path))
 		return nil
+	case stateChanged:
+		s.add = nil
+		m.stateChangedDone(res)
+		if res.flow.proposal != nil {
+			return m.readProposal()
+		}
+		return nil
 	case control.RepoSetResult:
 		s.add = nil
 		done(t.Lookup(textDoneBound, res.Dir), t.Lookup(textDetailHead, short(res.Head)), t.Lookup(textDetailCloned, yesNo(t, res.Cloned)))
@@ -492,6 +499,9 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 			t.Lookup(textDetailPublicKey, kittui.Escape(strings.TrimSpace(res.PublicKey))))
 	case keyGenerateAsk:
 		m.askKeyGenerate(res)
+		return nil
+	case keySetAsk:
+		m.askKeySet(res)
 		return nil
 	case keyExists:
 		m.ask(textTitleKey, t.Lookup(textAskKeyReplace), t.Lookup(textWhatKeyReplace), res.details, true, res.replace)

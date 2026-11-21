@@ -22,14 +22,20 @@ const formUpdate formKind = formFolderURL + 1
 
 // The limits of the rules, as the service enforces them; the form checks them early so a refusal comes at the
 // field. The interface cannot import the rules, so they are repeated here.
-const maxObserveMinutes = 1440
+const (
+	maxObserveMinutes   = 1440
+	minIntervalSecs     = 30
+	maxIntervalSecs     = 86400
+	defaultIntervalSecs = 60
+	defaultTrigger      = "window"
+)
 
 var (
 	varNameRe   = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_.-]*$`)
 	repoOwnerRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]{0,38}$`)
 	repoNameRe  = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)
 	// fieldPathRe finds the field path the service names in a refusal, such as "update.tags.APP_VERSION:".
-	fieldPathRe = regexp.MustCompile(`update\.(mode|ceiling|major|observe|tags|changelog)(?:\.([A-Za-z0-9_.-]+?))?:`)
+	fieldPathRe = regexp.MustCompile(`update\.(mode|ceiling|major|observe|trigger|interval|tags|changelog)(?:\.([A-Za-z0-9_.-]+?))?:`)
 )
 
 // Defaults of a stack's rules when it has none, as the service applies them.
@@ -43,7 +49,8 @@ const (
 // ruleTexts name the values of the three choices.
 var ruleTexts = map[string]kittui.TextID{"automatic": textModeAutomatic, "manual": textModeManual,
 	"patch": textCeilingPatch, "minor": textCeilingMinor, "major": textCeilingMajor,
-	"stepwise": textMajorStepwise, "direct": textMajorDirect}
+	"stepwise": textMajorStepwise, "direct": textMajorDirect,
+	"window": textTriggerWindow, "interval": textTriggerInterval, "webhook": textTriggerWebhook}
 
 // validRepo reports whether s is a GitHub repository as owner/name.
 func validRepo(s string) bool {
@@ -162,11 +169,16 @@ func (m *Model) updateFormFor(res control.StackSettingsResult) tea.Cmd {
 	}
 	u := control.StackUpdateSettings{Mode: defaultMode, Ceiling: defaultCeiling, Major: defaultMajor}
 	observe := defaultObserve
+	trigger, interval := defaultTrigger, defaultIntervalSecs
 	if res.Settings != nil && res.Settings.Update != nil {
 		cur := res.Settings.Update
 		u.Mode, u.Ceiling, u.Major = cmpOr(cur.Mode, defaultMode), cmpOr(cur.Ceiling, defaultCeiling), cmpOr(cur.Major, defaultMajor)
 		if cur.Observe != nil {
 			observe = *cur.Observe
+		}
+		trigger = cmpOr(cur.Trigger, defaultTrigger)
+		if cur.Interval != nil {
+			interval = *cur.Interval
 		}
 		u.Tags, u.Changelog = cur.Tags, cur.Changelog
 	}
@@ -194,6 +206,9 @@ func (m *Model) updateFormFor(res control.StackSettingsResult) tea.Cmd {
 			choice("major", textCeilingMajor)),
 		pick("major", textFieldMajor, textHintMajor, u.Major, choice("stepwise", textMajorStepwise), choice("direct", textMajorDirect)),
 		textField("observe", textFieldObserve, textHintObserve, strconv.Itoa(observe)),
+		pick("trigger", textFieldTrigger, textHintTrigger, trigger, choice("window", textTriggerWindow), choice("interval", textTriggerInterval),
+			choice("webhook", textTriggerWebhook)),
+		textField("interval", textFieldInterval, textHintInterval, strconv.Itoa(interval)),
 		list(tagEd, textFieldTags, textHintTags),
 		list(logEd, textFieldChangelog, textHintChangelog),
 	})
@@ -216,6 +231,8 @@ func cmpOr(v, def string) string {
 type updateRules struct {
 	mode, ceiling, major string
 	observe              int
+	trigger              string
+	interval             int
 	tags, changelog      []listEntry
 }
 
@@ -223,13 +240,20 @@ type updateRules struct {
 // confirmation. Nothing is sent before its yes.
 func (m *Model) submitUpdate(f *settingsForm, v map[kittui.FieldID]kittui.FormValue) tea.Cmd {
 	r := updateRules{mode: string(v["mode"].Choice), ceiling: string(v["ceiling"].Choice), major: string(v["major"].Choice),
-		tags: f.lists["tags"].entries, changelog: f.lists["changelog"].entries}
+		trigger: string(v["trigger"].Choice), tags: f.lists["tags"].entries, changelog: f.lists["changelog"].entries}
 	var ps []kittui.FormProblem
 	n, err := strconv.Atoi(strings.TrimSpace(v["observe"].Text))
 	if err != nil || n < 0 || n > maxObserveMinutes {
 		ps = append(ps, m.bad("observe", textProblemObserve, maxObserveMinutes))
 	}
 	r.observe = n
+	if r.trigger == "interval" {
+		iv, err := strconv.Atoi(strings.TrimSpace(v["interval"].Text))
+		if err != nil || iv < minIntervalSecs || iv > maxIntervalSecs {
+			ps = append(ps, m.bad("interval", textProblemInterval, minIntervalSecs, maxIntervalSecs))
+		}
+		r.interval = iv
+	}
 	for _, group := range []struct {
 		field   kittui.FieldID
 		entries []listEntry
@@ -247,7 +271,7 @@ func (m *Model) submitUpdate(f *settingsForm, v map[kittui.FieldID]kittui.FormVa
 	}
 	t := m.text
 	stack := f.stack
-	details := []string{t.Lookup(textDetailRuleModes, t.Lookup(ruleTexts[r.mode]), t.Lookup(ruleTexts[r.ceiling]), t.Lookup(ruleTexts[r.major])), t.Lookup(textDetailRuleObserve, observeText(t, r.observe))}
+	details := []string{t.Lookup(textDetailRuleModes, t.Lookup(ruleTexts[r.mode]), t.Lookup(ruleTexts[r.ceiling]), t.Lookup(ruleTexts[r.major])), t.Lookup(textDetailRuleObserve, observeText(t, r.observe)), t.Lookup(textDetailRuleTrigger, triggerText(t, r))}
 	for _, e := range r.tags {
 		details = append(details, t.Lookup(textDetailRuleTag, e.key, e.value))
 	}
@@ -265,6 +289,14 @@ func (m *Model) submitUpdate(f *settingsForm, v map[kittui.FieldID]kittui.FormVa
 	return nil
 }
 
+// triggerText is the trigger of the rules with the interval when it polls.
+func triggerText(t kittui.Translator, r updateRules) string {
+	if r.trigger == "interval" {
+		return t.Lookup(textTriggerPolling, r.interval)
+	}
+	return t.Lookup(ruleTexts[r.trigger])
+}
+
 func observeText(t kittui.Translator, minutes int) string {
 	if minutes == 0 {
 		return t.Lookup(textObserveOff)
@@ -276,8 +308,14 @@ func observeText(t kittui.Translator, minutes int) string {
 // show stays as it is.
 func updateEdit(r updateRules) settingsEdit {
 	return func(s *control.StackSettings) {
-		s.Update = &control.StackUpdateSettings{Mode: r.mode, Ceiling: r.ceiling, Major: r.major, Observe: &r.observe,
+		u := &control.StackUpdateSettings{Mode: r.mode, Ceiling: r.ceiling, Major: r.major, Observe: &r.observe,
 			Tags: mapOf(r.tags), Changelog: mapOf(r.changelog)}
+		if r.trigger == "interval" {
+			u.Trigger, u.Interval = r.trigger, &r.interval
+		} else if r.trigger != defaultTrigger {
+			u.Trigger = r.trigger
+		}
+		s.Update = u
 	}
 }
 

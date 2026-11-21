@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed              [?] help
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+        STACK                      CURRENT  AVAILABLE  S
+> ▾ [ ] ■ /srv/local-example (0)   local               …
+  ▾ [ ] ■ /srv/stacks-example (6)  clone               …
+    [ ] demo-stack                 1.4.2    1.5.0      …
+    [ ] mail-relay                 3.1      up to da…  …
+    [ ] old-tool                   -        unchecked  …
+    [ ] photo-album                2.0.1    error      …
+    [ ] web-shop                   5.2.0,…  6.0.0 (m…  …
+    [ ] wiki                       1.41.0   unchecked  …
+  ╔═ Add a remote ═══════════════════════════════════╗  
+  ║ ⚠ Compare /srv/local-example with the repository ║  
+  ║   at ssh://git.example.test/ops/local-           ║  
+  ║   example.git?                                   ║  
+  ║                                                  ║  
+  ║ This asks the git server of the address, so the  ║  
+  ║ request leaves the host. Nothing in the folder   ║  
+  ║ or the repository changes. Only the host key     ║  
+  ║ confirmed before is stored, and the comparison   ║  
+  ║ is shown afterwards.                             ║  
+  ║ $ sudo qhost source compare --fingerprint        ║  
+  ║   SHA256:ExampleFingerprintForTestsOnly000000000 ║  
+  ║   0 --output json -- /srv/local-example          ║  
+  ║   ssh://git.example.test/ops/local-example.git   ║  
+  ║                                                  ║  
+  ║ [ yes, with sudo ]  > cancel <                   ║  
+  ║ y yes, with sudo  n/esc/enter cancel             ║  
+  ╚══════════════════════════════════════════════════╝  
+                                                        
+                                                        
+                                                        
+                                                        
+╭─ /srv/local-example ─────────────────────────────────╮
+│ last poll: Fri 2026-10-30 14:25                      │
+│ poll failed: the working copy has uncommitted        │
+│ changes in demo/compose.yaml                         │
+╰──────────────────────────────────────────────────────╯
+                                                     1/6

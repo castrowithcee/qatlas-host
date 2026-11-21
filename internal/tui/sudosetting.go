@@ -19,7 +19,9 @@ import (
 type settingChange struct {
 	title                 kittui.TextID
 	question, consequence string
-	details               []string
+	// remote, when set, says that the command asks a server outside the host; it leads the consequence.
+	remote  string
+	details []string
 	// danger marks a change that cannot be undone.
 	danger bool
 	op     settingOp
@@ -48,7 +50,7 @@ func (m *Model) askSetting(c settingChange) {
 		return
 	}
 	var gen int
-	m.askSudo(sudoAsk{title: c.title, question: c.question, consequence: c.consequence, lead: dialogLines(c.details),
+	m.askSudo(sudoAsk{title: c.title, question: c.question, consequence: c.consequence, remote: c.remote, lead: dialogLines(c.details),
 		danger: c.danger, args: c.args, input: c.input,
 		begin: func() { gen = m.beginSetting() },
 		done: func(r sudoRun) tea.Cmd {
@@ -94,6 +96,12 @@ func (m *Model) askSettingsSet(title kittui.TextID, question, consequence string
 			return json.Marshal(s)
 		},
 		decode: decodeSudo[control.StackSettingsSetResult](func(r control.StackSettingsSetResult) bool { return r.Stack != "" })})
+}
+
+// secretInput gives the standard input of a command that reads a secret: a copy for each run, which the run
+// overwrites once it is over. The value is never part of the question or the arguments.
+func secretInput(value string) func(context.Context, Backend) ([]byte, error) {
+	return func(context.Context, Backend) ([]byte, error) { return []byte(value), nil }
 }
 
 // decodeSudo reads the JSON answer of a command as T; ok says whether it holds an answer.

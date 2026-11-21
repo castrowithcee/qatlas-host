@@ -318,6 +318,34 @@ func TestWindowOnlyReportsAManualStack(t *testing.T) {
 	}
 }
 
+func TestWindowLeavesStacksWithOtherTriggersAlone(t *testing.T) {
+	r, dep := pollHarness(t, map[string]string{
+		servicetest.Settings("demo-stack"):  "version: 1\nupdate:\n  mode: automatic\n  trigger: webhook\n",
+		servicetest.Settings("plain-stack"): intervalRules("manual", 86400),
+	})
+	h, clock, notices := r.harness, r.clock, r.notices
+	// the regular check takes plain-stack first and then leaves it for a day
+	r.step(t)
+	before, reported := runCount(t, h), len(notices.all())
+	checked := map[string]time.Time{"demo-stack": storedUpdates(t, h, "demo-stack").Checked, "plain-stack": storedUpdates(t, h, "plain-stack").Checked}
+
+	openWindow(t, h, clock)
+	if got := h.git.Pushed(); len(got) != 0 {
+		t.Fatalf("pushed = %q", got)
+	}
+	if pulls, _ := dep.pulled(); len(pulls) != 0 || runCount(t, h) != before {
+		t.Fatalf("pulls = %v, runs %d, before %d", pulls, runCount(t, h), before)
+	}
+	for name, was := range checked {
+		if s := storedUpdates(t, h, name); !s.Checked.Equal(was) {
+			t.Fatalf("%s was checked in the window: %+v", name, s)
+		}
+	}
+	if len(notices.all()) != reported {
+		t.Fatalf("notices = %+v", notices.all())
+	}
+}
+
 func TestWindowShowAndSetValidateEveryPart(t *testing.T) {
 	clock := &svcClock{now: noon}
 	h := startWith(t, nil, withClock(clock, nil))

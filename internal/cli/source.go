@@ -28,7 +28,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 		Use:   "source",
 		Short: "Inspect, take over, list and release stack folders",
 		Long: "The source commands work on the stack folders of the host. list needs no sudo for an administrator in\n" +
-			"the group qhost; inspect, add, remote and remove need sudo. See 'qhost help sources'.",
+			"the group qhost; inspect, add, compare, remote and remove need sudo. See 'qhost help sources'.",
 	}
 	var url string
 	inspect := &cobra.Command{
@@ -48,7 +48,13 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"no rootless engine is asked and all are listed as not checked.\n" +
 			"--url is the SSH address to clone or to expect as origin. A folder on a read-only file system is\n" +
 			"rejected. A rejection is a complete answer and exits 0; read the case. Nothing is created, changed\n" +
-			"or fetched, and no value of an env file is shown. Run it with sudo.",
+			"or fetched, and no value of an env file is shown. Run it with sudo.\n" +
+			"As root, inspect adds what 'source add' would do to the folder: missing (the folder does not exist yet,\n" +
+			"which matters for clone), permissions (changed paths and a summary, only when source add would change\n" +
+			"permissions) and effect, a fingerprint of the case, missing, the listed and the left-out files and the\n" +
+			"permission changes. Pass the effect to 'source add --expect-effect' to apply exactly what was shown:\n" +
+			"add stops with the code state-changed when the effect differs by then. The address, the stacks and the\n" +
+			"containers are not part of the effect. A rejected folder has none of these fields.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return usageFailure("source inspect takes exactly one argument, the path of the folder",
@@ -61,7 +67,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 		},
 	}
 	inspect.Flags().StringVar(&url, "url", "", "SSH address of the repository to clone, or to expect as origin")
-	group.AddCommand(inspect, newSourceAddCommand(program, state), newSourceRemoteCommand(program, state), newSourceListCommand(program, state),
+	group.AddCommand(inspect, newSourceAddCommand(program, state), newSourceRemoteCommand(program, state), newSourceCompareCommand(program, state), newSourceListCommand(program, state),
 		newSourceRemoveCommand(program, state))
 	return group
 }
@@ -74,7 +80,18 @@ func runSourceInspect(c *cobra.Command, program *cobracli.Program, state *notRun
 	if !structuredFormat(program.Format()) && res.Access != nil && res.Access.GitWritable != nil && !*res.Access.GitWritable {
 		_, _ = fmt.Fprintln(c.ErrOrStderr(), gitNotWritableWarning)
 	}
-	return output.Encode(c.OutOrStdout(), program.Format(), sourceResult(program.Format(), res))
+	obj := sourceResult(program.Format(), res)
+	// Only root can plan the permissions and look at the folder as source add does.
+	if folders.euid() == 0 {
+		effect, err := inspectEffect(c.Context(), res)
+		if err != nil {
+			return err
+		}
+		if effect != nil {
+			obj.Fields = append(obj.Fields, effectFields(program.Format(), effect)...)
+		}
+	}
+	return output.Encode(c.OutOrStdout(), program.Format(), obj)
 }
 
 const gitNotWritableWarning = "warning: the service cannot write .git; source add sets the group permissions, " +

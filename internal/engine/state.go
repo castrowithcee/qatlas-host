@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"path"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
@@ -290,8 +290,8 @@ type RunRecord struct {
 }
 
 func validateState(s State) error {
-	if s.Schema != stateSchema {
-		return fmt.Errorf("unsupported schema %d", s.Schema)
+	if err := formatnum.Check(stateFile, "schema", s.Schema, stateSchema); err != nil {
+		return err
 	}
 	for name, st := range s.Stacks {
 		if name == "" || len(name) > maxNameLen {

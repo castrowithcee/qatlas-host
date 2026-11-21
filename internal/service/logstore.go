@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -21,6 +22,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/redact"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 const (
@@ -39,7 +41,34 @@ const (
 	logAttrCount    = 64
 	// logAnswerBudget bounds the encoded entries of one answer, well below control.MaxResponseBytes.
 	logAnswerBudget = 640 << 10
+	// logSchema is the format number a log file starts with, as the JSON line {"schema":1}.
+	logSchema = 1
 )
+
+// logHeader is the first line of every log file of the store.
+var logHeader = []byte(fmt.Sprintf("{\"schema\":%d}\n", logSchema))
+
+// logFormat checks the format number on the first line of the log file at path. A file without the line, or
+// with another number, is not read, appended to, pruned or removed by the store.
+func logFormat(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	line, err := bufio.NewReaderSize(f, 256).ReadBytes('\n')
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, bufio.ErrBufferFull) {
+		return err
+	}
+	var head struct {
+		Schema int `json:"schema"`
+	}
+	_ = json.Unmarshal(line, &head)
+	return formatnum.Check(path, "schema", head.Schema, logSchema)
+}
+
+// usable reports whether the file name of the store has the format number this version reads.
+func (s *logStore) usable(name string) bool { return logFormat(filepath.Join(s.dir, name)) == nil }
 
 // logStore is the bounded, rotating file store of the service log. The files hold JSON lines that were masked
 // before they got here and are readable by the service user only. Writing never fails the caller's logging: a
@@ -94,7 +123,7 @@ func validLogFileID(n string) bool {
 func (s *logStore) Write(p []byte) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.cur != nil && s.size > 0 && s.size+int64(len(p)) > s.maxBytes {
+	if s.cur != nil && s.size > int64(len(logHeader)) && s.size+int64(len(p)) > s.maxBytes {
 		_ = s.cur.Close()
 		s.cur = nil
 	}
@@ -120,9 +149,10 @@ func (s *logStore) open(next int64) error {
 	if err := os.Chmod(s.dir, 0o700); err != nil {
 		return err
 	}
-	names := s.files()
+	all := s.files()
+	names := slices.DeleteFunc(slices.Clone(all), func(n string) bool { return !s.usable(n) })
 	if n := len(names); n > 0 {
-		if st, err := os.Stat(filepath.Join(s.dir, names[n-1])); err == nil && st.Size() == 0 || err == nil && st.Size()+next <= s.maxBytes {
+		if st, err := os.Stat(filepath.Join(s.dir, names[n-1])); err == nil && st.Size() <= int64(len(logHeader)) || err == nil && st.Size()+next <= s.maxBytes {
 			if f, err := os.OpenFile(filepath.Join(s.dir, names[n-1]), os.O_WRONLY|os.O_APPEND, 0o600); err == nil {
 				s.cur, s.size = f, st.Size()
 				s.prune(names)
@@ -131,8 +161,8 @@ func (s *logStore) open(next int64) error {
 		}
 	}
 	id := uint64(s.now().UnixNano())
-	if n := len(names); n > 0 {
-		last, _ := strconv.ParseUint(strings.TrimSuffix(names[n-1], ".jsonl"), 10, 64)
+	if n := len(all); n > 0 {
+		last, _ := strconv.ParseUint(strings.TrimSuffix(all[n-1], ".jsonl"), 10, 64)
 		id = max(id, last+1)
 	}
 	name := fmt.Sprintf("%020d.jsonl", id)
@@ -140,13 +170,18 @@ func (s *logStore) open(next int64) error {
 	if err != nil {
 		return err
 	}
-	s.cur, s.size = f, 0
+	if _, err := f.Write(logHeader); err != nil {
+		_ = f.Close()
+		_ = os.Remove(filepath.Join(s.dir, name))
+		return err
+	}
+	s.cur, s.size = f, int64(len(logHeader))
 	s.prune(append(names, name))
 	return nil
 }
 
 // prune removes the oldest files beyond the count and the files not written for longer than the age; the file
-// being written is kept.
+// being written is kept. names holds only files of the format this version reads: any other file stays.
 func (s *logStore) prune(names []string) {
 	for len(names) > s.maxFiles {
 		_ = os.Remove(filepath.Join(s.dir, names[0]))
@@ -173,6 +208,9 @@ func (s *logStore) scan(cursor string, secrets *redact.Redactor, visit func(logR
 	last = cursor
 	cname, coff, _ := parseLogCursor(cursor)
 	for _, name := range s.files() {
+		if !s.usable(name) {
+			continue
+		}
 		var off int64
 		switch {
 		case cursor != "" && name < cname:

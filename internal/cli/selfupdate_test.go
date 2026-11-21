@@ -3,7 +3,9 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -359,5 +361,62 @@ func TestStackUpdateStaysSeparate(t *testing.T) {
 	code, stdout, _ := run(t, "stack", "update", "--help")
 	if code != 0 || !strings.Contains(stdout, "<stack>") {
 		t.Fatalf("code %d, stdout %q", code, stdout)
+	}
+}
+
+// installHookUnit puts a unit of the webhook receiver on the fake host and records the renewals the update asks for.
+func (h *fakeHost) installHookUnit(t *testing.T) *[]string {
+	t.Helper()
+	unit := filepath.Join(h.dir, "usr/local/lib/systemd/system/qhost-hook.service")
+	if err := os.WriteFile(unit, []byte("old hook unit"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var renewed []string
+	selfUpdate.refreshHook = func(_ context.Context, exe string, _ io.Writer) error {
+		renewed = append(renewed, exe)
+		return nil
+	}
+	return &renewed
+}
+
+func TestSelfUpdateRenewsTheWebhookReceiverOnlyWhereItIsSetUp(t *testing.T) {
+	signer := releasetest.NewSigner(t)
+	h := useFakeHost(t, newFakeReleases(t, signer, false, "v0.1.0", "v0.2.0"), signer, "v0.1.0")
+	renewed := h.installHookUnit(t)
+	os.Remove(filepath.Join(h.dir, "usr/local/lib/systemd/system/qhost-hook.service"))
+	if code, _, stderr := run(t, "update", "--yes", "--confirm"); code != 0 || len(*renewed) != 0 {
+		t.Fatalf("code %d, renewed %v, stderr %q", code, *renewed, stderr)
+	}
+
+	h = useFakeHost(t, newFakeReleases(t, signer, false, "v0.1.0", "v0.2.0"), signer, "v0.1.0")
+	renewed = h.installHookUnit(t)
+	if code, _, stderr := run(t, "update", "--yes", "--confirm"); code != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if len(*renewed) != 1 || (*renewed)[0] != h.exe {
+		t.Fatalf("renewed = %v, want one call of the installed program", *renewed)
+	}
+}
+
+func TestSelfUpdateWarnsWhenTheWebhookReceiverCannotBeRenewed(t *testing.T) {
+	signer := releasetest.NewSigner(t)
+	h := useFakeHost(t, newFakeReleases(t, signer, false, "v0.1.0", "v0.2.0"), signer, "v0.1.0")
+	h.installHookUnit(t)
+	selfUpdate.refreshHook = func(context.Context, string, io.Writer) error { return errors.New("boom") }
+	code, _, stderr := run(t, "update", "--yes", "--confirm")
+	if code != 0 || !strings.Contains(stderr, "webhook receiver was not renewed") || !strings.Contains(stderr, "hook-service refresh") {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+}
+
+func TestSelfUpdatePlanNamesTheWebhookReceiverOnlyWhereItIsSetUp(t *testing.T) {
+	signer := releasetest.NewSigner(t)
+	h := useFakeHost(t, newFakeReleases(t, signer, false, "v0.1.0", "v0.2.0"), signer, "v0.1.0")
+	if _, _, stderr := run(t, "update"); strings.Contains(stderr, "qhost-hook") {
+		t.Fatalf("stderr %q", stderr)
+	}
+	h.installHookUnit(t)
+	if _, _, stderr := run(t, "update"); !strings.Contains(stderr, "qhost-hook.service is renewed") {
+		t.Fatalf("stderr %q", stderr)
 	}
 }

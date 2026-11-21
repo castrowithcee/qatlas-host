@@ -384,7 +384,7 @@ func (m *Model) proposalLines(width int) []string {
 	lines = append(lines, "", m.line(detailMargin, kittui.StyleActive, t.Lookup(textPropHeadEffect), width))
 	switch {
 	case v.needsRoot:
-		return append(lines, m.wrapped(detailIndent, kittui.StyleHint, t.Lookup(textPropNeedsSudo), width)...)
+		return append(lines, m.wrapped(detailIndent, kittui.StyleHint, t.Lookup(textPropEffectLater), width)...)
 	case v.effectErr != nil:
 		text := m.serviceText(v.effectErr)
 		if _, host := v.effectErr.(hostError); host {

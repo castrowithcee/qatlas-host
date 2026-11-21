@@ -63,9 +63,19 @@ func (m *Model) submitProposalSecrets(f *settingsForm, v map[kittui.FieldID]kitt
 
 func (m *Model) askProposalChannel(eff *kindEffect, shown *proposalCtx, add control.NotifyAddArgs) {
 	t := m.text
+	question := t.Lookup(textAskProposalChannel, kittui.Escape(proposalShort(shown.id)), eff.channel.Name, kittui.Escape(eff.channel.Type))
+	if m.euid() != 0 {
+		var input func() []byte
+		if len(channelSecretsInput(add)) > 0 {
+			// A copy for each run, which the run overwrites once it is over.
+			input = func() []byte { return channelSecretsInput(add) }
+		}
+		m.askKindSudo(eff, shown, question, textWhatProposalChannelSudo, input, add.Secret, add.Key)
+		return
+	}
 	body := func(width int) []string { return m.kindEffectLines(eff, width) }
 	m.askSheet(textTitleProposalApprove,
-		t.Lookup(textAskProposalChannel, kittui.Escape(proposalShort(shown.id)), eff.channel.Name, kittui.Escape(eff.channel.Type)),
+		question,
 		t.Lookup(textWhatProposalChannel), body,
 		[]kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}},
 		func() tea.Cmd {

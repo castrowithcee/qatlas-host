@@ -1,7 +1,6 @@
 package hostservice
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -22,20 +21,19 @@ var proposalActions = map[string]string{
 	control.ProposalResultCommand:   auditlog.OperationProposalResult,
 }
 
-// proposalCommands adds the commands of the store to commands with the access the store gives each: a command
-// that writes is root's, reading and proposing are open to every peer the service admits. The handlers learn the
-// peer from their context.
-func proposalCommands(commands map[string]command, store *proposals.Store) {
+// proposalCommands adds the commands of the store through add, each with the class the store gives it. The
+// handlers learn the peer from their context.
+func proposalCommands(add func(name, action string, class control.Class, h control.Handler) error, store *proposals.Store) error {
 	for name, c := range store.Commands() {
 		action, ok := proposalActions[name]
 		if !ok {
 			panic(fmt.Sprintf("hostservice: the proposal command %s has no log action", name))
 		}
-		handle := c.Handle
-		commands[name] = command{action: action, rootOnly: c.Access == control.AccessWrite, handle: func(cl *call) (any, error) {
-			return handle(control.WithPeer(context.Background(), cl.uid), cl.args)
-		}}
+		if err := add(name, action, c.Class, c.Handle); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // normalizeProposal is the check of the only kind of the host service, ProposalKindHostChange. It decodes the

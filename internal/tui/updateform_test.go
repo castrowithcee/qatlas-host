@@ -15,7 +15,8 @@ import (
 var (
 	toUpdateForm = keys("enter", "e")
 	toObserve    = seq(toUpdateForm, keys("down", "down", "down"))
-	toTags       = seq(toUpdateForm, keys("down", "down", "down", "down"))
+	toTags       = seq(toUpdateForm, keys("down", "down", "down", "down", "down", "down"))
+	toTrigger    = seq(toUpdateForm, keys("down", "down", "down", "down"))
 	toChangelog  = seq(toTags, keys("down"))
 )
 
@@ -28,6 +29,12 @@ func updateBackend() *fakeBackend {
 	b.status.Engine.Sources = []control.SourceStatus{{ID: "src1", Path: "/srv/stacks", Kind: control.SourceKindRemote, URL: "ssh://git@example.test/ops/stacks.git"}}
 	for i := range b.stacks.Stacks {
 		b.stacks.Stacks[i].Source = "src1"
+		switch b.stacks.Stacks[i].Name {
+		case "mail-relay":
+			b.stacks.Stacks[i].Trigger = "webhook"
+		case "web-shop":
+			b.stacks.Stacks[i].Trigger, b.stacks.Stacks[i].Interval = "interval", 120
+		}
 	}
 	b.stackSettings = map[string]control.StackSettings{"demo-stack": {
 		Version: 1,
@@ -235,3 +242,69 @@ func TestEditorKeepsAPlainList(t *testing.T) {
 }
 
 func formText(s string) kittui.FormValue { return kittui.FormValue{Text: s} }
+
+// toInterval chooses the trigger Polling and moves to the interval field.
+var toInterval = seq(toTrigger, keys("enter", "down", "enter", "down"))
+
+func TestUpdateFormShowsTheStoredTrigger(t *testing.T) {
+	b := updateBackend()
+	b.stackSettings["demo-stack"].Update.Trigger = "interval"
+	b.stackSettings["demo-stack"].Update.Interval = intp(45)
+	m := newSettingsModel(t, b)
+	send(m, toUpdateForm...)
+	contains(t, m, "Trigger", "Polling", "Interval (seconds)", "45")
+}
+
+func TestUpdateFormPollingIsSavedWithTheMinimumInterval(t *testing.T) {
+	b := updateBackend()
+	m := newSettingsModel(t, b)
+	send(m, toInterval...)
+	send(m, "backspace", "backspace", "3", "0", "f2")
+	contains(t, m, "trigger: Polling every 30 s")
+	send(m, "y")
+	if len(b.settingsSets) != 1 {
+		t.Fatalf("sets %+v", b.settingsSets)
+	}
+	u := b.settingsSets[0].Settings.Update
+	if u.Trigger != "interval" || u.Interval == nil || *u.Interval != 30 {
+		t.Fatalf("saved %+v", u)
+	}
+}
+
+func TestUpdateFormRefusesAnIntervalBelowTheMinimumAtTheField(t *testing.T) {
+	b := updateBackend()
+	m := newSettingsModel(t, b)
+	send(m, toInterval...)
+	send(m, "backspace", "backspace", "2", "9", "f2")
+	contains(t, m, "whole number of seconds from 30 to 86400")
+	if m.modal != nil || len(b.settingsSets) != 0 || m.set.form.form.Focused() != "interval" {
+		t.Fatal("a refused interval reached the confirmation or the service")
+	}
+}
+
+func TestUpdateFormWritesNoIntervalForOtherTriggers(t *testing.T) {
+	for _, tc := range []struct{ name, trigger string }{{"window", ""}, {"webhook", "webhook"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := updateBackend()
+			m := newSettingsModel(t, b)
+			send(m, toTrigger...)
+			if tc.trigger != "" {
+				send(m, "enter", "down", "down", "enter")
+			}
+			// An invalid interval is ignored while the trigger is not Polling.
+			send(m, "down", "backspace", "backspace", "1", "f2", "y")
+			if len(b.settingsSets) != 1 {
+				t.Fatalf("sets %+v", b.settingsSets)
+			}
+			u := b.settingsSets[0].Settings.Update
+			if u.Trigger != tc.trigger || u.Interval != nil {
+				t.Fatalf("saved %+v", u)
+			}
+		})
+	}
+}
+
+func TestStackOverviewShowsTheTrigger(t *testing.T) {
+	m := newTestModel(t, goldenLangs["en"], updateBackend(), 120, 40)
+	contains(t, m, "automatic, polling 120s", "manual, webhook")
+}

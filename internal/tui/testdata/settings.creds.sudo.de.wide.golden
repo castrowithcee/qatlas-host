@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe  [4 ⚙ Einstellungen]  5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+   Allgemein  [Zugangsdaten]  Wartungsfenster   Benachrichtigungen                                                      
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Zugangsdaten setzen                                                                                                   
+                                                                                                                        
+                    ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+  Zugangsdaten      │ Registry-Login                                                                                 ▾ │
+                    ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+                    ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+  Registry-Host     │ Registry.Example.test:5000                                                                       │
+                    ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+                    ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+  Registry-Benutzer │ alice                                                                                            │
+                    ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+                    ╔═══════╔═ Zugangsdaten setzen ════════════════════════════════════════╗═══════════════════════════╗
+> Token             ║ ••••••║ ⚠ Die Zugangsdaten registry.registry.example.test-5000       ║                           ║
+                    ╚═══════║   speichern?                                                 ║═══════════════════════════╝
+                    verborge║                                                              ║                            
+                            ║ Der Dienst speichert den Wert und zeigt ihn nie wieder.      ║                            
+                            ║ Zugangsdaten gleichen Namens werden ersetzt.                 ║                            
+                            ║ $ sudo qhost credential set --output json --                 ║                            
+                            ║   registry.registry.example.test-5000                        ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+[ F2 speichern ]  [ esc Verwerfen ]                                                                                     
+                                                                                                                        

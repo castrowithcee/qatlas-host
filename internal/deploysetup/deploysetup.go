@@ -1,5 +1,6 @@
 // Package deploysetup sets up the deploy services on the host: the service of the system engine with its system
-// user, channel directory and unit, and an instance for the rootless engine of an existing user. The setup runs
+// user, channel directory and unit, and an instance for the rootless engine of an existing user. It sets up the
+// webhook receiver too (hook.go), which shares the plan and adds a folder per deploy instance. The setup runs
 // as root and starts programs without a shell; the only input in what it runs or writes is the user name of an
 // instance, which matches UserPattern.
 package deploysetup
@@ -18,6 +19,7 @@ import (
 	"github.com/castrowithcee/qatlas-kit/sysservice"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/hookservice"
 	"github.com/castrowithcee/qatlas-host/packaging"
 )
 
@@ -43,6 +45,8 @@ type Host struct {
 	// Run starts a program with an argument list and no shell; nil starts the real one. Only the exit status
 	// counts: the output of a program is untrusted text and stays out of errors.
 	Run func(ctx context.Context, name string, args ...string) error
+	// Chown sets the owner of a path; nil changes the real owner.
+	Chown func(path string, uid, gid int) error
 }
 
 // UnitPath is the path of the installed unit on the host.
@@ -82,6 +86,8 @@ type Plan struct {
 	Steps []Step
 	// Warnings are said with the question; they do not stop the setup.
 	Warnings []string
+	// Listen is the address of the webhook receiver after the setup; it is empty for a deploy service plan.
+	Listen   string
 	sentence string
 }
 
@@ -178,6 +184,9 @@ func (h Host) Plan(ctx context.Context) (Plan, error) {
 		h.run(ctx, "systemctl", "is-active", "--quiet", Service) != nil {
 		command("systemctl", "enable", "--now", Service)
 	}
+	if err := h.planHookInstances(&plan, hookservice.SystemInstance); err != nil {
+		return Plan{}, err
+	}
 	return plan, nil
 }
 
@@ -194,7 +203,10 @@ func (h Host) differs(p string, want []byte) bool {
 }
 
 // write replaces the file at the host path p atomically with mode 0644.
-func (h Host) write(p string, content []byte) error {
+func (h Host) write(p string, content []byte) error { return h.writeOwned(p, content, nil) }
+
+// writeOwned is write with a step on the temporary file before it replaces the target, for the owner of a file.
+func (h Host) writeOwned(p string, content []byte, prepare func(tmp string) error) error {
 	target := h.path(p)
 	dir := filepath.Dir(target)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -215,6 +227,11 @@ func (h Host) write(p string, content []byte) error {
 	}
 	if err := tmp.Close(); err != nil {
 		return err
+	}
+	if prepare != nil {
+		if err := prepare(tmp.Name()); err != nil {
+			return err
+		}
 	}
 	return os.Rename(tmp.Name(), target)
 }

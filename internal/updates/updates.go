@@ -14,6 +14,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/engine"
 	"github.com/castrowithcee/qatlas-host/internal/registry"
+	"github.com/castrowithcee/qatlas-host/internal/registrylogin"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 	"github.com/castrowithcee/qatlas-host/internal/version"
 )
@@ -79,6 +80,11 @@ func (d *Detector) Check(ctx context.Context, list []stacks.Stack) (map[string]e
 		out[st.Name] = check
 	}
 	return out, nil
+}
+
+// Throttled tells whether the item failed because its registry limited the requests or could not be reached.
+func Throttled(it engine.UpdateItem) bool {
+	return it.Status == engine.UpdateError && (it.Error == textRateLimited || it.Error == textUnreachable)
 }
 
 type tagResult struct {
@@ -148,7 +154,7 @@ func (r *run) list(ctx context.Context, repo registry.Repo) tagResult {
 	if c, text := r.client(repo.Host); c == nil {
 		res.text = text
 	} else if tags, err := c.Tags(ctx, repo); err != nil {
-		res.text = classify(ctx, err)
+		res.text = classify(ctx, err, repo.Host)
 	} else {
 		res.tags = tags
 	}
@@ -179,7 +185,9 @@ func (r *run) client(host string) (*registry.Client, string) {
 	return c, ""
 }
 
-func classify(ctx context.Context, err error) string {
+// classify maps a failed listing to its fixed text. host is the one of the image reference, never one a registry
+// named.
+func classify(ctx context.Context, err error, host string) string {
 	var he *httpx.Error
 	if !errors.As(err, &he) {
 		if ctx.Err() != nil {
@@ -189,6 +197,9 @@ func classify(ctx context.Context, err error) string {
 	}
 	switch he.Class {
 	case httpx.ClassAuth, httpx.ClassPermission:
+		if name, ok := registrylogin.Name(host); ok {
+			return clip(textAuth + "; store a login as credential " + name + " (see qhost help credentials)")
+		}
 		return textAuth
 	case httpx.ClassNotFound:
 		return textNotFound

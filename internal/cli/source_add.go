@@ -18,7 +18,7 @@ import (
 )
 
 func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
-	var url, fingerprint, engine string
+	var url, fingerprint, engine, expectEffect, expectState, expectCommit string
 	var gate *cobracli.Gate
 	add := &cobra.Command{
 		Use:   "add <path>",
@@ -64,27 +64,38 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSourceAdd(c, program, gate, state, args[0], url, fingerprint, engine)
+			return runSourceAdd(c, program, gate, state, args[0], url, fingerprint, engine, expectEffect, expectState, expectCommit)
 		},
 	}
 	add.Flags().StringVar(&url, "url", "", "SSH address of the repository to clone, to expect as origin, or to join a folder of files with")
 	add.Flags().StringVar(&fingerprint, "fingerprint", "",
 		"expected SHA256 fingerprint of the server's host key; required without a terminal")
 	add.Flags().StringVar(&engine, "engine", "", "Docker engine of the stack folder: system (default) or rootless:<user>")
+	add.Flags().StringVar(&expectEffect, "expect-effect", "",
+		"effect fingerprint from 'source inspect'; refuses with state-changed, changing nothing, when the effect differs now")
+	remoteFlags(add, &expectState, &expectCommit)
 	gate = program.AddGate(add, cobracli.Gates{Question: true})
 	return add
 }
 
-func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, path, url, fingerprint, engine string) error {
+func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, path, url, fingerprint, engine,
+	expectEffect, expectState, expectCommit string) error {
 	if err := folders.requireRoot(); err != nil {
+		return err
+	}
+	expect, err := expectedRemoteOf(expectState, expectCommit)
+	if err != nil {
 		return err
 	}
 	if _, err := folders.selectEngine(c, engine); err != nil {
 		return err
 	}
 	plan, err := prepareSourceAdd(c, program, state, c.ErrOrStderr(), path, url, fingerprint,
-		"Run 'qhost source add "+path+" --url <ssh-url>'.")
+		"Run 'qhost source add "+path+" --url <ssh-url>'.", expect)
 	if err != nil {
+		return err
+	}
+	if err := checkExpectedEffect(expectEffect, plan.res, plan.perms); err != nil {
 		return err
 	}
 	return gate.Run(cobracli.Request{Question: plan.question}, func() error {
@@ -105,7 +116,7 @@ type sourceAdd struct {
 // prepareSourceAdd inspects the folder, shows the case and the changes on notice and returns what applying
 // would do. It changes nothing. needURL is the advice when the case needs an address that was not given.
 func prepareSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRunning, notice io.Writer,
-	path, url, fingerprint, needURL string) (*sourceAdd, error) {
+	path, url, fingerprint, needURL string, expect *expectedRemote) (*sourceAdd, error) {
 	if err := folders.requireRoot(); err != nil {
 		return nil, err
 	}
@@ -154,10 +165,14 @@ func prepareSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 		return nil, usageFailure("this folder needs the SSH address of its repository; nothing was changed", needURL)
 	}
 
+	if expect != nil && (res.Case != control.SourceCaseFiles || url == "") {
+		return nil, usageFailure("--expect-state and --expect-commit apply only to a folder of files with --url; this folder is case "+res.Case,
+			"Leave out --expect-state and --expect-commit.")
+	}
 	var remote *filesRemote
 	if res.Case == control.SourceCaseFiles && url != "" {
 		var err error
-		if remote, err = compareFiles(c, state, notice, path, url, fingerprint); err != nil {
+		if remote, err = compareFiles(c, state, notice, path, url, fingerprint, expect); err != nil {
 			return nil, err
 		}
 	}
@@ -332,7 +347,7 @@ func (r *filesRemote) url() string {
 // compareFiles confirms the host key, compares the folder of files with the remote and shows the result. It
 // stops at secret-like files in what a push would publish, and at a remote without commit. Nothing in the
 // folder has changed by then.
-func compareFiles(c *cobra.Command, state *notRunning, w io.Writer, path, url, fingerprint string) (*filesRemote, error) {
+func compareFiles(c *cobra.Command, state *notRunning, w io.Writer, path, url, fingerprint string, expect *expectedRemote) (*filesRemote, error) {
 	probe, err := trustHostKey(c, state, url, fingerprint)
 	if err != nil {
 		return nil, err
@@ -346,6 +361,9 @@ func compareFiles(c *cobra.Command, state *notRunning, w io.Writer, path, url, f
 	}
 	_, _ = fmt.Fprintf(w, "Compare %s with %s:\n", path, url)
 	printLines(w, compareLines(cmp))
+	if err := expect.check(cmp, path, url); err != nil {
+		return nil, err
+	}
 	if err := refuseSecrets(cmp); err != nil {
 		return nil, err
 	}

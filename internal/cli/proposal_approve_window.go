@@ -19,10 +19,10 @@ import (
 
 // approveWindow reviews and applies a proposal of the kind window: it shows the difference to the window that
 // applies now, asks, checks proposal and difference again and sets the window the way 'qhost window set' does.
-func approveWindow(c *cobra.Command, program *cobracli.Program, state *notRunning, _ *redact.Redactor, first control.ProposalShowResult, url string) error {
+func approveWindow(c *cobra.Command, program *cobracli.Program, state *notRunning, _ *redact.Redactor, first control.ProposalShowResult, o approveOptions) error {
 	id := first.ID
-	if url != "" {
-		return usageFailure("--url applies to proposals of the kind source-add only", "Run 'sudo qhost proposal approve "+id+"' without --url.")
+	if err := o.onlyForSourceAdd(id); err != nil {
+		return err
 	}
 	var content control.WindowSetArgs
 	if err := json.Unmarshal(first.Content, &content); err != nil {
@@ -36,7 +36,7 @@ func approveWindow(c *cobra.Command, program *cobracli.Program, state *notRunnin
 		return err
 	}
 	_, _ = io.WriteString(notice, shownEffect)
-	if err := askApproval(c, "Approve proposal "+first.ID+" and set this window?"); err != nil {
+	if err := o.decide(c, "Approve proposal "+first.ID+" and set this window?"); err != nil {
 		return err
 	}
 

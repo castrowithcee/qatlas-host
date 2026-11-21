@@ -435,29 +435,33 @@ func TestHTTPCheckRunsAfterContainers(t *testing.T) {
 
 func TestParseProductionEnv(t *testing.T) {
 	getenv := func(k string) string {
-		return map[string]string{"HOME": "/home/demo", "DOCKER_HOST": "tcp://example.invalid:1", "DOCKER_CONFIG": ""}[k]
+		return map[string]string{"HOME": "/home/demo", "DOCKER_HOST": "tcp://example.invalid:1",
+			"DOCKER_CONFIG": "/elsewhere/docker", "QHOST_STATE_DIR": "/elsewhere"}[k]
 	}
-	env := ProductionEnv(getenv, "")
+	env := ProductionEnv(getenv, "/var/lib/demo", "")
 	got := strings.Join(env, " ")
-	if !strings.Contains(got, "HOME=/home/demo") || strings.Contains(got, "example.invalid") || strings.Contains(got, "DOCKER_CONFIG") {
-		t.Errorf("env = %q", env)
+	for _, want := range []string{"HOME=/home/demo", "DOCKER_CONFIG=/var/lib/demo/docker", "QHOST_STATE_DIR=/var/lib/demo",
+		"PATH=/var/lib/demo/docker/bin:" + fixedPath, "DOCKER_HOST=unix:///var/run/docker.sock"} {
+		if !slicesContain(env, want) {
+			t.Errorf("env lacks %q: %q", want, env)
+		}
 	}
-	if !strings.Contains(got, "DOCKER_HOST=unix:///var/run/docker.sock") {
-		t.Errorf("default socket missing: %q", env)
+	if strings.Contains(got, "example.invalid") || strings.Contains(got, "/elsewhere") {
+		t.Errorf("env takes over the service environment: %q", env)
 	}
-	got = strings.Join(ProductionEnv(getenv, "/run/user/1000/docker.sock"), " ")
+	got = strings.Join(ProductionEnv(getenv, "/var/lib/demo", "/run/user/1000/docker.sock"), " ")
 	if !strings.Contains(got, "DOCKER_HOST=unix:///run/user/1000/docker.sock") || strings.Contains(got, "example.invalid") {
 		t.Errorf("named socket: %q", got)
 	}
 }
 
 func TestNewPassesTheSocketToEveryDockerCall(t *testing.T) {
-	d := New(nil, "/run/demo/docker.sock")
+	d := New(nil, "/var/lib/demo", "/run/demo/docker.sock")
 	want := "DOCKER_HOST=unix:///run/demo/docker.sock"
 	if !slicesContain(d.Exec.Env, want) || d.Checker.Exec != d.Exec {
 		t.Errorf("deployer env = %q", d.Exec.Env)
 	}
-	if !slicesContain(New(nil, "").Exec.Env, "DOCKER_HOST=unix:///var/run/docker.sock") {
+	if !slicesContain(New(nil, "/var/lib/demo", "").Exec.Env, "DOCKER_HOST=unix:///var/run/docker.sock") {
 		t.Error("empty socket must mean the default")
 	}
 }
@@ -466,7 +470,7 @@ func TestEveryComposeCallCarriesTheSocket(t *testing.T) {
 	st := newStack(t, true)
 	r := &fakeRunner{ps: []string{runningJSON}}
 	d, _ := newDeployer(r)
-	d.Exec.Env = ProductionEnv(func(string) string { return "" }, "/run/demo/docker.sock")
+	d.Exec.Env = ProductionEnv(func(string) string { return "" }, "/var/lib/demo", "/run/demo/docker.sock")
 	ctx := context.Background()
 	log := &fakeLog{}
 	_ = d.deploy(ctx, st, log)

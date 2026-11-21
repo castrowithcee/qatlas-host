@@ -101,26 +101,33 @@ func proposalChanged(now proposalMsg, shown *proposalCtx) bool {
 		now.effectErr != nil || sig == "" || sig != shown.effect
 }
 
-// canApprove says the open proposal can be approved here: with root, an open proposal of the kind this version
-// applies, content it can read and an effect it worked out.
+// canApprove says the open proposal can be approved here: an open proposal of the kind this version applies,
+// content it can read and an effect it worked out. Without root the effect of a folder to add is worked out
+// when approving starts, through sudo, so the folder needs none yet.
 func (m *Model) canApprove() bool {
 	v := &m.pv
-	if !(m.euid() == 0 && v.open && v.loaded && v.info.State == control.ProposalOpen && !v.contentBad && v.effectErr == nil) {
+	if !(v.open && v.loaded && v.info.State == control.ProposalOpen && !v.contentBad && v.effectErr == nil) {
 		return false
 	}
 	if isKindProposal(v.info.Kind) {
 		return v.kind != nil && v.kind.worked
 	}
-	return m.folders != nil && v.info.Kind == control.ProposalKindSourceAdd && v.flow != nil
+	if v.info.Kind != control.ProposalKindSourceAdd {
+		return false
+	}
+	if m.euid() != 0 {
+		return v.needsRoot
+	}
+	return m.folders != nil && v.flow != nil
 }
 
-// canReject says the open proposal can be rejected: with root, as long as it is open.
+// canReject says the open proposal can be rejected: as long as it is open. As root it needs the host side as well.
 func (m *Model) canReject() bool {
 	v := &m.pv
-	return m.euid() == 0 && m.folders != nil && v.open && v.loaded && v.info.State == control.ProposalOpen
+	return (m.euid() != 0 || m.folders != nil) && v.open && v.loaded && v.info.State == control.ProposalOpen
 }
 
-// proposalHints are the keys of the open proposal that decide it; without root there are none.
+// proposalHints are the keys of the open proposal that decide it.
 func (m *Model) proposalHints() []kittui.Hint {
 	var hints []kittui.Hint
 	if m.canApprove() {
@@ -142,8 +149,8 @@ func (m *Model) proposalAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 		m.warn(m.text.Lookup(textActionBusy))
 	case !m.pv.loaded || m.pv.info.State != control.ProposalOpen:
 		m.warn(m.text.Lookup(textPropNotOpen))
-	case m.euid() != 0 || (m.folders == nil && !isKindProposal(m.pv.info.Kind)):
-		m.warn(m.text.Lookup(textPropNeedsSudo))
+	case m.euid() == 0 && m.folders == nil && !isKindProposal(m.pv.info.Kind):
+		m.warn(m.text.Lookup(textPropCannotApprove))
 	case id == actReject:
 		return m.openForm(m.proposalRejectForm()), true
 	case !m.canApprove():
@@ -160,6 +167,10 @@ func (m *Model) approveProposal() tea.Cmd {
 	v := &m.pv
 	if isKindProposal(v.info.Kind) {
 		return m.approveKind()
+	}
+	if m.euid() != 0 {
+		shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, url: v.content.URL, gen: v.gen}
+		return m.inspectSudoFor(v.content.Path, nil, shown)
 	}
 	shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, effect: effectSignature(v.flow), url: v.content.URL, gen: v.gen}
 	ctx, host, path := m.ctx, m.folders, v.content.Path
@@ -242,6 +253,10 @@ func (m *Model) submitProposalReject(f *settingsForm, reason string) tea.Cmd {
 	}
 	id := m.pv.id
 	label := kittui.Escape(proposalShort(id))
+	if m.euid() != 0 {
+		m.askProposalRejectSudo(id, reason)
+		return nil
+	}
 	m.ask(textTitleProposalReject, m.text.Lookup(textAskProposalReject, label), m.text.Lookup(textWhatProposalReject), nil, true, func() tea.Cmd {
 		return m.writeCall(opProposalReject, id, func(b Backend) (any, error) {
 			return b.ProposalReject(m.ctx, control.ProposalRejectArgs{ID: id, Reason: reason})

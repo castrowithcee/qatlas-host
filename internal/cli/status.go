@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/hostservice"
+	"github.com/castrowithcee/qatlas-host/internal/service"
 )
 
 // ExitServiceNotRunning is the exit code of a command that found no running service. The kit's exit contract
@@ -47,10 +50,13 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"set up is listed as instance.<user>, with its unit, whether it runs and, when it does, its version and start time,\n" +
 			"and its stack folders and stacks as instance.<user>.source.<id> and instance.<user>.stack.<name>, in the same form\n" +
 			"with the field engine rootless:<user>. An instance that cannot be asked shows its state in instance.<user>.deploy_service.\n" +
+			"The webhook receiver is shown as hook_service: not set up until 'sudo qhost hook-service setup', then running or not running\n" +
+			"as systemd reports it, with its address (hook_listen) and the number of hooks (hook_count); it needs no root.\n" +
 			"Root and administrators in the group qhost may read; run it without sudo. A set up deploy service that is not running ends with exit code 3.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			host := append(hostFields(c.Context()), instanceFields(c.Context())...)
+			host = append(host, hookFields(c.Context())...)
 			if !deployInstalled() {
 				fields := append([]output.Field{{Name: "running", Value: false}, {Name: "deploy_service", Value: "not set up"}}, host...)
 				return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: fields})
@@ -59,6 +65,7 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			if err := call(c.Context(), serviceEndpoint(), control.StatusCommand, nil, &st); err != nil {
 				if errors.Is(err, client.ErrNotRunning) {
 					state.seen = true
+					return withStateCause(failureOf(err), stateDir())
 				}
 				return failureOf(err)
 			}
@@ -98,6 +105,31 @@ func hostFields(ctx context.Context) []output.Field {
 	return []output.Field{{Name: "host_service", Value: "unreachable"}}
 }
 
+// hookActive reports whether systemd runs the webhook receiver; it reads the state and changes nothing, so it
+// needs no root. Tests replace it.
+var hookActive = func(ctx context.Context) bool {
+	return exec.CommandContext(ctx, "systemctl", "is-active", "--quiet", deploysetup.HookService+".service").Run() == nil
+}
+
+// hookFields describes the webhook receiver: not set up, or its state from systemd with the address and the
+// number of hooks from its configuration, which everybody may read. Nothing here fails the command.
+func hookFields(ctx context.Context) []output.Field {
+	root := deploySetup.host.Root
+	if !deploysetup.HookInstalled(root) {
+		return []output.Field{{Name: "hook_service", Value: "not set up"}}
+	}
+	state := "not running"
+	if hookActive(ctx) {
+		state = "running"
+	}
+	out := []output.Field{{Name: "hook_service", Value: state}}
+	cfg, err := deploysetup.HookConfig(root)
+	if err != nil {
+		return append(out, output.Field{Name: "hook_config", Value: "unreadable: " + err.Error()})
+	}
+	return append(out, output.Field{Name: "hook_listen", Value: cfg.Listen}, output.Field{Name: "hook_count", Value: len(cfg.Hooks)})
+}
+
 // instanceFields describes every deploy service instance set up on the host. As for the host service, a failed
 // reading is a state of the instance, never a failure of the command.
 func instanceFields(ctx context.Context) []output.Field {
@@ -122,6 +154,11 @@ func instanceFields(ctx context.Context) []output.Field {
 			continue
 		case errors.Is(err, client.ErrNotRunning):
 			state = "not running"
+			if cause, readable := stateCause(inst.StateDir()); cause != "" {
+				out = append(out, output.Field{Name: p + "state", Value: "unreadable: " + cause})
+			} else if !readable {
+				out = append(out, output.Field{Name: p + "state", Value: stateHint})
+			}
 		case errors.As(err, &remote) && (remote.Code == control.CodeNoAccess || remote.Code == control.CodeNotAdmin):
 			state = "running (reserved for administrators)"
 		case errors.Is(err, client.ErrNoAccess):
@@ -130,6 +167,39 @@ func instanceFields(ctx context.Context) []output.Field {
 		out = append(out, output.Field{Name: p + "deploy_service", Value: state})
 	}
 	return out
+}
+
+// stateHint is shown where the state files of a service that does not run could not be checked.
+const stateHint = "unknown (run 'sudo qhost status' to check its state files)"
+
+// stateCause checks the state files of a deploy service that does not run, changing nothing. cause names the
+// file when a format number refusal or another read error is found; readable is false when the files could not
+// be read for lack of permission, which only root has.
+func stateCause(dir string) (cause string, readable bool) {
+	err := service.CheckState(dir)
+	switch {
+	case err == nil:
+		return "", true
+	case errors.Is(err, fs.ErrPermission):
+		return "", false
+	}
+	return err.Error(), true
+}
+
+// withStateCause adds to the failure of a deploy service that is not running the file that keeps it from starting,
+// or the way to find out.
+func withStateCause(err error, dir string) error {
+	var f *cli.Failure
+	if !deployInstalled() || !errors.As(err, &f) {
+		return err
+	}
+	if cause, readable := stateCause(dir); cause != "" {
+		f.Message += "; its state cannot be read: " + cause
+		f.NextStep = "Fix or move aside the file named above (see 'qhost help troubleshooting'), then start it with 'sudo systemctl start qhost-deploy'."
+	} else if !readable {
+		f.NextStep += " If it does not start, run 'sudo qhost status' to check its state files."
+	}
+	return err
 }
 
 // engineFields flattens the engine part into scalar fields, which every output format can carry. The stack

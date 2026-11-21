@@ -25,14 +25,24 @@ const (
 	stepFolderRemove = "folder-remove"
 )
 
-var fileSteps = map[string]bool{stepFileWrite: true, stepFileRestore: true, stepFolderCreate: true, stepFolderRemove: true}
+var fileSteps = map[string]bool{
+	stepFileWrite: true, stepFileRestore: true, stepFolderCreate: true, stepFolderRemove: true,
+	stepFileRename: true, stepFileCopy: true, stepFileRemove: true, stepFileRemoveCopy: true, stepFileRestoreTree: true,
+}
 
 // fileOps is what a file step does that only root may do; tests replace it.
 type fileOps struct {
 	chown func(fd, uid, gid int) error
+	// chownLink changes the owner of the link name in dir itself, which cannot be opened.
+	chownLink func(dir int, name string, uid, gid int) error
 }
 
-var systemFileOps = fileOps{chown: unix.Fchown}
+var systemFileOps = fileOps{
+	chown: unix.Fchown,
+	chownLink: func(dir int, name string, uid, gid int) error {
+		return unix.Fchownat(dir, name, uid, gid, unix.AT_SYMLINK_NOFOLLOW)
+	},
+}
 
 var (
 	errNoEntry  = errors.New("no such entry")
@@ -40,6 +50,9 @@ var (
 )
 
 func runFileStep(c Command, ops fileOps) error {
+	if len(c.Argv) > 0 && treeSteps[c.Argv[0]] {
+		return runTreeStep(c, ops)
+	}
 	if len(c.Argv) != 2 {
 		return fmt.Errorf("built-in step %s has the wrong arguments", c.Argv[0])
 	}

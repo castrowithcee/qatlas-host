@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers  [6 ◈ Proposals]  7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  stack folder                                                                                                    p-0005
+                                                                                                                        
+  from       ana (1001)                                                                                                 
+  submitted  10-30 16:00                                                                                                
+  expires    11-13 16:00                                                                                                
+  state      open                                                                                                       
+                                                                                                                        
+  Proposed                                                                                                              
+    path: /srv/files-example                                                                                            
+    address: none proposed                                                                                              
+                                                                                                                        
+  Effect if applied now                                                                                                 
+    The effect of this proposal is worked out when you approve it. It asks for your sudo password and changes nothing   
+    until you confirm.      ╔═ Approve a proposal ═════════════════════════════════════════╗                            
+                            ║ The folder /srv/files-example or its remote changed since    ║                            
+                            ║ you reviewed the proposal. Nothing was applied.              ║                            
+                            ║                                                              ║                            
+                            ║ Approve the proposal again to review it as it is now.        ║                            
+                            ║                                                              ║                            
+                            ║ > close <                                                    ║                            
+                            ║ n/esc/enter close                                            ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
