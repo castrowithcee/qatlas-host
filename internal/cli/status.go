@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -45,10 +46,13 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"stack.<name>; when another stack folder holds its name, as source.<id>.stack.<name> (see 'qhost help sources').\n" +
 			"Every instance for the rootless engine of a user that is set up is listed as instance.<user>, with its unit, whether it\n" +
 			"runs and, when it does, its version and start time.\n" +
+			"The webhook receiver is shown as hook_service: not set up until 'sudo qhost hook-service setup', then running or not running\n" +
+			"as systemd reports it, with its address (hook_listen) and the number of hooks (hook_count); it needs no root.\n" +
 			"Root and administrators in the group qhost may read; run it without sudo. A set up deploy service that is not running ends with exit code 3.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			host := append(hostFields(c.Context()), instanceFields(c.Context())...)
+			host = append(host, hookFields(c.Context())...)
 			if !deployInstalled() {
 				fields := append([]output.Field{{Name: "running", Value: false}, {Name: "deploy_service", Value: "not set up"}}, host...)
 				return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: fields})
@@ -94,6 +98,31 @@ func hostFields(ctx context.Context) []output.Field {
 		return []output.Field{{Name: "host_service", Value: "unknown (no access to its channel)"}}
 	}
 	return []output.Field{{Name: "host_service", Value: "unreachable"}}
+}
+
+// hookActive reports whether systemd runs the webhook receiver; it reads the state and changes nothing, so it
+// needs no root. Tests replace it.
+var hookActive = func(ctx context.Context) bool {
+	return exec.CommandContext(ctx, "systemctl", "is-active", "--quiet", deploysetup.HookService+".service").Run() == nil
+}
+
+// hookFields describes the webhook receiver: not set up, or its state from systemd with the address and the
+// number of hooks from its configuration, which everybody may read. Nothing here fails the command.
+func hookFields(ctx context.Context) []output.Field {
+	root := deploySetup.host.Root
+	if !deploysetup.HookInstalled(root) {
+		return []output.Field{{Name: "hook_service", Value: "not set up"}}
+	}
+	state := "not running"
+	if hookActive(ctx) {
+		state = "running"
+	}
+	out := []output.Field{{Name: "hook_service", Value: state}}
+	cfg, err := deploysetup.HookConfig(root)
+	if err != nil {
+		return append(out, output.Field{Name: "hook_config", Value: "unreadable: " + err.Error()})
+	}
+	return append(out, output.Field{Name: "hook_listen", Value: cfg.Listen}, output.Field{Name: "hook_count", Value: len(cfg.Hooks)})
 }
 
 // instanceFields describes every deploy service instance set up on the host. As for the host service, a failed

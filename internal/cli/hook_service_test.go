@@ -49,9 +49,14 @@ func TestHookServiceRunRefusesAWritableConfiguration(t *testing.T) {
 	}
 }
 
-func TestHookServiceIsHidden(t *testing.T) {
+func TestHookServiceIsListedButItsRunIsHidden(t *testing.T) {
 	var stdout strings.Builder
-	if code := Run([]string{"--help"}, &stdout, io.Discard); code != 0 || strings.Contains(stdout.String(), "hook-service") {
-		t.Fatalf("code %d, help lists hook-service", code)
+	if code := Run([]string{"--help"}, &stdout, io.Discard); code != 0 || !strings.Contains(stdout.String(), "hook-service") {
+		t.Fatalf("code %d, help does not list hook-service: %s", code, stdout.String())
+	}
+	stdout.Reset()
+	if code := Run([]string{"hook-service", "--help"}, &stdout, io.Discard); code != 0 ||
+		!strings.Contains(stdout.String(), "setup") || strings.Contains(stdout.String(), "Run the webhook receiver in the foreground") {
+		t.Fatalf("code %d, help of hook-service: %s", code, stdout.String())
 	}
 }

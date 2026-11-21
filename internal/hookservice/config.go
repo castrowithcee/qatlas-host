@@ -91,6 +91,9 @@ func checkOwnerOnlyWritable(f *os.File, ownerUID uint32) error {
 	return nil
 }
 
+// ParseConfig validates the content of a configuration file; the setup uses it to keep the stored hooks.
+func ParseConfig(data []byte) (Config, error) { return parseConfig(data) }
+
 func parseConfig(data []byte) (Config, error) {
 	var c Config
 	dec := json.NewDecoder(bytes.NewReader(data))

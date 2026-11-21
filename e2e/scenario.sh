@@ -57,7 +57,10 @@
 # stack folders stay unchanged, both units, the instance, its template and the program are gone and the state, the
 # users and the group stay; sudo qhost uninstall --purge then removes the three state folders, the state and
 # configuration of the instance, the users and the group. The test user, its home, its rootless engine and its
-# container stay throughout. Sourced by run.sh scenario.
+# container stay throughout. The webhook receiver is set up with sudo qhost hook-service setup at the start of the update
+# section: it runs as qhost-hook without the groups docker and qhost, its marker folder has the owner and group of the
+# contract, status shows it with its address, an unknown secret gets 404, the update renews its stale unit and restarts it,
+# and both uninstalls remove its unit, rule, folders, user and group. Sourced by run.sh scenario.
 
 # signature_asset is the name of the release file with the signature; it must match release.SignatureAsset.
 signature_asset=checksums.txt.sig
@@ -4826,6 +4829,58 @@ scenario_observe_end() {
 	log 'scenario: the update of observe-demo was rolled back by qhost; observe-demo is removed'
 }
 
+# hook_listening succeeds when the webhook receiver is active and answers an HTTP request on its local address.
+hook_listening() {
+	[ "$(docker exec "$host" systemctl is-active qhost-hook)" = active ] &&
+		docker exec "$host" curl -s -o /dev/null http://127.0.0.1:8480/
+}
+
+# scenario_hook_setup sets up the webhook receiver with sudo qhost hook-service setup, while the deploy service is
+# set up, and checks what the contract says: no change without --confirm, the user qhost-hook in no other group, the
+# process without the groups docker and qhost, the marker folder of the system engine, the status without sudo and
+# the answer 404 to an unknown secret. scenario_selfupdate and scenario_uninstall keep it in their checks.
+scenario_hook_setup() {
+	step 'the setup of the webhook receiver needs root and --confirm and changes nothing without them'
+	if out=$(as_admin 'qhost hook-service setup --confirm --yes 2>&1'); then fail "the receiver setup without root succeeded: $out"; fi
+	if out=$(as_admin 'sudo qhost hook-service setup --yes 2>&1'); then fail "the receiver setup without --confirm succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'systemctl enable --now qhost-hook' || fail "the receiver setup without --confirm does not show its commands: $out"
+	if docker exec "$host" test -e /usr/local/lib/systemd/system/qhost-hook.service; then fail 'a refused receiver setup installed the unit'; fi
+	if docker exec "$host" id qhost-hook >/dev/null 2>&1; then fail 'a refused receiver setup created the user qhost-hook'; fi
+	as_admin 'qhost --output json status' | grep -q '"hook_service": *"not set up"' ||
+		fail "qhost status does not show the receiver as not set up: $(as_admin 'qhost --output json status 2>&1')"
+
+	step 'sudo qhost hook-service setup --confirm --yes sets up the receiver, which runs as qhost-hook without the groups docker and qhost'
+	out=$(as_admin 'sudo qhost hook-service setup --confirm --yes 2>&1') || fail "the receiver setup failed: $out"
+	wait_for 'the webhook receiver to answer' 30 hook_listening
+	hkpid=$(service_pid qhost-hook)
+	[ -n "$hkpid" ] && [ "$hkpid" != 0 ] || fail 'the webhook receiver has no process'
+	[ "$(docker exec "$host" stat -c %U "/proc/$hkpid")" = qhost-hook ] || fail "the receiver does not run as qhost-hook: $(docker exec "$host" stat -c %U "/proc/$hkpid")"
+	if docker exec "$host" grep '^Uid:' "/proc/$hkpid/status" | grep -qw 0; then fail 'the receiver has a root user ID'; fi
+	[ "$(docker exec "$host" id -nG qhost-hook)" = qhost-hook ] || fail "the user qhost-hook has other groups: $(docker exec "$host" id -nG qhost-hook)"
+	for g in docker qhost; do
+		gid=$(docker exec "$host" getent group "$g" | cut -d : -f 3)
+		if docker exec "$host" grep '^Groups:' "/proc/$hkpid/status" | tr ' \t' '\n\n' | grep -qx "$gid"; then fail "the receiver process holds the group $g"; fi
+		if docker exec "$host" grep '^Gid:' "/proc/$hkpid/status" | tr ' \t' '\n\n' | grep -qx "$gid"; then fail "the receiver process has the group $g as its own"; fi
+	done
+	log "scenario: qhost-hook runs as pid $hkpid: $(docker exec "$host" ps -o user=,group=,supgrp= -p "$hkpid" | tr -s ' ')"
+	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost-hook/system)" = qhost-hook:qhost-deploy:770 ] ||
+		fail "/run/qhost-hook/system is $(docker exec "$host" stat -c %U:%G:%a /run/qhost-hook/system), want qhost-hook:qhost-deploy:770"
+	[ "$(docker exec "$host" stat -c %U:%G:%a /etc/qhost-hook/config.json)" = root:qhost-hook:644 ] ||
+		fail "config.json is $(docker exec "$host" stat -c %U:%G:%a /etc/qhost-hook/config.json), want root:qhost-hook:644"
+	out=$(as_admin 'sudo qhost --output json hook-service setup --confirm --yes 2>&1') || fail "the repeated receiver setup failed: $out"
+	printf '%s' "$out" | grep -q '"changed": *false' || fail "the repeated receiver setup reported a change: $out"
+	[ "$(service_pid qhost-hook)" = "$hkpid" ] || fail 'the repeated receiver setup restarted the receiver'
+
+	step 'status without sudo shows the receiver running with its address and its hooks, and an unknown secret gets 404'
+	out=$(as_admin 'qhost --output json status 2>&1') || fail "qhost status failed: $out"
+	for want in '"hook_service": *"running"' '"hook_listen": *"127.0.0.1:8480"' '"hook_count": *0'; do
+		printf '%s' "$out" | grep -q "$want" || fail "qhost status does not show $want: $out"
+	done
+	out=$(docker exec "$host" curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8480/hook/invented-unknown-secret) || fail 'the receiver does not answer a POST'
+	[ "$out" = 404 ] || fail "an unknown secret got the status $out, want 404"
+	log "scenario: webhook receiver set up on 127.0.0.1:8480, status shows it, an unknown secret gets 404"
+}
+
 # selfupdate_field prints one top-level field of qhost update status, run without root.
 selfupdate_field() {
 	as_admin "qhost --output json update status 2>&1" | sed -n "s/.*\"$1\": *\"\{0,1\}\([^\",}]*\).*/\1/p"
@@ -4864,6 +4919,12 @@ unit_is_release() {
 		docker exec -i "$host" cmp -s - "/usr/local/lib/systemd/system/$1.service"
 }
 
+# hook_unit_is_current succeeds when the installed unit of the webhook receiver equals the one in the sources, which
+# the program under test carries.
+hook_unit_is_current() {
+	docker exec -i "$host" cmp -s - /usr/local/lib/systemd/system/qhost-hook.service <"$root/packaging/qhost-hook.service"
+}
+
 # instance_version_is succeeds when qhost status, run without root, shows the version $1 for the instance $su_unit.
 instance_version_is() {
 	as_admin 'qhost --output json status 2>&1' | grep -q "\"instance\.$rootless_user\.version\": *\"$1\""
@@ -4887,6 +4948,8 @@ scenario_selfupdate() {
 	wait_for 'the services to answer' 30 service_serving
 	[ "$(docker exec "$host" systemctl is-active "$su_unit")" = active ] || fail "the instance $su_unit does not run"
 
+	scenario_hook_setup
+
 	step 'update status reports the newer test release without root'
 	release_publish v0.2.0
 	[ "$(docker exec "$host" qhost version 2>&1 | grep -c v0.1.0)" -ge 1 ] || fail "the installed version is not v0.1.0: $(docker exec "$host" qhost version 2>&1)"
@@ -4906,6 +4969,7 @@ scenario_selfupdate() {
 	fi
 	printf '%s' "$out" | grep -q 'Update qhost from v0.1.0' || fail "update without --confirm does not show its plan: $out"
 	printf '%s' "$out" | grep -q 'qhost, qhost-deploy' || fail "update without --confirm does not name the services it restarts: $out"
+	printf '%s' "$out" | grep -q 'qhost-hook.service is renewed' || fail "update without --confirm does not name the webhook receiver: $out"
 	printf '%s' "$out" | grep -q -- '--confirm' || fail "update without --confirm does not name the flag: $out"
 	[ "$(installed_sum)" = "$before" ] || fail 'a refused update changed the installation'
 
@@ -4914,6 +4978,10 @@ scenario_selfupdate() {
 	docker exec "$host" sh -ec 'for u in qhost qhost-deploy; do printf "# stale\n" >>/usr/local/lib/systemd/system/$u.service; done; systemctl daemon-reload' ||
 		fail 'cannot mark the installed units'
 	if unit_is_release qhost v0.2.0 || unit_is_release qhost-deploy v0.2.0; then fail 'the installed units were not made stale'; fi
+	# The unit of the webhook receiver is not in the archive: the new program replaces it from its own copy.
+	docker exec "$host" sh -ec 'printf "# stale\n" >>/usr/local/lib/systemd/system/qhost-hook.service; systemctl daemon-reload' || fail 'cannot mark the unit of the receiver'
+	if hook_unit_is_current; then fail 'the unit of the receiver was not made stale'; fi
+	hkpid=$(service_pid qhost-hook) hkentered=$(service_entered qhost-hook)
 	# The template v0.2.0 carries has one more line than the installed one. A copy of the installed template in
 	# /etc/systemd/system overrides the unit of the instance, as an administrator may do.
 	if instance_template_is "$work/releasebuild/$release_template"; then fail 'the installed template equals the one of v0.2.0'; fi
@@ -4929,6 +4997,10 @@ scenario_selfupdate() {
 		fail "update status after the update: $(as_admin 'qhost --output json update status 2>&1')"
 	unit_is_release qhost v0.2.0 || fail 'the unit of the host service is not the one of v0.2.0'
 	unit_is_release qhost-deploy v0.2.0 || fail 'the unit of the deploy service is not the one of v0.2.0'
+	wait_for 'the webhook receiver after the update' 30 hook_listening
+	hook_unit_is_current || fail 'the update did not replace the stale unit of the webhook receiver'
+	[ "$(service_pid qhost-hook)" != "$hkpid" ] && [ "$(service_entered qhost-hook)" != "$hkentered" ] || fail 'the webhook receiver was not restarted by the update'
+	if printf '%s' "$out" | grep -q 'webhook receiver was not renewed'; then fail "the renewal of the webhook receiver failed: $out"; fi
 	[ "$(docker exec "$host" cat /etc/systemd/system/qhost-deploy.service.d/e2e.conf | grep -c backup-image)" = 1 ] || fail 'the update removed the drop-in'
 	docker exec "$host" grep -qx 'ReadWritePaths=-/opt/stacks' /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf ||
 		fail 'the update removed the stack folder grant'
@@ -4986,6 +5058,7 @@ scenario_selfupdate() {
 		fail "qhost status does not show the deploy service as not set up: $(as_admin 'qhost --output json status 2>&1')"
 	release_publish v0.3.0
 	hpid=$(service_pid qhost) hentered=$(service_entered qhost)
+	hkpid=$(service_pid qhost-hook) hkentered=$(service_entered qhost-hook)
 	ipid=$(service_pid "$su_unit") ientered=$(service_entered "$su_unit")
 	out=$(as_admin 'sudo qhost update --yes --confirm 2>&1') || fail "update without a deploy service failed: $out"
 	wait_for 'the updated host service' 60 host_serving
@@ -4999,6 +5072,9 @@ scenario_selfupdate() {
 	[ "$(service_pid qhost)" != "$hpid" ] && [ "$(service_entered qhost)" != "$hentered" ] || fail 'the host service was not restarted by the update'
 	docker exec "$host" qhost version 2>&1 | grep -q v0.3.0 || fail "the installed version is not v0.3.0: $(docker exec "$host" qhost version 2>&1)"
 	unit_is_release qhost v0.3.0 || fail 'the unit of the host service is not the one of v0.3.0'
+	wait_for 'the webhook receiver after the second update' 30 hook_listening
+	[ "$(service_pid qhost-hook)" != "$hkpid" ] && [ "$(service_entered qhost-hook)" != "$hkentered" ] ||
+		fail 'the webhook receiver was not restarted by the update without a deploy service'
 	if docker exec "$host" test -e /usr/local/lib/systemd/system/qhost-deploy.service; then fail 'the update installed the unit of the deploy service'; fi
 	[ "$(docker exec "$host" systemctl is-active qhost-deploy || true)" != active ] || fail 'the update started the deploy service'
 	as_admin 'qhost --output json status' | grep -q '"deploy_service": *"not set up"' ||
@@ -5062,7 +5138,8 @@ scenario_uninstall() {
 	containers=$(all_running_containers)
 	[ -n "$containers" ] || fail 'no container runs before the uninstall'
 	[ "$(docker exec "$host" systemctl is-active "$un_unit")" = active ] || fail "the instance $un_unit does not run before the uninstall"
-	for p in "$un_template" "$un_rule" "$un_channel" "$un_state" "$un_config" "$un_dropin"; do
+	for p in "$un_template" "$un_rule" "$un_channel" "$un_state" "$un_config" "$un_dropin" /usr/local/lib/systemd/system/qhost-hook.service \
+		/etc/tmpfiles.d/qhost-hook.conf /run/qhost-hook /etc/qhost-hook; do
 		docker exec "$host" test -e "$p" || fail "$p is missing before the uninstall"
 	done
 	as_rootless "docker rm -f $un_ct >/dev/null 2>&1; docker run -d --quiet --name $un_ct demo/app:1.0.0" >/dev/null ||
@@ -5082,6 +5159,9 @@ scenario_uninstall() {
 	if out=$(as_admin 'sudo qhost uninstall --yes 2>&1'); then fail "uninstall without --confirm succeeded: $out"; fi
 	printf '%s' "$out" | grep -q 'Remove qhost' || fail "uninstall without --confirm does not show its plan: $out"
 	printf '%s' "$out" | grep -q 'rm /usr/local/bin/qhost' || fail "uninstall without --confirm does not show its commands: $out"
+	for want in 'systemctl disable --now qhost-hook' 'rm /etc/tmpfiles.d/qhost-hook.conf' 'rm -r /run/qhost-hook'; do
+		printf '%s' "$out" | grep -qF -- "$want" || fail "uninstall without --confirm does not show '$want': $out"
+	done
 	if out=$(as_admin 'sudo qhost uninstall --confirm 2>&1 </dev/null'); then fail "uninstall without an answer succeeded: $out"; fi
 	[ "$(installed_sum)" = "$before" ] || fail 'a refused uninstall changed the installation'
 	service_serving || fail 'the services do not answer after a refused uninstall'
@@ -5105,30 +5185,31 @@ scenario_uninstall() {
 	rootless_kept || fail "the uninstall changed the test user, its home, its rootless engine or its container"
 	for p in /usr/local/bin/qhost /usr/local/lib/systemd/system/qhost.service /usr/local/lib/systemd/system/qhost-deploy.service \
 		/etc/tmpfiles.d/qhost-deploy.conf /run/qhost-deploy /usr/local/share/man/man1/qhost.1 \
-		/etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf; do
+		/etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf /usr/local/lib/systemd/system/qhost-hook.service \
+		/etc/tmpfiles.d/qhost-hook.conf /run/qhost-hook; do
 		if docker exec "$host" test -e "$p" || docker exec "$host" test -L "$p"; then fail "uninstall left $p: $out"; fi
 	done
 	docker exec "$host" test -f /etc/systemd/system/qhost-deploy.service.d/e2e.conf || fail 'uninstall removed a drop-in it does not own'
-	for u in qhost qhost-deploy; do
+	for u in qhost qhost-deploy qhost-hook; do
 		[ "$(docker exec "$host" systemctl is-active "$u" || true)" != active ] || fail "$u still runs after the uninstall"
 		if docker exec "$host" systemctl is-enabled --quiet "$u"; then fail "$u is still enabled after the uninstall"; fi
 		if docker exec "$host" systemctl cat "$u" >/dev/null 2>&1; then fail "systemd still knows the unit $u after the uninstall"; fi
 	done
 	[ "$(all_running_containers)" = "$containers" ] || fail "the containers changed: $(all_running_containers)"
 	[ "$(stack_folder_listing)" = "$folders" ] || fail 'a stack folder changed'
-	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host; do
+	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host /etc/qhost-hook; do
 		docker exec "$host" test -d "$p" || fail "uninstall without --purge removed $p"
 	done
-	docker exec "$host" sh -ec 'id qhost && id qhost-deploy && getent group qhost && getent group qhost-deploy' >/dev/null ||
+	docker exec "$host" sh -ec 'id qhost && id qhost-deploy && id qhost-hook && getent group qhost && getent group qhost-deploy && getent group qhost-hook' >/dev/null ||
 		fail 'uninstall without --purge removed a user or a group'
 	log "scenario: uninstalled both services, the containers and stack folders are unchanged: $out"
 
-	step 'sudo qhost uninstall --purge removes the three state folders, the state and configuration of the instance, the users and the group'
+	step 'sudo qhost uninstall --purge removes the three state folders, the configuration of the receiver, the state and configuration of the instance, the users and the group'
 	out=$(as_admin 'sudo /root/qhost.copy uninstall --purge --yes --confirm 2>&1') || fail "uninstall --purge failed: $out"
-	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host "$un_state" "$un_config"; do
+	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host /etc/qhost-hook "$un_state" "$un_config"; do
 		if docker exec "$host" test -e "$p"; then fail "uninstall --purge left $p: $out"; fi
 	done
-	for u in qhost qhost-deploy; do
+	for u in qhost qhost-deploy qhost-hook; do
 		if docker exec "$host" id "$u" >/dev/null 2>&1; then fail "uninstall --purge left the user $u: $out"; fi
 		if docker exec "$host" getent group "$u" >/dev/null 2>&1; then fail "uninstall --purge left the group $u: $out"; fi
 	done

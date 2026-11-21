@@ -241,3 +241,41 @@ func TestObservationInStatusFields(t *testing.T) {
 		t.Errorf("observe = %v, want %q", got["stack.web.observe"], want)
 	}
 }
+
+func TestStatusShowsTheWebhookReceiverAsNotSetUp(t *testing.T) {
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
+	code, stdout, _ := run(t, "status", "--output", "json")
+	var got map[string]any
+	if err := json.Unmarshal([]byte(stdout), &got); code != 0 || err != nil || got["hook_service"] != "not set up" {
+		t.Fatalf("code %d, stdout %q, err %v", code, stdout, err)
+	}
+	if _, ok := got["hook_listen"]; ok {
+		t.Errorf("an address is shown for a receiver that is not set up: %v", got)
+	}
+}
+
+func TestStatusShowsTheWebhookReceiverWithStateAddressAndHooks(t *testing.T) {
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
+	root := deploySetup.host.Root
+	writeTestFile(t, filepath.Join(root, filepath.FromSlash(deploysetup.HookUnitPath())), "[Service]\n")
+	writeTestFile(t, filepath.Join(root, filepath.FromSlash(deploysetup.HookConfigPath)),
+		`{"version":1,"listen":"127.0.0.1:8480","hooks":[`+
+			`{"id":"h-00000001","stack":"web","instance":"system","hash":"sha256:`+strings.Repeat("a", 64)+`"},`+
+			`{"id":"h-00000002","stack":"db","instance":"system","hash":"sha256:`+strings.Repeat("b", 64)+`"}]}`)
+	for state, want := range map[bool]string{true: "running", false: "not running"} {
+		old := hookActive
+		hookActive = func(context.Context) bool { return state }
+		code, stdout, stderr := run(t, "status", "--output", "json")
+		hookActive = old
+		var got map[string]any
+		if err := json.Unmarshal([]byte(stdout), &got); code != 0 || err != nil {
+			t.Fatalf("code %d, stdout %q, stderr %q, err %v", code, stdout, stderr, err)
+		}
+		if got["hook_service"] != want || got["hook_listen"] != "127.0.0.1:8480" || got["hook_count"] != float64(2) {
+			t.Fatalf("state %v: status = %v", state, got)
+		}
+		if strings.Contains(stdout, "sha256:") {
+			t.Errorf("a hash is in the status: %q", stdout)
+		}
+	}
+}

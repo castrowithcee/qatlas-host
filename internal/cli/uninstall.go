@@ -64,7 +64,9 @@ func newUninstallCommand(program *cobracli.Program) *cobra.Command {
 			"disabled with systemctl disable --now, and its /etc/tmpfiles.d/qhost-deploy-<user>.conf, channel directory\n" +
 			"/run/qhost-deploy-<user> and drop-in directory (only if empty) are deleted, and last the template unit\n" +
 			"qhost-deploy@.service; with --purge also /var/lib/qhost-deploy-<user> and /etc/qhost-deploy-<user>. The users,\n" +
-			"their homes, their rootless engines and containers always stay.",
+			"their homes, their rootless engines and containers always stay.\n" +
+			"Where the webhook receiver is set up, it is stopped and disabled too, and its unit, /etc/tmpfiles.d/qhost-hook.conf and\n" +
+			"/run/qhost-hook are deleted; with --purge also /etc/qhost-hook and the user and group qhost-hook.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if uninstaller.euid() != 0 {
@@ -91,7 +93,7 @@ func newUninstallCommand(program *cobracli.Program) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&purge, "purge", false, "also delete the state of both services, the journal of the host changes, the system users and the group qhost")
+	cmd.Flags().BoolVar(&purge, "purge", false, "also delete the state of both services, the journal of the host changes, the configuration of the webhook receiver, the system users and the group qhost")
 	gate = program.AddGate(cmd, cobracli.Gates{Question: true, Change: true})
 	return cmd
 }
