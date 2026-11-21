@@ -260,6 +260,26 @@ func TestHTTPClientSendsOneListRequest(t *testing.T) {
 	}
 }
 
+// The list also carries the state and the image, still from the same single request, and they are masked.
+func TestHTTPClientReadsStateAndImageOfEveryContainer(t *testing.T) {
+	e := newEnv(t)
+	serve(t, e, func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"Names":["/shop-web-1"],"State":"exited","Image":"registry.example.test/demo/web:1","Labels":{"com.docker.compose.project":"shop"}},` +
+			`{"Names":["/loose"],"State":"run\u0007ning","Image":"demo/loose:2","Labels":null}]`))
+	})
+	engines := realScan(e).Engines()
+	if len(engines) != 1 || engines[0].ID != "rootless:alice" || len(engines[0].Containers) != 2 {
+		t.Fatalf("engines = %+v", engines)
+	}
+	web, loose := engines[0].Containers[0], engines[0].Containers[1]
+	if web.State != "exited" || web.Image != "registry.example.test/demo/web:1" || web.Project != "shop" {
+		t.Fatalf("web = %+v", web)
+	}
+	if loose.State != "run\uFFFDning" {
+		t.Fatalf("state is not masked: %q", loose.State)
+	}
+}
+
 func TestHTTPClientOversizedAnswer(t *testing.T) {
 	e := newEnv(t)
 	serve(t, e, func(w http.ResponseWriter, r *http.Request) {

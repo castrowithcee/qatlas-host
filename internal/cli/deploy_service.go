@@ -18,6 +18,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/backup"
 	"github.com/castrowithcee/qatlas-host/internal/compose"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/hookservice"
 	"github.com/castrowithcee/qatlas-host/internal/service"
@@ -49,6 +50,8 @@ type runTarget struct {
 	endpoint localipc.ServiceEndpoint
 	stateDir string
 	socket   string
+	// engine is the id of that engine, as in control.SourceConflict.Engine.
+	engine string
 	// hookDir is where the webhook receiver leaves the markers for this instance.
 	hookDir string
 }
@@ -71,7 +74,7 @@ func instanceTarget(user string, uid int) (runTarget, error) {
 			Message:  fmt.Sprintf("the instance of %s runs as that user (uid %d), never as uid %d", user, want, uid),
 			NextStep: "Start it through its unit: sudo systemctl start " + inst.Unit()}
 	}
-	return runTarget{endpoint: inst.Endpoint(), stateDir: inst.StateDir(), socket: deploysetup.EngineSocket(want),
+	return runTarget{endpoint: inst.Endpoint(), stateDir: inst.StateDir(), socket: deploysetup.EngineSocket(want), engine: rootlessPrefix + user,
 		hookDir: filepath.Join(hookservice.DefaultRunDir, user)}, nil
 }
 
@@ -89,7 +92,7 @@ func newDeployRunCommand() *cobra.Command {
 			"excludes --docker-socket, and it refuses to run as any other user than that one. An engine that does not\n" +
 			"answer yet leaves the service running; it reports the engine as unreachable.",
 		RunE: func(c *cobra.Command, _ []string) error {
-			target := runTarget{endpoint: serviceEndpoint(), stateDir: stateDir(), socket: dockerSocket,
+			target := runTarget{endpoint: serviceEndpoint(), stateDir: stateDir(), socket: dockerSocket, engine: control.EngineSystem,
 				hookDir: filepath.Join(hookservice.DefaultRunDir, hookservice.SystemInstance)}
 			if c.Flags().Changed("instance") {
 				if c.Flags().Changed("docker-socket") {
@@ -108,7 +111,7 @@ func newDeployRunCommand() *cobra.Command {
 			backups.Image = backupImage
 			return service.Run(ctx, slog.New(slog.NewTextHandler(c.ErrOrStderr(), nil)).With("pid", os.Getpid()),
 				service.Config{Version: version, Endpoint: target.endpoint, StateDir: target.stateDir,
-					Deployer: compose.New(backups.ForRuns(), target.stateDir, target.socket), Backups: backups, DockerSocket: target.socket,
+					Deployer: compose.New(backups.ForRuns(), target.stateDir, target.socket), Backups: backups, DockerSocket: target.socket, Engine: target.engine,
 					HookDir: target.hookDir})
 		},
 	}

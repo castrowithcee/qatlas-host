@@ -586,7 +586,7 @@ func (c *collector) containers() Part {
 	p.Data = res
 	var b strings.Builder
 	for _, g := range res.Groups {
-		fmt.Fprintf(&b, "%s %s  %s  restarts %d\n", g.Kind, g.Name, g.State, g.Restarts)
+		fmt.Fprintf(&b, "%s %s  engine %s  %s  restarts %d\n", g.Kind, g.Name, orDash(g.Engine), g.State, g.Restarts)
 		for _, ct := range g.Containers {
 			fmt.Fprintf(&b, "  %s  %s  %s (%s)  health %s  up %ds  restarts %d\n", ct.Name, ct.Image, ct.State,
 				ct.EngineState, orDash(ct.Health), ct.UptimeSeconds, ct.Restarts)

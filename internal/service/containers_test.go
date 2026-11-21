@@ -711,3 +711,32 @@ func TestContainerEnvFilesFromLabels(t *testing.T) {
 		t.Fatalf("own detail = %+v", o)
 	}
 }
+
+func TestContainerEngineComesFromTheConfiguration(t *testing.T) {
+	for _, tc := range []struct{ configured, want string }{{"", control.EngineSystem}, {"rootless:alice", "rootless:alice"}} {
+		fd := &fakeDocker{}
+		h := boundWith(t, nil, nil, withDocker(fd), func(c *service.Config) { c.Engine = tc.configured })
+		own := filepath.Join(h.dir, "demo-stack")
+		lone := running("c5", "lonely", nil)
+		fd.list = []docker.Container{
+			running("c1", "demo-stack-app-1", map[string]string{lblProject: "demo-stack", lblDir: own}),
+			running("c4", "other-web-1", map[string]string{lblProject: "other", lblDir: "/srv/other"}), lone}
+		fd.details = map[string]docker.Details{"lonely": {Container: lone}}
+		var res control.ContainerListResult
+		if err := h.call(control.ContainerListCommand, control.ContainerListArgs{}, &res); err != nil {
+			t.Fatal(err)
+		}
+		if len(res.Groups) != 3 {
+			t.Fatalf("groups = %+v", res.Groups)
+		}
+		for _, g := range res.Groups {
+			if g.Engine != tc.want || g.ReadOnly {
+				t.Errorf("configured %q: group %+v", tc.configured, g)
+			}
+		}
+		var d control.ContainerDetail
+		if err := h.call(control.ContainerGetCommand, control.ContainerGetArgs{Name: "lonely"}, &d); err != nil || d.Engine != tc.want {
+			t.Fatalf("configured %q: detail %+v, %v", tc.configured, d, err)
+		}
+	}
+}
