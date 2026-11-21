@@ -43,7 +43,7 @@ func newProposalRunCommand(program *cobracli.Program, state *notRunning, secrets
 			"the commands after it do not run. The output of a command is cut at 64 KiB and known secrets are removed from\n" +
 			"it. The proposal ends as applied or failed, and the commands, their exit codes and the human behind sudo go\n" +
 			"to the journal, marked as not to be undone ('host undo' refuses it). The action log names the proposal and\n" +
-			"the human, never the commands. Needs sudo and is refused for --agent. See 'qhost help proposals'.",
+			"the human, never the commands. Needs sudo and a person at a terminal: --agent and a process without a terminal are refused. See 'qhost help proposals'.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := requireRoot("proposal run"); err != nil {
@@ -85,9 +85,9 @@ func loadCommandProposal(c *cobra.Command, state *notRunning, id string) (contro
 
 func runCommandProposal(c *cobra.Command, program *cobracli.Program, state *notRunning, secrets *redact.Redactor,
 	id, reviewed string, timeout time.Duration, unconfirmed error) error {
-	if program.Agent() {
-		return &cli.Failure{Code: output.CodePermission, Message: "running the commands of a proposal is for a person, not for an agent",
-			NextStep: "Ask the person who runs the host to review the proposal and run 'sudo qhost proposal run " + plainText(id) + "'."}
+	if err := requireTerminalPerson(program, "running the commands of a proposal",
+		"Ask the person who runs the host to review the proposal and run 'sudo qhost proposal run "+plainText(id)+"'."); err != nil {
+		return err
 	}
 	if !hostProposalID(id) {
 		return usageFailure("proposal run takes a proposal of the host service, whose id starts with "+control.HostProposalIDPrefix,

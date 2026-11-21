@@ -286,3 +286,23 @@ func TestApprovingACommandProposalPointsToRun(t *testing.T) {
 		t.Fatalf("history %q, ran %q", env.history(), sh.commands())
 	}
 }
+
+func TestProposalRunNeedsAPersonAtATerminal(t *testing.T) {
+	env := &commandRunEnv{enabled: true, commands: []string{"true"}}
+	sh := &fakeShell{}
+	startCommandRunEnv(t, 0, env, sh)
+	useControllingTerminal(t, false)
+	withStdin(t, strings.NewReader(""))
+	for _, args := range [][]string{
+		{"proposal", "run", demoHostProposalID, "--fingerprint", "fp-one", "--confirm"},
+		{"proposal", "run", demoHostProposalID},
+	} {
+		code, _, stderr := run(t, args...)
+		if code == 0 || !strings.Contains(stderr, "needs a terminal") {
+			t.Fatalf("%v: code %d, stderr %q", args, code, stderr)
+		}
+	}
+	if sh.commands() != "" || env.history() != "" {
+		t.Fatalf("ran %q, history %q", sh.commands(), env.history())
+	}
+}

@@ -35,10 +35,15 @@ var controllingTerminal = func() bool {
 
 // requireHostPerson refuses an agent and a process without a terminal. Root is checked before.
 func requireHostPerson(program *cobracli.Program) error {
-	const what = "applying a proposal of the host"
+	return requireTerminalPerson(program, "applying a proposal of the host",
+		"Ask the person who runs the host to review the proposal and run 'sudo qhost host apply --proposal <id>'.")
+}
+
+// requireTerminalPerson refuses an agent and a process without a terminal for what. agentNext is the next step
+// shown to an agent.
+func requireTerminalPerson(program *cobracli.Program, what, agentNext string) error {
 	if program.Agent() {
-		return &cli.Failure{Code: output.CodePermission, Message: what + " is for a person at a terminal, not for an agent",
-			NextStep: "Ask the person who runs the host to review the proposal and run 'sudo qhost host apply --proposal <id>'."}
+		return &cli.Failure{Code: output.CodePermission, Message: what + " is for a person at a terminal, not for an agent", NextStep: agentNext}
 	}
 	if !stdinIsTerminal() && !controllingTerminal() {
 		return &cli.Failure{Code: output.CodePermission, Message: what + " needs a terminal; there is no way around it",

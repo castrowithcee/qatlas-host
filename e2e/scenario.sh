@@ -1214,6 +1214,9 @@ scenario_free_command_proposal() {
 	fc_text="touch $fc_dir/ready"
 	docker exec "$host" sh -c "rm -rf '$fc_dir' && mkdir '$fc_dir'" || fail 'cannot prepare the folder of the free command'
 	admin_uid=$(docker exec "$host" id -u "$admin")
+	# The commands that apply a proposal need a person at a terminal, so they run under a pseudo terminal; -e passes
+	# the exit code of the command on. The command must not hold a single quote.
+	fc_tty() { as_admin "script -qec '$1' /dev/null"; }
 
 	step 'a proposal of free commands is refused while the switch is off'
 	content=$(jq -nc --arg c "$fc_text" '{commands: [$c], reason: "e2e: leave a marker file"}')
@@ -1238,16 +1241,19 @@ scenario_free_command_proposal() {
 	docker exec "$host" test ! -e "$fc_dir/ready" || fail 'submitting the proposal ran the command'
 
 	step 'approve and host apply do not take the proposal, and run without --confirm runs nothing'
-	if out=$(as_admin "sudo qhost host apply --proposal $fc_id --fingerprint $fc_fp --confirm 2>&1"); then fail "host apply took a proposal of free commands: $out"; fi
+	if out=$(fc_tty "sudo qhost host apply --proposal $fc_id --fingerprint $fc_fp --confirm 2>&1"); then fail "host apply took a proposal of free commands: $out"; fi
 	printf '%s' "$out" | grep -qF 'proposal run' || fail "host apply does not point to proposal run: $out"
 	if out=$(as_admin "qhost proposal run $fc_id --fingerprint $fc_fp --confirm 2>&1"); then fail "proposal run worked without sudo: $out"; fi
 	printf '%s' "$out" | grep -q 'must run as root' || fail "proposal run without sudo gives the wrong refusal: $out"
-	if out=$(as_admin "sudo qhost proposal run $fc_id --fingerprint $fc_fp 2>&1"); then fail "proposal run without --confirm succeeded: $out"; fi
-	if out=$(as_admin "sudo qhost proposal run $fc_id --fingerprint wrong --confirm 2>&1"); then fail "proposal run took a wrong fingerprint: $out"; fi
+	if out=$(as_admin "sudo qhost proposal run $fc_id --fingerprint $fc_fp --confirm 2>&1"); then fail "proposal run worked without a terminal: $out"; fi
+	printf '%s' "$out" | grep -q 'needs a terminal' || fail "proposal run without a terminal gives the wrong refusal: $out"
+	docker exec "$host" test ! -e "$fc_dir/ready" || fail 'proposal run without a terminal created the file'
+	if out=$(fc_tty "sudo qhost proposal run $fc_id --fingerprint $fc_fp 2>&1"); then fail "proposal run without --confirm succeeded: $out"; fi
+	if out=$(fc_tty "sudo qhost proposal run $fc_id --fingerprint wrong --confirm 2>&1"); then fail "proposal run took a wrong fingerprint: $out"; fi
 	docker exec "$host" test ! -e "$fc_dir/ready" || fail 'a refused run created the file'
 
 	step 'sudo qhost proposal run with the fingerprint and --confirm runs the command as root'
-	out=$(as_admin "sudo qhost --output json proposal run $fc_id --fingerprint $fc_fp --confirm 2>/dev/null") || fail "proposal run failed: $out"
+	out=$(fc_tty "sudo qhost --output json proposal run $fc_id --fingerprint $fc_fp --confirm 2>/dev/null") || fail "proposal run failed: $out"
 	docker exec "$host" test -e "$fc_dir/ready" || fail "the file was not created: $out"
 	[ "$(docker exec "$host" stat -c %U "$fc_dir/ready")" = root ] || fail 'the command did not run as root'
 	fc_journal=$(printf '%s' "$out" | jq -r '.journal_id // empty')
@@ -1274,7 +1280,7 @@ scenario_free_command_proposal() {
 	fc_id2=$(printf '%s' "$out" | sed -n 's/.*"id": *"\(h-[0-9a-f]*\)".*/\1/p' | head -n 1)
 	fc_fp2=$(as_admin "qhost --output json proposal show $fc_id2" | jq -r .fingerprint)
 	out=$(as_admin 'sudo qhost --output json proposal commands disable 2>&1') || fail "sudo qhost proposal commands disable failed: $out"
-	if out=$(as_admin "sudo qhost proposal run $fc_id2 --fingerprint $fc_fp2 --confirm 2>&1"); then fail "proposal run worked with the switch off: $out"; fi
+	if out=$(fc_tty "sudo qhost proposal run $fc_id2 --fingerprint $fc_fp2 --confirm 2>&1"); then fail "proposal run worked with the switch off: $out"; fi
 	printf '%s' "$out" | grep -qF 'proposal commands enable' || fail "the refusal does not name the switch: $out"
 	if printf '%s' "$content" | as_admin 'qhost proposal submit --kind command >/dev/null 2>&1'; then fail 'a proposal was accepted with the switch off'; fi
 	as_admin "qhost proposal withdraw $fc_id2 >/dev/null 2>&1" || true
