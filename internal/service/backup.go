@@ -62,7 +62,7 @@ func registerBackupCommands(r *control.Registry, eng *sourceSet, backups Backups
 	}
 
 	commands := map[string]control.Command{
-		control.BackupCreateCommand: writing(func(ctx context.Context, raw json.RawMessage) (any, error) {
+		control.BackupCreateCommand: inStack(changing(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.BackupArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -90,8 +90,8 @@ func registerBackupCommands(r *control.Registry, eng *sourceSet, backups Backups
 				out.Removed = append(out.Removed, printable(id))
 			}
 			return out, nil
-		}),
-		control.BackupListCommand: reading(func(_ context.Context, raw json.RawMessage) (any, error) {
+		}), stackField),
+		control.BackupListCommand: inStack(reading(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.BackupArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -112,8 +112,8 @@ func registerBackupCommands(r *control.Registry, eng *sourceSet, backups Backups
 				out.Backups = append(out.Backups, backupInfo(m))
 			}
 			return out, nil
-		}),
-		control.BackupRestoreCommand: writing(func(ctx context.Context, raw json.RawMessage) (any, error) {
+		}), stackField),
+		control.BackupRestoreCommand: inStack(changing(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.BackupRestoreArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -145,7 +145,7 @@ func registerBackupCommands(r *control.Registry, eng *sourceSet, backups Backups
 				return nil, answer(err)
 			}
 			return control.BackupRestoreResult{Backup: backupInfo(meta)}, nil
-		}),
+		}), stackField),
 	}
 	for name, h := range commands {
 		if err := r.Register(name, h); err != nil {

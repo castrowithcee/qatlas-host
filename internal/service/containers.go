@@ -95,9 +95,9 @@ func registerContainerCommands(r *control.Registry, repo *repoService, eng *sour
 	for name, h := range map[string]control.Command{
 		control.ContainerListCommand: reading(s.handleList), control.ContainerGetCommand: reading(s.handleGet),
 		control.ContainerLogsCommand:    reading(s.handleLogs),
-		control.ContainerStartCommand:   writing(s.action("start")),
-		control.ContainerStopCommand:    writing(s.action("stop")),
-		control.ContainerRestartCommand: writing(s.action("restart")),
+		control.ContainerStartCommand:   changing(s.action("start")),
+		control.ContainerStopCommand:    changing(s.action("stop")),
+		control.ContainerRestartCommand: changing(s.action("restart")),
 	} {
 		if err := r.Register(name, h); err != nil {
 			return err

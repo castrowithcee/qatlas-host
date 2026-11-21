@@ -60,7 +60,7 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 			}
 			return control.StatusResult{Version: version, StartedAt: started, Engine: engineStatus(snaps), Window: window()}, nil
 		}),
-		control.DeployCommand: writing(func(ctx context.Context, raw json.RawMessage) (any, error) {
+		control.DeployCommand: inStack(changing(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.DeployArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -70,8 +70,8 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 				return nil, runsAnswer(err)
 			}
 			return control.DeployResult{ID: printable(info.ID), Stack: printable(info.Stack), Commit: printable(info.Commit)}, nil
-		}),
-		control.RunsCommand: reading(func(_ context.Context, raw json.RawMessage) (any, error) {
+		}), stackField),
+		control.RunsCommand: inStack(reading(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.RunsArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -89,8 +89,8 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 				})
 			}
 			return res, nil
-		}),
-		control.ResumeCommand: writing(func(_ context.Context, raw json.RawMessage) (any, error) {
+		}), stackField),
+		control.ResumeCommand: inStack(changing(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.ResumeArgs
 			if err := decodeArgs(raw, &a); err != nil {
 				return nil, err
@@ -108,11 +108,11 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 				res.Pause = &info
 			}
 			return res, nil
-		}),
-		control.PauseCommand:   writing(holdHandler(eng.SetPause, true)),
-		control.UnpauseCommand: writing(holdHandler(eng.SetPause, false)),
-		control.PinCommand:     writing(holdHandler(eng.SetPin, true)),
-		control.UnpinCommand:   writing(holdHandler(eng.SetPin, false)),
+		}), stackField),
+		control.PauseCommand:   inStack(changing(holdHandler(eng.SetPause, true)), stackField),
+		control.UnpauseCommand: inStack(changing(holdHandler(eng.SetPause, false)), stackField),
+		control.PinCommand:     inStack(changing(holdHandler(eng.SetPin, true)), stackField),
+		control.UnpinCommand:   inStack(changing(holdHandler(eng.SetPin, false)), stackField),
 		control.LogCommand: reading(func(_ context.Context, raw json.RawMessage) (any, error) {
 			var a control.LogArgs
 			if err := decodeArgs(raw, &a); err != nil {

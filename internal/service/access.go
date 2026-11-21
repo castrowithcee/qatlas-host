@@ -17,9 +17,10 @@ type groupDB struct {
 	group, passwd string
 }
 
-// authorize decides whether the user uid may run a command that needs access. Root may run every command.
-// Anyone else needs to be, per the group database, a member of control.ServiceGroup and of admins.AdminGroup, each as
-// a supplementary or the primary group, and may then run commands that read or propose. Any doubt means no access.
+// authorize decides whether the user uid may run a request that needs access, by its class only. Root may run every
+// command. Anyone else needs to be, per the group database, a member of control.ServiceGroup and of
+// admins.AdminGroup, each as a supplementary or the primary group, and may then run commands that read or propose.
+// Any doubt means no access.
 func (db groupDB) authorize(uid uint32, access control.Access) error {
 	if uid == 0 {
 		return nil
@@ -28,7 +29,7 @@ func (db groupDB) authorize(uid uint32, access control.Access) error {
 	if err != nil || !ok {
 		return control.ErrNoAccess()
 	}
-	if access != control.AccessRead && access != control.AccessPropose {
+	if access.Class != control.ClassRead && access.Class != control.ClassPropose {
 		return control.ErrNotRoot()
 	}
 	return nil

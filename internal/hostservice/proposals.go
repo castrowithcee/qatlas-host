@@ -32,7 +32,7 @@ func proposalCommands(commands map[string]command, store *proposals.Store) {
 			panic(fmt.Sprintf("hostservice: the proposal command %s has no log action", name))
 		}
 		handle := c.Handle
-		commands[name] = command{action: action, rootOnly: c.Access == control.AccessWrite, handle: func(cl *call) (any, error) {
+		commands[name] = command{action: action, rootOnly: c.Class == control.ClassChange, handle: func(cl *call) (any, error) {
 			return handle(control.WithPeer(context.Background(), cl.uid), cl.args)
 		}}
 	}

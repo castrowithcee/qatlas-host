@@ -49,13 +49,14 @@ func registerUpdateCommands(r *control.Registry, repo *repoService, eng *sourceS
 	s := &updatesService{repo: repo, eng: eng, detector: &updates.Detector{Credential: registryCredentialFrom(store), Options: opts}, changelog: cs}
 	// A refresh asks the registries and records their answer, and changelogs ask GitHub and fill a cache: both
 	// make the listing a write. changelog.show always asks GitHub.
-	list := reading(s.handleList)
+	list := inStack(reading(s.handleList), stackField)
 	list.Writes = func(raw json.RawMessage) bool {
 		var a control.UpdatesArgs
 		return decodeArgs(raw, &a) != nil || a.Refresh || a.Changelog
 	}
 	for name, h := range map[string]control.Command{
-		control.UpdatesListCommand: list, control.UpdateRunCommand: writing(s.handleRun), control.ChangelogShowCommand: writing(s.handleChangelog),
+		control.UpdatesListCommand: list, control.UpdateRunCommand: inStack(changing(s.handleRun), stackList),
+		control.ChangelogShowCommand: inStack(changing(s.handleChangelog), stackField),
 	} {
 		if err := r.Register(name, h); err != nil {
 			return nil, err

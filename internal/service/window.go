@@ -51,7 +51,7 @@ func registerWindowCommands(r *control.Registry, w *windowService) error {
 	if err := r.Register(control.WindowShowCommand, reading(w.handleShow)); err != nil {
 		return err
 	}
-	return r.Register(control.WindowSetCommand, writing(w.handleSet))
+	return r.Register(control.WindowSetCommand, changing(w.handleSet))
 }
 
 var errWindowUnreadable = control.NewError(control.CodeInternal,
