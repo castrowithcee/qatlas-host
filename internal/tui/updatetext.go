@@ -13,18 +13,30 @@ const (
 	textTitleChangelog kittui.TextID = "title.changelog"
 	textUpdateIntro    kittui.TextID = "updaterules.intro"
 
-	textFieldUpdateMode kittui.TextID = "field.updatemode"
-	textHintUpdateMode  kittui.TextID = "hint.updatemode"
-	textFieldCeiling    kittui.TextID = "field.ceiling"
-	textHintCeiling     kittui.TextID = "hint.ceiling"
-	textFieldMajor      kittui.TextID = "field.major"
-	textHintMajor       kittui.TextID = "hint.major"
-	textFieldObserve    kittui.TextID = "field.observe"
-	textHintObserve     kittui.TextID = "hint.observe"
-	textFieldTags       kittui.TextID = "field.tags"
-	textHintTags        kittui.TextID = "hint.tags"
-	textFieldChangelog  kittui.TextID = "field.changelog"
-	textHintChangelog   kittui.TextID = "hint.changelog"
+	textFieldUpdateMode   kittui.TextID = "field.updatemode"
+	textHintUpdateMode    kittui.TextID = "hint.updatemode"
+	textFieldCeiling      kittui.TextID = "field.ceiling"
+	textHintCeiling       kittui.TextID = "hint.ceiling"
+	textFieldMajor        kittui.TextID = "field.major"
+	textHintMajor         kittui.TextID = "hint.major"
+	textFieldObserve      kittui.TextID = "field.observe"
+	textHintObserve       kittui.TextID = "hint.observe"
+	textFieldTrigger      kittui.TextID = "field.trigger"
+	textHintTrigger       kittui.TextID = "hint.trigger"
+	textFieldInterval     kittui.TextID = "field.interval"
+	textHintInterval      kittui.TextID = "hint.interval"
+	textTriggerWindow     kittui.TextID = "trigger.window"
+	textTriggerInterval   kittui.TextID = "trigger.interval"
+	textTriggerWebhook    kittui.TextID = "trigger.webhook"
+	textTriggerPolling    kittui.TextID = "trigger.polling"
+	textCellInterval      kittui.TextID = "cell.interval"
+	textCellWebhook       kittui.TextID = "cell.webhook"
+	textProblemInterval   kittui.TextID = "problem.interval"
+	textDetailRuleTrigger kittui.TextID = "detail.ruletrigger"
+	textFieldTags         kittui.TextID = "field.tags"
+	textHintTags          kittui.TextID = "hint.tags"
+	textFieldChangelog    kittui.TextID = "field.changelog"
+	textHintChangelog     kittui.TextID = "hint.changelog"
 
 	textCeilingPatch  kittui.TextID = "ceiling.patch"
 	textCeilingMinor  kittui.TextID = "ceiling.minor"
@@ -73,18 +85,30 @@ func updateEnglish() map[kittui.TextID]string {
 		textTitleChangelog: "Changelog repositories",
 		textUpdateIntro:    "Rules of the stack %s. Backup, check and compose files stay as they are.",
 
-		textFieldUpdateMode: "Mode",
-		textHintUpdateMode:  "automatic updates in the maintenance window, manual only on request",
-		textFieldCeiling:    "Ceiling",
-		textHintCeiling:     "the largest version step taken by itself",
-		textFieldMajor:      "Major jump",
-		textHintMajor:       "stepwise goes one major version at a time, direct jumps to the newest",
-		textFieldObserve:    "Observation (minutes)",
-		textHintObserve:     "after an update a failure rolls it back; 0 is off, at most 1440",
-		textFieldTags:       "Tag filters",
-		textHintTags:        "per version variable a regular expression the tags must match",
-		textFieldChangelog:  "Changelog repositories",
-		textHintChangelog:   "per version variable the GitHub repository of its releases",
+		textFieldUpdateMode:   "Mode",
+		textHintUpdateMode:    "automatic updates in the maintenance window, manual only on request",
+		textFieldCeiling:      "Ceiling",
+		textHintCeiling:       "the largest version step taken by itself",
+		textFieldMajor:        "Major jump",
+		textHintMajor:         "stepwise goes one major version at a time, direct jumps to the newest",
+		textFieldObserve:      "Observation (minutes)",
+		textHintObserve:       "after an update a failure rolls it back; 0 is off, at most 1440",
+		textFieldTrigger:      "Trigger",
+		textHintTrigger:       "what makes qhost look for updates: the maintenance window, a regular poll or only a webhook",
+		textFieldInterval:     "Interval (seconds)",
+		textHintInterval:      "between two polls, 30 to 86400; used with Polling only, ignored otherwise",
+		textTriggerWindow:     "Maintenance window",
+		textTriggerInterval:   "Polling",
+		textTriggerWebhook:    "Webhook only",
+		textTriggerPolling:    "Polling every %d s",
+		textCellInterval:      "%s, polling %ds",
+		textCellWebhook:       "%s, webhook",
+		textProblemInterval:   "The interval is a whole number of seconds from %d to %d.",
+		textDetailRuleTrigger: "trigger: %s",
+		textFieldTags:         "Tag filters",
+		textHintTags:          "per version variable a regular expression the tags must match",
+		textFieldChangelog:    "Changelog repositories",
+		textHintChangelog:     "per version variable the GitHub repository of its releases",
 
 		textCeilingPatch:  "patch",
 		textCeilingMinor:  "minor",
@@ -134,18 +158,30 @@ func updateGerman() map[kittui.TextID]string {
 		textTitleChangelog: "Changelog-Repositories",
 		textUpdateIntro:    "Regeln des Stacks %s. Backup, Prüfung und Compose-Dateien bleiben unverändert.",
 
-		textFieldUpdateMode: "Modus",
-		textHintUpdateMode:  "automatisch aktualisiert im Wartungsfenster, manuell nur auf Anforderung",
-		textFieldCeiling:    "Obergrenze",
-		textHintCeiling:     "der größte Versionssprung, der von selbst erfolgt",
-		textFieldMajor:      "Major-Sprung",
-		textHintMajor:       "stepwise geht eine Major-Version nach der anderen, direct springt zur neuesten",
-		textFieldObserve:    "Beobachtung (Minuten)",
-		textHintObserve:     "ein Ausfall nach einem Update setzt es zurück; 0 ist aus, höchstens 1440",
-		textFieldTags:       "Tag-Filter",
-		textHintTags:        "je Versionsvariable ein regulärer Ausdruck, den die Tags erfüllen müssen",
-		textFieldChangelog:  "Changelog-Repositories",
-		textHintChangelog:   "je Versionsvariable das GitHub-Repository seiner Releases",
+		textFieldUpdateMode:   "Modus",
+		textHintUpdateMode:    "automatisch aktualisiert im Wartungsfenster, manuell nur auf Anforderung",
+		textFieldCeiling:      "Obergrenze",
+		textHintCeiling:       "der größte Versionssprung, der von selbst erfolgt",
+		textFieldMajor:        "Major-Sprung",
+		textHintMajor:         "stepwise geht eine Major-Version nach der anderen, direct springt zur neuesten",
+		textFieldObserve:      "Beobachtung (Minuten)",
+		textHintObserve:       "ein Ausfall nach einem Update setzt es zurück; 0 ist aus, höchstens 1440",
+		textFieldTrigger:      "Auslöser",
+		textHintTrigger:       "was qhost nach Updates suchen lässt: das Wartungsfenster, eine regelmäßige Abfrage oder nur ein Webhook",
+		textFieldInterval:     "Abstand (Sekunden)",
+		textHintInterval:      "zwischen zwei Abfragen, 30 bis 86400; gilt nur bei Abfrage, sonst ignoriert",
+		textTriggerWindow:     "Wartungsfenster",
+		textTriggerInterval:   "Abfrage",
+		textTriggerWebhook:    "Nur Webhook",
+		textTriggerPolling:    "Abfrage alle %d s",
+		textCellInterval:      "%s, Abfrage %ds",
+		textCellWebhook:       "%s, Webhook",
+		textProblemInterval:   "Der Abstand ist eine ganze Zahl von Sekunden von %d bis %d.",
+		textDetailRuleTrigger: "Auslöser: %s",
+		textFieldTags:         "Tag-Filter",
+		textHintTags:          "je Versionsvariable ein regulärer Ausdruck, den die Tags erfüllen müssen",
+		textFieldChangelog:    "Changelog-Repositories",
+		textHintChangelog:     "je Versionsvariable das GitHub-Repository seiner Releases",
 
 		textCeilingPatch:  "patch",
 		textCeilingMinor:  "minor",

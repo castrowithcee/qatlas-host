@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 [2 Stack-Details] 3 4 5 6 7                                                 
+────────────────────────────────────────────────────────────────────────────────
+  Update-Regeln eines Stacks                                                    
+                                                                                
+  Regeln des Stacks demo-stack. Backup, Prüfung und Compose-Dateien bleiben     
+  unverändert.                                                                  
+                                                                                
+  …                                                                             
+                         ╔═════════════════════════════════════════════════════╗
+> Auslöser               ║ Abfrage                                           ▾ ║
+                         ╚═════════════════════════════════════════════════════╝
+                         was qhost nach Updates suchen lässt: das               
+                         Wartungsfenster, eine regelmäßige Abfrage oder nur ein 
+                         Webhook                                                
+                         ╭─────────────────────────────────────────────────────╮
+  Abstand (Sekunden)     │ 45                                                  │
+                         ╰─────────────────────────────────────────────────────╯
+  …                                                                             
+                                                                                
+                                                                                
+[ F2 speichern ]  [ esc Verwerfen ]                                             
+enter Auswählen  F2 Speichern  esc verwerfen                                    
+                                       tab Nächstes Feld  shift+tab Voriges Feld
