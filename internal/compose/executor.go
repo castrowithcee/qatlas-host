@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/castrowithcee/qatlas-host/internal/credhelper"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
@@ -48,19 +49,22 @@ var projectName = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 // DefaultDockerSocket is the socket of the container engine unless the configuration names another.
 const DefaultDockerSocket = "/var/run/docker.sock"
 
-// ProductionEnv is the environment of every docker call in the service: a fixed PATH and C locale, DOCKER_HOST
-// pointing at socket (DefaultDockerSocket when empty), plus HOME and DOCKER_CONFIG when the service has them,
-// because docker reads its registry credentials from there. A DOCKER_HOST of the service itself, COMPOSE_*
-// and proxy variables are not passed on.
-func ProductionEnv(getenv func(string) string, socket string) []string {
+// ProductionEnv is the environment of every docker call in the service: a fixed PATH behind the helper folder
+// of the service's own Docker configuration, C locale, DOCKER_HOST pointing at socket (DefaultDockerSocket when
+// empty), DOCKER_CONFIG and the state directory the credential helper reads its logins from, plus HOME when
+// the service has it. Registry logins come only from the service's own store: a DOCKER_CONFIG of the service
+// itself, a DOCKER_HOST, COMPOSE_* and proxy variables are not passed on. stateDir is absolute.
+func ProductionEnv(getenv func(string) string, stateDir, socket string) []string {
 	if socket == "" {
 		socket = DefaultDockerSocket
 	}
-	env := []string{"PATH=" + fixedPath, "LC_ALL=C", "DOCKER_HOST=unix://" + socket}
-	for _, k := range []string{"HOME", "DOCKER_CONFIG"} {
-		if v := getenv(k); v != "" && !strings.ContainsAny(v, "\x00\n") {
-			env = append(env, k+"="+v)
-		}
+	conf := filepath.Join(stateDir, "docker")
+	env := []string{
+		"PATH=" + filepath.Join(conf, "bin") + ":" + fixedPath, "LC_ALL=C", "DOCKER_HOST=unix://" + socket,
+		"DOCKER_CONFIG=" + conf, credhelper.StateDirEnv + "=" + stateDir,
+	}
+	if v := getenv("HOME"); v != "" && !strings.ContainsAny(v, "\x00\n") {
+		env = append(env, "HOME="+v)
 	}
 	return env
 }

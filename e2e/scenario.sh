@@ -297,8 +297,16 @@ scenario_rootless_instance() {
 	done
 	docker exec "$host" sh -c "tr '\\0' '\\n' </proc/$ri_pid/cmdline" | grep -qx -- '--instance' ||
 		fail "the process of $ri_unit was not started with --instance: $(docker exec "$host" sh -c "tr '\\0' ' ' </proc/$ri_pid/cmdline")"
-	docker exec "$host" sh -c "tr '\\0' '\\n' </proc/$ri_pid/environ" | grep -qx "DOCKER_CONFIG=$ri_state/docker" ||
-		fail "the process of $ri_unit has not DOCKER_CONFIG=$ri_state/docker"
+	# The service sets up its own Docker configuration at its start: logins come only from the credential helper.
+	[ "$(docker exec "$host" cat "$ri_state/docker/config.json")" = '{"credsStore":"qhost"}' ] ||
+		fail "$ri_state/docker/config.json is not the credential helper configuration: $(docker exec "$host" cat "$ri_state/docker/config.json" 2>&1)"
+	[ "$(docker exec "$host" stat -c %U:%a "$ri_state/docker/config.json")" = "$rootless_user:600" ] ||
+		fail "$ri_state/docker/config.json is $(docker exec "$host" stat -c %U:%a "$ri_state/docker/config.json"), want $rootless_user:600"
+	docker exec "$host" test -L "$ri_state/docker/bin/docker-credential-qhost" && docker exec "$host" test -x "$ri_state/docker/bin/docker-credential-qhost" ||
+		fail "$ri_state/docker/bin/docker-credential-qhost is no link to the program"
+	if docker exec "$host" sh -c "tr '\\0' '\\n' </proc/$ri_pid/environ" | grep -q '^DOCKER_CONFIG='; then
+		fail "the unit of $ri_unit sets DOCKER_CONFIG, which the service must set itself"
+	fi
 	ri_gid=$(docker exec "$host" id -g "$rootless_user")
 	# The command runs in the mount namespace of the unit, so it sees the file system the service sees.
 	out=$(docker exec "$host" nsenter --target "$ri_pid" --mount --setuid "$rootless_uid" --setgid "$ri_gid" \
@@ -2419,6 +2427,8 @@ scenario_stacks_repo() {
 
 	scenario_source_local
 
+	scenario_private_registry
+
 	scenario_source_files
 
 	scenario_source_remote
@@ -2964,6 +2974,89 @@ EOF2
 	[ "$(stack_images demo-second)" = "$image:1.0.0" ] || fail 'demo-second does not run after /opt/stacks2 is taken over again'
 	[ "$(stack_field demo-second source)" = opt-stacks2 ] || fail "demo-second is not listed with its source: $(qd --output json status)"
 	log 'scenario: /opt/stacks2 was released and taken over again with its origin, head and deploy key'
+}
+
+# scenario_private_registry proves that the deploy service pulls from a registry with a login only with the login
+# stored by qhost credential set: a stack from private.$domain fails at the pull step without it and is deployed with
+# it, the update check finds the newer tag there, and the login stays in the credential store and nowhere else. It uses
+# its own local repository below /srv/qd-private and removes the stack, the source, the credential and the folder
+# at its end.
+scenario_private_registry() {
+	base=/srv/qd-private
+	image=private.$domain/demo/app
+	cred=registry.private.$domain
+	private_login=$(cat "$work/keys/private-login")
+	private_token=${private_login#*:}
+
+	step 'the Docker configuration of the service holds only the credential helper'
+	[ "$(docker exec "$host" cat /var/lib/qhost-deploy/docker/config.json)" = '{"credsStore":"qhost"}' ] ||
+		fail "the Docker configuration of the service is not the credential helper configuration: $(docker exec "$host" cat /var/lib/qhost-deploy/docker/config.json 2>&1)"
+	[ "$(docker exec "$host" stat -c %U:%a /var/lib/qhost-deploy/docker/config.json)" = qhost-deploy:600 ] ||
+		fail "config.json of the service is $(docker exec "$host" stat -c %U:%a /var/lib/qhost-deploy/docker/config.json), want qhost-deploy:600"
+	docker exec "$host" test -x /var/lib/qhost-deploy/docker/bin/docker-credential-qhost || fail 'the service has no credential helper link'
+
+	step 'a local repository with a stack from the registry with a login is prepared'
+	docker exec "$host" sh -ec "rm -rf '$base' && mkdir -p '$base/demo-private' && chmod 0755 '$base'" || fail 'cannot create the private folder'
+	cat <<EOF2 | docker exec -i "$host" sh -ec "cat >'$base/demo-private/compose.yaml'"
+name: demo-private
+
+services:
+  app:
+    image: $image:\${DEMO_APP_VERSION}
+    restart: unless-stopped
+    environment:
+      DEMO_NAME: demo-private
+      DEMO_VERSION: \${DEMO_APP_VERSION}
+      DEMO_HEALTH: \${DEMO_HEALTH}
+EOF2
+	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/demo-private/.env'"
+	docker exec "$host" sh -ec "cd '$base' && git init -q -b main && git add -A &&
+		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-private stack'" ||
+		fail 'cannot create the private repository'
+	if qd credential list | grep -qF "$cred"; then fail "a login for $cred is stored before the test: $(qd credential list)"; fi
+	out=$(qd --output json source add "$base" --yes) || fail "source add failed: $out"
+
+	step 'without a stored login the first run fails at the pull step'
+	wait_for 'the first run of demo-private' 180 stack_settled demo-private failed
+	run=$(newest_run demo-private)
+	[ -n "$run" ] || fail 'demo-private has no recorded run'
+	run_log=$(qd stack log "$run")
+	printf '%s' "$run_log" | grep -q ' result failed pull:' || fail "the run did not fail at the pull step: $run_log"
+	case ",$(log_steps "$run_log")," in *,pull,*) ;; *) fail "the run has no pull step: $run_log" ;; esac
+	case ",$(log_steps "$run_log")," in *,up,*) fail "the run went on after the failed pull: $run_log" ;; esac
+	[ -z "$(stack_images demo-private)" ] || fail "demo-private runs without a login: $(stack_images demo-private)"
+
+	step 'with the stored login a manual run deploys the stack'
+	out=$(qd_in "$private_login" credential set "$cred") || fail "credential set failed: $out"
+	qd credential list | grep -qF "$cred" || fail "credential list does not show $cred: $(qd credential list)"
+	out=$(qd --output json stack deploy demo-private) || fail "deploy failed: $out"
+	run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
+	[ -n "$run" ] || fail "deploy did not report a run: $out"
+	wait_for "the run $run" 240 run_finished demo-private "$run"
+	run_log=$(qd stack log "$run")
+	printf '%s' "$run_log" | grep -q ' result succeeded' || fail "the run with the stored login did not succeed: $run_log"
+	[ "$(log_steps "$run_log")" = backup,pull,up,check ] || fail "unexpected steps of the run: $(log_steps "$run_log")"
+	[ "$(stack_images demo-private)" = "$image:1.0.0" ] || fail "demo-private does not run 1.0.0: $(stack_images demo-private)"
+	stack_healthy demo-private || fail 'demo-private is not healthy'
+
+	step 'the update check finds the newer tag in the registry with a login'
+	out=$(qd --output json stack updates demo-private --refresh) || fail "updates failed: $out"
+	updates_expect "$out" 1.0.0 1.1.0 '' update
+
+	step 'the login stays in the credential store: no copy in the Docker configuration, the logs or the journal'
+	[ "$(docker exec "$host" cat /var/lib/qhost-deploy/docker/config.json)" = '{"credsStore":"qhost"}' ] ||
+		fail 'the Docker configuration of the service changed after the pull'
+	if docker exec "$host" grep -rqF -- "$private_token" /var/lib/qhost-deploy/docker; then fail 'the token is in the Docker configuration of the service'; fi
+	if journal | grep -qF -- "$private_token"; then fail 'the token is in the journal'; fi
+	if qd stack log "$run" | grep -qF -- "$private_token"; then fail 'the token is in the run log'; fi
+	log 'scenario: a stack from the registry with a login failed at the pull without the stored login, deployed with it, and its update check found 1.1.0'
+
+	step 'the stack, the source, the login and the folder are removed again'
+	docker exec "$host" docker compose -p demo-private down >/dev/null 2>&1 || fail 'cannot stop demo-private'
+	docker exec "$host" docker rmi "$image:1.0.0" >/dev/null 2>&1 || true
+	out=$(qd --output json source remove "$base" --yes) || fail "source remove failed: $out"
+	out=$(qd credential delete "$cred") || fail "credential delete failed: $out"
+	docker exec "$host" rm -rf "$base" || fail "cannot remove $base"
 }
 
 # files_state prints the content hash of every file below /srv/qd-files/web except .git, and the type, owner and size

@@ -106,7 +106,7 @@ Credentials:
 - qhost credential list: show names and modification times, never values
 - qhost credential delete <name>: remove a credential
 - A name has 1 to 64 characters: lowercase letters, digits, '.', '_' or '-', starting with a letter.
-- Registry login for update checks: name the credential "registry." plus the registry host in lowercase with ':' written as '-' (Docker Hub: registry.docker.io), with the value <user>:<token>. Without such a credential the registry is asked anonymously.
+- Registry login for update checks and image pulls: name the credential "registry." plus the registry host in lowercase with ':' written as '-' (Docker Hub: registry.docker.io), with the value <user>:<token>. Without such a credential the registry is asked anonymously. The deploy service takes registry logins only from this store, through its own Docker configuration and credential helper, so a docker login made anywhere else does not apply to its stacks.
 - GitHub token for changelogs: name the credential "github.com", with the token alone as value. It is sent only to the GitHub API and raises the rate limit; without it GitHub is asked anonymously.
 - A stored value is not shown again and is removed from the service's log output.`
 
