@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
@@ -135,7 +136,8 @@ func windowResult(st window.Status) control.WindowResult {
 	}
 }
 
-// run is the work of one opening. Every stack is checked at the registries and the result stored, as
+// run is the work of one opening. Only stacks with the update trigger window are handled; the others are
+// skipped without a notice, with a debug log line. Every such stack is checked at the registries and the result stored, as
 // 'qhost stack updates --refresh' does, also for a paused or pinned stack, so an available update stays visible.
 // A stack in manual mode is only reported. The stacks in automatic mode are updated in name order, each once
 // the one before is done; a stack is skipped, with a log line that says why, when its marks forbid it, when it
@@ -147,6 +149,13 @@ func (w *windowService) run(ctx context.Context, open func() bool) {
 		w.log.Warn("maintenance window: the stacks cannot be read; nothing is checked or updated", "error", err)
 		return
 	}
+	list = slices.DeleteFunc(list, func(st stacks.Stack) bool {
+		if trigger, _ := st.UpdateTrigger(); trigger != stacks.TriggerWindow {
+			w.log.Debug("maintenance window: stack skipped", "stack", st.Name, "reason", "the update trigger is "+trigger)
+			return true
+		}
+		return false
+	})
 	cctx, cancel := context.WithTimeout(ctx, control.UpdatesRefreshTimeout)
 	fresh, err := w.upd.detector.Check(cctx, list)
 	cancel()

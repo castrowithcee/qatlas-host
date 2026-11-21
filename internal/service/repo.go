@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 	"unicode"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
@@ -441,6 +442,8 @@ func (s *repoService) handleStacks(_ context.Context, raw json.RawMessage) (any,
 		st := ref.st
 		info := control.StackInfo{Name: printable(st.Name), Folder: printable(st.Folder), Update: st.UpdateMode(), Images: []control.ImageInfo{},
 			Findings: len(st.Findings), Source: ref.src.conf.ID, SourceDir: ref.src.conf.Path}
+		trigger, interval := st.UpdateTrigger()
+		info.Trigger, info.Interval = trigger, int(interval/time.Second)
 		for _, img := range st.Images {
 			info.Images = append(info.Images, control.ImageInfo{
 				Service: printable(img.Service), Image: printable(img.Image), Var: printable(img.Var), Version: printable(img.Value),

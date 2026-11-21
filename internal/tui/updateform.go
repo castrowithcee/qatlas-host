@@ -276,8 +276,12 @@ func observeText(t kittui.Translator, minutes int) string {
 // show stays as it is.
 func updateEdit(r updateRules) settingsEdit {
 	return func(s *control.StackSettings) {
-		s.Update = &control.StackUpdateSettings{Mode: r.mode, Ceiling: r.ceiling, Major: r.major, Observe: &r.observe,
+		u := &control.StackUpdateSettings{Mode: r.mode, Ceiling: r.ceiling, Major: r.major, Observe: &r.observe,
 			Tags: mapOf(r.tags), Changelog: mapOf(r.changelog)}
+		if cur := s.Update; cur != nil {
+			u.Trigger, u.Interval = cur.Trigger, cur.Interval // not shown by the form
+		}
+		s.Update = u
 	}
 }
 

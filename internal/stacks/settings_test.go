@@ -132,6 +132,7 @@ compose:
     - compose.prod.yaml
 update:
   mode: automatic
+  trigger: window
   ceiling: minor
   major: stepwise
   observe: 60
@@ -182,7 +183,7 @@ func TestEncodeSettingsWritesTheDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "version: 1\nupdate:\n  mode: manual\n  ceiling: minor\n  major: stepwise\n  observe: 60\nbackup:\n  paths:\n    - data\n" +
+	want := "version: 1\nupdate:\n  mode: manual\n  trigger: window\n  ceiling: minor\n  major: stepwise\n  observe: 60\nbackup:\n  paths:\n    - data\n" +
 		"  retention:\n    keep: 7\ncheck:\n  containers: true\n"
 	if string(data) != want {
 		t.Fatalf("encoded:\n%s", data)
@@ -220,6 +221,49 @@ func TestUpdateObserveSetting(t *testing.T) {
 	}
 	if (Stack{}).ObserveTime() != time.Hour {
 		t.Fatal("a stack without settings has no default observation time")
+	}
+}
+
+func TestUpdateTriggerSettings(t *testing.T) {
+	for _, c := range []struct {
+		body     string
+		trigger  string
+		interval time.Duration
+	}{
+		{"version: 1\n", TriggerWindow, 0},
+		{"version: 1\nupdate: {mode: automatic}\n", TriggerWindow, 0},
+		{"version: 1\nupdate: {trigger: window}\n", TriggerWindow, 0},
+		{"version: 1\nupdate: {trigger: webhook}\n", TriggerWebhook, 0},
+		{"version: 1\nupdate: {trigger: interval}\n", TriggerInterval, time.Minute},
+		{"version: 1\nupdate: {trigger: interval, interval: 30}\n", TriggerInterval, 30 * time.Second},
+		{"version: 1\nupdate: {trigger: interval, interval: 86400}\n", TriggerInterval, 24 * time.Hour},
+	} {
+		r, err := ParseSettings([]byte(c.body))
+		if err != nil {
+			t.Fatalf("%q: %v", c.body, err)
+		}
+		st := Stack{Rules: r}
+		if trigger, interval := st.UpdateTrigger(); trigger != c.trigger || interval != c.interval {
+			t.Fatalf("%q: resolved %s %v", c.body, trigger, interval)
+		}
+		back, err := ParseSettings(mustEncode(t, r))
+		if err != nil || !reflect.DeepEqual(back.Settings(), r.Settings()) {
+			t.Fatalf("%q: round trip %v, %v", c.body, back, err)
+		}
+	}
+	if trigger, interval := (Stack{}).UpdateTrigger(); trigger != TriggerWindow || interval != 0 {
+		t.Fatalf("a stack without settings resolves %s %v", trigger, interval)
+	}
+	for _, c := range []struct{ body, msg string }{
+		{"version: 1\nupdate: {trigger: interval, interval: 29}\n", "update.interval: must be seconds from 30 to 86400 (got 29)"},
+		{"version: 1\nupdate: {trigger: interval, interval: 86401}\n", "update.interval: must be seconds from 30 to 86400 (got 86401)"},
+		{"version: 1\nupdate: {interval: 60}\n", "update.interval: only allowed with update.trigger: interval"},
+		{"version: 1\nupdate: {trigger: webhook, interval: 60}\n", "update.interval: only allowed with update.trigger: interval"},
+		{"version: 1\nupdate: {trigger: cron}\n", "update.trigger: must be one of window, interval, webhook"},
+	} {
+		if _, err := ParseSettings([]byte(c.body)); err == nil || !strings.Contains(err.Error(), c.msg) {
+			t.Fatalf("%q: %v", c.body, err)
+		}
 	}
 }
 

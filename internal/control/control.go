@@ -474,11 +474,15 @@ type StackComposeSettings struct {
 }
 
 // StackUpdateSettings say whether and how far the stack is updated. Mode is automatic or manual, Ceiling
-// patch, minor or major, Major direct or stepwise. Observe is the observation time after an update in
+// patch, minor or major, Major direct or stepwise. Trigger is window (default), interval or webhook; Interval
+// is the seconds between two registry queries, from 30 to 86400, 60 when left out, and only allowed with the
+// trigger interval. Observe is the observation time after an update in
 // minutes, from 0 (off) to 1440, 60 when left out. Tags maps an image version variable to a regular
 // expression its candidate tags must match; Changelog maps it to a GitHub repository (owner/name).
 type StackUpdateSettings struct {
 	Mode      string            `json:"mode,omitempty"`
+	Trigger   string            `json:"trigger,omitempty"`
+	Interval  *int              `json:"interval,omitempty"`
 	Ceiling   string            `json:"ceiling,omitempty"`
 	Major     string            `json:"major,omitempty"`
 	Observe   *int              `json:"observe,omitempty"`
@@ -731,9 +735,13 @@ type StackInfo struct {
 	Name string `json:"name"`
 	// Folder is the directory of the stack below Dir, "." for a root stack that is the whole stack folder; it
 	// differs from Name when the Compose file names the project.
-	Folder string      `json:"folder"`
-	Update string      `json:"update"`
-	Images []ImageInfo `json:"images"`
+	Folder string `json:"folder"`
+	Update string `json:"update"`
+	// Trigger is what makes qhost check the stack's registries: window, interval or webhook. Interval is the
+	// seconds between two checks, set for the trigger interval only.
+	Trigger  string      `json:"trigger"`
+	Interval int         `json:"interval,omitempty"`
+	Images   []ImageInfo `json:"images"`
 	// Volumes are the names of the named volumes of the stack's compose files, sorted.
 	Volumes  []string `json:"volumes,omitempty"`
 	Findings int      `json:"findings"`

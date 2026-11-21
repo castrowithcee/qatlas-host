@@ -33,6 +33,22 @@ const (
 	MajorStepwise = "stepwise"
 )
 
+// Update triggers: what makes qhost check a stack's registries. TriggerWindow is the maintenance window,
+// TriggerInterval a regular query every update.interval, TriggerWebhook an external call.
+const (
+	TriggerWindow   = "window"
+	TriggerInterval = "interval"
+	TriggerWebhook  = "webhook"
+)
+
+// The query interval of the trigger interval, in seconds: its default and its bounds. The lower bound
+// follows from the request limits of the registries.
+const (
+	DefaultIntervalSeconds = 60
+	MinIntervalSeconds     = 30
+	MaxIntervalSeconds     = 86400
+)
+
 // The observation time after an update, in minutes: its default and its upper bound, a day.
 const (
 	DefaultObserveMinutes = 60
@@ -51,8 +67,13 @@ type Rules struct {
 
 // Update says whether and how far a stack is updated.
 type Update struct {
-	Mode    string
-	Ceiling string
+	Mode string
+	// Trigger is what makes qhost check the registries for the stack: TriggerWindow, TriggerInterval or
+	// TriggerWebhook. Interval is the time between two checks; it is set whatever the trigger is, but only
+	// TriggerInterval gives it a meaning. Use Stack.UpdateTrigger for the effective pair.
+	Trigger  string
+	Interval time.Duration
+	Ceiling  string
 	// Major is how a major jump is taken: directly, or one major version at a time.
 	Major string
 	// Observe is how long after an update by qhost a failure of the stack rolls that update back; zero
@@ -111,6 +132,8 @@ type ComposeSettings struct {
 // UpdateSettings is the update section of Settings.
 type UpdateSettings struct {
 	Mode      *string           `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Trigger   *string           `yaml:"trigger,omitempty" json:"trigger,omitempty"`
+	Interval  *int              `yaml:"interval,omitempty" json:"interval,omitempty"`
 	Ceiling   *string           `yaml:"ceiling,omitempty" json:"ceiling,omitempty"`
 	Major     *string           `yaml:"major,omitempty" json:"major,omitempty"`
 	Observe   *int              `yaml:"observe,omitempty" json:"observe,omitempty"`
@@ -201,9 +224,12 @@ func ParseSettings(data []byte) (*Rules, error) {
 func (r *Rules) Settings() Settings {
 	one := 1
 	s := Settings{Version: &one, Update: &UpdateSettings{
-		Mode: ptr(r.Update.Mode), Ceiling: ptr(r.Update.Ceiling), Major: ptr(r.Update.Major),
+		Mode: ptr(r.Update.Mode), Trigger: ptr(r.Update.Trigger), Ceiling: ptr(r.Update.Ceiling), Major: ptr(r.Update.Major),
 		Observe: ptr(int(r.Update.Observe / time.Minute)),
 	}}
+	if r.Update.Trigger == TriggerInterval {
+		s.Update.Interval = ptr(int(r.Update.Interval / time.Second))
+	}
 	if r.ComposeFiles != nil {
 		s.Compose = &ComposeSettings{Files: slices.Clone(r.ComposeFiles)}
 	}
@@ -267,7 +293,7 @@ func validateRules(raw Settings) (*Rules, error) {
 	if *raw.Version != 1 {
 		return nil, fmt.Errorf("version: unsupported value %d (use 1)", *raw.Version)
 	}
-	r := &Rules{Update: Update{Mode: ModeManual, Ceiling: CeilingMinor, Major: MajorStepwise, Observe: DefaultObserveMinutes * time.Minute},
+	r := &Rules{Update: Update{Mode: ModeManual, Trigger: TriggerWindow, Interval: DefaultIntervalSeconds * time.Second, Ceiling: CeilingMinor, Major: MajorStepwise, Observe: DefaultObserveMinutes * time.Minute},
 		Check: Check{Containers: true}}
 
 	if c := raw.Compose; c != nil {
@@ -311,6 +337,21 @@ func validateRules(raw Settings) (*Rules, error) {
 				return nil, err
 			}
 			*f.out = *f.in
+		}
+		if u.Trigger != nil {
+			if err := oneOf("update.trigger", *u.Trigger, TriggerWindow, TriggerInterval, TriggerWebhook); err != nil {
+				return nil, err
+			}
+			r.Update.Trigger = *u.Trigger
+		}
+		if i := u.Interval; i != nil {
+			if r.Update.Trigger != TriggerInterval {
+				return nil, fmt.Errorf("update.interval: only allowed with update.trigger: interval (the trigger is %s)", r.Update.Trigger)
+			}
+			if *i < MinIntervalSeconds || *i > MaxIntervalSeconds {
+				return nil, fmt.Errorf("update.interval: must be seconds from %d to %d (got %d)", MinIntervalSeconds, MaxIntervalSeconds, *i)
+			}
+			r.Update.Interval = time.Duration(*i) * time.Second
 		}
 		if o := u.Observe; o != nil {
 			if *o < 0 || *o > MaxObserveMinutes {

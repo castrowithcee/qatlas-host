@@ -185,7 +185,7 @@ Binding:
 
 Afterwards:
 - qhost repo fetch: fetch new commits into the remote-tracking branch and report whether the working copy is behind; the working copy itself is not changed
-- qhost stack list: list each stack with its image version variables, their values and its update mode (none without settings)
+- qhost stack list: list each stack with its image version variables, their values, its update mode (none without settings) and its update trigger with the interval for interval
 - A host key that differs from the pinned one aborts every command. The pinned key is never replaced by a command; verify the change with the git platform's operator first.`
 
 const stackSettingsTopic = `The settings of a stack say how qhost updates, backs up and checks it. They live in the stacks repository as .qatlas/qhost/<stack>.yaml in its root, one file per stack, named by the stack's Compose project name. A stack without settings is deployed but never updated.
@@ -196,6 +196,8 @@ Fields (all optional except version):
 - version: 1
 - compose.files: the compose files of the stack as a list of relative paths inside the stack folder, in merge order like COMPOSE_FILE; it takes precedence over COMPOSE_FILE in .env and over the default names
 - update.mode: manual (default) or automatic
+- update.trigger: window (default, the maintenance window checks the stack), interval (qhost queries the registries of the stack regularly, also outside the window) or webhook (an external call starts the check); the maintenance window handles only stacks with the trigger window
+- update.interval: seconds between two registry queries, from 30 to 86400 (default 60); allowed only with update.trigger: interval and refused otherwise
 - update.ceiling: patch, minor (default) or major; the largest version step taken; versions are MAJOR.MINOR.PATCH (SemVer or CalVer), and with CalVer the first part, for example the year, counts as major
 - update.major: stepwise (default, one major version at a time) or direct
 - update.observe: observation time in minutes after an update by qhost (default 60, 0 off, at most 1440); a failure of the stack in it rolls the update back (see qhost help containers); a commit that did not come from qhost starts none; qhost status shows a running one as observe with its end and the update commit
