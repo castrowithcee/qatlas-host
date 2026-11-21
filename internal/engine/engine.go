@@ -1027,6 +1027,19 @@ func (e *Engine) Runs(stack string) ([]RunRecord, error) {
 // Log returns the run log of a run id; ErrNoSuchRun when the id is malformed or has no log.
 func (e *Engine) Log(id string) (string, error) { return e.logs.read(id) }
 
+// LogFormat returns the refusal of the log of run id when its format number is not one this version reads, and
+// nil in every other case. It changes nothing.
+func (e *Engine) LogFormat(id string) error {
+	p, err := e.logs.path(id)
+	if err != nil {
+		return nil
+	}
+	if err := headerOf(p); formatnum.Is(err) {
+		return err
+	}
+	return nil
+}
+
 // AppendLog adds one info entry to the log of an existing run, for facts that arise after the run has ended,
 // such as a notification that was not delivered. The text is redacted like every other entry. It fails with
 // ErrNoSuchRun when the id is malformed or the log is missing or not a regular file, and with ErrLogFull
@@ -1140,4 +1153,10 @@ func (e *Engine) finish(held bool) {
 		e.releaseHold()
 	}
 	e.wg.Done()
+}
+
+// CheckFormat checks the format number of the engine state below stateDir, the state directory the engine is
+// given, without changing it.
+func CheckFormat(stateDir string) error {
+	return formatnum.CheckFile(filepath.Join(stateDir, engineDir, stateFile), "schema", stateSchema)
 }

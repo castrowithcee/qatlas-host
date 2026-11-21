@@ -11,6 +11,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 // runsAnswer maps an engine error to a fixed answer. Text from the engine's error is never passed on: it may
@@ -82,10 +83,14 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 			}
 			res := control.RunsResult{Runs: make([]control.RunInfo, 0, len(runs))}
 			for _, rec := range runs {
+				var unreadable string
+				if err := eng.LogFormat(rec.ID); err != nil {
+					unreadable = printable(err.Error())
+				}
 				res.Runs = append(res.Runs, control.RunInfo{
 					ID: printable(rec.ID), Stack: printable(rec.Stack), Commit: printable(rec.Commit),
 					Trigger: printable(rec.Trigger), Started: rec.Started, DurationMS: rec.Duration.Milliseconds(),
-					Result: printable(rec.Result), Error: printable(rec.Error),
+					Result: printable(rec.Result), Error: printable(rec.Error), LogUnreadable: unreadable,
 				})
 			}
 			return res, nil
@@ -122,6 +127,9 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 			if err != nil {
 				if errors.Is(err, engine.ErrNoSuchRun) {
 					return nil, runsAnswer(err)
+				}
+				if formatnum.Is(err) {
+					return nil, control.NewError(control.CodeInternal, printable(err.Error()))
 				}
 				return nil, errors.New("the run log cannot be read")
 			}

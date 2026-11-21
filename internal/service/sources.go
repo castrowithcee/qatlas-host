@@ -735,6 +735,16 @@ func (s *sourceSet) Log(id string) (string, error) {
 	return "", engine.ErrNoSuchRun
 }
 
+// LogFormat returns the refusal of the log of a run of any source whose format number is not read.
+func (s *sourceSet) LogFormat(id string) error {
+	for _, src := range s.sources() {
+		if err := src.eng.LogFormat(id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // AppendLog adds an entry to the log of a run of any source.
 func (s *sourceSet) AppendLog(id, text string) error {
 	for _, src := range s.sources() {

@@ -339,3 +339,8 @@ func (s *Scheduler) setRunning(on bool) {
 	s.running = on
 	s.mu.Unlock()
 }
+
+// CheckFormat checks the format number of the stored window setting in stateDir without changing it.
+func CheckFormat(stateDir string) error {
+	return formatnum.CheckFile(filepath.Join(stateDir, fileName), "schema", fileSchema)
+}

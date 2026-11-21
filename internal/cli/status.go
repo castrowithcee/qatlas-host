@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os/exec"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/hostservice"
+	"github.com/castrowithcee/qatlas-host/internal/service"
 )
 
 // ExitServiceNotRunning is the exit code of a command that found no running service. The kit's exit contract
@@ -61,6 +63,7 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			if err := call(c.Context(), serviceEndpoint(), control.StatusCommand, nil, &st); err != nil {
 				if errors.Is(err, client.ErrNotRunning) {
 					state.seen = true
+					return withStateCause(failureOf(err), stateDir())
 				}
 				return failureOf(err)
 			}
@@ -148,6 +151,11 @@ func instanceFields(ctx context.Context) []output.Field {
 			continue
 		case errors.Is(err, client.ErrNotRunning):
 			state = "not running"
+			if cause, readable := stateCause(inst.StateDir()); cause != "" {
+				out = append(out, output.Field{Name: p + "state", Value: "unreadable: " + cause})
+			} else if !readable {
+				out = append(out, output.Field{Name: p + "state", Value: stateHint})
+			}
 		case errors.As(err, &remote) && (remote.Code == control.CodeNoAccess || remote.Code == control.CodeNotAdmin):
 			state = "running (reserved for administrators)"
 		case errors.Is(err, client.ErrNoAccess):
@@ -156,6 +164,39 @@ func instanceFields(ctx context.Context) []output.Field {
 		out = append(out, output.Field{Name: p + "deploy_service", Value: state})
 	}
 	return out
+}
+
+// stateHint is shown where the state files of a service that does not run could not be checked.
+const stateHint = "unknown (run 'sudo qhost status' to check its state files)"
+
+// stateCause checks the state files of a deploy service that does not run, changing nothing. cause names the
+// file when a format number refusal or another read error is found; readable is false when the files could not
+// be read for lack of permission, which only root has.
+func stateCause(dir string) (cause string, readable bool) {
+	err := service.CheckState(dir)
+	switch {
+	case err == nil:
+		return "", true
+	case errors.Is(err, fs.ErrPermission):
+		return "", false
+	}
+	return err.Error(), true
+}
+
+// withStateCause adds to the failure of a deploy service that is not running the file that keeps it from starting,
+// or the way to find out.
+func withStateCause(err error, dir string) error {
+	var f *cli.Failure
+	if !deployInstalled() || !errors.As(err, &f) {
+		return err
+	}
+	if cause, readable := stateCause(dir); cause != "" {
+		f.Message += "; its state cannot be read: " + cause
+		f.NextStep = "Fix or move aside the file named above (see 'qhost help troubleshooting'), then start it with 'sudo systemctl start qhost-deploy'."
+	} else if !readable {
+		f.NextStep += " If it does not start, run 'sudo qhost status' to check its state files."
+	}
+	return err
 }
 
 // engineFields flattens the engine part into scalar fields, which every output format can carry.

@@ -220,7 +220,7 @@ func (s *Store) Submit(ctx context.Context, raw json.RawMessage) (any, error) {
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	all, err := s.load()
+	all, _, err := s.load()
 	if err != nil {
 		return nil, s.internal("read the proposals", err)
 	}
@@ -254,7 +254,7 @@ func (s *Store) List(_ context.Context, raw json.RawMessage) (any, error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	all, err := s.load()
+	all, bad, err := s.load()
 	if err != nil {
 		return nil, s.internal("read the proposals", err)
 	}
@@ -264,7 +264,7 @@ func (s *Store) List(_ context.Context, raw json.RawMessage) (any, error) {
 		}
 		return strings.Compare(b.ID, a.ID)
 	})
-	res := control.ProposalListResult{Proposals: make([]control.ProposalInfo, 0, len(all))}
+	res := control.ProposalListResult{Proposals: make([]control.ProposalInfo, 0, len(all)), Unreadable: bad}
 	for _, r := range all {
 		res.Proposals = append(res.Proposals, s.info(r))
 	}
@@ -466,16 +466,17 @@ func readRecord(path string) (record, error) {
 	return record{}, errors.New("unknown state")
 }
 
-// load reads every proposal; a file that cannot be read is logged and skipped.
-func (s *Store) load() ([]record, error) {
+// load reads every proposal; a file that cannot be read is logged, skipped and named in the second result.
+func (s *Store) load() ([]record, []control.UnreadableInfo, error) {
 	entries, err := os.ReadDir(s.dir)
 	if errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var all []record
+	var bad []control.UnreadableInfo
 	for _, e := range entries {
 		id, ok := strings.CutSuffix(e.Name(), ".json")
 		if !ok || !s.idRe.MatchString(id) {
@@ -484,11 +485,17 @@ func (s *Store) load() ([]record, error) {
 		r, err := readRecord(filepath.Join(s.dir, e.Name()))
 		if err != nil || r.ID != id {
 			s.log.Warn("proposals: skipped an unreadable file", "file", e.Name(), "error", err)
+			path := filepath.Join(s.dir, e.Name())
+			msg := path + ": the file cannot be read"
+			if formatnum.Is(err) {
+				msg = err.Error()
+			}
+			bad = append(bad, control.UnreadableInfo{File: path, Error: msg})
 			continue
 		}
 		all = append(all, r)
 	}
-	return all, nil
+	return all, bad, nil
 }
 
 // prune removes the proposals that are no longer open and are old, and leftovers of interrupted writes, from the

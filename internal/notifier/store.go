@@ -208,3 +208,13 @@ func (s *Seen) Mark(stack string, items []Item) error {
 	})
 	return err
 }
+
+// CheckFormat checks the format numbers of the files the notifications keep in stateDir without changing them.
+func CheckFormat(stateDir string) error {
+	for _, name := range []string{settingsFile, seenFile} {
+		if err := formatnum.CheckFile(filepath.Join(stateDir, name), "schema", fileSchema); err != nil {
+			return err
+		}
+	}
+	return nil
+}

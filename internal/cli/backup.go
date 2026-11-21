@@ -72,6 +72,10 @@ func newBackupCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 				if b.Incomplete {
 					status, created = "incomplete", ""
 				}
+				if b.Unreadable != "" {
+					status = "unreadable"
+					_, _ = fmt.Fprintf(c.ErrOrStderr(), "warning: backup %s cannot be read: %s\n", b.ID, b.Unreadable)
+				}
 				rows = append(rows, output.Row{"backup": b.ID, "created": created, "commit": commit,
 					"size": b.Size, "items": int64(len(b.Items)), "status": status})
 			}

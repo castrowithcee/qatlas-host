@@ -559,6 +559,8 @@ type RunInfo struct {
 	DurationMS int64     `json:"duration_ms"`
 	Result     string    `json:"result"`
 	Error      string    `json:"error,omitempty"`
+	// LogUnreadable is the refusal of the run's log when this version does not read it; it names the file.
+	LogUnreadable string `json:"log_unreadable,omitempty"`
 }
 
 // RunsResult answers RunsCommand, newest run first.
@@ -1160,6 +1162,8 @@ type BackupInfo struct {
 	Size       int64            `json:"size"`
 	Items      []BackupItemInfo `json:"items"`
 	Incomplete bool             `json:"incomplete,omitempty"`
+	// Unreadable is the refusal of a backup whose metadata this version does not read; it names the file.
+	Unreadable string `json:"unreadable,omitempty"`
 }
 
 // BackupCreateResult answers BackupCreateCommand; Removed lists the ids retention deleted.
@@ -1842,9 +1846,17 @@ type ProposalInfo struct {
 	Message string `json:"message,omitempty"`
 }
 
+// UnreadableInfo names a stored file that is left out of an answer because this version cannot read it.
+type UnreadableInfo struct {
+	File  string `json:"file"`
+	Error string `json:"error"`
+}
+
 // ProposalListResult answers ProposalListCommand, the newest proposal first.
 type ProposalListResult struct {
 	Proposals []ProposalInfo `json:"proposals"`
+	// Unreadable lists the proposal files this version cannot read, which are not among Proposals.
+	Unreadable []UnreadableInfo `json:"unreadable,omitempty"`
 }
 
 // ProposalIDArgs are the arguments of ProposalShowCommand and ProposalWithdrawCommand.

@@ -2,6 +2,7 @@ package proposals
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
@@ -46,10 +47,18 @@ func TestUnknownFormatNumberIsRefusedAndKept(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, p := range v.(control.ProposalListResult).Proposals {
+			list := v.(control.ProposalListResult)
+			for _, p := range list.Proposals {
 				if p.ID == id {
 					t.Fatal("an unreadable proposal was listed")
 				}
+			}
+			// The readable ones stay listed, and the unreadable one is named instead of missing silently.
+			if len(list.Proposals) != 1 {
+				t.Fatalf("proposals = %d, want the one readable", len(list.Proposals))
+			}
+			if len(list.Unreadable) != 1 || list.Unreadable[0].File != path || !strings.Contains(list.Unreadable[0].Error, path) {
+				t.Fatalf("unreadable = %+v", list.Unreadable)
 			}
 			formatnumtest.Unchanged(t, path, doc)
 		})

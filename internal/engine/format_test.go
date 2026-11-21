@@ -85,3 +85,20 @@ func TestSettingsWithAnUnknownFormatNumberAreNotReplacedOrRemoved(t *testing.T) 
 		t.Fatal(err)
 	}
 }
+
+func TestLogFormatNamesAnUnreadableRunLogOnly(t *testing.T) {
+	e := &Engine{logs: logStore{dir: t.TempDir()}}
+	bad, good, absent := "20260102T030405Z-0a1b2c3d", "20260102T030406Z-0a1b2c3d", "20260102T030407Z-0a1b2c3d"
+	p, _ := e.logs.path(bad)
+	formatnumtest.Seed(t, p, "schema 2\nnew\n")
+	q, _ := e.logs.path(good)
+	formatnumtest.Seed(t, q, "schema 1\nold\n")
+	formatnumtest.Refused(t, e.LogFormat(bad), p)
+	if err := e.LogFormat(good); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.LogFormat(absent); err != nil {
+		t.Fatal(err)
+	}
+	formatnumtest.Unchanged(t, p, "schema 2\nnew\n")
+}

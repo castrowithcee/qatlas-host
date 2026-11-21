@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 )
 
 // ErrFormat matches every *Error.
@@ -71,3 +73,16 @@ func CheckJSON(file, field string, data []byte, current int, older ...int) error
 
 // Is reports whether err is a format number refusal.
 func Is(err error) bool { return errors.Is(err, ErrFormat) }
+
+// CheckFile reads the JSON file at path and checks its number, changing nothing. A file that does not exist
+// passes, since the service creates it on the first change; any other read error is returned as it is.
+func CheckFile(path, field string, current int, older ...int) error {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return CheckJSON(path, field, data, current, older...)
+}
