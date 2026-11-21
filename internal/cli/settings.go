@@ -35,6 +35,7 @@ const settingsFields = "The settings are one object with these members, each opt
 	"A stack without settings is deployed but never updated."
 
 func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
+	var showEngine, setEngine, removeEngine string
 	show := &cobra.Command{
 		Use:   "settings <stack>",
 		Short: "Show, replace or remove the settings of a stack: update, backup, check and compose files",
@@ -49,6 +50,9 @@ func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, showEngine, args[0]); err != nil {
+				return err
+			}
 			var res control.StackSettingsResult
 			if err := credentialCall(c, state, control.StackSettingsGetCommand, control.StackSettingsArgs{Stack: args[0]}, &res); err != nil {
 				return err
@@ -85,6 +89,9 @@ func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 			if err != nil {
 				return err
 			}
+			if err := routeStacks(c, state, setEngine, args[0]); err != nil {
+				return err
+			}
 			var res control.StackSettingsSetResult
 			if err := remoteCall(c, state, control.StackSettingsTimeout, control.StackSettingsSetCommand,
 				control.StackSettingsSetArgs{Stack: args[0], Settings: s}, &res); err != nil {
@@ -113,6 +120,9 @@ func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeStacks(c, state, removeEngine, args[0]); err != nil {
+				return err
+			}
 			var res control.StackSettingsRemoveResult
 			if err := remoteCall(c, state, control.StackSettingsTimeout, control.StackSettingsRemoveCommand,
 				control.StackSettingsArgs{Stack: args[0]}, &res); err != nil {
@@ -123,6 +133,9 @@ func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Com
 		},
 	}
 	set.Flags().StringVar(&file, "file", "", "the settings as YAML or JSON; - reads standard input")
+	addEngineFlag(show, &showEngine, stackEngineUsage, stackEngineNote)
+	addEngineFlag(set, &setEngine, stackEngineUsage, stackEngineNote)
+	addEngineFlag(remove, &removeEngine, stackEngineUsage, stackEngineNote)
 	show.AddCommand(set, remove)
 	return show
 }

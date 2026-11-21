@@ -19,30 +19,43 @@ func newSourceListCommand(program *cobracli.Program, state *notRunning) *cobra.C
 		Short: "List the bound stack folders with kind, address, head and state of the last poll",
 		Long: "list shows every bound stack folder in the order it was bound: its path, id, kind (remote or local), the\n" +
 			"repository address (none for a local folder), the head commit, the time of the last poll, a poll error\n" +
-			"and a note about why the working copy was not brought up to date. It changes nothing. Run it with sudo.",
+			"and a note about why the working copy was not brought up to date, and its engine. It changes nothing. Root and administrators in the group qhost may read; run it without sudo.\n\n" +
+			wrapHelp(overviewEngineNote),
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			var res control.SourceListResult
-			if err := credentialCall(c, state, control.SourceListCommand, nil, &res); err != nil {
+			replies, err := askOverview[control.SourceListResult](c, state, control.SourceListCommand)
+			if err != nil {
 				return err
 			}
-			return output.Encode(c.OutOrStdout(), program.Format(), sourceListResult(program.Format(), res))
+			var sources []engineSource
+			for _, r := range replies {
+				for _, src := range r.value.Sources {
+					sources = append(sources, engineSource{SourceStatus: src, Engine: r.target.id()})
+				}
+			}
+			return output.Encode(c.OutOrStdout(), program.Format(), sourceListResult(program.Format(), sources))
 		},
 	}
 }
 
-func sourceListResult(format output.Format, res control.SourceListResult) output.Object {
+// engineSource is a bound stack folder with the engine whose deploy service holds it.
+type engineSource struct {
+	control.SourceStatus
+	Engine string `json:"engine"`
+}
+
+func sourceListResult(format output.Format, sources []engineSource) output.Object {
 	if structuredFormat(format) {
-		sources := res.Sources
 		if sources == nil {
-			sources = []control.SourceStatus{}
+			sources = []engineSource{}
 		}
 		return output.Object{Fields: []output.Field{{Name: "sources", Value: structured(format, sources)}}}
 	}
 	var f []output.Field
-	for _, src := range res.Sources {
+	for _, src := range sources {
 		p := "source." + src.ID + "."
-		f = append(f, output.Field{Name: p + "path", Value: src.Path}, output.Field{Name: p + "kind", Value: src.Kind})
+		f = append(f, output.Field{Name: p + "path", Value: src.Path}, output.Field{Name: p + "engine", Value: src.Engine},
+			output.Field{Name: p + "kind", Value: src.Kind})
 		if !src.LastPoll.IsZero() {
 			f = append(f, output.Field{Name: p + "last_poll", Value: src.LastPoll.UTC().Format(time.RFC3339)})
 		}
@@ -57,6 +70,7 @@ func sourceListResult(format output.Format, res control.SourceListResult) output
 
 func newSourceRemoveCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var gate *cobracli.Gate
+	var engine string
 	remove := &cobra.Command{
 		Use:   "remove <path>",
 		Short: "Release a bound stack folder; no file is deleted and no container is stopped",
@@ -76,6 +90,9 @@ func newSourceRemoveCommand(program *cobracli.Program, state *notRunning) *cobra
 			path := args[0]
 			if !filepath.IsAbs(path) || filepath.Clean(path) != path {
 				return usageFailure("the path must be absolute and clean", "Pass the absolute path of the folder.")
+			}
+			if err := routeFolder(c, state, engine, path); err != nil {
+				return err
 			}
 			w := c.ErrOrStderr()
 			_, _ = fmt.Fprintf(w, "Release the stack folder %s:\n", path)
@@ -98,6 +115,7 @@ func newSourceRemoveCommand(program *cobracli.Program, state *notRunning) *cobra
 			})
 		},
 	}
+	addEngineFlag(remove, &engine, folderEngineUsage, folderEngineNote)
 	gate = program.AddGate(remove, cobracli.Gates{Question: true})
 	return remove
 }
