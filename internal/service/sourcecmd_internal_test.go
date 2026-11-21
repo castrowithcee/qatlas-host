@@ -32,7 +32,7 @@ func TestValidateSourcesKinds(t *testing.T) {
 		}
 	}
 	old := `{"version":2,"sources":[{"id":"srv-a","path":"/srv/a","kind":"remote","url":"` + exampleURL + `","key":"deploy-key"}]}`
-	if c, err := sourcesCodec.Decode([]byte(old)); err != nil || validateSources(c) != nil {
+	if c, err := sourcesCodecAt("sources.json").Decode([]byte(old)); err != nil || validateSources(c) != nil {
 		t.Fatalf("an existing sources file is no longer valid: %v", err)
 	}
 }

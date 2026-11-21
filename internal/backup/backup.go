@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/compose"
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
@@ -225,6 +226,9 @@ func (m *Manager) Restore(ctx context.Context, st stacks.Stack, id string, log L
 		return Meta{}, err
 	}
 	meta, err = readMeta(dir, st.Name, id)
+	if formatnum.Is(err) {
+		return Meta{}, err
+	}
 	if err != nil {
 		return Meta{}, ErrNoSuchBackup
 	}

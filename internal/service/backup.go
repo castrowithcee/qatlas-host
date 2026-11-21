@@ -160,6 +160,9 @@ func backupInfo(m backup.Meta) control.BackupInfo {
 		ID: printable(m.ID), Stack: printable(m.Stack), Created: m.Created, Commit: printable(m.Commit),
 		Size: m.Size(), Items: make([]control.BackupItemInfo, 0, len(m.Items)), Incomplete: m.Incomplete,
 	}
+	if m.Unsupported != nil {
+		info.Unreadable = printable(m.Unsupported.Error())
+	}
 	for _, it := range m.Items {
 		info.Items = append(info.Items, control.BackupItemInfo{Kind: printable(it.Kind), Name: printable(it.Name), Size: it.Size})
 	}
