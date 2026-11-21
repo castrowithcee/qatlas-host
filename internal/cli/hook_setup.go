@@ -97,3 +97,37 @@ func emitHookSetup(c *cobra.Command, program *cobracli.Program, plan deploysetup
 		{Name: "listen", Value: plan.Listen},
 	}})
 }
+
+// refreshHookCommand is the internal command 'qhost update' runs in the newly installed program.
+const refreshHookCommand = "refresh"
+
+func newHookRefreshCommand(program *cobracli.Program) *cobra.Command {
+	return &cobra.Command{
+		Use:    refreshHookCommand,
+		Short:  "Bring the webhook receiver to the unit of this program",
+		Hidden: true,
+		Long: "refresh is run by 'qhost update' in the newly installed program, because only that program knows its unit.\n" +
+			"If the webhook receiver is set up, it replaces qhost-hook.service where it differs from the one built into this\n" +
+			"program, runs systemctl daemon-reload in that case and restarts the receiver; it warns when a unit in\n" +
+			"/etc/systemd/system overrides the installed one. Without the setup it changes nothing. Needs root.",
+		Args: cobra.NoArgs,
+		RunE: func(c *cobra.Command, _ []string) error {
+			if deploySetup.euid() != 0 {
+				return &cli.Failure{Code: output.CodePermission, Message: "renewing the webhook receiver needs root; run with sudo",
+					NextStep: "Run the same command with sudo."}
+			}
+			res, err := deploySetup.host.RefreshHook(c.Context())
+			if res.Shadowed {
+				_, _ = fmt.Fprintf(c.ErrOrStderr(), "warning: a unit in /etc/systemd/system overrides the installed unit of %s\n", deploysetup.HookService)
+			}
+			if err != nil {
+				return &cli.Failure{Code: output.CodeRuntime, Message: "hook-service refresh: " + err.Error(), Cause: err,
+					NextStep: "Fix the cause named in the message, then run the command again."}
+			}
+			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
+				{Name: "unit_written", Value: res.UnitWritten},
+				{Name: "restarted", Value: res.Restarted},
+			}})
+		},
+	}
+}

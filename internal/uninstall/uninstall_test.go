@@ -30,6 +30,9 @@ func TestTargetsAreTheFixedPaths(t *testing.T) {
 		"/etc/systemd/system/qhost-deploy.service.d",
 		"/etc/tmpfiles.d/qhost-deploy.conf",
 		"/run/qhost-deploy",
+		"/usr/local/lib/systemd/system/qhost-hook.service",
+		"/etc/tmpfiles.d/qhost-hook.conf",
+		"/run/qhost-hook",
 		"/usr/local/share/man/man1/qhost.1",
 		"/usr/local/share/man/man1/qhost-stack.1",
 		"/usr/local/share/man/man1/qhost-stack-list.1",
@@ -38,7 +41,7 @@ func TestTargetsAreTheFixedPaths(t *testing.T) {
 	if got := Targets(false, testPages); !slices.Equal(got, want) {
 		t.Errorf("targets = %q, want %q", got, want)
 	}
-	purge := append(slices.Clone(want), "/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host")
+	purge := append(slices.Clone(want), "/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host", "/etc/qhost-hook")
 	if got := Targets(true, testPages); !slices.Equal(got, purge) {
 		t.Errorf("purge targets = %q, want %q", got, purge)
 	}
@@ -46,7 +49,7 @@ func TestTargetsAreTheFixedPaths(t *testing.T) {
 
 func TestPagesThatAreNotManpagesOfTheProgramAreIgnored(t *testing.T) {
 	got := Targets(false, []string{"../../etc/passwd", "qhost.1", "qhost-/x.1", "other.1", "qhost-a.1/..", "qhost.1"})
-	if !slices.Contains(got, "/usr/local/share/man/man1/qhost.1") || len(got) != 8 {
+	if !slices.Contains(got, "/usr/local/share/man/man1/qhost.1") || len(got) != 11 {
 		t.Fatalf("targets = %q", got)
 	}
 }
@@ -105,17 +108,19 @@ func newHost(t *testing.T) (*fakeHost, string, []string) {
 		}
 	}
 	for _, p := range Targets(true, testPages) {
-		if filepath.Ext(p) == ".d" || strings.HasPrefix(p, "/var/lib") || p == channelDir {
+		if filepath.Ext(p) == ".d" || strings.HasPrefix(p, "/var/lib") || p == channelDir || p == deploysetup.HookRunDir || p == deploysetup.HookConfigDir {
 			continue
 		}
 		write(p, "invented")
 	}
 	write("/run/qhost-deploy/control.sock", "invented")
+	write("/run/qhost-hook/system/marker", "invented")
+	write("/etc/qhost-hook/config.json", "{}")
 	write("/var/lib/qhost/state.json", "invented")
 	write("/var/lib/qhost-deploy/secrets", "invented")
 	write("/var/lib/qhost-host/journal/1.json", "invented")
-	write("/etc/passwd", "root:x:0:0::/root:/bin/sh\nqhost:x:997:997::/var/lib/qhost:/usr/sbin/nologin\nqhost-deploy:x:996:996::/x:/usr/sbin/nologin\n")
-	write("/etc/group", "root:x:0:\nqhost:x:997:alice\nqhost-deploy:x:996:\ndocker:x:998:qhost-deploy\n")
+	write("/etc/passwd", "root:x:0:0::/root:/bin/sh\nqhost:x:997:997::/var/lib/qhost:/usr/sbin/nologin\nqhost-deploy:x:996:996::/x:/usr/sbin/nologin\nqhost-hook:x:995:995::/nonexistent:/usr/sbin/nologin\n")
+	write("/etc/group", "root:x:0:\nqhost:x:997:alice\nqhost-deploy:x:996:\nqhost-hook:x:995:\ndocker:x:998:qhost-deploy\n")
 	stack := "/srv/stacks"
 	bystanders := []string{stack + "/app/compose.yaml", stack + "/app/data/db", "/etc/qhost/keep", "/usr/local/bin/other",
 		"/usr/local/share/man/man1/other.1", "/etc/systemd/system/other.service"}
@@ -163,9 +168,9 @@ func apply(t *testing.T, f *fakeHost, purge bool, keep ...string) Plan {
 func assertOnlyTargetsVanished(t *testing.T, before, after []string, purge bool) {
 	t.Helper()
 	targets := Targets(purge, testPages)
-	dirs := []string{channelDir}
+	dirs := []string{channelDir, deploysetup.HookRunDir}
 	if purge {
-		dirs = append(dirs, hostStateDir, deployStateDir, journalDir)
+		dirs = append(dirs, hostStateDir, deployStateDir, journalDir, deploysetup.HookConfigDir)
 	}
 	kept := map[string]bool{}
 	for _, p := range after {
@@ -207,9 +212,18 @@ func TestUninstallRemovesServicesAndKeepsStateAndStacks(t *testing.T) {
 			t.Errorf("%s was removed", p)
 		}
 	}
-	want := []string{"systemctl disable --now qhost-deploy", "systemctl disable --now qhost", "systemctl daemon-reload"}
+	want := []string{"systemctl disable --now qhost-hook", "systemctl disable --now qhost-deploy", "systemctl disable --now qhost", "systemctl daemon-reload"}
 	if !slices.Equal(f.ran, want) {
 		t.Errorf("commands = %q, want %q", f.ran, want)
+	}
+	for _, p := range []string{"/etc/qhost-hook/config.json", "/etc/passwd"} {
+		if !exists(f.root, p) {
+			t.Errorf("%s was removed without --purge", p)
+		}
+	}
+	if !strings.Contains(plan.Sentence(), "qhost-hook is stopped and disabled") || !strings.Contains(plan.Sentence(), "/run/qhost-hook") ||
+		!strings.Contains(plan.Sentence(), "configuration, the user and the group qhost-hook stay") {
+		t.Errorf("the sentence does not name the receiver: %q", plan.Sentence())
 	}
 	if strings.Contains(strings.Join(plan.Commands(), "\n"), "userdel") || strings.Contains(plan.Sentence(), "are deleted too") {
 		t.Errorf("plan without purge: %q", plan.Commands())
@@ -225,7 +239,7 @@ func TestPurgeRemovesStateJournalUsersAndGroup(t *testing.T) {
 	before := tree(t, f.root)
 	apply(t, f, true)
 	assertOnlyTargetsVanished(t, before, tree(t, f.root), true)
-	for _, p := range []string{"/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host"} {
+	for _, p := range []string{"/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host", "/etc/qhost-hook", "/run/qhost-hook"} {
 		if exists(f.root, p) {
 			t.Errorf("%s was not removed", p)
 		}
@@ -235,8 +249,8 @@ func TestPurgeRemovesStateJournalUsersAndGroup(t *testing.T) {
 			t.Errorf("%s was removed", p)
 		}
 	}
-	want := []string{"systemctl disable --now qhost-deploy", "systemctl disable --now qhost", "systemctl daemon-reload",
-		"userdel qhost-deploy", "userdel qhost", "groupdel qhost-deploy", "groupdel qhost"}
+	want := []string{"systemctl disable --now qhost-hook", "systemctl disable --now qhost-deploy", "systemctl disable --now qhost", "systemctl daemon-reload",
+		"userdel qhost-hook", "userdel qhost-deploy", "userdel qhost", "groupdel qhost-hook", "groupdel qhost-deploy", "groupdel qhost"}
 	if !slices.Equal(f.ran, want) {
 		t.Errorf("commands = %q, want %q", f.ran, want)
 	}
@@ -266,12 +280,20 @@ func TestPurgeSkipsGroupThatUserdelRemoved(t *testing.T) {
 
 func TestUninstallWithoutDeployServiceTouchesOnlyTheHostService(t *testing.T) {
 	f, _, _ := newHost(t)
-	for _, p := range []string{deployUnitPath, tmpfilesPath, dropInFile} {
+	for _, p := range []string{deployUnitPath, tmpfilesPath, dropInFile, deploysetup.HookUnitPath(), deploysetup.HookTmpfilesConf} {
 		if err := os.Remove(filepath.Join(f.root, p)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	apply(t, f, false)
+	for _, p := range []string{deploysetup.HookRunDir, deploysetup.HookConfigDir} {
+		if err := os.RemoveAll(filepath.Join(f.root, p)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	plan := apply(t, f, false)
+	if strings.Contains(plan.Sentence(), "qhost-hook") {
+		t.Errorf("the sentence names a receiver that is not there: %q", plan.Sentence())
+	}
 	want := []string{"systemctl disable --now qhost", "systemctl daemon-reload"}
 	if !slices.Equal(f.ran, want) {
 		t.Errorf("commands = %q, want %q", f.ran, want)
@@ -368,5 +390,40 @@ func TestTargetsIncludeTheInstancesPaths(t *testing.T) {
 	}
 	if slices.Contains(Targets(false, nil, inst), inst.StateDir()) {
 		t.Error("the state is a target without purge")
+	}
+}
+
+func TestPurgeNamesTheReceiverConfigurationUserAndGroup(t *testing.T) {
+	f, _, _ := newHost(t)
+	plan, err := f.host().Plan(true, testPages, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commands := strings.Join(plan.Commands(), "\n")
+	for _, want := range []string{"systemctl disable --now qhost-hook", "rm " + deploysetup.HookUnitPath(), "rm " + deploysetup.HookTmpfilesConf,
+		"rm -r /run/qhost-hook", "rm -r /etc/qhost-hook", "userdel qhost-hook", "groupdel qhost-hook"} {
+		if !strings.Contains(commands, want) {
+			t.Errorf("the plan lacks %q: %s", want, commands)
+		}
+	}
+	if !strings.Contains(plan.Sentence(), "/etc/qhost-hook with the hooks, the system user and the group qhost-hook are deleted too") {
+		t.Errorf("sentence = %q", plan.Sentence())
+	}
+}
+
+func TestPurgeSkipsAReceiverUserAndGroupThatDoNotExist(t *testing.T) {
+	f, _, _ := newHost(t)
+	write := func(p, content string) {
+		if err := os.WriteFile(filepath.Join(f.root, p), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("etc/passwd", "root:x:0:0::/root:/bin/sh\nqhost:x:997:997::/x:/bin/sh\nqhost-deploy:x:996:996::/x:/bin/sh\n")
+	write("etc/group", "root:x:0:\nqhost:x:997:\nqhost-deploy:x:996:\n")
+	apply(t, f, true)
+	for _, c := range f.ran {
+		if strings.Contains(c, "del qhost-hook") {
+			t.Errorf("ran %q although the account does not exist", c)
+		}
 	}
 }

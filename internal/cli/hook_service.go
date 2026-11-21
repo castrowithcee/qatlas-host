@@ -45,6 +45,6 @@ func newHookServiceCommand(program *cobracli.Program) *cobra.Command {
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error { return c.Help() },
 	}
-	cmd.AddCommand(run, newHookSetupCommand(program))
+	cmd.AddCommand(run, newHookSetupCommand(program), newHookRefreshCommand(program))
 	return cmd
 }
