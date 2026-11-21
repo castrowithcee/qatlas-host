@@ -8,6 +8,7 @@ Type=exec
 ExecStart=/usr/local/bin/qhost deploy-service run --instance %i
 User=%i
 ReadWritePaths=/run/qhost-deploy-%i
+ReadWritePaths=-/run/qhost-hook/%i
 StateDirectory=qhost-deploy-%i
 StateDirectoryMode=0700
 ConfigurationDirectory=qhost-deploy-%i

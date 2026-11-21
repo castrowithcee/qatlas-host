@@ -119,6 +119,7 @@ func TestDeployUnitMeetsChannelContract(t *testing.T) {
 		"Group=qhost-deploy",
 		"SupplementaryGroups=docker",
 		"ReadWritePaths=/run/qhost-deploy",
+		"ReadWritePaths=-/run/qhost-hook/system",
 		"StateDirectory=qhost-deploy",
 		"StateDirectoryMode=0700",
 		"NoNewPrivileges=yes",
@@ -132,7 +133,7 @@ func TestDeployUnitMeetsChannelContract(t *testing.T) {
 		if strings.HasPrefix(l, "RuntimeDirectory") {
 			t.Errorf("deploy unit lets systemd create its runtime directory: %q", l)
 		}
-		if strings.HasPrefix(l, "ReadWritePaths=") && l != "ReadWritePaths=/run/qhost-deploy" {
+		if strings.HasPrefix(l, "ReadWritePaths=") && l != "ReadWritePaths=/run/qhost-deploy" && l != "ReadWritePaths=-/run/qhost-hook/system" {
 			t.Errorf("deploy unit names a writable path: %q", l)
 		}
 	}
@@ -225,6 +226,7 @@ func TestInstanceTemplateMeetsItsContract(t *testing.T) {
 		"ExecStart=/usr/local/bin/qhost deploy-service run --instance %i",
 		"User=%i",
 		"ReadWritePaths=/run/qhost-deploy-%i",
+		"ReadWritePaths=-/run/qhost-hook/%i",
 		"StateDirectory=qhost-deploy-%i",
 		"StateDirectoryMode=0700",
 		"ConfigurationDirectory=qhost-deploy-%i",
@@ -248,7 +250,7 @@ func TestInstanceTemplateMeetsItsContract(t *testing.T) {
 		if strings.Contains(l, "docker.service") || strings.Contains(l, "%I") {
 			t.Errorf("instance template has the line %q", l)
 		}
-		if strings.HasPrefix(l, "ReadWritePaths=") && l != "ReadWritePaths=/run/qhost-deploy-%i" {
+		if strings.HasPrefix(l, "ReadWritePaths=") && l != "ReadWritePaths=/run/qhost-deploy-%i" && l != "ReadWritePaths=-/run/qhost-hook/%i" {
 			t.Errorf("instance template names a writable path: %q", l)
 		}
 		if key, value, ok := strings.Cut(l, "="); ok && strings.HasPrefix(key, "Exec") {

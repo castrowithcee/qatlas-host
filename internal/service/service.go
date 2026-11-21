@@ -75,6 +75,11 @@ type Config struct {
 	// Notify configures the notification sender; tests give it the roots of a local server and short waits. Its
 	// Redactor is ignored: the service's own redactor is used.
 	Notify notify.Options
+	// HookDir is the folder the webhook receiver leaves its markers for this instance in, one file per stack to
+	// check at once. Empty means no markers are taken. A folder that does not exist is no error.
+	HookDir string
+	// HookInterval is the time between looks into HookDir; zero means two seconds. Tests shorten it.
+	HookInterval time.Duration
 	// MonitorInterval is the time between container readings of the failure monitor; zero means 30 seconds.
 	MonitorInterval time.Duration
 	// OnMonitorEvent, when set, is told every failed and recovered transition of an own stack's containers and
@@ -263,6 +268,15 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 		poll.run(ctx)
 	}()
 	defer func() { <-pollDone }()
+	if cfg.HookDir != "" {
+		marks := newMarkerService(cfg.HookDir, cfg.Clock, cfg.HookInterval, poll.CheckStack, log)
+		marksDone := make(chan struct{})
+		go func() {
+			defer close(marksDone)
+			marks.run(ctx)
+		}()
+		defer func() { <-marksDone }()
+	}
 	if cfg.registryHook != nil {
 		cfg.registryHook(registry)
 	}
