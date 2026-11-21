@@ -80,7 +80,7 @@ func (f *fakeService) call(_ context.Context, command string, args, result any) 
 		res.Entries = page
 		v = res
 	case control.ContainerListCommand:
-		v = control.ContainerListResult{Groups: []control.ContainerGroup{{Kind: control.ContainerKindOwn, Name: "demo", State: "ok",
+		v = control.ContainerListResult{Groups: []control.ContainerGroup{{Kind: control.ContainerKindOwn, Name: "demo", Engine: "rootless:alice", State: "ok",
 			Containers: []control.ContainerSummary{{Name: "demo-web-1", Image: "demo/web:1.2.3", State: "ok", EngineState: "running"}}}}}
 	default:
 		return fmt.Errorf("unexpected command %q", command)
@@ -155,11 +155,17 @@ func TestArchiveHasATextAndAJSONFilePerPart(t *testing.T) {
 	for file, snippet := range map[string]string{
 		"version.txt": "qhost 1.0.0", "services.txt": "version 9.9.9", "sources.txt": "demo fetch failed",
 		"stacks.txt": "WEB_VERSION=1.2.3", "check.txt": "deploy: works", "runs.txt": "r1", "run-logs.txt": "pulled",
-		"service-log.txt": "service started", "containers.txt": "demo-web-1", "manifest.txt": "host name and paths",
+		"service-log.txt": "service started", "containers.txt": "engine rootless:alice", "manifest.txt": "host name and paths",
 	} {
 		if !strings.Contains(files[file], snippet) {
 			t.Errorf("%s lacks %q:\n%s", file, snippet, files[file])
 		}
+	}
+	if !strings.Contains(files["containers.json"], `"engine": "rootless:alice"`) && !strings.Contains(files["containers.json"], `"engine":"rootless:alice"`) {
+		t.Errorf("containers.json lacks the engine:\n%s", files["containers.json"])
+	}
+	if !strings.Contains(files["containers.txt"], "demo-web-1") {
+		t.Errorf("containers.txt lacks the container:\n%s", files["containers.txt"])
 	}
 	if !pkg.Complete() {
 		t.Error("a package of answers only is incomplete")

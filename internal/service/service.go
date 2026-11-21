@@ -60,6 +60,9 @@ type Config struct {
 	// Changelog configures the GitHub client of the changelogs; tests point it at a local server. Its Token and
 	// CacheDir are ignored: the token comes from the credential "github.com" and the cache lives in StateDir.
 	Changelog changelog.Options
+	// Engine names the container engine the service serves, as in control.SourceConflict.Engine: "system" or
+	// "rootless:<user>". Empty means control.EngineSystem. Containers are reported with it.
+	Engine string
 	// DockerSocket is the socket of the container engine; empty means DefaultDockerSocket. It is read only
 	// when Docker is nil.
 	DockerSocket string
@@ -232,7 +235,7 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 		defer client.Close()
 		dock = engineClient{client}
 	}
-	if err := registerContainerCommands(registry, repo, eng, secrets, dock, cfg.ContainerWait, log); err != nil {
+	if err := registerContainerCommands(registry, repo, eng, secrets, dock, cfg.Engine, cfg.ContainerWait, log); err != nil {
 		return err
 	}
 	if err := registerInspectCommands(registry, repo, dock, log); err != nil {

@@ -55,6 +55,8 @@ type Container struct {
 	Name       string // without the leading slash
 	Project    string // Compose project label, empty if the container has none
 	WorkingDir string // Compose working directory label
+	State      string // engine state word such as running or exited
+	Image      string // image reference as the engine lists it
 }
 
 // Client asks one engine for its containers with a single request and nothing else.
@@ -115,13 +117,16 @@ func (h httpClient) List(ctx context.Context) ([]Container, error) {
 	var items []struct {
 		Names  []string
 		Labels map[string]string
+		State  string
+		Image  string
 	}
 	if err := json.Unmarshal(body, &items); err != nil {
 		return nil, err
 	}
 	out := make([]Container, 0, len(items))
 	for _, it := range items {
-		out = append(out, Container{Name: itemName(it.Names), Project: it.Labels[labelProject], WorkingDir: it.Labels[labelWorkingDir]})
+		out = append(out, Container{Name: itemName(it.Names), Project: it.Labels[labelProject],
+			WorkingDir: it.Labels[labelWorkingDir], State: it.State, Image: it.Image})
 	}
 	return out, nil
 }
@@ -169,6 +174,27 @@ type engineList struct {
 type Scan struct {
 	NotChecked []NotChecked
 	engines    []engineList
+}
+
+// Engine is one scanned rootless engine with its containers; the text is masked.
+type Engine struct {
+	ID         string // "rootless:<user>"
+	Containers []Container
+}
+
+// Engines returns the engines that answered, with the name, project, working directory, state and image of
+// each container, in the order of the users. It is the same single list request per engine as Conflicts uses.
+func (s Scan) Engines() []Engine {
+	out := make([]Engine, 0, len(s.engines))
+	for _, e := range s.engines {
+		list := make([]Container, len(e.containers))
+		for i, c := range e.containers {
+			list[i] = Container{Name: maskControl(c.Name), Project: maskControl(c.Project),
+				WorkingDir: maskControl(c.WorkingDir), State: maskControl(c.State), Image: maskControl(c.Image)}
+		}
+		out = append(out, Engine{ID: e.id, Containers: list})
+	}
+	return out
 }
 
 // Conflicts returns every container of a Compose project in any scanned engine whose working directory label
