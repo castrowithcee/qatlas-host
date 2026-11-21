@@ -15,10 +15,15 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-kit/filelock"
+
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 // DefaultJournalDir is outside the state directory of the service, so the service cannot reach it.
 const DefaultJournalDir = "/var/lib/qhost-host/journal"
+
+// journalSchema is the format number of a journal entry.
+const journalSchema = 1
 
 // KeepEntries is the number of latest changes the journal keeps.
 const KeepEntries = 50
@@ -44,6 +49,7 @@ const (
 // Entry is one journaled change, stored as one file. Previous may hold sensitive data, which is why the
 // journal is readable by root only.
 type Entry struct {
+	Schema   int       `json:"schema"`
 	ID       string    `json:"id"`
 	Time     time.Time `json:"time"`
 	Action   string    `json:"action"`
@@ -164,6 +170,10 @@ func (j *Journal) Write(e Entry) error {
 	if !ValidID(e.ID) {
 		return fmt.Errorf("invalid journal id %q", e.ID)
 	}
+	if err := j.checkExisting(j.path(e.ID)); err != nil {
+		return err
+	}
+	e.Schema = journalSchema
 	data, err := json.MarshalIndent(e, "", "  ")
 	if err != nil {
 		return err
@@ -189,6 +199,16 @@ func (j *Journal) Write(e Entry) error {
 		return err
 	}
 	return nil
+}
+
+// checkExisting refuses a file of the journal whose format number this version does not read, so it is
+// neither replaced nor removed. A missing or otherwise unreadable file passes.
+func (j *Journal) checkExisting(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	return formatnum.CheckJSON(path, "schema", data, journalSchema)
 }
 
 // ErrNoEntry marks an id the journal does not hold.
@@ -218,6 +238,9 @@ func (j *Journal) Get(id string) (Entry, error) {
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
+		return Entry{}, err
+	}
+	if err := formatnum.CheckJSON(path, "schema", data, journalSchema); err != nil {
 		return Entry{}, err
 	}
 	var e Entry
@@ -262,17 +285,25 @@ func (j *Journal) List() ([]Entry, error) {
 	return entries, nil
 }
 
-// Prune removes the oldest entries beyond keep.
+// Prune removes the oldest entries beyond keep. An entry with a format number this version does not read stays
+// and counts toward keep.
 func (j *Journal) Prune(keep int) error {
 	ids, err := j.ids()
 	if err != nil {
 		return err
 	}
-	for len(ids) > keep {
-		if err := os.Remove(j.path(ids[0])); err != nil {
+	left := len(ids)
+	for _, id := range ids {
+		if left <= keep {
+			break
+		}
+		if j.checkExisting(j.path(id)) != nil {
+			continue
+		}
+		if err := os.Remove(j.path(id)); err != nil {
 			return err
 		}
-		ids = ids[1:]
+		left--
 	}
 	return nil
 }

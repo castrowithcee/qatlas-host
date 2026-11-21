@@ -63,6 +63,9 @@ func (e *Engine) SetSettings(ctx context.Context, name string, rules *stacks.Rul
 		return "", err
 	}
 	edit := func(old []byte) ([]byte, error) {
+		if err := refuseUnknownFormat(name, old); err != nil {
+			return nil, err
+		}
 		// Settings with the same meaning count as unchanged, whatever form the file has.
 		if old != nil {
 			if cur, err := stacks.ParseSettings(old); err == nil {
@@ -76,14 +79,29 @@ func (e *Engine) SetSettings(ctx context.Context, name string, rules *stacks.Rul
 	return e.commitSettings(ctx, name, rules, edit, "qhost: settings of "+name)
 }
 
+// refuseUnknownFormat keeps a settings file with a format number this version does not read from being
+// replaced or removed; any other broken content may be.
+func refuseUnknownFormat(name string, old []byte) error {
+	if old == nil {
+		return nil
+	}
+	if err := stacks.CheckSettingsFormat(stacks.SettingsPath(name), old); err != nil {
+		return fmt.Errorf("%w: %w", ErrUnreadable, err)
+	}
+	return nil
+}
+
 // RemoveSettings removes the settings of the stack: a commit that deletes its settings file, built, pushed and
 // followed like the commit of SetSettings, with the same waits and refusals. Afterwards the stack is deployed
 // but never updated. A stack without a settings file gets ErrNoSettings and nothing is committed; a file whose
-// content is broken is removed all the same.
+// content is broken is removed all the same, except one with a format number this version does not read.
 func (e *Engine) RemoveSettings(ctx context.Context, name string) (string, error) {
 	edit := func(old []byte) ([]byte, error) {
 		if old == nil {
 			return nil, ErrNoSettings
+		}
+		if err := refuseUnknownFormat(name, old); err != nil {
+			return nil, err
 		}
 		return nil, nil
 	}

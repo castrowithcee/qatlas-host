@@ -5,6 +5,7 @@ package service
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -19,6 +20,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/credentials"
 	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 	registryclient "github.com/castrowithcee/qatlas-host/internal/registry"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
@@ -97,7 +99,7 @@ type Config struct {
 
 // Run serves the channel until ctx ends and then returns nil: a stop request is the normal way for the service
 // to end. It fails if the channel cannot be opened.
-func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
+func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 	secrets := &redact.Redactor{}
 	next := log.Handler()
 	var logs *logStore
@@ -109,6 +111,13 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 		logs = newLogStore("")
 	}
 	log = slog.New(redactHandler{next: next, r: secrets})
+	// The service does not start on a file it must not read, and says which file in its log.
+	defer func() {
+		var fe *formatnum.Error
+		if errors.As(err, &fe) {
+			log.Error("the service does not start: a state file has an unsupported format number", "file", fe.File, "error", fe.Error())
+		}
+	}()
 	// The channel's lock must keep a second instance away before opening the store sweeps the temporary
 	// files of a write the first instance may be doing.
 	l, err := cfg.Endpoint.Listen()

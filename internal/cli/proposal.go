@@ -147,6 +147,9 @@ func listProposals(c *cobra.Command, state *notRunning) ([]listedProposal, error
 		for _, p := range res.Proposals {
 			all = append(all, listedProposal{ProposalInfo: p, service: svc})
 		}
+		for _, u := range res.Unreadable {
+			_, _ = fmt.Fprintf(c.ErrOrStderr(), "warning: the %s service has a proposal that cannot be read: %s\n", svc, u.Error)
+		}
 	}
 	if len(missing) == 2 {
 		state.seen = true

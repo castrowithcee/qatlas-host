@@ -317,7 +317,7 @@ func TestLegacyBindingBecomesTheFirstSource(t *testing.T) {
 	writeFile(t, filepath.Join(h.state, "deploy", "state.json"), `{"schema":1,"head":"`+head+
 		`","stacks":{"demo-stack":{"deployed":"`+head+`"}},"runs":[{"id":"`+runID+`","stack":"demo-stack","commit":"`+head+
 		`","trigger":"poll","started":"2026-01-01T00:00:00Z","duration":0,"result":"succeeded"}]}`)
-	writeFile(t, filepath.Join(h.state, "deploy", "runs", runID+".log"), "earlier run\n")
+	writeFile(t, filepath.Join(h.state, "deploy", "runs", runID+".log"), "schema 1\nearlier run\n")
 	h.run(nil)
 
 	for _, gone := range []string{"stacks-repo.json", "deploy"} {

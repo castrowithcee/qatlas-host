@@ -87,6 +87,9 @@ func newRunsCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 			}
 			rows := make([]output.Row, 0, len(res.Runs))
 			for _, r := range res.Runs {
+				if r.LogUnreadable != "" {
+					_, _ = fmt.Fprintf(c.ErrOrStderr(), "warning: the log of run %s cannot be read: %s\n", r.ID, r.LogUnreadable)
+				}
 				commit := r.Commit
 				if len(commit) > 12 && program.Format() == output.FormatTable {
 					commit = commit[:12]

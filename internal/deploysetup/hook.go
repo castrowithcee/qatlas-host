@@ -60,11 +60,12 @@ func HookInstalled(root string) bool {
 // HookConfig reads the configuration of the receiver below root; a missing file is an error that wraps
 // fs.ErrNotExist. Reading needs no root.
 func HookConfig(root string) (hookservice.Config, error) {
-	data, err := os.ReadFile(hostPath(root, HookConfigPath))
+	path := hostPath(root, HookConfigPath)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return hookservice.Config{}, err
 	}
-	return hookservice.ParseConfig(data)
+	return hookservice.ParseConfig(path, data)
 }
 
 // ValidateHookListen checks a listen address of the receiver: host:port with a port above 1024, because the
@@ -291,7 +292,7 @@ func (h Host) readHookConfig() (cfg hookservice.Config, exists bool, err error) 
 	if err != nil {
 		return hookservice.Config{}, false, fmt.Errorf("read %s: %w", HookConfigPath, err)
 	}
-	cfg, err = hookservice.ParseConfig(data)
+	cfg, err = hookservice.ParseConfig(h.path(HookConfigPath), data)
 	if err != nil {
 		return hookservice.Config{}, false, fmt.Errorf("%s is not valid and stays as it is: %w", HookConfigPath, err)
 	}
