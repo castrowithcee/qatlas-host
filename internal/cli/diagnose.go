@@ -70,7 +70,7 @@ func newDiagnoseCommand(program *cobracli.Program) *cobra.Command {
 			"text file and a JSON file for every part: the versions of qhost and its kit, the operating system, the state\n" +
 			"of the service, the sources with their last call and error, the stacks with versions and update mode, the\n" +
 			"result of 'qhost stack check', the last 20 runs with the logs of the 5 newest and of every failed one, the\n" +
-			"service log of the last 24 hours and the list of the containers. It holds no container logs, no env files\n" +
+			"service log of the last 24 hours and the list of the containers with their engine. It holds no container logs, no env files\n" +
 			"and no compose files, and it asks the service only for what 'qhost status' and its siblings show, so secret\n" +
 			"values are masked. A part that cannot be collected, also because the service is not running, is in the\n" +
 			"package with its reason, and the others are still written.\n\n" +

@@ -36,6 +36,10 @@ type fakeDocker struct {
 	fail func(summary string) error
 	// commandOut is what the backup command prints.
 	commandOut string
+	// uidMap and gidMap are what the helper container reads from /proc/self; the default mapping when empty.
+	uidMap, gidMap string
+	// namespaceErr makes the namespace read fail.
+	namespaceErr error
 }
 
 func (f *fakeDocker) Run(_ context.Context, c compose.Command) (compose.Result, error) {
@@ -73,6 +77,14 @@ func (f *fakeDocker) Run(_ context.Context, c compose.Command) (compose.Result, 
 
 // helper plays the container: tar -c writes the archive to its standard output.
 func (f *fakeDocker) helper(c compose.Command) error {
+	if strings.Contains(strings.Join(c.Args, " "), "/proc/self/uid_map") {
+		if f.namespaceErr != nil {
+			return f.namespaceErr
+		}
+		u, g := orDefault(f.uidMap), orDefault(f.gidMap)
+		_, err := fmt.Fprintf(c.Stdout, "%s--\n%s", u, g)
+		return err
+	}
 	for i, a := range c.Args {
 		if a == "-cf" && c.Args[i+1] == "-" {
 			_, err := c.Stdout.Write([]byte("archive of " + strings.Join(c.Args, " ")))
@@ -80,6 +92,15 @@ func (f *fakeDocker) helper(c compose.Command) error {
 		}
 	}
 	return nil
+}
+
+const namespaceCall = "sh -c " + namespaceScript
+
+func orDefault(m string) string {
+	if m == "" {
+		return "         0          0 4294967295\n"
+	}
+	return m
 }
 
 // summary reduces a call to what a test cares about: `compose <verb ...>` for Compose, else the full line.
@@ -236,6 +257,7 @@ func TestCreateRunsTheExactSequence(t *testing.T) {
 	equal(t, e.docker.summaries(), []string{
 		"compose config --format json",
 		"docker volume inspect demo_pgdata",
+		helperLine(nil, namespaceCall),
 		"compose ps --all --format json",
 		"compose stop",
 		helperLine([]string{data("data/db")}, "tar --numeric-owner -C /data -cf - ."),
@@ -603,6 +625,7 @@ func TestRestoreRunsTheExactSequence(t *testing.T) {
 	equal(t, e.docker.summaries(), []string{
 		"compose config --format json",
 		"docker volume inspect demo_pgdata",
+		helperLine(nil, namespaceCall),
 		"compose ps --all --format json",
 		"compose stop",
 		helperLine([]string{ro}, "tar -tf /backup/path-0.tar"),

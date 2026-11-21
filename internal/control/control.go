@@ -102,6 +102,9 @@ const (
 	CodeNoSuchBackup  = "no-such-backup"
 	CodeConfirmation  = "confirmation-required"
 	CodeBackupFailed  = "backup-failed"
+	// CodeOtherEngine answers the restore of a backup made in another engine, that is another user
+	// namespace. Nothing was changed.
+	CodeOtherEngine = "other-engine"
 
 	CodeBadVersion   = "bad-version"
 	CodeRegistry     = "registry-failed"
@@ -1653,9 +1656,13 @@ type ContainerListResult struct {
 // the name of a stack of this host but was started from another folder. State is the worst state of its
 // containers; UptimeSeconds is the shortest one among running containers; Restarts is the sum. WorkingDir,
 // ConfigFiles and EnvFiles come from the Compose labels of a foreign project, as absolute paths. Metrics sums
-// the readings of the containers that have one.
+// the readings of the containers that have one. Engine is the container engine the group runs in, named as in
+// SourceConflict.Engine; the deploy service sets it from its own configuration. ReadOnly is set only by a
+// client, for a group of an engine that has no deploy service: the client read it as root and no command acts on it.
 type ContainerGroup struct {
 	Kind          string             `json:"kind"`
+	Engine        string             `json:"engine"`
+	ReadOnly      bool               `json:"read_only,omitempty"`
 	Name          string             `json:"name"`
 	Conflict      bool               `json:"conflict,omitempty"`
 	State         string             `json:"state"`
@@ -1696,10 +1703,12 @@ type ContainerGetArgs struct {
 // ContainerDetail answers ContainerGetCommand. Project, Kind and Conflict classify the container like its
 // group in ContainerListResult. EnvNames are the names of the environment variables; their values never
 // leave the service. WorkingDir, ConfigFiles and EnvFiles come from the Compose labels of a container of a
-// foreign project, as in ContainerGroup.
+// foreign project, as in ContainerGroup. Engine is the container engine the container runs in, as in
+// ContainerGroup.
 type ContainerDetail struct {
 	ContainerSummary
 	ID       string             `json:"id"`
+	Engine   string             `json:"engine"`
 	Kind     string             `json:"kind"`
 	Project  string             `json:"project,omitempty"`
 	Conflict bool               `json:"conflict,omitempty"`

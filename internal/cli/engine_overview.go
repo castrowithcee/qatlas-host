@@ -51,6 +51,12 @@ func askEach[T any](ctx context.Context, limit time.Duration, targets []engineTa
 // nothing, a service that cannot be asked is a warning with its engine, and the command fails only when none
 // has an answer.
 func askOverview[T any](c *cobra.Command, state *notRunning, command string) ([]engineReply[T], error) {
+	return askOverviewWith[T](c, state, command, nil, client.CallTimeout)
+}
+
+// askOverviewWith is askOverview for a command with arguments and its own time limit. With several services
+// the shorter question to a peer applies unless the command needs longer than a normal call.
+func askOverviewWith[T any](c *cobra.Command, state *notRunning, command string, args any, limit time.Duration) ([]engineReply[T], error) {
 	targets, err := folders.engineTargets()
 	if err != nil {
 		return nil, err
@@ -59,11 +65,10 @@ func askOverview[T any](c *cobra.Command, state *notRunning, command string) ([]
 		// Not set up: the call to the system engine says so.
 		targets = []engineTarget{{}}
 	}
-	limit := client.CallTimeout
-	if len(targets) > 1 {
+	if len(targets) > 1 && limit <= client.CallTimeout {
 		limit = peerLimit
 	}
-	ok, failed, empty := splitOverview(len(targets), askEach[T](c.Context(), limit, targets, command, nil))
+	ok, failed, empty := splitOverview(len(targets), askEach[T](c.Context(), limit, targets, command, args))
 	if len(ok) == 0 && len(failed) == 0 {
 		// No service has a stack folder: the first one says so, as on a host with only that service.
 		return nil, targetFailure(withEngine(c.Context(), empty[0].target), empty[0].err)

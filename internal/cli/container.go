@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,7 +27,8 @@ func newContainerCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 		Long: "The container commands read every container of the host from the container engine: the stacks of this\n" +
 			"host (own), other Compose projects (foreign) and containers that belong to no project (single). list,\n" +
 			"show and logs change nothing; start, stop and restart act on one container after a question. list, show and logs need no sudo for\n" +
-			"an administrator in the group qhost; start, stop and restart need sudo. See 'qhost help containers'.",
+			"an administrator in the group qhost; start, stop and restart need sudo. Every container shows the Docker engine it\n" +
+			"runs in. See 'qhost help containers'.",
 	}
 	group.AddCommand(newContainerList(program, state), newContainerShow(program, state), newContainerLogs(program, state))
 	for _, verb := range []string{"start", "stop", "restart"} {
@@ -46,19 +48,19 @@ func newContainerList(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"has the name of a stack of this host but was started from another folder is marked as a conflict.\n\n" +
 			"--metrics adds CPU and memory of the running containers. Reading them takes about two seconds per\n" +
 			"running container, so the command may wait up to two minutes; if a reading fails or time runs out, the\n" +
-			"result says metrics are incomplete. With --output json the result of the service is printed as it is.",
+			"result says metrics are incomplete. With --output json the groups are printed with their engine, and notes\n" +
+			"holds what a person should know.\n\n" + wrapHelp(containerListEngineNote),
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			limit := client.CallTimeout
-			if metrics {
-				limit = control.ContainerListTimeout
-			}
-			var res control.ContainerListResult
-			if err := containerCall(c, state, limit, control.ContainerListCommand, control.ContainerListArgs{Metrics: metrics}, &res); err != nil {
+			res, err := listContainers(c, state, metrics)
+			if err != nil {
 				return err
 			}
 			if res.MetricsIncomplete {
 				_, _ = fmt.Fprintln(c.ErrOrStderr(), "note: metrics are incomplete; a running container has no reading")
+			}
+			for _, n := range res.notes {
+				_, _ = fmt.Fprintln(c.ErrOrStderr(), "note: "+n)
 			}
 			return encodeContainerList(c.OutOrStdout(), program.Format(), res, metrics)
 		},
@@ -68,21 +70,27 @@ func newContainerList(program *cobracli.Program, state *notRunning) *cobra.Comma
 }
 
 func newContainerShow(program *cobracli.Program, state *notRunning) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	cmd := &cobra.Command{
 		Use:   "show <name>",
 		Short: "Show the details of one container: ports, mounts, networks, labels and variable names",
 		Long: "show takes the name or the ID of a container and shows its group, state, ports, mounts, networks and\n" +
 			"labels, and the names of its environment variables. The values of the variables are never shown.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			var d control.ContainerDetail
-			if err := containerCall(c, state, client.CallTimeout, control.ContainerGetCommand, control.ContainerGetArgs{Name: args[0]}, &d); err != nil {
+			d, err := locateContainer(c, state, engine, args[0], false)
+			if err != nil {
 				return err
 			}
 			return encodeContainerDetail(c.OutOrStdout(), program.Format(), d)
 		},
 	}
+	addEngineFlag(cmd, &engine, containerEngineUsage, containerEngineNote)
+	return cmd
 }
+
+// containerEngineUsage is the usage of --engine of the commands that name one container.
+const containerEngineUsage = "Docker engine of the container: " + engineIDs + "; needed only when several engines have a container of that name"
 
 var containerActionCommands = map[string]string{
 	"start": control.ContainerStartCommand, "stop": control.ContainerStopCommand, "restart": control.ContainerRestartCommand,
@@ -90,6 +98,7 @@ var containerActionCommands = map[string]string{
 
 func newContainerAction(program *cobracli.Program, state *notRunning, verb string) *cobra.Command {
 	var gate *cobracli.Gate
+	var engine string
 	long := map[string]string{
 		"start": "start starts a stopped container and waits up to a minute until it runs and, if it has a health check,\n" +
 			"is healthy. A container that already runs is left as it is.",
@@ -107,8 +116,8 @@ func newContainerAction(program *cobracli.Program, state *notRunning, verb strin
 			"--yes is always needed).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			var d control.ContainerDetail
-			if err := containerCall(c, state, client.CallTimeout, control.ContainerGetCommand, control.ContainerGetArgs{Name: args[0]}, &d); err != nil {
+			d, err := locateContainer(c, state, engine, args[0], true)
+			if err != nil {
 				return err
 			}
 			question := fmt.Sprintf("%s container %s (%s)?", strings.ToUpper(verb[:1])+verb[1:], d.Name, containerKindText(d))
@@ -130,17 +139,24 @@ func newContainerAction(program *cobracli.Program, state *notRunning, verb strin
 		},
 	}
 	gate = program.AddGate(cmd, cobracli.Gates{Question: true})
+	addEngineFlag(cmd, &engine, containerEngineUsage, containerEngineNote)
 	return cmd
 }
 
 func containerKindText(d control.ContainerDetail) string {
+	var kind string
 	switch d.Kind {
 	case control.ContainerKindOwn:
-		return "own, stack " + d.Project
+		kind = "own, stack " + d.Project
 	case control.ContainerKindForeign:
-		return "foreign, project " + d.Project
+		kind = "foreign, project " + d.Project
+	default:
+		kind = "single"
 	}
-	return "single"
+	if d.Engine != "" {
+		kind += ", engine " + d.Engine
+	}
+	return kind
 }
 
 func encodeContainerAction(w io.Writer, format output.Format, res control.ContainerActionResult) error {
@@ -160,6 +176,11 @@ func containerCall(c *cobra.Command, state *notRunning, limit time.Duration, com
 	if errors.Is(err, client.ErrNotRunning) {
 		state.seen = true
 	}
+	return containerFailure(c.Context(), err)
+}
+
+// containerFailure turns an error of a call to the deploy service of the target of ctx into a diagnostic.
+func containerFailure(ctx context.Context, err error) error {
 	var remote *control.Error
 	if errors.As(err, &remote) {
 		switch remote.Code {
@@ -180,18 +201,21 @@ func containerCall(c *cobra.Command, state *notRunning, limit time.Duration, com
 				NextStep: "Use 'qhost container show <name>' for single containers.", Cause: err}
 		}
 	}
-	return targetFailure(c.Context(), err)
+	return targetFailure(ctx, err)
 }
 
-func encodeContainerList(w io.Writer, format output.Format, res control.ContainerListResult, metrics bool) error {
+func encodeContainerList(w io.Writer, format output.Format, res containerListing, metrics bool) error {
 	if format == output.FormatJSON || format == output.FormatTOON {
 		fields := []output.Field{{Name: "groups", Value: structured(format, res.Groups)}}
 		if res.MetricsIncomplete {
 			fields = append(fields, output.Field{Name: "metrics_incomplete", Value: true})
 		}
+		if len(res.notes) > 0 {
+			fields = append(fields, output.Field{Name: "notes", Value: res.notes})
+		}
 		return output.Encode(w, format, output.Object{Fields: fields})
 	}
-	columns := []string{"kind", "name", "state", "uptime", "restarts", "image"}
+	columns := []string{"kind", "engine", "name", "state", "uptime", "restarts", "image"}
 	if metrics {
 		columns = append(columns, "cpu", "memory")
 	}
@@ -202,7 +226,7 @@ func encodeContainerList(w io.Writer, format output.Format, res control.Containe
 		if g.Conflict {
 			name += " (conflict)"
 		}
-		row := output.Row{"kind": g.Kind, "name": name, "state": g.State, "uptime": uptimeText(g.UptimeSeconds),
+		row := output.Row{"kind": g.Kind, "engine": g.Engine, "name": name, "state": g.State, "uptime": uptimeText(g.UptimeSeconds),
 			"restarts": int64(g.Restarts), "details": groupDetails(g)}
 		metricsCells(row, g.Metrics)
 		if g.Kind == control.ContainerKindSingle && len(g.Containers) == 1 {
@@ -229,6 +253,9 @@ func encodeContainerList(w io.Writer, format output.Format, res control.Containe
 
 func groupDetails(g control.ContainerGroup) string {
 	var parts []string
+	if g.ReadOnly {
+		parts = append(parts, "read-only: the engine has no deploy service")
+	}
 	if g.Conflict {
 		parts = append(parts, "conflict: has the name of a stack of this host but was started from another folder")
 	}
@@ -283,7 +310,7 @@ func bytesText(n uint64) string {
 func encodeContainerDetail(w io.Writer, format output.Format, d control.ContainerDetail) error {
 	if format == output.FormatJSON || format == output.FormatTOON {
 		return output.Encode(w, format, output.Object{Fields: []output.Field{
-			{Name: "name", Value: d.Name}, {Name: "id", Value: d.ID}, {Name: "kind", Value: d.Kind},
+			{Name: "name", Value: d.Name}, {Name: "id", Value: d.ID}, {Name: "engine", Value: d.Engine}, {Name: "kind", Value: d.Kind},
 			{Name: "project", Value: d.Project}, {Name: "conflict", Value: d.Conflict},
 			{Name: "image", Value: d.Image}, {Name: "state", Value: d.State}, {Name: "engine_state", Value: d.EngineState},
 			{Name: "health", Value: d.Health}, {Name: "uptime_seconds", Value: d.UptimeSeconds}, {Name: "restarts", Value: d.Restarts},
@@ -323,7 +350,7 @@ func encodeContainerDetail(w io.Writer, format output.Format, d control.Containe
 	}
 	sort.Strings(labels)
 	fields := []output.Field{
-		{Name: "name", Value: d.Name}, {Name: "id", Value: d.ID}, {Name: "kind", Value: d.Kind},
+		{Name: "name", Value: d.Name}, {Name: "id", Value: d.ID}, {Name: "engine", Value: d.Engine}, {Name: "kind", Value: d.Kind},
 		{Name: "project", Value: d.Project}, {Name: "conflict", Value: d.Conflict},
 		{Name: "image", Value: d.Image}, {Name: "state", Value: d.State}, {Name: "engine_state", Value: d.EngineState},
 		{Name: "health", Value: d.Health}, {Name: "uptime", Value: uptimeText(d.UptimeSeconds)}, {Name: "restarts", Value: int64(d.Restarts)},
