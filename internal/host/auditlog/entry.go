@@ -18,11 +18,14 @@ type Host struct {
 	ActionID  string `json:"action_id"`
 	JournalID string `json:"journal_id"`
 	UndoOf    string `json:"undo_of,omitempty"`
+	// ProposalID names the proposal of free commands whose run the entry records; it never holds a command.
+	ProposalID string `json:"proposal_id,omitempty"`
 }
 
 var (
-	hostActionPattern  = regexp.MustCompile(`^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$`)
-	hostJournalPattern = regexp.MustCompile(`^[0-9]{8}T[0-9]{6}\.[0-9]{6}Z-[0-9a-f]{6}$`)
+	hostActionPattern   = regexp.MustCompile(`^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$`)
+	hostJournalPattern  = regexp.MustCompile(`^[0-9]{8}T[0-9]{6}\.[0-9]{6}Z-[0-9a-f]{6}$`)
+	hostProposalPattern = regexp.MustCompile(`^h-[0-9a-f]{16}$`)
 )
 
 // maxHostActionLength bounds an action id.
@@ -38,6 +41,8 @@ func (h Host) Validate() error {
 		return errors.New("host journal id has an invalid form")
 	case h.UndoOf != "" && !hostJournalPattern.MatchString(h.UndoOf):
 		return errors.New("host undo id has an invalid form")
+	case h.ProposalID != "" && !hostProposalPattern.MatchString(h.ProposalID):
+		return errors.New("host proposal id has an invalid form")
 	}
 	return nil
 }

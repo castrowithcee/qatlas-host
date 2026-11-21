@@ -25,13 +25,15 @@ const (
 	OperationProposalApprove  = "proposal.approve"
 	OperationProposalReject   = "proposal.reject"
 	OperationProposalResult   = "proposal.result"
+	// OperationProposalCommands is a change of the switch for proposals of free commands.
+	OperationProposalCommands = "proposal.commands"
 )
 
 // knownOperations is every action Validate accepts, so a new one is added here.
 var knownOperations = map[string]bool{
 	OperationLogRead: true, OperationControlRequest: true, OperationControlRefuse: true, OperationControlStatus: true,
 	OperationHostChange: true, OperationProposalSubmit: true, OperationProposalWithdraw: true, OperationProposalRead: true,
-	OperationProposalApprove: true, OperationProposalReject: true, OperationProposalResult: true,
+	OperationProposalApprove: true, OperationProposalReject: true, OperationProposalResult: true, OperationProposalCommands: true,
 }
 
 // KnownOperation reports whether action is one of the Operation constants.

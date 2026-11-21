@@ -114,6 +114,8 @@ const (
 	CodeNotSubmitter  = "not-submitter"
 	// CodeProposalChanged answers an approval whose fingerprint is not that of the stored proposal.
 	CodeProposalChanged = "proposal-changed"
+	// CodeCommandsDisabled answers the submission of a proposal of kind ProposalKindCommand while the switch is off.
+	CodeCommandsDisabled = "commands-disabled"
 )
 
 // Request is what a client sends. Args is command specific and may be absent.
@@ -1747,6 +1749,25 @@ const ProposalKindNotifyChannel = "notify-channel"
 // ProposalKindHostChange proposes a change of the host with one action of the host administration; its content
 // is a ProposalHostChange. The host service keeps these proposals, the deploy service never sees them.
 const ProposalKindHostChange = "host-change"
+
+// ProposalKindCommand proposes shell commands with a reason, for a change no registered action covers; its
+// content is a ProposalCommand. The host service keeps these proposals, and only while the switch of
+// HostCommandsSetCommand is on. qhost never runs them by itself, and nothing about them is checked.
+const ProposalKindCommand = "command"
+
+// The limits of a ProposalCommand: entries, characters of one command and of the reason.
+const (
+	ProposalCommandMax      = 10
+	ProposalCommandMaxChars = 1000
+	ProposalReasonMaxChars  = 1000
+)
+
+// ProposalCommand is the content of a proposal of kind ProposalKindCommand: one to ProposalCommandMax commands,
+// each one printable line of at most ProposalCommandMaxChars characters, and the reason of the proposal.
+type ProposalCommand struct {
+	Commands []string `json:"commands"`
+	Reason   string   `json:"reason"`
+}
 
 // The prefixes of the proposal ids: a proposal of the host service has an id that starts with
 // HostProposalIDPrefix, one of the deploy service with DeployProposalIDPrefix, so an id names its service.

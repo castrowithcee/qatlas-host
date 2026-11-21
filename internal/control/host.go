@@ -22,7 +22,22 @@ const (
 	// HostRecordCommand records a finished change of the host in the action log. Only root may call it: the
 	// sudo call that made the change is the proof.
 	HostRecordCommand = "host.record"
+	// HostCommandsSetCommand turns the switch for proposals of free commands on or off; only root may call it.
+	HostCommandsSetCommand = "proposal.commands.set"
+	// HostCommandsStatusCommand reads that switch.
+	HostCommandsStatusCommand = "proposal.commands.status"
 )
+
+// HostCommandsSetArgs are the arguments of HostCommandsSetCommand.
+type HostCommandsSetArgs struct {
+	Enabled bool `json:"enabled"`
+}
+
+// HostCommandsResult answers HostCommandsSetCommand and HostCommandsStatusCommand: whether proposals of the kind
+// ProposalKindCommand are accepted. The switch is off until root turns it on.
+type HostCommandsResult struct {
+	Enabled bool `json:"enabled"`
+}
 
 // Limits of HostLogListCommand: a request without a limit gets HostLogDefaultLimit entries.
 const (
@@ -66,6 +81,8 @@ type HostLogChange struct {
 	ActionID  string `json:"action_id"`
 	JournalID string `json:"journal_id"`
 	UndoOf    string `json:"undo_of,omitempty"`
+	// ProposalID is set for the run of a proposal of free commands.
+	ProposalID string `json:"proposal_id,omitempty"`
 }
 
 // HostLogListResult answers HostLogListCommand. Next is set when more entries match; passing it as After
@@ -123,4 +140,6 @@ type HostRecordArgs struct {
 	SudoUID   uint32 `json:"sudo_uid"`
 	JournalID string `json:"journal_id"`
 	UndoOf    string `json:"undo_of,omitempty"`
+	// ProposalID is set for the run of a proposal of free commands.
+	ProposalID string `json:"proposal_id,omitempty"`
 }
