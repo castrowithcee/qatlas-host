@@ -313,7 +313,7 @@ func newHostJournalCommand(program *cobracli.Program) *cobra.Command {
 				result.Rows = append(result.Rows, output.Row{
 					"id": e.ID, "time": e.Time.UTC().Format(time.RFC3339), "action": e.Action, "sentence": e.Sentence,
 					"result": e.Result, "reversible": reversible, "sudo_uid": int64(e.SudoUID),
-					"undo_sentence": undoSentence, "undo_commands": listValueSep(program, undoCommands, "; "),
+					"undo_sentence": undoSentence, "undo_commands": listValueSep(program.Format(), undoCommands, "; "),
 				})
 			}
 			return output.Encode(c.OutOrStdout(), program.Format(), result)
@@ -350,7 +350,7 @@ func refusedChange(c *cobra.Command, program *cobracli.Program, action string, e
 		{Name: "journal_id", Value: ""},
 		{Name: "action", Value: action},
 		{Name: "sentence", Value: ""},
-		{Name: "commands", Value: listValue(program, nil)},
+		{Name: "commands", Value: listValue(program.Format(), nil)},
 		{Name: "result", Value: hostchange.ResultRefused},
 		{Name: "check", Value: ""},
 		{Name: "check_error", Value: ""},
@@ -375,7 +375,7 @@ func finishChange(c *cobra.Command, program *cobracli.Program, res hostchange.Re
 		{Name: "journal_id", Value: e.ID},
 		{Name: "action", Value: e.Action},
 		{Name: "sentence", Value: e.Sentence},
-		{Name: "commands", Value: listValueSep(program, e.Commands, "; ")},
+		{Name: "commands", Value: listValueSep(program.Format(), e.Commands, "; ")},
 		{Name: "result", Value: e.Result},
 		{Name: "check", Value: e.Check},
 		{Name: "check_error", Value: e.CheckError},

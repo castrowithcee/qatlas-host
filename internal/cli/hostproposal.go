@@ -283,7 +283,7 @@ func hostChangeFields(program *cobracli.Program, res control.ProposalShowResult)
 	}
 	return []output.Field{
 		{Name: "sentence", Value: text(format, plan.Sentence)},
-		{Name: "commands", Value: listValueSep(program, commands, "; ")},
-		{Name: "ssh_keys", Value: listValueSep(program, details, "; ")},
+		{Name: "commands", Value: listValueSep(program.Format(), commands, "; ")},
+		{Name: "ssh_keys", Value: listValueSep(program.Format(), details, "; ")},
 	}
 }

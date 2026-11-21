@@ -96,22 +96,30 @@ func newHostUsersCommand(program *cobracli.Program) *cobra.Command {
 		Short: "List the local users",
 		Args:  cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			users, err := hostEnv.reader().Users()
+			result, err := usersResult(program.Format())
 			if err != nil {
-				return hostError("host users", err)
-			}
-			result := output.Collection{Columns: []string{"name", "uid", "primary_group", "groups", "home", "system",
-				"admin", "docker", "enabled", "locked", "expired"}}
-			for _, u := range users {
-				result.Rows = append(result.Rows, output.Row{
-					"name": u.Name, "uid": int64(u.UID), "primary_group": u.PrimaryGroup, "groups": listValue(program, u.Groups), "home": u.Home,
-					"system": u.System, "admin": u.Admin, "docker": u.Docker, "enabled": u.Enabled,
-					"locked": triState(program, u.Locked), "expired": triState(program, u.Expired),
-				})
+				return err
 			}
 			return output.Encode(c.OutOrStdout(), program.Format(), result)
 		},
 	}
+}
+
+func usersResult(f output.Format) (output.Collection, error) {
+	users, err := hostEnv.reader().Users()
+	if err != nil {
+		return output.Collection{}, hostError("host users", err)
+	}
+	result := output.Collection{Columns: []string{"name", "uid", "primary_group", "groups", "home", "system",
+		"admin", "docker", "enabled", "locked", "expired"}}
+	for _, u := range users {
+		result.Rows = append(result.Rows, output.Row{
+			"name": u.Name, "uid": int64(u.UID), "primary_group": u.PrimaryGroup, "groups": listValue(f, u.Groups), "home": u.Home,
+			"system": u.System, "admin": u.Admin, "docker": u.Docker, "enabled": u.Enabled,
+			"locked": triState(f, u.Locked), "expired": triState(f, u.Expired),
+		})
+	}
+	return result, nil
 }
 
 func newHostUserCommand(program *cobracli.Program) *cobra.Command {
@@ -120,26 +128,34 @@ func newHostUserCommand(program *cobracli.Program) *cobra.Command {
 		Short: "Show one local user",
 		Args:  exactlyOne("user name"),
 		RunE: func(c *cobra.Command, args []string) error {
-			u, err := hostEnv.reader().User(args[0])
+			result, err := userResult(program.Format(), args[0])
 			if err != nil {
-				return hostError("host user", err)
+				return err
 			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
-				{Name: "name", Value: u.Name},
-				{Name: "uid", Value: int64(u.UID)},
-				{Name: "primary_group", Value: u.PrimaryGroup},
-				{Name: "groups", Value: listValue(program, u.Groups)},
-				{Name: "home", Value: u.Home},
-				{Name: "system", Value: u.System},
-				{Name: "admin", Value: u.Admin},
-				{Name: "docker", Value: u.Docker},
-				{Name: "enabled", Value: u.Enabled},
-				{Name: "locked", Value: triState(program, u.Locked)},
-				{Name: "expired", Value: triState(program, u.Expired)},
-				{Name: "ssh_keys", Value: keysValue(program, u.SSHKeys)},
-			}})
+			return output.Encode(c.OutOrStdout(), program.Format(), result)
 		},
 	}
+}
+
+func userResult(f output.Format, name string) (output.Object, error) {
+	u, err := hostEnv.reader().User(name)
+	if err != nil {
+		return output.Object{}, hostError("host user", err)
+	}
+	return output.Object{Fields: []output.Field{
+		{Name: "name", Value: u.Name},
+		{Name: "uid", Value: int64(u.UID)},
+		{Name: "primary_group", Value: u.PrimaryGroup},
+		{Name: "groups", Value: listValue(f, u.Groups)},
+		{Name: "home", Value: u.Home},
+		{Name: "system", Value: u.System},
+		{Name: "admin", Value: u.Admin},
+		{Name: "docker", Value: u.Docker},
+		{Name: "enabled", Value: u.Enabled},
+		{Name: "locked", Value: triState(f, u.Locked)},
+		{Name: "expired", Value: triState(f, u.Expired)},
+		{Name: "ssh_keys", Value: keysValue(f, u.SSHKeys)},
+	}}, nil
 }
 
 func newHostGroupsCommand(program *cobracli.Program) *cobra.Command {
@@ -148,19 +164,27 @@ func newHostGroupsCommand(program *cobracli.Program) *cobra.Command {
 		Short: "List the local groups",
 		Args:  cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
-			groups, err := hostEnv.reader().Groups()
+			result, err := groupsResult(program.Format())
 			if err != nil {
-				return hostError("host groups", err)
-			}
-			result := output.Collection{Columns: []string{"name", "gid", "members", "system"}}
-			for _, g := range groups {
-				result.Rows = append(result.Rows, output.Row{
-					"name": g.Name, "gid": int64(g.GID), "members": listValue(program, g.Members), "system": g.System,
-				})
+				return err
 			}
 			return output.Encode(c.OutOrStdout(), program.Format(), result)
 		},
 	}
+}
+
+func groupsResult(f output.Format) (output.Collection, error) {
+	groups, err := hostEnv.reader().Groups()
+	if err != nil {
+		return output.Collection{}, hostError("host groups", err)
+	}
+	result := output.Collection{Columns: []string{"name", "gid", "members", "system"}}
+	for _, g := range groups {
+		result.Rows = append(result.Rows, output.Row{
+			"name": g.Name, "gid": int64(g.GID), "members": listValue(f, g.Members), "system": g.System,
+		})
+	}
+	return result, nil
 }
 
 func newHostGroupCommand(program *cobracli.Program) *cobra.Command {
@@ -169,18 +193,26 @@ func newHostGroupCommand(program *cobracli.Program) *cobra.Command {
 		Short: "Show one local group",
 		Args:  exactlyOne("group name"),
 		RunE: func(c *cobra.Command, args []string) error {
-			g, err := hostEnv.reader().Group(args[0])
+			result, err := groupResult(program.Format(), args[0])
 			if err != nil {
-				return hostError("host group", err)
+				return err
 			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
-				{Name: "name", Value: g.Name},
-				{Name: "gid", Value: int64(g.GID)},
-				{Name: "members", Value: listValue(program, g.Members)},
-				{Name: "system", Value: g.System},
-			}})
+			return output.Encode(c.OutOrStdout(), program.Format(), result)
 		},
 	}
+}
+
+func groupResult(f output.Format, name string) (output.Object, error) {
+	g, err := hostEnv.reader().Group(name)
+	if err != nil {
+		return output.Object{}, hostError("host group", err)
+	}
+	return output.Object{Fields: []output.Field{
+		{Name: "name", Value: g.Name},
+		{Name: "gid", Value: int64(g.GID)},
+		{Name: "members", Value: listValue(f, g.Members)},
+		{Name: "system", Value: g.System},
+	}}, nil
 }
 
 func newHostFolderCommand(program *cobracli.Program) *cobra.Command {
@@ -189,50 +221,58 @@ func newHostFolderCommand(program *cobracli.Program) *cobra.Command {
 		Short: "Show owner, group and permissions of a folder or file",
 		Args:  exactlyOne("path"),
 		RunE: func(c *cobra.Command, args []string) error {
-			f, err := hostEnv.reader().Folder(args[0])
+			result, err := folderResult(program.Format(), args[0])
 			if err != nil {
-				return hostError("host folder", err)
+				return err
 			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
-				{Name: "path", Value: f.Path},
-				{Name: "resolved", Value: f.Resolved},
-				{Name: "kind", Value: f.Kind},
-				{Name: "owner", Value: f.Owner},
-				{Name: "group", Value: f.Group},
-				{Name: "mode", Value: f.Mode},
-				{Name: "owner_access", Value: string(f.OwnerAcc)},
-				{Name: "group_access", Value: string(f.GroupAcc)},
-				{Name: "others_access", Value: string(f.OthersAcc)},
-				{Name: "acl", Value: triState(program, f.ACL)},
-				{Name: "setuid", Value: f.Setuid},
-				{Name: "setgid", Value: f.Setgid},
-				{Name: "sticky", Value: f.Sticky},
-				{Name: "protected", Value: f.Protected},
-			}})
+			return output.Encode(c.OutOrStdout(), program.Format(), result)
 		},
 	}
 }
 
+func folderResult(format output.Format, path string) (output.Object, error) {
+	f, err := hostEnv.reader().Folder(path)
+	if err != nil {
+		return output.Object{}, hostError("host folder", err)
+	}
+	return output.Object{Fields: []output.Field{
+		{Name: "path", Value: f.Path},
+		{Name: "resolved", Value: f.Resolved},
+		{Name: "kind", Value: f.Kind},
+		{Name: "owner", Value: f.Owner},
+		{Name: "group", Value: f.Group},
+		{Name: "mode", Value: f.Mode},
+		{Name: "owner_access", Value: string(f.OwnerAcc)},
+		{Name: "group_access", Value: string(f.GroupAcc)},
+		{Name: "others_access", Value: string(f.OthersAcc)},
+		{Name: "acl", Value: triState(format, f.ACL)},
+		{Name: "setuid", Value: f.Setuid},
+		{Name: "setgid", Value: f.Setgid},
+		{Name: "sticky", Value: f.Sticky},
+		{Name: "protected", Value: f.Protected},
+	}}, nil
+}
+
 // listValue renders a list of words: a list in JSON, one comma-separated text elsewhere, because a table or
 // compact row holds no list.
-func listValue(program *cobracli.Program, list []string) any { return listValueSep(program, list, ",") }
+func listValue(f output.Format, list []string) any { return listValueSep(f, list, ",") }
 
-func listValueSep(program *cobracli.Program, list []string, sep string) any {
+func listValueSep(f output.Format, list []string, sep string) any {
 	if list == nil {
 		list = []string{}
 	}
-	if program.Format() == output.FormatJSON {
+	if f == output.FormatJSON {
 		return list
 	}
 	return strings.Join(list, sep)
 }
 
 // triState renders a value that may be unknown: absent in JSON, "unknown" in the other formats.
-func triState(program *cobracli.Program, v *bool) any {
+func triState(f output.Format, v *bool) any {
 	switch {
 	case v != nil:
 		return *v
-	case program.Format() == output.FormatJSON:
+	case f == output.FormatJSON:
 		return nil
 	}
 	return "unknown"
@@ -240,8 +280,8 @@ func triState(program *cobracli.Program, v *bool) any {
 
 // keysValue renders the keys of a user: a list of objects in JSON, one text elsewhere. Unknown is absent in
 // JSON and "unknown" elsewhere. A key itself is never shown.
-func keysValue(program *cobracli.Program, keys []hostadmin.SSHKey) any {
-	if program.Format() == output.FormatJSON {
+func keysValue(f output.Format, keys []hostadmin.SSHKey) any {
+	if f == output.FormatJSON {
 		if keys == nil {
 			return nil
 		}

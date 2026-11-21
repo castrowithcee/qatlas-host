@@ -9,7 +9,21 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"slices"
+
+	"github.com/castrowithcee/qatlas-kit/jsonschema"
+)
+
+var (
+	// ErrNotCallable refuses a function the table only describes: every function of class root and every entry
+	// a service runs.
+	ErrNotCallable = errors.New("the function cannot be called through the tool table")
+	// ErrUnknownTool refuses a name that is not in the table.
+	ErrUnknownTool = errors.New("unknown function")
+	// ErrInvalidArguments refuses arguments that do not fit the schema of the entry.
+	ErrInvalidArguments = errors.New("invalid arguments")
 )
 
 // Class says what a function does to the host. The values of read, propose and change are those of the
@@ -93,6 +107,41 @@ func Lookup(name string) (Entry, bool) {
 		}
 	}
 	return Entry{}, false
+}
+
+// Register sets the call of a local function of class read. The packages that own the logic register at start
+// (this package imports none of them); a wrong name or a second call is an error of the program and panics.
+func Register(name string, call Caller) {
+	for i := range entries {
+		if entries[i].Name != name {
+			continue
+		}
+		if entries[i].Exec != ExecLocal || entries[i].Class != ClassRead || entries[i].Call != nil || call == nil {
+			panic("tools: cannot register a call for " + name)
+		}
+		entries[i].Call = call
+		return
+	}
+	panic("tools: no entry " + name)
+}
+
+// Invoke runs the local read function of a name with JSON arguments, after the arguments passed the schema of
+// the entry. The function itself keeps the preconditions of its command line, such as the administrator check.
+func Invoke(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
+	e, ok := Lookup(name)
+	if !ok {
+		return nil, fmt.Errorf("%w: %q", ErrUnknownTool, name)
+	}
+	if e.Class != ClassRead || e.Exec != ExecLocal || e.Call == nil {
+		return nil, fmt.Errorf("%w: %s", ErrNotCallable, name)
+	}
+	if len(args) == 0 {
+		args = json.RawMessage(`{}`)
+	}
+	if err := jsonschema.ValidateJSON(e.Schema, args); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidArguments, err)
+	}
+	return e.Call(ctx, args)
 }
 
 // schema builders: the table stays short and every schema is built the same way.
