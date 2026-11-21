@@ -42,6 +42,7 @@ func foldersBackend() *fakeBackend {
 			PlannedFiles: []string{"demo/.env", "demo/compose.yaml"},
 			Excluded: []control.SourceExcluded{{Path: "demo/data", Reason: control.SourceExcludedBindMount, Stack: "demo"},
 				{Path: "demo/notes.txt", Reason: control.SourceExcludedNotReferenced}},
+			Ignore: &control.SourceIgnore{Action: control.SourceIgnoreCreate, Lines: []string{"/demo/data", "/demo/notes.txt"}},
 			Stacks: []control.SourceStack{{Name: "demo", Folder: "demo",
 				Unresolved: []string{`env_file "${CONF_DIR}/app.env": variable CONF_DIR has no value in .env`},
 				Functions:  []control.StackFunction{{Function: "deploy", Works: true}, {Function: "backup"}},

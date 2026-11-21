@@ -415,29 +415,39 @@ func TestSourceAddStartsARepositoryWithTheConfirmedFiles(t *testing.T) {
 	if shown.Case != control.SourceCaseFiles || slices.Contains(shown.PlannedFiles, "web/data/db.bin") {
 		t.Fatalf("inspect = %+v", shown)
 	}
+	wantLines := []string{"/web/data", `/web/odd \[x].txt`}
+	if ig := shown.Ignore; ig == nil || ig.Action != control.SourceIgnoreCreate || !slices.Equal(ig.Lines, wantLines) {
+		t.Fatalf("ignore = %+v", shown.Ignore)
+	}
 	res, err := h.sourceAddFiles(dir, shown.PlannedFiles)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Path != dir || res.Kind != "local" || res.Files != len(shown.PlannedFiles) || res.Head != headOf(t, dir) {
+	// The first commit holds the planned files and the .gitignore it creates.
+	if res.Path != dir || res.Kind != "local" || res.Files != len(shown.PlannedFiles)+1 || res.Head != headOf(t, dir) {
 		t.Fatalf("add = %+v", res)
 	}
 	out, err := exec.Command("git", "-C", dir, "ls-tree", "-r", "--name-only", "HEAD").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Fields(strings.ReplaceAll(string(out), " ", "_")); len(got) != len(shown.PlannedFiles) {
+	if got := strings.Fields(strings.ReplaceAll(string(out), " ", "_")); len(got) != len(shown.PlannedFiles)+1 || !slices.Contains(got, ".gitignore") {
 		t.Fatalf("committed %q, planned %q", got, shown.PlannedFiles)
 	}
-	if got := tree(t, dir); !maps.Equal(got, before) {
+	ignore := filepath.Join(dir, ".gitignore")
+	got := tree(t, dir)
+	if !strings.Contains(got[ignore], "\n"+strings.Join(wantLines, "\n")+"\n") {
+		t.Fatalf(".gitignore = %q", got[ignore])
+	}
+	delete(got, ignore)
+	if !maps.Equal(got, before) {
 		t.Fatalf("the files changed: %v", got)
 	}
-	if _, err := os.Lstat(filepath.Join(dir, ".gitignore")); err == nil {
-		t.Fatal("a .gitignore was written")
+	if status, err := exec.Command("git", "-C", dir, "status", "--porcelain", "--untracked-files=all").Output(); err != nil || len(status) != 0 {
+		t.Fatalf("status = %q, %v", status, err)
 	}
-	exclude, err := os.ReadFile(filepath.Join(dir, ".git", "info", "exclude"))
-	if err != nil || !strings.Contains(string(exclude), "/web/data\n") {
-		t.Fatalf("exclude = %q, %v", exclude, err)
+	if _, err := os.Lstat(filepath.Join(dir, ".git", "info", "exclude")); err == nil {
+		t.Fatal(".git/info/exclude was written")
 	}
 	if list := h.sourceList(); len(list.Sources) != 1 || list.Sources[0].Kind != control.SourceKindLocal {
 		t.Fatalf("list = %+v", list)
@@ -448,6 +458,52 @@ func TestSourceAddStartsARepositoryWithTheConfirmedFiles(t *testing.T) {
 	if _, err := h.sourceAddFiles(dir, shown.PlannedFiles); err == nil {
 		t.Fatal("a bound folder was added again")
 	}
+}
+
+func TestSourceAddFilesExtendsAnExistingGitignore(t *testing.T) {
+	notRoot(t)
+	h := realGitService(t)
+	dir := newFolder(t)
+	writeTree(t, dir, localFiles())
+	own := "# kept by the operator\n*.swp\n"
+	writeTree(t, dir, map[string]string{".gitignore": own, "notes.txt": "n\n"})
+
+	shown := h.inspect(dir, "")
+	if ig := shown.Ignore; ig == nil || ig.Action != control.SourceIgnoreExtend || !slices.Equal(ig.Lines, []string{"/notes.txt", "/web/data"}) ||
+		!slices.Contains(shown.PlannedFiles, ".gitignore") {
+		t.Fatalf("inspect = %+v, ignore %+v", shown, shown.Ignore)
+	}
+	res, err := h.sourceAddFiles(dir, shown.PlannedFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Files != len(shown.PlannedFiles) {
+		t.Fatalf("add = %+v", res)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil || !strings.HasPrefix(string(b), own) || !strings.HasSuffix(string(b), "\n/notes.txt\n/web/data\n# END qhost\n") {
+		t.Fatalf(".gitignore = %q, %v", b, err)
+	}
+	if status, err := exec.Command("git", "-C", dir, "status", "--porcelain", "--untracked-files=all").Output(); err != nil || len(status) != 0 {
+		t.Fatalf("status = %q, %v", status, err)
+	}
+}
+
+func TestSourceInspectRejectsAGitignoreThatCannotBeExtended(t *testing.T) {
+	h := realGitService(t)
+	dir := newFolder(t)
+	writeTree(t, dir, localFiles())
+	if err := os.Symlink("web/.env", filepath.Join(dir, ".gitignore")); err != nil {
+		t.Fatal(err)
+	}
+	res := h.inspect(dir, "")
+	if res.Case != control.SourceCaseReject || !strings.Contains(res.Reason, ".gitignore of the folder is a symbolic link") ||
+		!strings.Contains(res.Fix, "regular file") {
+		t.Fatalf("inspect = %+v", res)
+	}
+	_, err := h.sourceAddFiles(dir, []string{"web/.env", "web/compose.yaml"})
+	wantCode(t, err, control.CodeInvalid)
+	noGit(t, h, dir)
 }
 
 func TestSourceAddFilesCreatesNothingWhenTheListChangedOrIsMissing(t *testing.T) {

@@ -17,8 +17,8 @@
     demo/.env                                                                                                           
     demo/compose.yaml                                                                                                   
                                                                                                                         
-  Ausgelassen (2), von den Stacks nicht gebraucht, nur in .git/info/exclude vermerkt                                    
+  Ausgelassen (2), von den Stacks nicht gebraucht, per .gitignore von Git ausgenommen                                   
     demo/data: bind-mount (Stack demo)                                                                                  
     demo/notes.txt: not-referenced                                                                                      
                                                                                                                         
-y ja, ausführen  w mit Remote  n/esc/enter abbrechen                                                 ↑/↓ Scrollen  20/33
+y ja, ausführen  w mit Remote  n/esc/enter abbrechen                                                 ↑/↓ Scrollen  20/35

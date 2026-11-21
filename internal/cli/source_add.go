@@ -31,9 +31,13 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			"folder with files and no repository gets a repository with a first commit of the files its stacks refer\n" +
 			"to (compose files, .env, env_file, configs, build contexts, include and extends, read-only mounts; also\n" +
 			".gitignore, .gitattributes and the stack settings), branch main, as qhost; everything else is left out\n" +
-			"with its reason, only in .git/info/exclude, no file written, and the folder is bound as a local\n" +
-			"source. With --url, a folder of files is instead compared with the repository at that address, which\n" +
-			"must hold commits: a file of the folder that the remote versions is also taken when no stack refers to\n" +
+			"with its reason. Each path left out becomes a line of a block marked by qhost in the .gitignore of the\n" +
+			"folder, so every clone ignores it too: a missing .gitignore is created, an existing one keeps its own\n" +
+			"lines and gets the block at its end (a block of an earlier takeover is extended), and it is committed\n" +
+			"with the files. The preview shows these lines; with nothing to add, no file of the folder is written. A\n" +
+			".gitignore that is a symbolic link, cannot be read or is larger than 1 MiB is refused. The folder is\n" +
+			"bound as a local source. With --url, a folder of files is instead compared, the .gitignore included,\n" +
+			"with the repository at that address, which must hold commits: a file of the folder that the remote versions is also taken when no stack refers to\n" +
 			"it, marked as versioned in the remote, so joining removes nothing the remote has (a file left out for\n" +
 			"another reason, such as a writable mount, a secrets file, data or an unreadable stack, stays out); add\n" +
 			"shows how they relate like 'source remote' does, stops at secret-like files in what a push would\n" +
@@ -109,8 +113,8 @@ func prepareSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 	if !structuredFormat(program.Format()) {
 		shown := res
 		if res.Case == control.SourceCaseFiles {
-			// The preview lists the files and what is left out, limited to the first ones.
-			shown.PlannedFiles, shown.Excluded = nil, nil
+			// The preview lists the files, what is left out and the lines for .gitignore, limited to the first ones.
+			shown.PlannedFiles, shown.Excluded, shown.Ignore = nil, nil, nil
 		}
 		if err := output.Encode(notice, program.Format(), sourceResult(program.Format(), shown)); err != nil {
 			return nil, err
@@ -312,7 +316,7 @@ type filesRemote struct {
 // plan is res with the plan of the comparison: the files the folder joins the remote with, including those only
 // the remote versions, and what is left out.
 func (r *filesRemote) plan(res control.SourceInspectResult) control.SourceInspectResult {
-	res.PlannedFiles, res.Excluded = r.cmp.PlannedFiles, r.cmp.Excluded
+	res.PlannedFiles, res.Excluded, res.Ignore = r.cmp.PlannedFiles, r.cmp.Excluded, r.cmp.Ignore
 	return res
 }
 
@@ -484,9 +488,10 @@ func previewSourceAdd(w io.Writer, res control.SourceInspectResult, url string, 
 func filesPreview(res control.SourceInspectResult) []string {
 	lines := []string{
 		fmt.Sprintf("Start a git repository in %s (branch main, core.sharedRepository=group) and bind it as a local source.", res.Path),
-		"The first commit is made as " + commitAuthor + "; no file in the folder is written.",
+		"The first commit is made as " + commitAuthor + ".",
 	}
-	return append(lines, fileListLines(res, "The first commit takes", nil)...)
+	lines = append(lines, fileListLines(res, "The first commit takes", nil)...)
+	return append(lines, ignoreLines(res, "the first commit")...)
 }
 
 // filesRemotePreview describes the repository a folder of files gets on the history of a remote.
@@ -501,8 +506,8 @@ func filesRemotePreview(res control.SourceInspectResult, remote *filesRemote) []
 	} else {
 		lines = append(lines, "The files equal the remote: no commit is made and nothing is pushed.")
 	}
-	lines = append(lines, "No file in the folder is written.")
-	return append(lines, fileListLines(res, "The repository takes", remote.cmp.RemoteFiles)...)
+	lines = append(lines, fileListLines(res, "The repository takes", remote.cmp.RemoteFiles)...)
+	return append(lines, ignoreLines(res, "the repository")...)
 }
 
 // remoteMark follows a listed file that is taken only because the remote versions it.
@@ -534,7 +539,7 @@ func fileListLines(res control.SourceInspectResult, takes string, remote []strin
 	if len(res.Excluded) == 0 {
 		return append(lines, "Nothing is left out.")
 	}
-	lines = append(lines, fmt.Sprintf("Left out (%d), not needed by the stacks, recorded only in .git/info/exclude, never in .gitignore:", len(res.Excluded)))
+	lines = append(lines, fmt.Sprintf("Left out (%d), not needed by the stacks, kept out of git by .gitignore:", len(res.Excluded)))
 	for i, e := range res.Excluded {
 		if i == listLimit {
 			lines = append(lines, fmt.Sprintf("  ... and %d more", len(res.Excluded)-listLimit))
@@ -547,6 +552,29 @@ func fileListLines(res control.SourceInspectResult, takes string, remote []strin
 		lines = append(lines, line)
 	}
 	return lines
+}
+
+// ignoreLines says what is written to the .gitignore of the folder, the only file of the folder that can change,
+// with the lines added; takes names what holds the file.
+func ignoreLines(res control.SourceInspectResult, takes string) []string {
+	ig := res.Ignore
+	if ig == nil {
+		return []string{"No file in the folder is written."}
+	}
+	head := fmt.Sprintf("Create .gitignore with a block marked by qhost of %d lines; %s holds it:", len(ig.Lines), takes)
+	if ig.Action == control.SourceIgnoreExtend {
+		head = fmt.Sprintf("Add %d lines to the block marked by qhost at the end of .gitignore, whose other lines stay as they are; %s holds it:",
+			len(ig.Lines), takes)
+	}
+	lines := []string{head}
+	for i, l := range ig.Lines {
+		if i == listLimit {
+			lines = append(lines, fmt.Sprintf("  ... and %d more", len(ig.Lines)-listLimit))
+			break
+		}
+		lines = append(lines, "  "+l)
+	}
+	return append(lines, "No other file in the folder is written.")
 }
 
 // unresolvedLines names the references of the stacks whose path the service could not resolve, so the operator

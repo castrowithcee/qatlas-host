@@ -846,8 +846,8 @@ type SourceInspectArgs struct {
 //
 // Case is one of the SourceCase constants. URL is the repository address of the clone, of the adopted clone and
 // of a folder of files that is to be joined with it. NeedsURL is set for a clone without a URL. Reason and Fix are set for a rejection. Access says who owns the
-// folder and what the service may do there; it is empty for a rejection. PlannedFiles and Excluded are set
-// for SourceCaseFiles only. Stacks holds the stacks the folder would bring, none for a clone or a rejection;
+// folder and what the service may do there; it is empty for a rejection. PlannedFiles, Excluded and Ignore are
+// set for SourceCaseFiles only. Stacks holds the stacks the folder would bring, none for a clone or a rejection;
 // StacksError says they could not be read. ContainersChecked says the container engine was asked;
 // ContainersError says why it could not be, and then the rest of the answer still holds. EnginesNotChecked
 // lists the rootless engines that are set up but could not be asked, each with the reason; only the root
@@ -862,12 +862,29 @@ type SourceInspectResult struct {
 	Access            *SourceAccess    `json:"access,omitempty"`
 	PlannedFiles      []string         `json:"planned_files,omitempty"`
 	Excluded          []SourceExcluded `json:"excluded,omitempty"`
+	Ignore            *SourceIgnore    `json:"ignore,omitempty"`
 	Stacks            []SourceStack    `json:"stacks"`
 	StacksError       string           `json:"stacks_error,omitempty"`
 	ContainersChecked bool             `json:"containers_checked"`
 	ContainersError   string           `json:"containers_error,omitempty"`
 
 	EnginesNotChecked []EngineNotChecked `json:"engines_not_checked,omitempty"`
+}
+
+// The actions SourceIgnore.Action takes.
+const (
+	SourceIgnoreCreate = "create"
+	SourceIgnoreExtend = "extend"
+)
+
+// SourceIgnore is what the repository a folder of files gets writes to the .gitignore of the folder root, so that
+// every clone ignores what is left out: Action SourceIgnoreCreate makes the file, SourceIgnoreExtend adds to the
+// block of qhost at the end of an existing one, whose own lines stay as they are. Lines are the lines added, one
+// anchored path each; they are data of the folder. The first commit holds the file. Without a SourceIgnore
+// nothing is left out that the folder does not ignore already, and no file of the folder is written.
+type SourceIgnore struct {
+	Action string   `json:"action"`
+	Lines  []string `json:"lines"`
 }
 
 // EngineNotChecked is a container engine that was not asked, with the reason. Engine is named as in
@@ -907,7 +924,8 @@ type SourceAddResult struct {
 	Path string `json:"path"`
 	Kind string `json:"kind"`
 	Head string `json:"head"`
-	// Files is the number of files of the first commit when the service started the repository.
+	// Files is the number of files of the first commit when the service started the repository, a .gitignore it
+	// wrote included.
 	Files int `json:"files,omitempty"`
 	// Pushed says the commit with the files of the folder was pushed to the remote.
 	Pushed bool `json:"pushed,omitempty"`
@@ -946,8 +964,9 @@ const (
 // For SourceCaseFiles, PlannedFiles and Excluded are the plan that was compared, made as for
 // SourceInspectResult with the remote commit taken into account: a file of the folder that the remote commit
 // versions and that would only be left out as SourceExcludedNotReferenced is planned, so joining the remote
-// removes nothing it versions. RemoteFiles lists those planned files. This plan is what SourceAddArgs.Files
-// confirms when the folder joins the remote.
+// removes nothing it versions. RemoteFiles lists those planned files. Ignore is the change to the .gitignore
+// as for SourceInspectResult; the compared tree holds it. This plan is what SourceAddArgs.Files confirms when the
+// folder joins the remote.
 type SourceCompareResult struct {
 	Case         string           `json:"case"`
 	State        string           `json:"state"`
@@ -958,6 +977,7 @@ type SourceCompareResult struct {
 	PlannedFiles []string         `json:"planned_files,omitempty"`
 	Excluded     []SourceExcluded `json:"excluded,omitempty"`
 	RemoteFiles  []string         `json:"remote_files,omitempty"`
+	Ignore       *SourceIgnore    `json:"ignore,omitempty"`
 	Secrets      *SourceSecrets   `json:"secrets,omitempty"`
 }
 

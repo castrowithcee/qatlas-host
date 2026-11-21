@@ -141,18 +141,14 @@ func (s *inspectService) addFiles(ctx context.Context, a control.SourceAddArgs, 
 	if _, err := s.repo.set.newSourceConfig(conf, "", a.Path); err != nil {
 		return nil, err
 	}
-	excluded := make([]string, len(plan.excluded))
-	for i, e := range plan.excluded {
-		excluded[i] = e.Path
-	}
-	if _, err := gitrepo.Init(ctx, gitrepo.Config{Local: true}, a.Path, plan.rawPlanned, excluded); err != nil {
+	if _, err := gitrepo.Init(ctx, gitrepo.Config{Local: true}, a.Path, plan.rawPlanned, plan.rawExcluded); err != nil {
 		return nil, control.NewError(control.CodeInvalid, fmt.Sprintf("the repository could not be started: %s", printable(err.Error())))
 	}
 	id, head, err := s.bindLocal(ctx, a.Path)
 	if err != nil {
 		return nil, err
 	}
-	return control.SourceAddResult{ID: id, Path: a.Path, Kind: control.SourceKindLocal, Head: head, Files: len(plan.planned)}, nil
+	return control.SourceAddResult{ID: id, Path: a.Path, Kind: control.SourceKindLocal, Head: head, Files: plan.committedFiles()}, nil
 }
 
 // bindLocal binds the repository in dir as a local source and returns its id and head.

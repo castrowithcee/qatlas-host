@@ -621,6 +621,11 @@ func TestSourceCompareAndAddWithAnAddressKeepWhatTheRemoteVersions(t *testing.T)
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Fatalf("excluded = %v, want %v", got, want)
 	}
+	// What is left out goes into a new .gitignore, which the compared tree holds.
+	wantLines := []string{"/docs/locked.md", "/locked", "/notes.txt", "/web/compose.yaml.bak"}
+	if ig := res.Ignore; ig == nil || ig.Action != control.SourceIgnoreCreate || !slices.Equal(ig.Lines, wantLines) {
+		t.Fatalf("ignore = %+v", res.Ignore)
+	}
 	if ops := r.git.Ops(); !slices.Equal(ops, []string{"compare-folder " + r.url + " 4"}) {
 		t.Fatalf("steps = %q", ops)
 	}
@@ -638,7 +643,8 @@ func TestSourceCompareAndAddWithAnAddressKeepWhatTheRemoteVersions(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if added.Kind != control.SourceKindRemote || added.Files != 4 || added.Pushed {
+	// The four planned files and the .gitignore.
+	if added.Kind != control.SourceKindRemote || added.Files != 5 || added.Pushed {
 		t.Fatalf("add = %+v", added)
 	}
 	if ops := r.git.Ops(); ops[len(ops)-1] != "init-from-remote "+r.url+" main "+remoteTip+" 4" {

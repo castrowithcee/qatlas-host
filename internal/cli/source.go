@@ -157,6 +157,9 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 		add("access", structured(format, res.Access))
 		add("planned_files", res.PlannedFiles)
 		add("excluded", structured(format, res.Excluded))
+		if res.Ignore != nil {
+			add("ignore", structured(format, res.Ignore))
+		}
 		add("stacks", structured(format, res.Stacks))
 		addText("stacks_error", res.StacksError)
 		add("containers_checked", res.ContainersChecked)
@@ -200,6 +203,12 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 			value += " (stack " + e.Stack + ")"
 		}
 		add("excluded", value)
+	}
+	if ig := res.Ignore; ig != nil {
+		add("gitignore", ig.Action)
+		for _, l := range ig.Lines {
+			add("gitignore_line", l)
+		}
 	}
 	for _, st := range res.Stacks {
 		p := "stack." + st.Name + "."
