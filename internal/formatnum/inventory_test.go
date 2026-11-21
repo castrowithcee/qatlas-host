@@ -38,6 +38,7 @@ var stores = []store{
 	{"changelog", "changelog/cache.go", "<owner>_<repo>.json", "version", false},
 	{"stacks", "stacks/rules.go", ".qatlas/qhost/<stack>.yaml", "version", false},
 	{"proposals", "proposals/proposals.go", "proposals/<id>.json", "schema", true},
+	{"proposals", "proposals/switch.go", "proposal-commands.json", "schema", true},
 	{"hostchange", "host/hostchange/journal.go", "journal/<id>.json", "schema", true},
 	{"service", "service/logstore.go", "service-log/<id>.jsonl (first line)", "schema", true},
 }

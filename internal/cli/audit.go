@@ -75,6 +75,9 @@ func newAuditCommand(program *cobracli.Program, state *notRunning) *cobra.Comman
 				}
 				if ch := e.Change; ch != nil {
 					text := ch.ActionID + " " + ch.JournalID
+					if ch.ProposalID != "" {
+						text += " proposal " + ch.ProposalID
+					}
 					if ch.UndoOf != "" {
 						text += " undo of " + ch.UndoOf
 					}

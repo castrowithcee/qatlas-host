@@ -153,6 +153,11 @@ func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notR
 		return err
 	}
 	if hostProposalID(id) {
+		var shown control.ProposalShowResult
+		if err := proposalCallTo(c, state, true, control.ProposalShowCommand, control.ProposalIDArgs{ID: id}, &shown); err == nil &&
+			shown.Kind == control.ProposalKindCommand {
+			return runInstead(id)
+		}
 		return usageFailure("a proposal of the host is applied with 'sudo qhost host apply --proposal "+plainText(id)+"'",
 			"Review it with 'qhost proposal show "+plainText(id)+"', then run 'sudo qhost host apply --proposal "+plainText(id)+" --confirm'.")
 	}

@@ -103,11 +103,34 @@ func TestCommandTree(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Fatalf("top level commands = %v, want %v", got, want)
 	}
-	var stack *cobra.Command
+	var stack, proposal *cobra.Command
 	for _, c := range root.Commands() {
-		if c.Name() == "stack" {
+		switch c.Name() {
+		case "stack":
 			stack = c
+		case "proposal":
+			proposal = c
 		}
+	}
+	var proposalSub []string
+	for _, c := range proposal.Commands() {
+		proposalSub = append(proposalSub, c.Name())
+	}
+	slices.Sort(proposalSub)
+	if want := []string{"approve", "commands", "list", "reject", "run", "show", "submit", "withdraw"}; !slices.Equal(proposalSub, want) {
+		t.Fatalf("proposal commands = %v, want %v", proposalSub, want)
+	}
+	var commandsSub []string
+	for _, c := range proposal.Commands() {
+		if c.Name() == "commands" {
+			for _, s := range c.Commands() {
+				commandsSub = append(commandsSub, s.Name())
+			}
+		}
+	}
+	slices.Sort(commandsSub)
+	if want := []string{"disable", "enable", "status"}; !slices.Equal(commandsSub, want) {
+		t.Fatalf("proposal commands subcommands = %v, want %v", commandsSub, want)
 	}
 	var sub []string
 	for _, c := range stack.Commands() {

@@ -48,6 +48,8 @@ type changeEnvironment struct {
 	sudoUID func() int
 	// record hands a finished change to the action log of the host service.
 	record hostchange.Recorder
+	// shell runs the free commands of 'proposal run'; nil means the system shell.
+	shell hostchange.ShellExecutor
 }
 
 // sudoUID reads SUDO_UID strictly: plain decimal digits without sign, space or leading zero. Anything else,
@@ -68,7 +70,7 @@ func sudoUID() int {
 // recordChange hands a finished change to the action log of the host service. Only a final result is
 // recorded; the sentence and the commands stay in the journal.
 func recordChange(a hostchange.AuditEntry) error {
-	args := control.HostRecordArgs{Action: a.Action, Result: a.Result, SudoUID: uint32(a.SudoUID), JournalID: a.ID, UndoOf: a.UndoOf}
+	args := control.HostRecordArgs{Action: a.Action, Result: a.Result, SudoUID: uint32(a.SudoUID), JournalID: a.ID, UndoOf: a.UndoOf, ProposalID: a.ProposalID}
 	err := call(context.Background(), hostEndpoint(), control.HostRecordCommand, args, nil)
 	if errors.Is(err, client.ErrNotRunning) {
 		return errors.New("the host service is not running")

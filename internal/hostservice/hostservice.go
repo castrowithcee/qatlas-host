@@ -88,11 +88,11 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 	}
 	s := &server{
 		version: cfg.Version, started: now().UTC(), log: log, peer: peer, audit: audit,
-		logDir: LogDir(cfg.StateDir),
-		db:     admins.Database{Group: cfg.GroupFile, Passwd: cfg.PasswdFile},
-		conns:  map[net.Conn]struct{}{},
+		logDir: LogDir(cfg.StateDir), commandSwitch: proposals.NewCommandSwitch(cfg.StateDir),
+		db:    admins.Database{Group: cfg.GroupFile, Passwd: cfg.PasswdFile},
+		conns: map[net.Conn]struct{}{},
 	}
-	store := proposals.New(cfg.StateDir, cmp.Or(cfg.PasswdFile, admins.DefaultPasswdFile), now, log, normalizeProposal(hostproposal.Default()),
+	store := proposals.New(cfg.StateDir, cmp.Or(cfg.PasswdFile, admins.DefaultPasswdFile), now, log, normalizeProposal(hostproposal.Default(), s.commandSwitch.Enabled),
 		proposals.IDPrefix(control.HostProposalIDPrefix))
 	if s.commands, s.actions, err = s.registry(store); err != nil {
 		return err
@@ -113,15 +113,17 @@ type auditLogger interface {
 }
 
 type server struct {
-	version  string
-	started  time.Time
-	log      *slog.Logger
-	peer     func(net.Conn) (uint32, error)
-	audit    auditLogger
-	logDir   string
-	db       admins.Database
-	commands *control.Registry
-	actions  map[string]string
+	version string
+	started time.Time
+	log     *slog.Logger
+	peer    func(net.Conn) (uint32, error)
+	audit   auditLogger
+	logDir  string
+	// commandSwitch is nil only in tests that never call a command.
+	commandSwitch *proposals.CommandSwitch
+	db            admins.Database
+	commands      *control.Registry
+	actions       map[string]string
 
 	mu    sync.Mutex
 	conns map[net.Conn]struct{}

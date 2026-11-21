@@ -22,6 +22,8 @@ type AuditEntry struct {
 	SudoUID    int       `json:"sudo_uid"`
 	Reversible bool      `json:"reversible"`
 	UndoOf     string    `json:"undo_of,omitempty"`
+	// ProposalID names the proposal of free commands whose run this is; such an entry has no Commands.
+	ProposalID string `json:"proposal_id,omitempty"`
 }
 
 // Recorder hands a finished change to the audit log. A failure never undoes the change.
@@ -85,6 +87,8 @@ func (r *Runner) undoPlan(journalID string) (Entry, Definition, Plan, error) {
 		return Entry{}, Definition{}, Plan{}, err
 	}
 	switch {
+	case orig.Action == ActionProposalRun:
+		return Entry{}, Definition{}, Plan{}, fmt.Errorf("change %s cannot be undone: %s", orig.ID, orig.NotReversible)
 	case orig.Result != ResultApplied:
 		return Entry{}, Definition{}, Plan{}, fmt.Errorf("change %s has the result %q and cannot be undone", orig.ID, orig.Result)
 	case !orig.Reversible:
