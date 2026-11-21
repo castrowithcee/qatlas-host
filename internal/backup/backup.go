@@ -10,6 +10,7 @@
 package backup
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/compose"
 	"github.com/castrowithcee/qatlas-host/internal/formatnum"
+	"github.com/castrowithcee/qatlas-host/internal/idmap"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
@@ -42,6 +44,9 @@ const dataRoot = "data"
 var (
 	ErrNoRules      = errors.New("the stack settings have no backup section")
 	ErrNoSuchBackup = errors.New("no such backup")
+	// ErrOtherNamespace refuses a restore into an engine whose user namespace is not the one the backup was
+	// made in, or whose namespace cannot be read.
+	ErrOtherNamespace = errors.New("the backup belongs to another engine")
 )
 
 var (
@@ -136,6 +141,10 @@ func (m *Manager) Create(ctx context.Context, st stacks.Stack, commit string, lo
 			return Result{}, err
 		}
 	}
+	identity, err := m.identity(ctx, log, stackAbs)
+	if err != nil {
+		return Result{}, fmt.Errorf("the user namespace of the engine cannot be read: %w", err)
+	}
 
 	running, err := m.Exec.Running(ctx, st, log)
 	if err != nil {
@@ -145,7 +154,7 @@ func (m *Manager) Create(ctx context.Context, st stacks.Stack, commit string, lo
 	if err != nil {
 		return Result{}, err
 	}
-	meta := Meta{ID: id, Stack: st.Name, Created: m.now(), Commit: validCommit(commit), Images: imagesOf(st)}
+	meta := Meta{ID: id, Stack: st.Name, Created: m.now(), Commit: validCommit(commit), Images: imagesOf(st), Identity: &identity}
 
 	defer func() {
 		if err != nil {
@@ -256,6 +265,11 @@ func (m *Manager) Restore(ctx context.Context, st stacks.Stack, id string, log L
 			return Meta{}, fmt.Errorf("the archive %s is missing from the backup", t.File)
 		}
 	}
+	// The owners in the archives are relative to the namespace the backup was made in. This comes before the
+	// stack is stopped and before anything is emptied; a namespace that cannot be read is a mismatch.
+	if err := m.checkNamespace(ctx, log, stackAbs, meta); err != nil {
+		return Meta{}, err
+	}
 
 	running, err := m.Exec.Running(ctx, st, log)
 	if err != nil {
@@ -298,6 +312,62 @@ func (m *Manager) Restore(ctx context.Context, st stacks.Stack, id string, log L
 		}
 	}
 	return meta, nil
+}
+
+// namespaceScript prints the two mappings of the helper container's user namespace, separated by a line with
+// two dashes. It is constant.
+const namespaceScript = "cat /proc/self/uid_map; echo --; cat /proc/self/gid_map"
+
+// identity reads the user namespace of the engine through the helper container, which runs in the namespace
+// every container of the engine runs in.
+func (m *Manager) identity(ctx context.Context, log Logger, stackAbs string) (Identity, error) {
+	args, err := m.helper(nil, "sh", "-c", namespaceScript)
+	if err != nil {
+		return Identity{}, err
+	}
+	var out bytes.Buffer
+	c := compose.Command{Name: "docker", Args: args, Dir: stackAbs, Env: m.Exec.Env, Stdout: &out}
+	if _, err := m.Exec.Do(ctx, log, c, m.timeout(), "engine namespace"); err != nil {
+		return Identity{}, err
+	}
+	uidText, gidText, ok := strings.Cut(out.String(), "\n--\n")
+	if !ok {
+		return Identity{}, errors.New("unexpected output of the helper container")
+	}
+	uid, err := idmap.Parse(uidText)
+	if err != nil {
+		return Identity{}, err
+	}
+	gid, err := idmap.Parse(gidText)
+	if err != nil {
+		return Identity{}, err
+	}
+	return NewIdentity(uid, gid), nil
+}
+
+// checkNamespace refuses the restore of meta unless the engine's namespace equals the backup's. A backup
+// without an identity counts as made by a system engine.
+func (m *Manager) checkNamespace(ctx context.Context, log Logger, stackAbs string, meta Meta) error {
+	stored := systemIdentity()
+	if meta.Identity != nil {
+		stored = *meta.Identity
+	}
+	cur, err := m.identity(ctx, log, stackAbs)
+	if err != nil {
+		return fmt.Errorf("%w: the user namespace of this engine cannot be read (%v); nothing was changed", ErrOtherNamespace, err)
+	}
+	if !stored.sameNamespace(cur) {
+		return fmt.Errorf("%w: it was made in a %s engine and this is a %s engine with another user namespace, so the file owners would shift; "+
+			"a backup can only be restored in the engine it was made in; nothing was changed", ErrOtherNamespace, kindName(stored.Engine), cur.Engine)
+	}
+	return nil
+}
+
+func kindName(k string) string {
+	if k == EngineRootless {
+		return EngineRootless
+	}
+	return EngineSystem
 }
 
 func (m *Manager) prepare(st stacks.Stack) (*stacks.Backup, string, error) {
