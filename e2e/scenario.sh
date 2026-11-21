@@ -2426,6 +2426,8 @@ scenario_stacks_repo() {
 
 	scenario_source_engine
 
+	scenario_proposal_engine
+
 	scenario_key_set
 
 	scenario_observe_end
@@ -2836,6 +2838,86 @@ scenario_source_engine() {
 	qd --output json credential list --engine "$se_engine" | jq -e --arg n "$se_cred" 'any(.[]; .name == $n) | not' >/dev/null ||
 		fail 'the credential is still listed by the instance after its deletion'
 	log "scenario: stack list, deploy, settings and credential reached the instance of $rootless_user and not the system service"
+}
+
+# pe_stack_runs succeeds when the stack demo-proposed runs in the rootless engine of $rootless_user.
+pe_stack_runs() {
+	as_rootless "docker ps --filter label=com.docker.compose.project=demo-proposed --format '{{.Image}}'" | grep -qx 'demo/app:1.0.0'
+}
+
+# pe_idle succeeds when the instance of $rootless_user has no run of demo-proposed in progress and has finished one.
+pe_idle() {
+	qd --output json status | jq -e --arg p "instance.$rootless_user.stack.demo-proposed." '
+		(.[$p + "active_run"] // "") == "" and (.[$p + "last_run"] // "") != ""' >/dev/null
+}
+
+# scenario_proposal_engine proves a proposal for the instance of a rootless engine: an administrator without sudo
+# submits a source-add proposal with --engine, list and show find it in that instance and name the engine, and
+# sudo qhost proposal approve takes the folder over into the instance, which deploys the stack in the rootless
+# engine while the system engine neither lists the folder nor runs the stack. The approval runs in a terminal of
+# tmux, because only a person at a terminal may approve. The folder is released and the stack is removed again;
+# the entry of the folder stays in the drop-in of the instance, which scenario_uninstall removes with it.
+scenario_proposal_engine() {
+	pe_dir=/srv/qd-proposal-engine
+	pe_engine=rootless:$rootless_user
+	pe_dropin=/etc/systemd/system/qhost-deploy@$rootless_user.service.d/10-stack-folders.conf
+
+	step 'a folder with a stack is prepared as root'
+	docker exec "$host" sh -ec "rm -rf '$pe_dir' && mkdir -p '$pe_dir/demo-proposed' && chmod 0755 '$pe_dir'" ||
+		fail 'cannot create the folder of the proposal'
+	printf 'name: demo-proposed\nservices:\n  app:\n    image: demo/app:1.0.0\n    restart: unless-stopped\n' |
+		docker exec -i "$host" sh -ec "cat >'$pe_dir/demo-proposed/compose.yaml'" || fail 'cannot write the compose file of demo-proposed'
+	[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=demo-proposed)" ] ||
+		fail 'the system engine already runs demo-proposed'
+
+	step "an administrator without sudo submits a source-add proposal with --engine $pe_engine"
+	out=$(printf '{"path":"%s"}' "$pe_dir" | as_admin "qhost --output json proposal submit --kind source-add --engine $pe_engine" 2>&1) ||
+		fail "qhost proposal submit --engine $pe_engine without sudo failed: $out"
+	pe_id=$(printf '%s' "$out" | sed -n 's/.*"id": *"\(p-[0-9a-f]*\)".*/\1/p' | head -n 1)
+	[ -n "$pe_id" ] || fail "qhost proposal submit printed no id: $out"
+	printf '%s' "$out" | jq -e --arg e "$pe_engine" '.state == "open" and .engine == $e' >/dev/null ||
+		fail "the new proposal is not open in the engine $pe_engine: $out"
+	out=$(as_admin 'qhost --output json proposal list') || fail "qhost proposal list without sudo failed: $out"
+	printf '%s' "$out" | jq -e --arg i "$pe_id" --arg e "$pe_engine" '[.[] | select(.id == $i) | .engine] == [$e]' >/dev/null ||
+		fail "proposal list does not show $pe_id once, with the engine $pe_engine: $out"
+	out=$(as_admin "qhost --output json proposal show $pe_id") || fail "qhost proposal show without --engine failed: $out"
+	printf '%s' "$out" | jq -e --arg e "$pe_engine" --arg p "$pe_dir" '.engine == $e and .state == "open" and .content.path == $p' >/dev/null ||
+		fail "proposal show does not find the proposal in the engine $pe_engine: $out"
+	if as_admin "qhost proposal show $pe_id --engine system" >/dev/null 2>&1; then fail 'the system service knows the proposal of the instance'; fi
+	[ "$(docker exec "$host" ls -A "$pe_dir")" = demo-proposed ] || fail 'the submission changed the folder'
+	if list_has_path "$pe_dir"; then fail 'the folder is bound before the approval'; fi
+
+	step "sudo qhost proposal approve takes the folder over into the instance of $pe_engine"
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 200 -y 50 "env LANG=C.UTF-8 sh -c 'sudo qhost proposal approve $pe_id; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the approval'
+	tui_wait "Approve proposal $pe_id and apply these changes?" 60
+	tui_tmux capture-pane -p -S - -t qdtui | grep -qF -- "Engine: $pe_engine" || fail "the approval does not show the engine: $(tui_screen)"
+	if list_has_path "$pe_dir"; then fail 'the folder is bound before the last answer'; fi
+	tui_send y Enter
+	tui_wait 'qhost-exit=0' 120
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	wait_for 'the proposal to be applied' 30 prop_is "$pe_id" applied
+
+	step 'the folder belongs to the instance, and the stack runs in the rootless engine only'
+	pe_listed=$(qd --output json source list | jq -r --arg p "$pe_dir" '[.sources[] | select(.path == $p) | .engine] | join(",")')
+	[ "$pe_listed" = "$pe_engine" ] || fail "source list does not show the folder once, with the engine $pe_engine, but as: $pe_listed"
+	docker exec "$host" grep -qx "ReadWritePaths=-$pe_dir" "$pe_dropin" || fail "the drop-in of the instance does not list $pe_dir"
+	if docker exec "$host" grep -qF "$pe_dir" /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf; then
+		fail 'the drop-in of the system service names the folder of the instance'
+	fi
+	wait_for 'the stack to run in the rootless engine' 180 pe_stack_runs
+	[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=demo-proposed)" ] ||
+		fail 'the system engine runs the stack of the proposal'
+
+	step 'the folder is released and its stack removed again'
+	wait_for 'the first run of demo-proposed in the instance' 180 pe_idle
+	out=$(qd --output json source remove "$pe_dir" --yes) || fail "source remove of $pe_dir failed: $out"
+	as_rootless "docker compose -p demo-proposed down" >/dev/null 2>&1 || fail 'cannot remove the compose project demo-proposed'
+	[ -z "$(as_rootless "docker ps -aq --filter label=com.docker.compose.project=demo-proposed")" ] || fail 'the rootless engine still has demo-proposed'
+	docker exec "$host" rm -rf "$pe_dir" || fail "cannot remove $pe_dir"
+	if list_has_path "$pe_dir"; then fail 'the folder is still bound'; fi
+	log "scenario: proposal $pe_id was submitted with --engine $pe_engine, approved under sudo and applied in the instance; demo-proposed ran in the rootless engine only"
 }
 
 # local_tree prints mode, owner, group and size of every path below /srv/qd-local except .git, which the service

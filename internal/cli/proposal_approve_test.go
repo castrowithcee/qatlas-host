@@ -43,6 +43,11 @@ func (e *approveEnv) history() string {
 
 func startApproveEnv(t *testing.T, env *approveEnv) *fakeService {
 	t.Helper()
+	return startFakeService(t, env.handlers())
+}
+
+// handlers are the answers of a deploy service that holds the proposal of env.
+func (env *approveEnv) handlers() fakeHandlers {
 	if env.fingerprint == nil {
 		env.fingerprint = func(int) string { return "fp-one" }
 	}
@@ -109,7 +114,7 @@ func startApproveEnv(t *testing.T, env *approveEnv) *fakeService {
 	for k, v := range env.extra {
 		handlers[k] = v
 	}
-	return startFakeService(t, handlers)
+	return handlers
 }
 
 func TestProposalApproveAndRejectRefuseAnAgentAndNoTerminal(t *testing.T) {
