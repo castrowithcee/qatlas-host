@@ -52,6 +52,8 @@ type containerService struct {
 	now       func() time.Time
 	log       *slog.Logger
 	eng       *sourceSet
+	// engine is the id of the container engine this service serves.
+	engine string
 	// wait bounds how long a start or restart waits for the container to be ready.
 	wait time.Duration
 	// secrets redacts stack secret values that Compose interpolated into container text.
@@ -84,11 +86,14 @@ func labelList(v string) []string {
 	return out
 }
 
-func registerContainerCommands(r *control.Registry, repo *repoService, eng *sourceSet, secrets *redact.Redactor, d Docker, wait time.Duration, log *slog.Logger) error {
+func registerContainerCommands(r *control.Registry, repo *repoService, eng *sourceSet, secrets *redact.Redactor, d Docker, engine string, wait time.Duration, log *slog.Logger) error {
 	if wait <= 0 {
 		wait = containerReadyWait
 	}
-	s := &containerService{docker: d, now: time.Now, log: log, eng: eng, wait: wait, stackDirs: func() map[string]string {
+	if engine == "" {
+		engine = control.EngineSystem
+	}
+	s := &containerService{docker: d, now: time.Now, log: log, eng: eng, engine: engine, wait: wait, stackDirs: func() map[string]string {
 		// Secrets of every stack are known before an answer is redacted, also those never deployed since start.
 		return repo.stackDirs(log, func(st stacks.Stack) { registerStackSecrets(secrets, st) })
 	}, secrets: secrets}
@@ -222,7 +227,7 @@ func (s *containerService) handleList(ctx context.Context, raw json.RawMessage) 
 	var entries []entry
 	for _, p := range projects {
 		kind, conflict := classify(p.Name, p.WorkingDir, own)
-		g := control.ContainerGroup{Kind: kind, Name: s.text(p.Name), Conflict: conflict}
+		g := control.ContainerGroup{Kind: kind, Engine: s.engine, Name: s.text(p.Name), Conflict: conflict}
 		if kind == control.ContainerKindForeign {
 			g.WorkingDir = s.text(p.WorkingDir)
 			for _, f := range p.ConfigFiles {
@@ -238,7 +243,7 @@ func (s *containerService) handleList(ctx context.Context, raw json.RawMessage) 
 		entries = append(entries, entry{g, p.Containers})
 	}
 	for _, c := range loose {
-		entries = append(entries, entry{control.ContainerGroup{Kind: control.ContainerKindSingle, Name: s.text(c.Name)},
+		entries = append(entries, entry{control.ContainerGroup{Kind: control.ContainerKindSingle, Engine: s.engine, Name: s.text(c.Name)},
 			[]docker.Container{c}})
 	}
 	rank := map[string]int{control.ContainerKindOwn: 0, control.ContainerKindForeign: 1, control.ContainerKindSingle: 2}
@@ -345,7 +350,7 @@ func (s *containerService) handleGet(ctx context.Context, raw json.RawMessage) (
 	project, dir := d.Labels["com.docker.compose.project"], d.Labels["com.docker.compose.project.working_dir"]
 	kind, conflict := classify(project, dir, s.stackDirs())
 	res := control.ContainerDetail{
-		ContainerSummary: s.summary(d.Container), ID: s.text(d.ID), Kind: kind, Project: s.text(project), Conflict: conflict,
+		ContainerSummary: s.summary(d.Container), ID: s.text(d.ID), Engine: s.engine, Kind: kind, Project: s.text(project), Conflict: conflict,
 		Ports: []control.ContainerPort{}, Mounts: []control.ContainerMount{}, Networks: []control.ContainerNetwork{},
 		Labels: map[string]string{}, EnvNames: []string{},
 	}
