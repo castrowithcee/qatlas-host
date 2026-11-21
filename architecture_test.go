@@ -123,7 +123,7 @@ func TestArchitecture(t *testing.T) {
 			Name:  "host-service-imports-only-the-protocol-the-admin-check-the-action-log-and-the-proposals",
 			Files: archtest.Files{Under: []string{"internal/hostservice"}, Tests: archtest.WithTests},
 			Check: archtest.AllowImports("internal/control", "internal/client", "internal/channeltest", "internal/admins", "internal/host/auditlog",
-				"internal/proposals", "internal/host/hostproposal"),
+				"internal/proposals", "internal/host/hostproposal", "internal/tools"),
 			Hint: "the host service knows the wire protocol, the administrator check, the action log, the shared proposal store and the check of host proposals, " +
 				"and nothing of the deploy part or the command surface; it reaches the actions of the host only through that check, never the runner",
 		},
@@ -162,6 +162,24 @@ func TestArchitecture(t *testing.T) {
 			Files: archtest.Files{Under: []string{"internal/host/hostchange"}, Tests: archtest.WithTests},
 			Check: archtest.AllowImports("internal/host/hostadmin"),
 			Hint:  "the host changes read the host through hostadmin and import no other package of the module",
+		},
+		{
+			Name:  "host-service-reads-the-tool-table-in-tests-only",
+			Files: archtest.Files{Under: []string{"internal/hostservice"}, Tests: archtest.SkipTests},
+			Check: archtest.ForbidImports("internal/tools"),
+			Hint:  "only the test that holds the table to the registry may import it",
+		},
+		{
+			Name:  "tools-import-nothing-of-the-module",
+			Files: archtest.Files{Under: []string{"internal/tools"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports(),
+			Hint:  "the tool table is plain data below the services and the command surface and knows none of them",
+		},
+		{
+			Name:  "tool-table-is-read-by-the-command-surface-and-the-service-tests-only",
+			Files: archtest.Files{Under: []string{"internal"}, Except: []string{"internal/tools", "internal/cli", "internal/service/tools_test.go", "internal/hostservice/tools_test.go"}, Tests: archtest.WithTests},
+			Check: archtest.ForbidImports("internal/tools"),
+			Hint:  "the table describes what the services serve; a service never reads it, and only the tests that hold it to the registries do",
 		},
 	}, nil)
 }
