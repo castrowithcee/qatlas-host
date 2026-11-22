@@ -1434,7 +1434,7 @@ scenario_diagnose() {
 	file=$home/diag-e2e.tar.gz
 	as_admin 'rm -rf ~/diag-e2e.tar.gz ~/diag-e2e'
 	out=$(qd_in "$token" credential set "$cred") || fail "credential set failed: $out"
-	failed_run=$(qd stack runs | grep 'rolled-back' | grep -m 1 -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
+	failed_run=$(qd stack runs | grep 'rolled-back' | grep -m 1 -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
 	[ -n "$failed_run" ] || fail "there is no failed run to find in the package: $(qd stack runs)"
 
 	out=$(as_admin "qhost diagnose --out $file 2>&1") || fail "qhost diagnose without sudo failed: $out"
@@ -1765,7 +1765,7 @@ $hook_signing_value
 	restart_service
 	wait_for 'the rolled-back run of demo-cache' 240 stack_settled demo-cache rolled-back
 	runs_out=$(qd stack runs demo-cache)
-	failed_run=$(printf '%s\n' "$runs_out" | grep -m 1 -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
+	failed_run=$(printf '%s\n' "$runs_out" | grep -m 1 -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
 	printf '%s\n' "$runs_out" | grep -m 1 "$failed_run" | grep -q 'rolled-back' || fail "the newest run of demo-cache is not rolled-back: $runs_out"
 	failed_log=$(qd stack log "$failed_run")
 	printf '%s' "$failed_log" | grep -q ' result rolled-back' || fail "the run log does not end rolled-back: $failed_log"
@@ -1823,7 +1823,7 @@ HOOK
 	log "scenario: a refused tag raised tag-rejected and the next run cleared it"
 
 	step 'no run log holds a secret value'
-	ids=$(qd stack runs | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
+	ids=$(qd stack runs | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
 	n=0
 	for id in $ids; do
 		n=$((n + 1))
@@ -1882,7 +1882,7 @@ scenario_notify() {
 	step 'no secret part of a channel shows in the listing, the run logs or the journal'
 	listing=$(qd notify list; qd --output json notify list)
 	runs=$(qd stack runs)
-	for id in $(qd stack runs | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'); do
+	for id in $(qd stack runs | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'); do
 		runs="$runs
 $(qd stack log "$id")"
 	done
@@ -1952,7 +1952,7 @@ fixture_snap() {
 }
 
 backup_ids() {
-	qd stack backup list "$1" | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'
+	qd stack backup list "$1" | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'
 }
 
 stack_running() {
@@ -3435,7 +3435,7 @@ bkr_settings() {
 
 # bkr_backup_ids prints the ids of the backups of demo-rootless, newest first.
 bkr_backup_ids() {
-	qd stack backup list demo-rootless --engine "$bk_engine" | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'
+	qd stack backup list demo-rootless --engine "$bk_engine" | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'
 }
 
 # bkr_healthy succeeds when a container of demo-rootless in the rootless engine is healthy.
@@ -8434,7 +8434,7 @@ scenario_tui_setup() {
 	[ "$(wc -l <"$tui_log")" -gt 200 ] || fail 'too few screens were captured to check'
 	grep -qF DEMO_ECHO_TAG "$tui_log" || fail 'the captured screens do not show the key of the secret'
 	runs_text=$(qd stack runs)
-	for id in $(qd stack runs | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'); do
+	for id in $(qd stack runs | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'); do
 		runs_text="$runs_text
 $(qd stack log "$id")"
 	done
