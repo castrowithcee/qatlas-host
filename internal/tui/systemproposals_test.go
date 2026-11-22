@@ -25,9 +25,16 @@ import (
 type fakeHostProposals struct {
 	list    []control.ProposalInfo
 	content map[string]control.ProposalHostChange
+	// free is what the proposals of free commands hold; freeOn is the switch.
+	free   map[string]control.ProposalCommand
+	freeOn bool
 	// err fails both calls; lists and shows count them.
 	err          error
 	lists, shows int
+}
+
+func (f *fakeHostProposals) CommandsStatus(context.Context) (control.HostCommandsResult, error) {
+	return control.HostCommandsResult{Enabled: f.freeOn}, f.err
 }
 
 func (f *fakeHostProposals) ProposalList(context.Context) (control.ProposalListResult, error) {
@@ -43,6 +50,9 @@ func (f *fakeHostProposals) ProposalShow(_ context.Context, id string) (control.
 	for _, p := range f.list {
 		if p.ID == id {
 			raw, _ := json.Marshal(f.content[id])
+			if p.Kind == control.ProposalKindCommand {
+				raw, _ = json.Marshal(f.free[id])
+			}
 			return control.ProposalShowResult{ProposalInfo: p, Content: raw}, nil
 		}
 	}

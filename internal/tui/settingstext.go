@@ -232,6 +232,7 @@ const (
 	textStackFails            kittui.TextID = "stack.fails"
 	textStackFinding          kittui.TextID = "stack.finding"
 	textStackConflict         kittui.TextID = "stack.conflict"
+	textStackUnresolved       kittui.TextID = "stack.unresolved"
 	textEngineNotChecked      kittui.TextID = "engine.notchecked"
 	textConflictConsequence   kittui.TextID = "conflict.consequence"
 	textStacksError           kittui.TextID = "stacks.error"
@@ -495,7 +496,7 @@ func settingsEnglish() map[kittui.TextID]string {
 		textDetailSetsPerms:       "permissions are set: %s",
 		textDetailGitWritable:     "the service can write .git: %s",
 		textHeadFiles:             "Files of the first commit (%d)",
-		textHeadExcluded:          "Left out (%d), recorded only in .git/info/exclude",
+		textHeadExcluded:          "Left out (%d), not needed by the stacks, recorded only in .git/info/exclude",
 		textExcludedNone:          "Nothing is left out.",
 		textExcludedEntry:         "%s: %s",
 		textExcludedStack:         "%s: %s (stack %s)",
@@ -505,6 +506,7 @@ func settingsEnglish() map[kittui.TextID]string {
 		textStackWorks:            "works: %s",
 		textStackFails:            "does not work: %s",
 		textStackFinding:          "%s %s: %s",
+		textStackUnresolved:       "not resolvable: %s",
 		textStackConflict:         "conflict: the container %s of the project %s runs in the folder, in the engine %s",
 		textEngineNotChecked:      "engine %s was not checked: %s",
 		textConflictConsequence:   "Containers of these stacks already run, so deploying would create duplicate containers and take their ports twice. qhost only warns.",
@@ -770,7 +772,7 @@ func settingsGerman() map[kittui.TextID]string {
 		textDetailSetsPerms:       "Rechte werden gesetzt: %s",
 		textDetailGitWritable:     "der Dienst kann .git schreiben: %s",
 		textHeadFiles:             "Dateien des ersten Commits (%d)",
-		textHeadExcluded:          "Ausgelassen (%d), nur in .git/info/exclude vermerkt",
+		textHeadExcluded:          "Ausgelassen (%d), von den Stacks nicht gebraucht, nur in .git/info/exclude vermerkt",
 		textExcludedNone:          "Nichts wird ausgelassen.",
 		textExcludedEntry:         "%s: %s",
 		textExcludedStack:         "%s: %s (Stack %s)",
@@ -780,6 +782,7 @@ func settingsGerman() map[kittui.TextID]string {
 		textStackWorks:            "funktioniert: %s",
 		textStackFails:            "funktioniert nicht: %s",
 		textStackFinding:          "%s %s: %s",
+		textStackUnresolved:       "nicht auflösbar: %s",
 		textStackConflict:         "Konflikt: Der Container %s des Projekts %s läuft im Ordner, in der Engine %s",
 		textEngineNotChecked:      "Engine %s wurde nicht geprüft: %s",
 		textConflictConsequence:   "Container dieser Stacks laufen bereits, ein Deploy würde daher doppelte Container erzeugen und deren Ports doppelt belegen. qhost warnt nur.",

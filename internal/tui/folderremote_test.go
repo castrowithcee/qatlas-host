@@ -248,6 +248,38 @@ func TestFolderOfFilesWithAddressComparesAndAddsAfterYes(t *testing.T) {
 	}
 }
 
+func TestFolderOfFilesWithAddressJoinsWithThePlanOfTheComparison(t *testing.T) {
+	cmp := cmpEqual
+	cmp.Case, cmp.PlannedFiles, cmp.RemoteFiles = control.SourceCaseFiles, []string{"README.md", "demo/.env", "demo/compose.yaml"}, []string{"README.md"}
+	b := remoteBackend(cmp)
+	m := newSettingsModel(t, b)
+	send(m, filesRemoteKeys()...)
+	contains(t, m, "Versioned in the remote, taken although no stack refers to them (1)", "README.md")
+	send(m, "y")
+	if len(b.sourceAdds) != 1 || !slices.Equal(b.sourceAdds[0].Files, cmp.PlannedFiles) {
+		t.Fatalf("adds %+v", b.sourceAdds)
+	}
+	if len(b.compares) != 2 {
+		t.Fatalf("the plan was not compared again before the change: %+v", b.compares)
+	}
+}
+
+func TestFolderOfFilesWithAddressStopsWhenThePlanChanged(t *testing.T) {
+	cmp := cmpEqual
+	cmp.Case, cmp.PlannedFiles = control.SourceCaseFiles, []string{"demo/.env", "demo/compose.yaml"}
+	b := remoteBackend(cmp)
+	m := newSettingsModel(t, b)
+	send(m, filesRemoteKeys()...)
+	b.mu.Lock()
+	b.compare.PlannedFiles = append(b.compare.PlannedFiles, "README.md")
+	b.mu.Unlock()
+	send(m, "y")
+	noChange(t, b)
+	if len(b.sourceAdds) != 0 {
+		t.Fatalf("adds %+v", b.sourceAdds)
+	}
+}
+
 func TestFolderOfFilesWithAnEmptyRepositoryIsNotAddedWithIt(t *testing.T) {
 	cmp := cmpEmpty
 	cmp.Case = control.SourceCaseFiles

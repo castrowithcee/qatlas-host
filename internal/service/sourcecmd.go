@@ -56,6 +56,9 @@ func (s *inspectService) handleAdd(ctx context.Context, raw json.RawMessage) (an
 	switch v.kase {
 	case control.SourceCaseLocal:
 	case control.SourceCaseFiles:
+		if a.URL != "" {
+			return s.addFilesRemote(ctx, a, v, access)
+		}
 		return s.addFiles(ctx, a, v.plan, access)
 	case control.SourceCaseReject:
 		return nil, control.NewError(control.CodeInvalid, fmt.Sprintf("%s. %s", v.reason, v.fix))
@@ -80,15 +83,23 @@ func (s *inspectService) handleAdd(ctx context.Context, raw json.RawMessage) (an
 // maxListedChanges bounds the paths a refusal names per direction.
 const maxListedChanges = 20
 
-// confirmedFiles checks that the operator confirmed exactly the files the folder holds now, that the service can
-// write the folder, and that every name can be shown as it is.
-func confirmedFiles(files []string, plan *filePlan, access *control.SourceAccess) error {
+// addableFiles checks that the operator confirmed a file list at all and that the service can write the folder.
+func addableFiles(files []string, access *control.SourceAccess) error {
 	if len(files) == 0 {
 		return control.NewError(control.CodeInvalid,
 			"the folder holds files and no repository; confirm the file list first, then source add starts a repository with exactly these files")
 	}
 	if !access.ServiceCanWrite {
 		return control.NewError(control.CodeInvalid, fmt.Sprintf("the service cannot write the folder; %s", sourceAddFix))
+	}
+	return nil
+}
+
+// confirmedFiles checks that the operator confirmed exactly the files the folder holds now, that the service can
+// write the folder, and that every name can be shown as it is.
+func confirmedFiles(files []string, plan *filePlan, access *control.SourceAccess) error {
+	if err := addableFiles(files, access); err != nil {
+		return err
 	}
 	added, removed := listDiff(plan.planned, files)
 	if len(added) > 0 || len(removed) > 0 {
@@ -117,13 +128,10 @@ func confirmedFiles(files []string, plan *filePlan, access *control.SourceAccess
 
 // addFiles starts a repository in a folder without one, with exactly the confirmed files, and binds it. It
 // plans the files again and refuses, creating nothing, when the folder no longer holds the confirmed list. The
-// caller holds setMu and closes plan.
+// caller holds setMu and closes plan. A folder that joins a remote goes through addFilesRemote instead.
 func (s *inspectService) addFiles(ctx context.Context, a control.SourceAddArgs, plan *filePlan, access *control.SourceAccess) (any, error) {
 	if err := confirmedFiles(a.Files, plan, access); err != nil {
 		return nil, err
-	}
-	if a.URL != "" {
-		return s.addFilesRemote(ctx, a, plan)
 	}
 	// Fail before .git exists when the folder cannot be bound.
 	conf, _, err := s.repo.set.load()

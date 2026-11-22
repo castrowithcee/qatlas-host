@@ -359,19 +359,23 @@ func shortText(s string) string {
 }
 
 // effectOf is the fingerprint of what applying the proposal would do: every line shown and the complete lists
-// of files, of which the text shows only the first ones.
+// of files, of which the text shows only the first ones, including those taken because the remote versions them.
 func effectOf(sa *sourceAdd, text string) (string, error) {
-	var left []string
+	var left, remote []string
 	for _, e := range sa.res.Excluded {
 		left = append(left, e.Path+": "+e.Reason)
+	}
+	if sa.remote != nil {
+		remote = sa.remote.cmp.RemoteFiles
 	}
 	return approval.Fingerprint(effectLabel, struct {
 		Text     string   `json:"text"`
 		Question string   `json:"question"`
 		Files    []string `json:"files"`
+		Remote   []string `json:"remote"`
 		Excluded []string `json:"excluded"`
 		Engines  []string `json:"engines"`
-	}{text, sa.question, sa.res.PlannedFiles, left, engineSignature(sa.res)})
+	}{text, sa.question, sa.res.PlannedFiles, remote, left, engineSignature(sa.res)})
 }
 
 // ensureDeployKey shows the deploy key of the folder, or offers to generate one and waits until the person has

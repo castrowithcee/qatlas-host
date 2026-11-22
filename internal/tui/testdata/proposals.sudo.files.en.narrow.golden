@@ -24,8 +24,9 @@
     demo/.env                                           
     demo/compose.yaml                                   
                                                         
-  Left out (1), recorded only in .git/info/exclude      
+  Left out (2), not needed by the stacks, recorded only…
     demo/data: bind-mount (stack demo)                  
+    demo/notes.txt: not-referenced                      
                                                         
   Stacks (1)                                            
     demo (folder demo)                                  
@@ -33,8 +34,7 @@
       does not work: backup                             
       warning secrets-env-not-ignored: secrets.env is   
       not listed in .gitignore                          
-      conflict: the container demo-app-1 of the project 
-      old-demo runs in the folder, in the engine system 
-                                                        
+      not resolvable: env_file "${CONF_DIR}/app.env":   
+      variable CONF_DIR has no value in .env            
 y yes, do it  w with a remote  n/esc/enter cancel       
-                                       ↑/↓ scroll  35/49
+                                       ↑/↓ scroll  35/52

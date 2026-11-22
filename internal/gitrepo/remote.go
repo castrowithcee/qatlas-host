@@ -83,33 +83,51 @@ func (r *Repo) CompareRemote(ctx context.Context, url string) (Comparison, error
 	if err != nil {
 		return Comparison{}, err
 	}
-	return r.compare(ctx, url, branch, nil, true)
+	return r.compare(ctx, url, branch, nil)
 }
 
-// CompareFolder compares the remote url with the tree that exactly files, paths relative to dir, would make in
-// a repository started in the folder dir, which has no .git. The branch is the default branch of the remote
-// (the one its HEAD names), or "main" if the remote has none. The folder is only read: the tree is built in a
-// temporary repository outside it.
-func CompareFolder(ctx context.Context, cfg Config, dir, url string, files []string) (Comparison, error) {
+// FolderPlan chooses the files of a folder without a repository for the comparison with a remote. It is given
+// the files the remote branch versions, none for a remote without commit, and returns the files the tree is made
+// of, paths relative to the folder. The remote paths are data of the remote.
+type FolderPlan func(remote []string) ([]string, error)
+
+// CompareFolder compares the remote url with the tree that exactly the files plan chooses, paths relative to dir,
+// would make in a repository started in the folder dir, which has no .git. The branch is the default branch of the
+// remote (the one its HEAD names), or "main" if the remote has none. plan is called once, with the files of the
+// remote commit that is compared, so the choice and the comparison rest on the same commit; an error of plan is
+// returned as it is. The folder is only read: the tree is built in a temporary repository outside it.
+func CompareFolder(ctx context.Context, cfg Config, dir, url string, plan FolderPlan) (Comparison, error) {
 	r, err := Open(cfg, dir)
 	if err != nil {
 		return Comparison{}, err
 	}
-	if len(files) == 0 {
+	if plan == nil {
 		return Comparison{}, errors.New("there is no file to compare")
-	}
-	if err := r.checkFiles(files); err != nil {
-		return Comparison{}, err
 	}
 	if _, err := r.claimGitDir(); err != nil {
 		return Comparison{}, err
 	}
-	return r.compare(ctx, url, "", files, false)
+	return r.compare(ctx, url, "", plan)
+}
+
+// planFolder asks plan for the files of the folder and checks them.
+func (r *Repo) planFolder(plan FolderPlan, remote []string) ([]string, error) {
+	files, err := plan(remote)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, errors.New("there is no file to compare")
+	}
+	if err := r.checkFiles(files); err != nil {
+		return nil, err
+	}
+	return files, nil
 }
 
 // compare reads the remote branch (branch, or the default branch of the remote when empty) and compares it
-// with the host tree: HEAD when fromHead, otherwise the tree of files in the folder.
-func (r *Repo) compare(ctx context.Context, url, branch string, files []string, fromHead bool) (Comparison, error) {
+// with the host tree: HEAD without plan, otherwise the tree of the files plan chooses in the folder.
+func (r *Repo) compare(ctx context.Context, url, branch string, plan FolderPlan) (Comparison, error) {
 	if err := r.needRemoteMode(); err != nil {
 		return Comparison{}, err
 	}
@@ -133,6 +151,11 @@ func (r *Repo) compare(ctx context.Context, url, branch string, files []string, 
 		return Comparison{}, err
 	}
 	if commit == "" {
+		if plan != nil {
+			if _, err := r.planFolder(plan, nil); err != nil {
+				return Comparison{}, err
+			}
+		}
 		return Comparison{State: RemoteEmpty, Branch: branch}, nil
 	}
 
@@ -147,7 +170,7 @@ func (r *Repo) compare(ctx context.Context, url, branch string, files []string, 
 	}
 	env := []string{"GIT_DIR=" + gitDir}
 	var hostTree string
-	if fromHead {
+	if plan == nil {
 		if hostTree, err = r.lendObjects(ctx, gitDir); err != nil {
 			return Comparison{}, err
 		}
@@ -156,19 +179,6 @@ func (r *Repo) compare(ctx context.Context, url, branch string, files []string, 
 	if _, err := r.runEnv(ctx, false, maxStdout, env, "fetch", "--quiet", "--no-tags", "--no-recurse-submodules",
 		"--no-write-fetch-head", "--", url, "+refs/heads/"+branch+":"+local); err != nil {
 		return Comparison{}, fmt.Errorf("fetch failed: %w", err)
-	}
-	if !fromHead {
-		attrs := filepath.Join(gitDir, "info", "attributes")
-		if err := os.MkdirAll(filepath.Dir(attrs), 0o700); err != nil {
-			return Comparison{}, fmt.Errorf("prepare the comparison: %w", err)
-		}
-		if err := os.WriteFile(attrs, []byte(noFilterAttributes), 0o600); err != nil {
-			return Comparison{}, fmt.Errorf("prepare the comparison: %w", err)
-		}
-		stageEnv := append(slices.Clone(env), "GIT_WORK_TREE="+r.dir, "GIT_INDEX_FILE="+filepath.Join(tmp, "index"))
-		if hostTree, err = r.stageFiles(ctx, stageEnv, files); err != nil {
-			return Comparison{}, err
-		}
 	}
 	revParse := func(rev string) (string, error) {
 		out, err := r.runEnv(ctx, false, maxErrorText, env, "rev-parse", "--verify", "--quiet", rev)
@@ -185,6 +195,27 @@ func (r *Repo) compare(ctx context.Context, url, branch string, files []string, 
 	remoteTree, err := revParse(local + "^{tree}")
 	if err != nil {
 		return Comparison{}, err
+	}
+	if plan != nil {
+		remote, err := r.treeFiles(ctx, env, remoteTree)
+		if err != nil {
+			return Comparison{}, err
+		}
+		files, err := r.planFolder(plan, remote)
+		if err != nil {
+			return Comparison{}, err
+		}
+		attrs := filepath.Join(gitDir, "info", "attributes")
+		if err := os.MkdirAll(filepath.Dir(attrs), 0o700); err != nil {
+			return Comparison{}, fmt.Errorf("prepare the comparison: %w", err)
+		}
+		if err := os.WriteFile(attrs, []byte(noFilterAttributes), 0o600); err != nil {
+			return Comparison{}, fmt.Errorf("prepare the comparison: %w", err)
+		}
+		stageEnv := append(slices.Clone(env), "GIT_WORK_TREE="+r.dir, "GIT_INDEX_FILE="+filepath.Join(tmp, "index"))
+		if hostTree, err = r.stageFiles(ctx, stageEnv, files); err != nil {
+			return Comparison{}, err
+		}
 	}
 	res := Comparison{State: RemoteEqual, Branch: branch, Commit: fetched}
 	if remoteTree == hostTree {
@@ -206,6 +237,22 @@ func (r *Repo) compare(ctx context.Context, url, branch string, files []string, 
 		return Comparison{}, err
 	}
 	return res, nil
+}
+
+// treeFiles lists the paths of the files (blobs, links included) in tree, inside the temporary repository.
+func (r *Repo) treeFiles(ctx context.Context, env []string, tree string) ([]string, error) {
+	out, err := r.runEnv(ctx, false, maxStdout, env, "ls-tree", "-r", "-z", "--full-tree", tree)
+	if err != nil {
+		return nil, fmt.Errorf("list the files of the remote: %w", err)
+	}
+	var files []string
+	for _, entry := range strings.Split(out, "\x00") {
+		meta, name, ok := strings.Cut(entry, "\t")
+		if ok && strings.Contains(meta, " blob ") {
+			files = append(files, name)
+		}
+	}
+	return files, nil
 }
 
 // scanHostTree scans, inside the temporary repository, the commit that has the host tree on top of parent: the

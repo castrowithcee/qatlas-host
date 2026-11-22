@@ -154,6 +154,9 @@ func (m *Model) selectedJournal() (journalEntry, bool) {
 
 // noUndoReason says why an entry offers no undo.
 func (m *Model) noUndoReason(e journalEntry) string {
+	if e.Action == hostchange.ActionProposalRun {
+		return m.text.Lookup(textNoUndoFree)
+	}
 	switch e.Result {
 	case hostchange.ResultUndone:
 		return m.text.Lookup(textNoUndoUndone)

@@ -106,9 +106,20 @@ func effectFields(format output.Format, e *sourceEffect) []output.Field {
 
 // checkExpectedEffect refuses, before anything changes, when the effect of adding the folder is not the one
 // the operator was shown. An empty expected effect asks for no check.
-func checkExpectedEffect(expected string, res control.SourceInspectResult, perms *permPlan) error {
+//
+// The effect is the one source inspect shows. A folder of files that joins a remote is added with the plan of the
+// comparison, which may hold more files; those rest on the remote commit, which --expect-state and
+// --expect-commit bind, so the effect is still checked against the inspection.
+func checkExpectedEffect(ctx context.Context, expected string, sa *sourceAdd) error {
 	if expected == "" {
 		return nil
+	}
+	res, perms := sa.inspected, sa.perms
+	if sa.remote != nil {
+		var err error
+		if perms, err = planAccess(ctx, res); err != nil {
+			return err
+		}
 	}
 	now, err := newSourceEffect(res, perms)
 	if err != nil {

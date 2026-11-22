@@ -94,9 +94,9 @@ func readImages(dir string, files []string) ([]rawImage, error) {
 }
 
 // readBindMounts returns the bind-mount sources of every service of the compose files that lie below dir, as
-// clean paths relative to dir; see Stack.BindMounts. A file that cannot be read or parsed adds nothing, which
+// clean paths relative to dir, variables resolved from env; see Stack.BindMounts. A file that cannot be read or parsed adds nothing, which
 // leaves the paths to the stricter treatment; the stack reports such a file elsewhere.
-func readBindMounts(dir string, files []string) []string {
+func readBindMounts(dir string, files []string, env map[string]string) []string {
 	set := map[string]bool{}
 	for _, f := range files {
 		data, err := readBounded(dir, f)
@@ -113,8 +113,10 @@ func readBindMounts(dir string, files []string) []string {
 		}
 		for _, svc := range doc.Services {
 			for _, v := range svc.Volumes {
-				if p, ok := bindSource(dir, v); ok {
-					set[p] = true
+				if b, ok := volumeBind(v, env); ok && b.unresolved == "" {
+					if p, ok := bindPath(dir, b.src); ok {
+						set[p] = true
+					}
 				}
 			}
 		}
@@ -185,28 +187,10 @@ func volumeSource(v any) (string, bool) {
 	return "", false
 }
 
-// bindSource returns the source of a bind mount as a path relative to dir, for the short syntax
-// "./host:/container[:mode]" and the long syntax with type bind. Compose takes a short source as a path only
-// when it starts with "." or "/"; anything else is a named volume.
-func bindSource(dir string, v any) (string, bool) {
-	var src string
-	switch m := v.(type) {
-	case string:
-		host, _, ok := strings.Cut(m, ":")
-		if !ok || !(strings.HasPrefix(host, ".") || strings.HasPrefix(host, "/")) {
-			return "", false
-		}
-		src = host
-	case map[string]any:
-		typ, _ := m["type"].(string)
-		src, _ = m["source"].(string)
-		if typ != "bind" || src == "" {
-			return "", false
-		}
-	default:
-		return "", false
-	}
-	if strings.ContainsAny(src, "$~\x00") {
+// bindPath turns the source of a bind mount into a clean path relative to dir. A source with a variable that
+// is left, a "~", one outside dir and dir itself have none.
+func bindPath(dir, src string) (string, bool) {
+	if src == "" || strings.ContainsAny(src, "$~\x00") {
 		return "", false
 	}
 	if filepath.IsAbs(src) {

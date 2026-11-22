@@ -69,9 +69,12 @@ func listedFilesInspect() control.SourceInspectResult {
 		Access:       &control.SourceAccess{Mode: "0750", SetsPermissions: true},
 		PlannedFiles: []string{".env", "compose.yaml", "conf/app.yaml"},
 		Excluded: []control.SourceExcluded{
+			{Path: "acme.json", Reason: control.SourceExcludedWritableFile, Stack: "demo"},
 			{Path: "big.bin", Reason: control.SourceExcludedTooLarge},
-			{Path: "data", Reason: control.SourceExcludedBindMount, Stack: "demo"}},
-		Stacks: []control.SourceStack{{Name: "demo", BindMounts: []string{"data"}}},
+			{Path: "data", Reason: control.SourceExcludedBindMount, Stack: "demo"},
+			{Path: "notes.txt", Reason: control.SourceExcludedNotReferenced}},
+		Stacks: []control.SourceStack{{Name: "demo", BindMounts: []string{"data"},
+			Unresolved: []string{`env_file "${CONF_DIR}/app.env": variable CONF_DIR has no value in .env`}}},
 	}
 }
 
@@ -90,6 +93,8 @@ func TestSourceAddFilesWithoutConfirmationChangesNothing(t *testing.T) {
 		"Case files", "Start a git repository", "branch main", "core.sharedRepository=group",
 		"first commit is made as qhost", "no file in the folder is written", "takes 3 files", "  compose.yaml",
 		"big.bin: too-large", "data: bind-mount (stack demo)", "only in .git/info/exclude, never in .gitignore",
+		"acme.json: writable-file (stack demo)", "notes.txt: not-referenced", "Left out (4), not needed by the stacks",
+		"Not resolvable in stack demo", "variable CONF_DIR has no value in .env",
 		"paths get the group", "listed files: group rw", "bind-mount sources and everything below: data",
 		"files that are not listed stay as they are",
 	} {
@@ -142,7 +147,7 @@ func TestSourceAddFilesStopsBeforeAnyChangeWhenTheListChanged(t *testing.T) {
 		t.Fatalf("code %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 	for _, want := range []string{"changed since the list was shown", "new in files: new.yaml",
-		"no longer in left out: big.bin: too-large", "nothing was changed", "again"} {
+		"no longer in left out: acme.json: writable-file", "nothing was changed", "again"} {
 		if !strings.Contains(stderr, want) {
 			t.Errorf("stderr lacks %q:\n%s", want, stderr)
 		}

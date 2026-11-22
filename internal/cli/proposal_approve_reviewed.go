@@ -101,7 +101,7 @@ func approveSourceAddReviewed(c *cobra.Command, program *cobracli.Program, state
 		return err
 	}
 	warnOtherEngine(c.Context(), both, sa.res)
-	if err := checkExpectedEffect(o.expectEffect, sa.res, sa.perms); err != nil {
+	if err := checkExpectedEffect(c.Context(), o.expectEffect, sa); err != nil {
 		return err
 	}
 	effect, err := effectOf(sa, seen.String())

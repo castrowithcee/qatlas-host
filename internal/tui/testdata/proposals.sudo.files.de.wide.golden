@@ -18,14 +18,16 @@
     demo/.env                                                                                                           
     demo/compose.yaml                                                                                                   
                                                                                                                         
-  Ausgelassen (1), nur in .git/info/exclude vermerkt                                                                    
+  Ausgelassen (2), von den Stacks nicht gebraucht, nur in .git/info/exclude vermerkt                                    
     demo/data: bind-mount (Stack demo)                                                                                  
+    demo/notes.txt: not-referenced                                                                                      
                                                                                                                         
   Stacks (1)                                                                                                            
     demo (Ordner demo)                                                                                                  
       funktioniert: deploy                                                                                              
       funktioniert nicht: backup                                                                                        
       warning secrets-env-not-ignored: secrets.env is not listed in .gitignore                                          
+      nicht auflösbar: env_file "${CONF_DIR}/app.env": variable CONF_DIR has no value in .env                           
       Konflikt: Der Container demo-app-1 des Projekts old-demo läuft im Ordner, in der Engine system                    
                                                                                                                         
   Änderungen nach Ja                                                                                                    
@@ -35,6 +37,4 @@
     Der Ordner wird in das systemd-Drop-in des Dienstes eingetragen, der einmal neu startet.                            
                                                                                                                         
     $ sudo qhost proposal approve p-0005 --fingerprint fp-p-0005 --confirm --expect-effect                              
-      sha256:example-effect-for-tests-only-0000000000000000000000000000 --output json                                   
-                                                                                                                        
-y ja, ausführen  w mit Remote  n/esc/enter abbrechen                                                        ↑/↓ Scrollen
+y ja, ausführen  w mit Remote  n/esc/enter abbrechen                                                 ↑/↓ Scrollen  36/37
