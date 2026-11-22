@@ -112,10 +112,11 @@ func (m *Model) submitSecret(f *settingsForm, key, value string) tea.Cmd {
 	}
 	stack := f.stack
 	// The value goes on standard input of the command; the question shows the command without it.
+	ctx := m.engineCtx(m.stackEngineOf(stack))
 	m.askSetting(settingChange{title: textTitleSecret, question: m.text.Lookup(textAskSecretSet, key, stack),
 		consequence: m.text.Lookup(textWhatSecretSet), op: opSecretSet, name: key,
-		direct: func(b Backend) (any, error) { return b.SecretSet(m.ctx, stack, key, value) },
-		args:   []string{"stack", "secret", "set", "--output", "json", "--", stack, key},
+		direct: func(b Backend) (any, error) { return b.SecretSet(ctx, stack, key, value) },
+		args:   m.engineArgs(m.stackEngineOf(stack), []string{"stack", "secret", "set", "--output", "json", "--", stack, key}),
 		input:  secretInput(value),
 		decode: decodeSudo[control.SecretResult](func(r control.SecretResult) bool { return r.Stack != "" })})
 	return nil
@@ -201,20 +202,21 @@ func (m *Model) picked(id kittui.ItemID) tea.Cmd {
 	}
 	m.pick = nil
 	stack, key := p.stack, string(id)
+	ctx := m.engineCtx(m.stackEngineOf(stack))
 	switch p.kind {
 	case pickSecret:
 		m.askSetting(settingChange{title: textTitleSecretDelete, question: m.text.Lookup(textAskSecretDelete, key, stack),
 			consequence: m.text.Lookup(textWhatSecretDelete), danger: true, op: opSecretDelete, name: key,
-			direct: func(b Backend) (any, error) { return b.SecretDelete(m.ctx, stack, key) },
-			args:   []string{"stack", "secret", "delete", "--output", "json", "--", stack, key},
+			direct: func(b Backend) (any, error) { return b.SecretDelete(ctx, stack, key) },
+			args:   m.engineArgs(m.stackEngineOf(stack), []string{"stack", "secret", "delete", "--output", "json", "--", stack, key}),
 			decode: decodeSudo[control.SecretResult](func(r control.SecretResult) bool { return r.Stack != "" })})
 	case pickBackup:
 		b := p.backups[id]
 		details := []string{b.Created.In(m.loc).Format(lastRunLayout), humanSize(b.Size)}
 		m.askSetting(settingChange{title: textTitleRestore, question: m.text.Lookup(textAskRestore, key, stack),
 			consequence: m.text.Lookup(textWhatRestore), details: details, danger: true, op: opRestore, name: key,
-			direct: func(b Backend) (any, error) { return b.BackupRestore(m.ctx, stack, key) },
-			args:   []string{"stack", "backup", "restore", "--yes", "--output", "json", "--", stack, key},
+			direct: func(b Backend) (any, error) { return b.BackupRestore(ctx, stack, key) },
+			args:   m.engineArgs(m.stackEngineOf(stack), []string{"stack", "backup", "restore", "--yes", "--output", "json", "--", stack, key}),
 			decode: decodeRestore})
 	}
 	return nil

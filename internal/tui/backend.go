@@ -16,7 +16,24 @@ import (
 
 // Backend is what the interface asks of the service, one method per channel command. Calls run off the event
 // loop and may block; a failure the service reports is a *control.Error.
+//
+// A host can have several deploy services, one per Docker engine: the one of the system engine and an instance
+// for each rootless engine. A Backend over all of them (the one the qhost command builds) routes each call:
+//   - The reads of the lists (Status, Stacks, Runs, SourceList, Check and Updates without a stack) merge every
+//     deploy service, mark each stack, stack folder and run with its engine (control.EngineSystem or
+//     "rootless:<user>") and name a deploy service that could not be asked in the field NotChecked of the
+//     result, with its engine, instead of failing. Only when none answers is that an error.
+//   - A call about one stack or one stack folder goes to the deploy service that has it. A name several engines
+//     have is an error that names them; WithEngine chooses one. Nothing falls back to another engine.
+//   - A call about a whole engine (credentials, notification channels, the window and every call that names
+//     neither stack nor folder) goes to the engine WithEngine names; without one, to the system engine, else to
+//     the only instance, else it is an error that asks for the engine.
+//
+// A Backend over one channel serves the system engine and ignores WithEngine.
 type Backend interface {
+	// Engines lists the deploy services of the host by engine id: the system engine when its service is set up,
+	// then the rootless engines by user.
+	Engines(ctx context.Context) ([]string, error)
 	Status(ctx context.Context) (control.StatusResult, error)
 	Stacks(ctx context.Context) (control.StacksResult, error)
 	// Check checks one stack, or every stack for an empty name.
@@ -126,6 +143,20 @@ type Backend interface {
 	ProposalResult(ctx context.Context, args control.ProposalResultArgs) (control.ProposalInfo, error)
 }
 
+type engineKey struct{}
+
+// WithEngine returns ctx that makes a routing Backend send the call to the deploy service of engine, an id as
+// Engines lists it. A named engine is never replaced by another one; if it cannot be reached the call fails.
+func WithEngine(ctx context.Context, engine string) context.Context {
+	return context.WithValue(ctx, engineKey{}, engine)
+}
+
+// EngineOf is the engine WithEngine named for ctx, or empty.
+func EngineOf(ctx context.Context) string {
+	e, _ := ctx.Value(engineKey{}).(string)
+	return e
+}
+
 // updateCallLimit bounds one update call, which waits for every step of the stack; it is the limit of the
 // update command.
 const updateCallLimit = 24 * time.Hour
@@ -156,6 +187,11 @@ func NewBackend(ep localipc.ServiceEndpoint) *ChannelBackend { return &ChannelBa
 func (b *ChannelBackend) WithVersion(v string) *ChannelBackend {
 	b.version = v
 	return b
+}
+
+// Engines names the engine of the one channel: the system engine.
+func (b *ChannelBackend) Engines(context.Context) ([]string, error) {
+	return []string{control.EngineSystem}, nil
 }
 
 func (b *ChannelBackend) Diagnose(ctx context.Context) *diagnose.Package {

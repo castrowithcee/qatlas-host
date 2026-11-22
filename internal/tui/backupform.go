@@ -121,7 +121,8 @@ func (m *Model) openSettingsRead(op settingOp) tea.Cmd {
 	if !ok || m.detailBusy() {
 		return nil
 	}
-	return m.writeCall(op, stack, func(b Backend) (any, error) { return b.StackSettings(m.ctx, stack) })
+	ctx := m.engineCtx(m.stackEngineOf(stack))
+	return m.writeCall(op, stack, func(b Backend) (any, error) { return b.StackSettings(ctx, stack) })
 }
 
 // listField is the field of a list editor.

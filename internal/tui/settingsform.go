@@ -330,10 +330,11 @@ func (m *Model) submitCredential(f *settingsForm, kind, host, user, token string
 		f.problems(ps...)
 		return nil
 	}
+	ctx := m.settingsCtx()
 	m.askSetting(settingChange{title: textTitleCred, question: m.text.Lookup(textAskCredSet, name),
 		consequence: m.text.Lookup(textWhatCredSet), op: opCredSet, name: name,
-		direct: func(b Backend) (any, error) { return nil, b.CredentialSet(m.ctx, name, value) },
-		args:   []string{"credential", "set", "--output", "json", "--", name},
+		direct: func(b Backend) (any, error) { return nil, b.CredentialSet(ctx, name, value) },
+		args:   m.settingsArgs([]string{"credential", "set", "--output", "json", "--", name}),
 		input:  secretInput(value),
 		decode: decodeFlag("stored")})
 	return nil
@@ -454,10 +455,11 @@ func (m *Model) submitNotifyDetail(f *settingsForm, v map[kittui.FieldID]kittui.
 		f.problems(ps...)
 		return nil
 	}
+	ctx := m.settingsCtx()
 	m.askSetting(settingChange{title: textTitleNotify, question: m.text.Lookup(textAskNotifyAdd, args.Name, args.Type),
 		consequence: m.text.Lookup(textWhatNotifyAdd), op: opNotifyAdd, name: args.Name,
-		direct: func(b Backend) (any, error) { return b.NotifyAdd(m.ctx, args) },
-		args:   notifyAddCommand(args),
+		direct: func(b Backend) (any, error) { return b.NotifyAdd(ctx, args) },
+		args:   m.settingsArgs(notifyAddCommand(args)),
 		input:  secretInput(notifyAddInput(args)),
 		decode: decodeNotifyAdd})
 	return nil

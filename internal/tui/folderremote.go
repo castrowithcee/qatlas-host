@@ -58,7 +58,7 @@ func (m *Model) compareFolder(flow *addFlow) tea.Cmd {
 		return nil
 	}
 	args := control.SourceCompareArgs{Path: flow.res.Path, URL: flow.url, Fingerprint: flow.probe.Fingerprint, Include: flow.include}
-	ctx, host, shown := m.ctx, m.folders, flow.res
+	ctx, host, shown := m.engineCtx(m.folderEngineOf(args.Path)), m.folders, flow.res
 	return m.writeCall(opCompare, args.Path, func(b Backend) (any, error) {
 		cmp, err := b.SourceCompare(ctx, args)
 		if err != nil || shown.Case != control.SourceCaseFiles || host == nil {
@@ -172,5 +172,6 @@ func (m *Model) connectRemote(flow *addFlow) tea.Cmd {
 	}
 	args := control.SourceRemoteArgs{Path: flow.res.Path, URL: flow.url, Fingerprint: flow.probe.Fingerprint,
 		ExpectState: cmp.State, ExpectCommit: cmp.Commit}
-	return m.writeCall(opRemote, args.Path, func(b Backend) (any, error) { return b.SourceRemote(m.ctx, args) })
+	ctx := m.engineCtx(m.folderEngineOf(args.Path))
+	return m.writeCall(opRemote, args.Path, func(b Backend) (any, error) { return b.SourceRemote(ctx, args) })
 }

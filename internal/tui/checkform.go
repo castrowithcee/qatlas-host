@@ -226,10 +226,11 @@ func (m *Model) openRemoveSettings() tea.Cmd {
 	case control.SourceKindLocal:
 		what = textWhatRemoveLocal
 	}
+	ctx := m.engineCtx(m.stackEngineOf(stack))
 	m.askSetting(settingChange{title: textTitleSettingsRemove, question: m.text.Lookup(textAskSettingsRemove, stack),
 		consequence: m.text.Lookup(what), danger: true, op: opStackSettingsRemove, name: stack,
-		direct: func(b Backend) (any, error) { return b.StackSettingsRemove(m.ctx, stack) },
-		args:   []string{"stack", "settings", "remove", "--output", "json", "--", stack},
+		direct: func(b Backend) (any, error) { return b.StackSettingsRemove(ctx, stack) },
+		args:   m.engineArgs(m.stackEngineOf(stack), []string{"stack", "settings", "remove", "--output", "json", "--", stack}),
 		decode: decodeSudo[control.StackSettingsRemoveResult](func(r control.StackSettingsRemoveResult) bool { return r.Stack != "" })})
 	return nil
 }

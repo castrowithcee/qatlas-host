@@ -63,7 +63,20 @@ const maxListedTargets = 6
 type plan struct {
 	kind   actionKind
 	stacks []string
+	// engines is the engine of each stack, one per entry of stacks; empty where the backend names none.
+	engines []string
 }
+
+// engineAt is the engine of the stack at index i.
+func (p plan) engineAt(i int) string {
+	if i < len(p.engines) {
+		return p.engines[i]
+	}
+	return ""
+}
+
+// engineOf is the engine of the stack of that name in the plan.
+func (p plan) engineOf(name string) string { return p.engineAt(slices.Index(p.stacks, name)) }
 
 func (p plan) steps() int { return max(len(p.stacks), 1) }
 
@@ -72,11 +85,12 @@ func (p plan) steps() int { return max(len(p.stacks), 1) }
 func (k actionKind) stopsAtFailure() bool { return k == kindStart || k == kindStop || k == kindRestart }
 
 // runRef names a run a finished action started.
-type runRef struct{ id, stack string }
+type runRef struct{ id, stack, engine string }
 
 // outcome is what one stack, or the registry query, came to.
 type outcome struct {
 	stack  string
+	engine string
 	failed bool
 	// notRun marks a stack the sequence ended before; it is neither ok nor failed.
 	notRun bool
@@ -164,22 +178,21 @@ type previewMsg struct {
 func (m *Model) busy() bool { return m.run != nil }
 
 // targets are the stacks an action applies to: the ticked ones in list order, or the one under the cursor.
-func (m *Model) targets() []string {
-	var names []string
-	for _, id := range m.list.Ticked() {
+func (m *Model) targets() (names, engines []string) {
+	for _, id := range m.tickedStacks() {
 		if r, ok := m.rows[id]; ok {
-			names = append(names, r.name)
+			names, engines = append(names, r.name), append(engines, r.engine)
 		}
 	}
 	if len(names) > 0 {
-		return names
+		return names, engines
 	}
 	if id, ok := m.list.Selected(); ok {
 		if r, ok := m.rows[id]; ok {
-			return []string{r.name}
+			return []string{r.name}, []string{r.engine}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (m *Model) warn(text string) {
@@ -197,7 +210,7 @@ func (m *Model) beginAction(kind actionKind) tea.Cmd {
 	}
 	p := plan{kind: kind}
 	if kind != kindCheck {
-		if p.stacks = m.targets(); len(p.stacks) == 0 {
+		if p.stacks, p.engines = m.targets(); len(p.stacks) == 0 {
 			m.warn(m.text.Lookup(textActionNoStack))
 			return nil
 		}
@@ -205,8 +218,8 @@ func (m *Model) beginAction(kind actionKind) tea.Cmd {
 	if kind == kindResume {
 		// Only a stack paused after a failed rollback or halted in its repair is resumed; the narrower reading
 		// refuses the whole action rather than leaving a ticked stack out unseen.
-		for _, name := range p.stacks {
-			if !m.resumable(name) {
+		for i, name := range p.stacks {
+			if !m.resumable(p.engineAt(i), name) {
 				m.warn(m.text.Lookup(textActionNotResumable, name))
 				return nil
 			}
@@ -214,8 +227,8 @@ func (m *Model) beginAction(kind actionKind) tea.Cmd {
 	}
 	if kind == kindRestart {
 		// A stopped stack is started, not restarted; the whole action is refused like resume.
-		for _, name := range p.stacks {
-			if m.rowNamed(name).state == stateStopped {
+		for i, name := range p.stacks {
+			if m.rowOf(p.engineAt(i), name).state == stateStopped {
 				m.warn(m.text.Lookup(textActionStopped, name))
 				return nil
 			}
@@ -238,18 +251,18 @@ func (m *Model) beginAction(kind actionKind) tea.Cmd {
 }
 
 // resumable reports whether the status shows a pause after a rollback or a halted repair for the stack.
-func (m *Model) resumable(name string) bool {
+func (m *Model) resumable(engine, name string) bool {
 	for i, st := range m.snap.status.Engine.Stacks {
-		if st.Name == name && control.Primary(m.snap.status.Engine.Stacks, i) {
+		if st.Name == name && inEngine(st.Engine, engine) && primary(m.snap.status.Engine.Stacks, i) {
 			return st.Paused != nil || st.Repair != nil && st.Repair.Halted != nil
 		}
 	}
 	return false
 }
 
-func (m *Model) rowNamed(name string) stackRow {
+func (m *Model) rowOf(engine, name string) stackRow {
 	for _, r := range m.rows {
-		if r.name == name {
+		if r.name == name && inEngine(r.engine, engine) {
 			return r
 		}
 	}
@@ -302,8 +315,8 @@ func (m *Model) openPreview(p plan) tea.Cmd {
 	m.modalGen++
 	md.gen = m.modalGen
 	var wanted []string
-	for _, name := range p.stacks {
-		if m.hasUpdate(name) {
+	for i, name := range p.stacks {
+		if m.hasUpdate(p.engineAt(i), name) {
 			md.changelogs[name] = &changelogEntry{}
 			wanted = append(wanted, name)
 		}
@@ -317,12 +330,12 @@ func (m *Model) openPreview(p plan) tea.Cmd {
 		return nil
 	}
 	m.modal = md
-	return m.readChangelog(md.gen, wanted)
+	return m.readChangelog(md, wanted)
 }
 
 // hasUpdate reports whether the stored detection knows an update for the stack.
-func (m *Model) hasUpdate(stack string) bool {
-	items, _ := m.versionItems(stack)
+func (m *Model) hasUpdate(engine, stack string) bool {
+	items, _ := m.versionItems(engine, stack)
 	return slices.ContainsFunc(items, func(it versionItem) bool { return it.status == "update" })
 }
 
@@ -352,11 +365,12 @@ func (md *modal) changelogsRead() bool {
 
 // readChangelog reads the changelog of the first of stacks; the next is read when it answers, so the service
 // is never asked for several at once.
-func (m *Model) readChangelog(gen int, stacks []string) tea.Cmd {
+func (m *Model) readChangelog(md *modal, stacks []string) tea.Cmd {
 	if len(stacks) == 0 {
 		return nil
 	}
-	ctx, b, stack := m.ctx, m.backend, stacks[0]
+	b, stack, gen := m.backend, stacks[0], md.gen
+	ctx := m.engineCtx(md.plan.engineOf(stack))
 	return func() tea.Msg {
 		res, err := b.Changelog(ctx, stack)
 		return previewMsg{gen: gen, stack: stack, res: res, err: err}
@@ -386,7 +400,7 @@ func (m *Model) applyPreview(msg previewMsg) tea.Cmd {
 			rest = append(rest, name)
 		}
 	}
-	return m.readChangelog(md.gen, rest)
+	return m.readChangelog(md, rest)
 }
 
 // modalKey takes every key while a question or result is open. Only its answers act; ctrl+c still quits.
@@ -494,9 +508,13 @@ func (m *Model) step() tea.Cmd {
 	if r.plan.kind != kindCheck {
 		stack = r.plan.stacks[index]
 	}
-	ctx, b, kind, gen := m.ctx, m.backend, r.plan.kind, r.gen
+	engine := ""
+	if r.plan.kind != kindCheck {
+		engine = r.plan.engineAt(index)
+	}
+	ctx, b, kind, gen := m.engineCtx(engine), m.backend, r.plan.kind, r.gen
 	if r.sudo {
-		return m.runSudo(sudoPlanArgs(kind, stack), m.sudoStepDone(gen, index, kind, stack))
+		return m.runSudo(m.engineArgs(engine, sudoPlanArgs(kind, stack)), m.sudoStepDone(gen, index, kind, stack))
 	}
 	return func() tea.Msg {
 		res, err := callService(ctx, b, kind, stack)
@@ -543,9 +561,15 @@ func (m *Model) applyStep(msg stepMsg) tea.Cmd {
 		stack = r.plan.stacks[msg.index]
 	}
 	r.outcomes = append(r.outcomes, m.outcomeOf(r.plan.kind, stack, msg))
+	last := &r.outcomes[len(r.outcomes)-1]
+	last.engine = r.plan.engineAt(msg.index)
+	for i := range last.runs {
+		last.runs[i].engine = last.engine
+	}
 	if last := r.outcomes[len(r.outcomes)-1]; last.failed && r.plan.kind.stopsAtFailure() {
-		for _, name := range r.plan.stacks[len(r.outcomes):] {
-			r.outcomes = append(r.outcomes, outcome{stack: name, notRun: true, lines: []string{m.text.Lookup(textDoneNotRun)}})
+		for i, name := range r.plan.stacks[len(r.outcomes):] {
+			r.outcomes = append(r.outcomes, outcome{stack: name, engine: r.plan.engineAt(len(r.outcomes) + i), notRun: true,
+				lines: []string{m.text.Lookup(textDoneNotRun)}})
 		}
 	}
 	if len(r.outcomes) < r.plan.steps() {
@@ -574,13 +598,13 @@ func (m *Model) finish() tea.Cmd {
 			failed++
 		}
 		for id, row := range m.rows {
-			if row.name == o.stack {
+			if row.name == o.stack && inEngine(row.engine, o.engine) {
 				again = append(again, id)
 			}
 		}
 	}
 	if r.plan.kind != kindCheck {
-		_ = m.list.SetTicked(again)
+		m.setTickedStacks(again)
 	}
 	m.detail = detailState{gen: m.detail.gen + 1}
 	md := &modal{kind: modalSummary, plan: r.plan, outcomes: r.outcomes}
@@ -721,8 +745,8 @@ func (m *Model) showRuns(refs []runRef) tea.Cmd {
 		m.log.open = false
 		return m.enter(areaRuns)
 	}
-	row := runRow{id: refs[0].id, stack: refs[0].stack}
-	if i := slices.IndexFunc(m.runData, func(r runRow) bool { return r.id == row.id }); i >= 0 {
+	row := runRow{id: refs[0].id, stack: refs[0].stack, engine: refs[0].engine}
+	if i := slices.IndexFunc(m.runData, func(r runRow) bool { return r.id == row.id && r.engine == row.engine }); i >= 0 {
 		row = m.runData[i]
 	} else {
 		row.started, _ = time.Parse(runIDLayout, row.id[:min(len(row.id), len(runIDLayout))])
@@ -739,7 +763,7 @@ func (m *Model) actionHints() []kittui.Hint {
 		{Action: actUpdate, Label: textKeyUpdate, Priority: 2},
 		{Action: actDeploy, Label: textKeyDeploy, Priority: 2},
 	}
-	if id, ok := m.list.Selected(); ok && m.resumable(m.rows[id].name) {
+	if id, ok := m.list.Selected(); ok && m.resumable(m.rows[id].engine, m.rows[id].name) {
 		hints = append(hints, kittui.Hint{Action: actResume, Label: textKeyResume, Priority: 2})
 	}
 	return hints
@@ -754,7 +778,7 @@ func (m *Model) moreActionHints() []kittui.Hint {
 		{Action: actStackStart, Label: textKeyStart}, {Action: actStackStop, Label: textKeyStop},
 		{Action: actStackRestart, Label: textKeyRestart},
 	}
-	if id, ok := m.list.Selected(); !ok || !m.resumable(m.rows[id].name) {
+	if id, ok := m.list.Selected(); !ok || !m.resumable(m.rows[id].engine, m.rows[id].name) {
 		hints = append(hints, kittui.Hint{Action: actResume, Label: textKeyResume})
 	}
 	return hints
@@ -826,11 +850,12 @@ func (m *Model) previewLines(width int) []string {
 	md, t := m.modal, m.text
 	info := kindTexts[kindUpdate]
 	lines := m.questionLines(t.Lookup(info.ask, m.subject(md.plan)), t.Lookup(info.consequence), width, true)
-	for _, name := range md.plan.stacks {
+	for i, name := range md.plan.stacks {
+		engine := md.plan.engineAt(i)
 		lines = append(lines, "", m.line(detailMargin, kittui.StyleActive, name, width))
-		lines = append(lines, m.versionLines(name, width)...)
-		items, _ := m.versionItems(name)
-		if !m.hasUpdate(name) {
+		lines = append(lines, m.versionLines(engine, name, width)...)
+		items, _ := m.versionItems(engine, name)
+		if !m.hasUpdate(engine, name) {
 			lines = append(lines, m.wrapped(detailIndent, kittui.StyleHint, t.Lookup(textPreviewNoUpdate), width)...)
 		}
 		if slices.ContainsFunc(items, func(it versionItem) bool { return it.major != "" }) {

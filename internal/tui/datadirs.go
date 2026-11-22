@@ -38,8 +38,9 @@ type dataDirsResult struct {
 
 // dataDirFinding is the data-dir-missing finding of a stack, if the service reports one.
 func (m *Model) dataDirFinding(stack string) (control.FindingInfo, bool) {
+	engine := m.stackEngineOf(stack)
 	for i, st := range m.snap.status.Engine.Stacks {
-		if st.Name != stack || !control.Primary(m.snap.status.Engine.Stacks, i) {
+		if st.Name != stack || !inEngine(st.Engine, engine) || !primary(m.snap.status.Engine.Stacks, i) {
 			continue
 		}
 		for _, f := range st.Findings {
@@ -171,8 +172,8 @@ func (m *Model) askDataDirsSudo(stack string, req datadir.Request, details []str
 	var gen int
 	m.askSudo(sudoAsk{title: textTitleDataDirs, question: m.text.Lookup(textAskDataDirs, stack), consequence: m.text.Lookup(textWhatDataDirs),
 		lead: dialogLines(details),
-		args: []string{"stack", "datadir", "--owner", req.Owner.String(), "--mode", fmt.Sprintf("%04o", req.Mode), "--yes",
-			"--output", "json", "--", stack},
+		args: m.engineArgs(m.stackEngineOf(stack), []string{"stack", "datadir", "--owner", req.Owner.String(), "--mode", fmt.Sprintf("%04o", req.Mode), "--yes",
+			"--output", "json", "--", stack}),
 		begin: func() { gen = m.beginSetting() },
 		done: func(r sudoRun) tea.Cmd {
 			msg := settingMsg{gen: gen, op: opDataDirs, name: stack}
@@ -196,13 +197,13 @@ func (m *Model) askDataDirsSudo(stack string, req datadir.Request, details []str
 
 // createDataDirs makes the confirmed directories and then starts a run of the stack, off the event loop.
 func (m *Model) createDataDirs(stack string, req datadir.Request) tea.Cmd {
-	mk := m.makeDirs
+	mk, ctx := m.makeDirs, m.engineCtx(m.stackEngineOf(stack))
 	return m.writeCall(opDataDirs, stack, func(b Backend) (any, error) {
 		out := dataDirsResult{stack: stack}
 		if out.res, out.createEr = mk(req); out.createEr != nil {
 			return out, nil
 		}
-		out.run, out.deployEr = b.Deploy(m.ctx, stack)
+		out.run, out.deployEr = b.Deploy(ctx, stack)
 		return out, nil
 	})
 }

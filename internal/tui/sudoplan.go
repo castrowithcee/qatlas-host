@@ -36,11 +36,11 @@ func (m *Model) askSudoPlan(p plan) {
 		a.remote = t.Lookup(textSudoRemoteRegistry)
 	} else {
 		first = p.stacks[0]
-		for _, name := range p.stacks[1:] {
-			a.also = append(a.also, sudoPlanArgs(p.kind, name))
+		for i, name := range p.stacks[1:] {
+			a.also = append(a.also, m.engineArgs(p.engineAt(i+1), sudoPlanArgs(p.kind, name)))
 		}
 	}
-	a.args = sudoPlanArgs(p.kind, first)
+	a.args = m.engineArgs(p.engineAt(0), sudoPlanArgs(p.kind, first))
 	var gen int
 	a.begin = func() {
 		m.runGen++
@@ -202,7 +202,7 @@ func (m *Model) askSudoChangelog(md *modal, wanted []string) {
 	t := m.text
 	args := []string{"stack", "updates", "--changelog", "--output", "json"}
 	if len(wanted) == 1 {
-		args = append(args, "--", wanted[0])
+		args = m.engineArgs(md.plan.engineOf(wanted[0]), append(args, "--", wanted[0]))
 	}
 	m.askSudo(sudoAsk{title: textKeyUpdate, question: t.Lookup(textAskChangelog, m.subject(md.plan)),
 		consequence: t.Lookup(textWhatChangelog), remote: t.Lookup(textSudoRemoteGitHub),
@@ -302,8 +302,9 @@ func changelogsOf(rows []changelogRow, checked func(stack string) time.Time) map
 // checkedAt is when the stored detection last checked the stack for updates; when the interface holds none, the
 // time of now, since the rows of a checked stack only exist after a check.
 func (m *Model) checkedAt(stack string) time.Time {
+	engine := m.stackEngineOf(stack)
 	for _, su := range m.snap.updates.Stacks {
-		if su.Name == stack && !su.Checked.IsZero() {
+		if su.Name == stack && inEngine(su.Engine, engine) && !su.Checked.IsZero() {
 			return su.Checked
 		}
 	}

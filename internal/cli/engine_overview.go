@@ -68,18 +68,7 @@ func askOverviewWith[T any](c *cobra.Command, state *notRunning, command string,
 	if len(targets) > 1 && limit <= client.CallTimeout {
 		limit = peerLimit
 	}
-	var ok, failed, empty []engineReply[T]
-	for _, r := range askEach[T](c.Context(), limit, targets, command, args) {
-		var remote *control.Error
-		switch {
-		case r.err == nil:
-			ok = append(ok, r)
-		case len(targets) > 1 && errors.As(r.err, &remote) && remote.Code == control.CodeNoRepo:
-			empty = append(empty, r)
-		default:
-			failed = append(failed, r)
-		}
-	}
+	ok, failed, empty := splitOverview(len(targets), askEach[T](c.Context(), limit, targets, command, args))
 	if len(ok) == 0 && len(failed) == 0 {
 		// No service has a stack folder: the first one says so, as on a host with only that service.
 		return nil, targetFailure(withEngine(c.Context(), empty[0].target), empty[0].err)
@@ -96,14 +85,27 @@ func askOverviewWith[T any](c *cobra.Command, state *notRunning, command string,
 	return ok, nil
 }
 
-// askRun asks every deploy service for the log of a run and answers with the one that knows it. A service
-// that does not know the run is no problem; one that cannot be asked is a warning when another knows the run,
-// and otherwise named in the error, because the run may be there.
-func askRun(c *cobra.Command, state *notRunning, targets []engineTarget, id string) (engineTarget, control.LogResult, error) {
-	var known []engineReply[control.LogResult]
-	var unchecked []engineAnswer
-	var first error
-	for _, r := range askEach[control.LogResult](c.Context(), peerLimit, targets, control.LogCommand, control.LogArgs{ID: id}) {
+// splitOverview sorts the answers of an overview into those with a result, those whose service could not be
+// asked and, on a host with several services, those without a bound stack folder, which add nothing.
+func splitOverview[T any](targets int, replies []engineReply[T]) (ok, failed, empty []engineReply[T]) {
+	for _, r := range replies {
+		var remote *control.Error
+		switch {
+		case r.err == nil:
+			ok = append(ok, r)
+		case targets > 1 && errors.As(r.err, &remote) && remote.Code == control.CodeNoRepo:
+			empty = append(empty, r)
+		default:
+			failed = append(failed, r)
+		}
+	}
+	return ok, failed, empty
+}
+
+// splitRun sorts the answers about a run into the services that know it, those that could not be asked and
+// the first "no such run" error. A service that does not know the run is no problem.
+func splitRun(replies []engineReply[control.LogResult]) (known []engineReply[control.LogResult], unchecked []engineAnswer, first error) {
+	for _, r := range replies {
 		var remote *control.Error
 		switch {
 		case r.err == nil:
@@ -116,6 +118,14 @@ func askRun(c *cobra.Command, state *notRunning, targets []engineTarget, id stri
 			unchecked = append(unchecked, engineAnswer{target: r.target, err: r.err})
 		}
 	}
+	return known, unchecked, first
+}
+
+// askRun asks every deploy service for the log of a run and answers with the one that knows it. A service
+// that does not know the run is no problem; one that cannot be asked is a warning when another knows the run,
+// and otherwise named in the error, because the run may be there.
+func askRun(c *cobra.Command, state *notRunning, targets []engineTarget, id string) (engineTarget, control.LogResult, error) {
+	known, unchecked, first := splitRun(askEach[control.LogResult](c.Context(), peerLimit, targets, control.LogCommand, control.LogArgs{ID: id}))
 	switch {
 	case len(known) > 1:
 		ids := make([]string, len(known))

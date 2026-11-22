@@ -16,8 +16,10 @@ import (
 
 // snapshot is what one refresh read from the service.
 type snapshot struct {
-	status control.StatusResult
-	stacks control.StacksResult
+	// engines are the deploy services of the host by engine id, as the backend lists them.
+	engines []string
+	status  control.StatusResult
+	stacks  control.StacksResult
 	// noRepo is set when no stacks repository is bound; check and updates are not asked then.
 	noRepo  bool
 	check   control.StacksCheckResult
@@ -49,6 +51,8 @@ func fetch(ctx context.Context, b Backend) refreshMsg {
 			msg.problem = err
 		}
 	}
+	// The list of engines only widens what the interface shows; the lists name their engines themselves.
+	msg.snap.engines, _ = b.Engines(ctx)
 	var remote *control.Error
 	msg.snap.stacks, err = b.Stacks(ctx)
 	if errors.As(err, &remote) && remote.Code == control.CodeNoRepo {
@@ -104,6 +108,8 @@ const (
 // stackRow is one stack as the Stacks area shows it, before translation.
 type stackRow struct {
 	name string
+	// engine is the engine of the deploy service that has the stack; empty when the backend names none.
+	engine string
 	// folder is the path of the stack folder the stack comes from; empty when the service named none.
 	folder    string
 	current   []string
@@ -129,31 +135,35 @@ var failedResults = []string{"failed", "rolled-back", "rollback-failed"}
 // buildRows joins the parts of a snapshot into one row per stack, sorted by name. A stack is listed when the
 // status or the working copy names it.
 func buildRows(s snapshot) []stackRow {
-	byName := map[string]*stackRow{}
-	row := func(name string) *stackRow {
-		if r, ok := byName[name]; ok {
+	// A stack is told apart by its engine and its name: two engines may each have a stack of the same name, and
+	// the ID of a stack folder is only unique within its engine.
+	byName := map[stackRef]*stackRow{}
+	row := func(engine, name string) *stackRow {
+		k := stackRef{engine, name}
+		if r, ok := byName[k]; ok {
 			return r
 		}
-		r := &stackRow{name: name, avail: availNotChecked}
-		byName[name] = r
+		r := &stackRow{name: name, engine: engine, avail: availNotChecked}
+		byName[k] = r
 		return r
 	}
-	unreadable := map[string]bool{}
-	source := map[string]string{}
-	paths := map[string]string{}
+	unreadable := map[stackRef]bool{}
+	source := map[stackRef]string{}
+	paths := map[stackRef]string{}
 	for _, src := range s.status.Engine.Sources {
-		paths[src.ID] = src.Path
+		paths[stackRef{src.Engine, src.ID}] = src.Path
 	}
 	for _, si := range s.stacks.Stacks {
 		if si.SourceDir != "" {
-			paths[si.Source] = si.SourceDir
+			paths[stackRef{si.Engine, si.Source}] = si.SourceDir
 		}
 	}
 	for i, st := range s.status.Engine.Stacks {
-		r := row(st.Name)
+		r := row(st.Engine, st.Name)
+		k := stackRef{st.Engine, st.Name}
 		// Another source's entry of the name, such as one blocked by name-collision, adds only its findings.
-		if control.Primary(s.status.Engine.Stacks, i) {
-			source[st.Name] = st.Source
+		if primary(s.status.Engine.Stacks, i) {
+			source[k] = st.Source
 			r.state = stateOf(st)
 			r.lastResult = st.LastRun
 		}
@@ -167,13 +177,14 @@ func buildRows(s snapshot) []stackRow {
 		if si.Collision != "" {
 			continue
 		}
-		r := row(si.Name)
-		if _, ok := source[si.Name]; !ok {
-			source[si.Name] = si.Source
+		r := row(si.Engine, si.Name)
+		k := stackRef{si.Engine, si.Name}
+		if _, ok := source[k]; !ok {
+			source[k] = si.Source
 		}
 		r.mode, r.trigger, r.interval = si.Update, si.Trigger, si.Interval
 		if si.Error != "" {
-			unreadable[si.Name] = true
+			unreadable[k] = true
 		}
 		for _, img := range si.Images {
 			r.current = appendDistinct(r.current, img.Version)
@@ -186,7 +197,7 @@ func buildRows(s snapshot) []stackRow {
 		if len(rep.Findings) == 0 {
 			continue
 		}
-		r := row(rep.Stack)
+		r := row(rep.Engine, rep.Stack)
 		for _, f := range rep.Findings {
 			if f.Severity == "error" {
 				r.errors++
@@ -196,34 +207,38 @@ func buildRows(s snapshot) []stackRow {
 		}
 	}
 	for _, su := range s.updates.Stacks {
-		r := row(su.Name)
+		r := row(su.Engine, su.Name)
 		if r.mode == "" {
 			r.mode = su.Update
 		}
 		if su.Error != "" {
-			unreadable[su.Name] = true
+			unreadable[stackRef{su.Engine, su.Name}] = true
 		}
 		applyUpdates(r, su)
 	}
-	seen := map[string]bool{}
+	seen := map[stackRef]bool{}
 	for _, run := range s.runs.Runs {
-		if run.Result == "" || seen[run.Stack] {
+		k := stackRef{run.Engine, run.Stack}
+		if run.Result == "" || seen[k] {
 			continue
 		}
-		seen[run.Stack] = true
-		if r, ok := byName[run.Stack]; ok {
+		seen[k] = true
+		if r, ok := byName[k]; ok {
 			r.lastResult, r.lastAt = run.Result, run.Started
 		}
 	}
 	rows := make([]stackRow, 0, len(byName))
-	for name, r := range byName {
-		r.folder = cmp.Or(paths[source[name]], source[name])
-		if unreadable[name] && r.state < stateUnreadable {
+	for k, r := range byName {
+		src := source[k]
+		r.folder = cmp.Or(paths[stackRef{k.engine, src}], src)
+		if unreadable[k] && r.state < stateUnreadable {
 			r.state = stateUnreadable
 		}
 		rows = append(rows, *r)
 	}
-	slices.SortFunc(rows, func(a, b stackRow) int { return strings.Compare(a.name, b.name) })
+	slices.SortFunc(rows, func(a, b stackRow) int {
+		return cmp.Or(strings.Compare(a.name, b.name), strings.Compare(a.engine, b.engine))
+	})
 	return rows
 }
 
@@ -454,7 +469,23 @@ func itemIDs(rows []stackRow) []kittui.ItemID {
 	for i, r := range rows {
 		names[i] = r.name
 	}
-	return uniqueIDs(names)
+	ids := uniqueIDs(names)
+	// A name that two engines have gets the engine in its ID, so the ID names one stack of one engine.
+	count := map[string]int{}
+	for _, r := range rows {
+		count[r.name]++
+	}
+	var dup []string
+	var at []int
+	for i, r := range rows {
+		if count[r.name] > 1 {
+			dup, at = append(dup, r.engine+"\x00"+r.name), append(at, i)
+		}
+	}
+	for j, id := range uniqueIDs(dup) {
+		ids[at[j]] = id
+	}
+	return ids
 }
 
 // uniqueIDs is itemIDs for any names.

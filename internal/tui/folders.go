@@ -98,12 +98,18 @@ func (e keptChanges) Unwrap() error { return e.err }
 // folderGroups sets the data of the stack folders and their group rows in the Stacks list: every bound folder
 // has its row, with or without stacks, and it shows the kind and the last poll or why that failed.
 func (m *Model) folderGroups() {
+	m.set.folderData = map[stackRef]control.SourceStatus{}
+	m.fillFolderGroups(m.list, m.snap.status.Engine.Sources, "")
+}
+
+// fillFolderGroups sets the group rows of list for the stack folders src, which are the folders of one engine
+// when the interface shows several. engine is the engine part of their keys in folderData: empty when the
+// interface shows one engine.
+func (m *Model) fillFolderGroups(list *kittui.List, src []control.SourceStatus, engine string) {
 	s, t := m.set, m.text
-	src := m.snap.status.Engine.Sources
-	s.folderData = map[string]control.SourceStatus{}
 	groups := make([]kittui.ListGroup, 0, len(src))
 	for _, f := range src {
-		s.folderData[f.Path] = f
+		s.folderData[stackRef{engine, f.Path}] = f
 		kind, polled := t.Lookup(textFolderKindLocal), t.Lookup(textNoValue)
 		if f.Kind == control.SourceKindRemote {
 			kind = t.Lookup(textFolderKindRemote)
@@ -119,7 +125,7 @@ func (m *Model) folderGroups() {
 		cells[colGroupKind], cells[colGroupPolled] = kind, polled
 		groups = append(groups, kittui.ListGroup{Key: f.Path, Title: f.Path, Cells: cells, Keep: true})
 	}
-	if err := m.list.SetGroups(groups); err != nil {
+	if err := list.SetGroups(groups); err != nil {
 		m.failure = t.Lookup(kittui.TextError, err.Error())
 	}
 }
@@ -127,7 +133,7 @@ func (m *Model) folderGroups() {
 // selectedFolder is the stack folder whose group row is marked.
 func (m *Model) selectedFolder() (control.SourceStatus, bool) {
 	key, ok := m.list.SelectedGroup()
-	f, found := m.set.folderData[key]
+	f, found := m.set.folderData[stackRef{m.listEngine, key}]
 	return f, ok && found
 }
 
@@ -190,10 +196,11 @@ func (m *Model) askFolderFetch() tea.Cmd {
 		m.warn(m.text.Lookup(textFolderLocalFetch))
 		return nil
 	}
+	ctx := m.engineCtx(f.Engine)
 	m.askSetting(settingChange{title: textTitleFolders, question: m.text.Lookup(textAskFetch, f.Path),
 		consequence: m.text.Lookup(textWhatFetch), op: opFetch, name: f.Path,
-		direct: func(b Backend) (any, error) { return b.RepoFetch(m.ctx, f.Path) },
-		args:   []string{"repo", "fetch", "--dir", f.Path, "--output", "json"},
+		direct: func(b Backend) (any, error) { return b.RepoFetch(ctx, f.Path) },
+		args:   m.engineArgs(f.Engine, []string{"repo", "fetch", "--dir", f.Path, "--output", "json"}),
 		decode: decodeSudo[control.RepoFetchResult](func(r control.RepoFetchResult) bool { return r.Dir != "" })})
 	return nil
 }
@@ -223,10 +230,11 @@ func (m *Model) askFolderRemove() tea.Cmd {
 		m.warn(m.text.Lookup(textChooseOne))
 		return nil
 	}
+	ctx := m.engineCtx(f.Engine)
 	m.askSetting(settingChange{title: textTitleFolders, question: m.text.Lookup(textAskRelease, f.Path),
 		consequence: m.text.Lookup(textWhatRelease), op: opSourceRemove, name: f.Path,
-		direct: func(b Backend) (any, error) { return b.SourceRemove(m.ctx, f.Path) },
-		args:   []string{"source", "remove", "--yes", "--output", "json", "--", f.Path},
+		direct: func(b Backend) (any, error) { return b.SourceRemove(ctx, f.Path) },
+		args:   m.engineArgs(f.Engine, []string{"source", "remove", "--yes", "--output", "json", "--", f.Path}),
 		decode: decodeSudo[control.SourceRemoveResult](func(r control.SourceRemoveResult) bool { return r.Path != "" })})
 	return nil
 }
@@ -268,7 +276,7 @@ type keyLoadMsg struct {
 // loadKey reads the deploy key of the folder the key view shows; the answer carries the public part only.
 func (m *Model) loadKey() tea.Cmd {
 	s := m.set
-	ctx, b, dir := m.ctx, m.backend, s.keyFor
+	ctx, b, dir := m.engineCtx(m.folderEngineOf(s.keyFor)), m.backend, s.keyFor
 	if s.key.loading {
 		return nil
 	}

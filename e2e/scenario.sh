@@ -2546,6 +2546,8 @@ scenario_stacks_repo() {
 
 	scenario_source_engine
 
+	scenario_tui_engine
+
 	scenario_backup_rootless
 
 	scenario_proposal_engine
@@ -3338,6 +3340,62 @@ check:
 	bkr_restart
 	wait_for 'the instance to be idle' 180 sr_idle
 	sr_stack_runs || fail 'demo-rootless does not run after the drop-in is removed'
+}
+
+# te_new_run succeeds when the instance lists a run of demo-rootless that is not in $te_old, and sets te_run to it.
+te_new_run() {
+	te_run=$(qd --output json stack runs demo-rootless --engine "$te_engine" |
+		jq -r --argjson o "$te_old" '[.[].run | select(. as $r | $o | index($r) | not)][0] // empty') && [ -n "$te_run" ]
+}
+
+# scenario_tui_engine proves the Stacks area with two engines for the interface of $admin started without sudo: the
+# stack demo-rootless stands in the section of its engine, and a deploy from there asks for the command with
+# --engine, runs it through sudo and acts in the instance of $rootless_user: the run is recorded there and not in the
+# system service, and the stack runs in the rootless engine only.
+scenario_tui_engine() {
+	te_engine=rootless:$rootless_user
+
+	step 'the Stacks area shows demo-rootless in the section of the rootless engine'
+	wait_for 'the instance to be idle' 180 sr_idle
+	runs_before=$(qd --output json stack runs --engine system | jq 'length')
+	te_old=$(qd --output json stack runs demo-rootless --engine "$te_engine" | jq -c '[.[].run]')
+	tui_log=$work/tui-engine-screens.log
+	: >"$tui_log"
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_wait "Engine $te_engine" 30
+	tui_wait 'demo-rootless' 30
+	tui_send Home
+	# The rootless section comes after every row of the system section, more rows than tui_cursor_to walks.
+	i=0
+	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] demo-rootless "; do
+		i=$((i + 1))
+		[ "$i" -lt 40 ] || fail "the cursor does not reach demo-rootless: $(tui_screen)"
+		tui_send Down
+		sleep 0.2
+	done
+	tui_excerpt 'demo-rootless' 12
+
+	step 'a deploy from the section runs through sudo in the instance'
+	tui_send d
+	tui_wait 'Deploy demo-rootless?' 15
+	# The dialog may break the command after --engine.
+	tui_has 'sudo qhost stack deploy --output json --engine' && tui_has "$te_engine -- demo-rootless" ||
+		fail "the question does not show the command with the engine: $(tui_screen)"
+	tui_send y
+	tui_wait 'deploy finished: 1 ok, 0 failed' 240
+	tui_send Escape
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	# A run is listed once it has ended.
+	wait_for 'the run of the deploy in the instance' 240 te_new_run
+	wait_for "the run $te_run of demo-rootless to succeed in the instance" 180 sr_run_done "$te_run"
+	[ "$(qd --output json stack runs --engine system | jq 'length')" = "$runs_before" ] || fail 'the deploy of the interface changed the runs of the system service'
+	sr_stack_runs || fail 'demo-rootless does not run in the rootless engine after the deploy of the interface'
+	[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=demo-rootless)" ] ||
+		fail 'the deploy of the interface started demo-rootless in the system engine'
+	log "scenario: the interface deployed demo-rootless from its engine section, run $te_run in the instance"
 }
 
 # local_tree prints mode, owner, group and size of every path below /srv/qd-local except .git, which the service
@@ -4901,7 +4959,7 @@ EOF2
 	tui_wait "[ ] $ds_stack" 30
 	tui_send Home
 	i=0
-	until tui_screen | grep -q "^> .*\[.\] $ds_stack "; do
+	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] $ds_stack "; do
 		i=$((i + 1))
 		[ "$i" -lt 40 ] || fail "the cursor does not reach $ds_stack: $(tui_screen)"
 		tui_send Down
@@ -6301,7 +6359,7 @@ tui_wait() {
 # the focus must be in the list.
 tui_cursor_to() {
 	i=0
-	until tui_screen | grep -q "^> .*\[.\] $1 "; do
+	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] $1 "; do
 		i=$((i + 1))
 		[ "$i" -lt 12 ] || fail "the cursor does not reach $1: $(tui_screen)"
 		tui_send Down
@@ -6314,7 +6372,7 @@ tui_cursor_to() {
 tui_folder_to() {
 	tui_send Home
 	i=0
-	until tui_screen | grep -q "^> .*\[.\] [^ ]* $1 ("; do
+	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] [^ ]* $1 ("; do
 		i=$((i + 1))
 		[ "$i" -lt 40 ] || fail "the cursor does not reach the folder $1: $(tui_screen)"
 		tui_send Down
@@ -6348,7 +6406,7 @@ tui_wheel() {
 tui_click_row() {
 	tui_click "$1"
 	i=0
-	until tui_screen | grep -q "^> .*\[.\] $1 "; do
+	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] $1 "; do
 		i=$((i + 1))
 		[ "$i" -lt 20 ] || fail "the click did not mark $1: $(tui_screen)"
 		sleep 0.25

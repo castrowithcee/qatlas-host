@@ -35,6 +35,7 @@ type part struct {
 // was left from those of the current one.
 type detailState struct {
 	stack     string
+	engine    string
 	gen       int
 	changelog control.ChangelogResult
 	backups   control.BackupListResult
@@ -74,12 +75,12 @@ func (m *Model) loadDetail(force bool) tea.Cmd {
 		return nil
 	}
 	d := &m.detail
-	if d.stack != r.name {
-		*d = detailState{stack: r.name, gen: d.gen + 1}
+	if d.stack != r.name || d.engine != r.engine {
+		*d = detailState{stack: r.name, engine: r.engine, gen: d.gen + 1}
 	} else if !force {
 		return nil
 	}
-	ctx, b, stack, gen := m.ctx, m.backend, r.name, d.gen
+	ctx, b, stack, gen := m.engineCtx(r.engine), m.backend, r.name, d.gen
 	var cmds []tea.Cmd
 	if !d.cl.loading {
 		d.cl.loading = true
@@ -98,7 +99,7 @@ func (m *Model) readBackups() tea.Cmd {
 		return nil
 	}
 	d.bk.loading = true
-	ctx, b, stack, gen := m.ctx, m.backend, d.stack, d.gen
+	ctx, b, stack, gen := m.engineCtx(d.engine), m.backend, d.stack, d.gen
 	return func() tea.Msg {
 		res, err := b.Backups(ctx, stack)
 		return backupsMsg{stack: stack, gen: gen, res: res, err: err}
@@ -112,7 +113,7 @@ func (m *Model) readSecrets() tea.Cmd {
 		return nil
 	}
 	d.sec.loading = true
-	ctx, b, stack, gen := m.ctx, m.backend, d.stack, d.gen
+	ctx, b, stack, gen := m.engineCtx(d.engine), m.backend, d.stack, d.gen
 	return func() tea.Msg {
 		res, err := b.Secrets(ctx, stack)
 		return secretsMsg{stack: stack, gen: gen, res: res, err: err}
@@ -260,12 +261,12 @@ func (m *Model) detailLines(r stackRow, width int) []string {
 	section := func(key kittui.TextID, build func(width int) []string) {
 		lines = append(lines, m.framed(m.text.Lookup(key), "", width, 0, build)...)
 	}
-	section(textDetailVersions, func(w int) []string { return m.versionLines(r.name, w) })
+	section(textDetailVersions, func(w int) []string { return m.versionLines(r.engine, r.name, w) })
 	section(textDetailContainers, func(w int) []string { return m.stackContainerLines(r.name, w) })
 	section(textDetailChangelog, m.changelogLines)
 	section(textDetailSecrets, m.secretLines)
 	section(textDetailBackups, m.backupLines)
-	section(textDetailRuns, func(w int) []string { return m.runLines(r.name, w) })
+	section(textDetailRuns, func(w int) []string { return m.runLines(r.engine, r.name, w) })
 	section(textDetailCapabilities, func(w int) []string { return m.capabilityLines(r.name, w) })
 	return lines
 }
@@ -278,7 +279,7 @@ func (m *Model) stoppedSection(r stackRow, width int) []string {
 	t := m.text
 	var since time.Time
 	for i, st := range m.snap.status.Engine.Stacks {
-		if st.Name == r.name && st.Stopped != nil && control.Primary(m.snap.status.Engine.Stacks, i) {
+		if st.Name == r.name && inEngine(st.Engine, r.engine) && st.Stopped != nil && primary(m.snap.status.Engine.Stacks, i) {
 			since = st.Stopped.Since
 		}
 	}
@@ -302,17 +303,17 @@ func (m *Model) summaryLines(r stackRow, width int) []string {
 		labels = append(labels, label)
 		labelWidth = max(labelWidth, lipgloss.Width(label))
 	}
-	failure := m.failureOf(r.name)
+	failure := m.failureOf(r.engine, r.name)
 	failLabel := kittui.Escape(m.text.Lookup(textDetailFailure))
 	if failure != nil {
 		labelWidth = max(labelWidth, lipgloss.Width(failLabel))
 	}
-	repair := m.repairOf(r.name)
+	repair := m.repairOf(r.engine, r.name)
 	repairLabel := kittui.Escape(m.text.Lookup(textDetailRepair))
 	if repair != nil {
 		labelWidth = max(labelWidth, lipgloss.Width(repairLabel))
 	}
-	observe := m.observeOf(r.name)
+	observe := m.observeOf(r.engine, r.name)
 	observeLabel := kittui.Escape(m.text.Lookup(textDetailObserve))
 	if observe != nil {
 		labelWidth = max(labelWidth, lipgloss.Width(observeLabel))
@@ -340,9 +341,9 @@ func (m *Model) summaryLines(r stackRow, width int) []string {
 }
 
 // observeOf is the running observation time the status reports for a stack, nil when it reports none.
-func (m *Model) observeOf(stack string) *control.ObserveInfo {
+func (m *Model) observeOf(engine, stack string) *control.ObserveInfo {
 	for i, st := range m.snap.status.Engine.Stacks {
-		if st.Name == stack && control.Primary(m.snap.status.Engine.Stacks, i) {
+		if st.Name == stack && inEngine(st.Engine, engine) && primary(m.snap.status.Engine.Stacks, i) {
 			return st.Observe
 		}
 	}
@@ -350,9 +351,9 @@ func (m *Model) observeOf(stack string) *control.ObserveInfo {
 }
 
 // repairOf is the automatic repair the status reports for a stack, nil when it reports none.
-func (m *Model) repairOf(stack string) *control.RepairInfo {
+func (m *Model) repairOf(engine, stack string) *control.RepairInfo {
 	for i, st := range m.snap.status.Engine.Stacks {
-		if st.Name == stack && control.Primary(m.snap.status.Engine.Stacks, i) {
+		if st.Name == stack && inEngine(st.Engine, engine) && primary(m.snap.status.Engine.Stacks, i) {
 			return st.Repair
 		}
 	}
@@ -372,9 +373,9 @@ func (m *Model) repairText(r control.RepairInfo) (kittui.TextStyle, string) {
 }
 
 // failureOf is the container failure the status reports for a stack, nil when it reports none.
-func (m *Model) failureOf(stack string) *control.FailureInfo {
+func (m *Model) failureOf(engine, stack string) *control.FailureInfo {
 	for i, st := range m.snap.status.Engine.Stacks {
-		if st.Name == stack && control.Primary(m.snap.status.Engine.Stacks, i) {
+		if st.Name == stack && inEngine(st.Engine, engine) && primary(m.snap.status.Engine.Stacks, i) {
 			return st.Failure
 		}
 	}
@@ -402,9 +403,9 @@ type versionItem struct {
 
 // versionItems reads the variables from the stored update detection, and from the working copy when the stack
 // was never checked.
-func (m *Model) versionItems(stack string) (items []versionItem, checkErr string) {
+func (m *Model) versionItems(engine, stack string) (items []versionItem, checkErr string) {
 	for _, su := range m.snap.updates.Stacks {
-		if su.Name != stack {
+		if su.Name != stack || !inEngine(su.Engine, engine) {
 			continue
 		}
 		if su.Error != "" {
@@ -419,7 +420,7 @@ func (m *Model) versionItems(stack string) (items []versionItem, checkErr string
 		}
 	}
 	for _, si := range m.snap.stacks.Stacks {
-		if si.Name != stack || si.Collision != "" {
+		if si.Name != stack || si.Collision != "" || !inEngine(si.Engine, engine) {
 			continue
 		}
 		for _, img := range si.Images {
@@ -429,9 +430,9 @@ func (m *Model) versionItems(stack string) (items []versionItem, checkErr string
 	return items, checkErr
 }
 
-func (m *Model) versionLines(stack string, width int) []string {
+func (m *Model) versionLines(engine, stack string, width int) []string {
 	t := m.text
-	items, checkErr := m.versionItems(stack)
+	items, checkErr := m.versionItems(engine, stack)
 	var out []string
 	if checkErr != "" {
 		out = append(out, m.wrapped(detailIndent, kittui.StyleFail, t.Lookup(textAvailError)+": "+checkErr, width)...)
@@ -605,10 +606,10 @@ func (m *Model) backupLines(width int) []string {
 	return out
 }
 
-func (m *Model) runLines(stack string, width int) []string {
+func (m *Model) runLines(engine, stack string, width int) []string {
 	var mine []runRow
 	for _, r := range m.runData {
-		if r.stack == stack {
+		if r.stack == stack && inEngine(r.engine, engine) {
 			mine = append(mine, r)
 		}
 	}

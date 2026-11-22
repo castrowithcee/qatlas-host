@@ -121,6 +121,7 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 		if p, ok := m.partAt(at.X, at.Y); ok {
 			switch {
 			case p.list != nil:
+				m.activateList(p.list)
 				p.list.Wheel(res.WheelSteps)
 			case p.log != nil:
 				p.log.Wheel(res.WheelSteps)
@@ -208,6 +209,7 @@ func (m *Model) formTakesMouse(form *kittui.Form) bool {
 // rowClick marks the clicked row and gives the rows the focus. A second click on the marked row opens it by
 // pressing the key that opens a row, so it takes the checks of that key.
 func (m *Model) rowClick(list *kittui.List, res kittui.MouseResult) tea.Cmd {
+	m.activateList(list)
 	open, _ := list.Click(res) // reads the focus as it was before this click
 	if slices.Contains(m.zones(), kittui.ZoneRows) {
 		m.setZone(kittui.ZoneRows)

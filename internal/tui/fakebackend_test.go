@@ -16,7 +16,13 @@ import (
 
 // fakeBackend answers from fixed results. A set error makes that call fail.
 type fakeBackend struct {
-	mu        sync.Mutex
+	mu sync.Mutex
+	// engines are the deploy services Engines lists, the system engine when nil; engineLog records the engine
+	// every changing call was addressed to, and credsBy and notifyBy answer the reads by that engine.
+	engines   []string
+	engineLog []string
+	credsBy   map[string][]control.CredentialInfo
+	notifyBy  map[string][]control.NotifyChannelInfo
 	status    control.StatusResult
 	stacks    control.StacksResult
 	check     control.StacksCheckResult
@@ -142,10 +148,10 @@ func (f *fakeBackend) Check(context.Context, string) (control.StacksCheckResult,
 	return f.check, nil
 }
 
-func (f *fakeBackend) Updates(_ context.Context, args control.UpdatesArgs) (control.UpdatesResult, error) {
+func (f *fakeBackend) Updates(ctx context.Context, args control.UpdatesArgs) (control.UpdatesResult, error) {
 	f.count("updates")
 	if args.Refresh {
-		if err := f.act("refresh", "*"); err != nil {
+		if err := f.actCtx(ctx, "refresh", "*"); err != nil {
 			return control.UpdatesResult{}, err
 		}
 	}
@@ -174,8 +180,9 @@ func (f *fakeBackend) setLog(run, text string) {
 	f.logs[run] = text
 }
 
-func (f *fakeBackend) Log(_ context.Context, run string) (control.LogResult, error) {
+func (f *fakeBackend) Log(ctx context.Context, run string) (control.LogResult, error) {
 	f.count("log")
+	f.noteEngine(ctx, "log", run)
 	if err := f.fail("log", run); err != nil {
 		return control.LogResult{}, err
 	}
@@ -188,8 +195,9 @@ func (f *fakeBackend) Log(_ context.Context, run string) (control.LogResult, err
 	return control.LogResult{Text: text}, nil
 }
 
-func (f *fakeBackend) Changelog(_ context.Context, stack string) (control.ChangelogResult, error) {
+func (f *fakeBackend) Changelog(ctx context.Context, stack string) (control.ChangelogResult, error) {
 	f.count("changelog")
+	f.noteEngine(ctx, "changelog", stack)
 	if err := f.fail("changelog", stack); err != nil {
 		return control.ChangelogResult{}, err
 	}
@@ -201,8 +209,9 @@ func (f *fakeBackend) Changelog(_ context.Context, stack string) (control.Change
 	return control.ChangelogResult{Stack: stack}, nil
 }
 
-func (f *fakeBackend) Backups(_ context.Context, stack string) (control.BackupListResult, error) {
+func (f *fakeBackend) Backups(ctx context.Context, stack string) (control.BackupListResult, error) {
 	f.count("backups")
+	f.noteEngine(ctx, "backups", stack)
 	if err := f.fail("backups", stack); err != nil {
 		return control.BackupListResult{}, err
 	}
@@ -226,18 +235,18 @@ func (f *fakeBackend) actions() []string {
 	return append([]string(nil), f.acts...)
 }
 
-func (f *fakeBackend) Deploy(_ context.Context, stack string) (control.DeployResult, error) {
-	if err := f.act("deploy", stack); err != nil {
+func (f *fakeBackend) Deploy(ctx context.Context, stack string) (control.DeployResult, error) {
+	if err := f.actCtx(ctx, "deploy", stack); err != nil {
 		return control.DeployResult{}, err
 	}
 	return control.DeployResult{ID: "20261031T100000Z-" + stack, Stack: stack, Commit: commitB}, nil
 }
 
-func (f *fakeBackend) Update(_ context.Context, stacks []string) (control.UpdateRunResult, error) {
+func (f *fakeBackend) Update(ctx context.Context, stacks []string) (control.UpdateRunResult, error) {
 	var res control.UpdateRunResult
 	f.count("update.call")
 	for _, stack := range stacks {
-		if err := f.act("update", stack); err != nil {
+		if err := f.actCtx(ctx, "update", stack); err != nil {
 			return control.UpdateRunResult{}, err
 		}
 		f.mu.Lock()
@@ -280,8 +289,8 @@ func (f *fakeBackend) Unpin(_ context.Context, stack string) (control.HoldResult
 	return f.hold("unpin", stack, false)
 }
 
-func (f *fakeBackend) Resume(_ context.Context, stack string) (control.ResumeResult, error) {
-	if err := f.act("resume", stack); err != nil {
+func (f *fakeBackend) Resume(ctx context.Context, stack string) (control.ResumeResult, error) {
+	if err := f.actCtx(ctx, "resume", stack); err != nil {
 		return control.ResumeResult{}, err
 	}
 	return control.ResumeResult{Stack: stack, Pause: &control.PauseInfo{Since: at(29, 3, 12), Run: "20261029T031000Z-0000000a"}}, nil
@@ -480,15 +489,15 @@ const demoActiveLog = `2026-10-30T15:00:00Z step check
 2026-10-30T15:00:14Z info pull example/shop:5.2.0
 `
 
-func (f *fakeBackend) RepoProbe(_ context.Context, url string) (control.RepoProbeResult, error) {
-	if err := f.act("probe", url); err != nil {
+func (f *fakeBackend) RepoProbe(ctx context.Context, url string) (control.RepoProbeResult, error) {
+	if err := f.actCtx(ctx, "probe", url); err != nil {
 		return control.RepoProbeResult{}, err
 	}
 	return f.probe, nil
 }
 
-func (f *fakeBackend) RepoSet(_ context.Context, args control.RepoSetArgs) (control.RepoSetResult, error) {
-	if err := f.act("reposet", args.URL); err != nil {
+func (f *fakeBackend) RepoSet(ctx context.Context, args control.RepoSetArgs) (control.RepoSetResult, error) {
+	if err := f.actCtx(ctx, "reposet", args.URL); err != nil {
 		return control.RepoSetResult{}, err
 	}
 	f.mu.Lock()
@@ -497,8 +506,8 @@ func (f *fakeBackend) RepoSet(_ context.Context, args control.RepoSetArgs) (cont
 	return control.RepoSetResult{URL: args.URL, Dir: args.Dir, Fingerprint: args.Fingerprint, Head: commitA, Cloned: true}, nil
 }
 
-func (f *fakeBackend) RepoFetch(_ context.Context, dir string) (control.RepoFetchResult, error) {
-	if err := f.act("fetch", dir); err != nil {
+func (f *fakeBackend) RepoFetch(ctx context.Context, dir string) (control.RepoFetchResult, error) {
+	if err := f.actCtx(ctx, "fetch", dir); err != nil {
 		return control.RepoFetchResult{}, err
 	}
 	f.mu.Lock()
@@ -533,8 +542,8 @@ func (f *fakeBackend) SourceCompare(_ context.Context, args control.SourceCompar
 	return f.compare, nil
 }
 
-func (f *fakeBackend) SourceRemote(_ context.Context, args control.SourceRemoteArgs) (control.SourceRemoteResult, error) {
-	if err := f.act("sourceremote", args.Path); err != nil {
+func (f *fakeBackend) SourceRemote(ctx context.Context, args control.SourceRemoteArgs) (control.SourceRemoteResult, error) {
+	if err := f.actCtx(ctx, "sourceremote", args.Path); err != nil {
 		return control.SourceRemoteResult{}, err
 	}
 	f.mu.Lock()
@@ -544,8 +553,8 @@ func (f *fakeBackend) SourceRemote(_ context.Context, args control.SourceRemoteA
 		Head: commitA, Pushed: args.ExpectState != control.SourceRemoteEqual}, nil
 }
 
-func (f *fakeBackend) SourceAdd(_ context.Context, args control.SourceAddArgs) (control.SourceAddResult, error) {
-	if err := f.act("sourceadd", args.Path); err != nil {
+func (f *fakeBackend) SourceAdd(ctx context.Context, args control.SourceAddArgs) (control.SourceAddResult, error) {
+	if err := f.actCtx(ctx, "sourceadd", args.Path); err != nil {
 		return control.SourceAddResult{}, err
 	}
 	f.mu.Lock()
@@ -564,8 +573,8 @@ func (f *fakeBackend) SourceList(context.Context) (control.SourceListResult, err
 	return f.folderList, nil
 }
 
-func (f *fakeBackend) SourceRemove(_ context.Context, path string) (control.SourceRemoveResult, error) {
-	if err := f.act("sourceremove", path); err != nil {
+func (f *fakeBackend) SourceRemove(ctx context.Context, path string) (control.SourceRemoveResult, error) {
+	if err := f.actCtx(ctx, "sourceremove", path); err != nil {
 		return control.SourceRemoveResult{}, err
 	}
 	f.mu.Lock()
@@ -616,8 +625,8 @@ func (f *fakeBackend) KeyShow(_ context.Context, dir string) (control.KeyResult,
 	return control.KeyResult{}, control.NewError(control.CodeNoSuchKey, "no deploy key exists")
 }
 
-func (f *fakeBackend) KeyGenerate(_ context.Context, dir string, replace bool) (control.KeyResult, error) {
-	if err := f.act("keygen", dir); err != nil {
+func (f *fakeBackend) KeyGenerate(ctx context.Context, dir string, replace bool) (control.KeyResult, error) {
+	if err := f.actCtx(ctx, "keygen", dir); err != nil {
 		return control.KeyResult{}, err
 	}
 	f.mu.Lock()
@@ -632,8 +641,8 @@ func (f *fakeBackend) KeyGenerate(_ context.Context, dir string, replace bool) (
 	return k, nil
 }
 
-func (f *fakeBackend) KeySet(_ context.Context, dir, key string, replace bool) (control.KeyResult, error) {
-	if err := f.act("keyset", dir); err != nil {
+func (f *fakeBackend) KeySet(ctx context.Context, dir, key string, replace bool) (control.KeyResult, error) {
+	if err := f.actCtx(ctx, "keyset", dir); err != nil {
 		return control.KeyResult{}, err
 	}
 	f.mu.Lock()
@@ -648,18 +657,22 @@ func (f *fakeBackend) KeySet(_ context.Context, dir, key string, replace bool) (
 	return k, nil
 }
 
-func (f *fakeBackend) Credentials(context.Context) (control.CredentialListResult, error) {
+func (f *fakeBackend) Credentials(ctx context.Context) (control.CredentialListResult, error) {
 	f.count("credentials")
 	if err := f.fail("credentials", ""); err != nil {
 		return control.CredentialListResult{}, err
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.engineLog = append(f.engineLog, "credentials:@"+EngineOf(ctx))
+	if f.credsBy != nil {
+		return control.CredentialListResult{Credentials: f.credsBy[EngineOf(ctx)]}, nil
+	}
 	return control.CredentialListResult{Credentials: append([]control.CredentialInfo(nil), f.creds...)}, nil
 }
 
-func (f *fakeBackend) CredentialSet(_ context.Context, name, value string) error {
-	if err := f.act("credset", name); err != nil {
+func (f *fakeBackend) CredentialSet(ctx context.Context, name, value string) error {
+	if err := f.actCtx(ctx, "credset", name); err != nil {
 		return err
 	}
 	f.mu.Lock()
@@ -669,8 +682,8 @@ func (f *fakeBackend) CredentialSet(_ context.Context, name, value string) error
 	return nil
 }
 
-func (f *fakeBackend) CredentialDelete(_ context.Context, name string) error {
-	if err := f.act("creddel", name); err != nil {
+func (f *fakeBackend) CredentialDelete(ctx context.Context, name string) error {
+	if err := f.actCtx(ctx, "creddel", name); err != nil {
 		return err
 	}
 	f.mu.Lock()
@@ -679,8 +692,8 @@ func (f *fakeBackend) CredentialDelete(_ context.Context, name string) error {
 	return nil
 }
 
-func (f *fakeBackend) WindowSet(_ context.Context, args control.WindowSetArgs) (control.WindowResult, error) {
-	if err := f.act("windowset", ""); err != nil {
+func (f *fakeBackend) WindowSet(ctx context.Context, args control.WindowSetArgs) (control.WindowResult, error) {
+	if err := f.actCtx(ctx, "windowset", ""); err != nil {
 		return control.WindowResult{}, err
 	}
 	f.mu.Lock()
@@ -701,18 +714,22 @@ func (f *fakeBackend) WindowSet(_ context.Context, args control.WindowSetArgs) (
 	return f.window, nil
 }
 
-func (f *fakeBackend) Notifications(context.Context) (control.NotifyListResult, error) {
+func (f *fakeBackend) Notifications(ctx context.Context) (control.NotifyListResult, error) {
 	f.count("notifications")
 	if err := f.fail("notifications", ""); err != nil {
 		return control.NotifyListResult{}, err
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.engineLog = append(f.engineLog, "notifications:@"+EngineOf(ctx))
+	if f.notifyBy != nil {
+		return control.NotifyListResult{Channels: f.notifyBy[EngineOf(ctx)]}, nil
+	}
 	return control.NotifyListResult{Channels: append([]control.NotifyChannelInfo(nil), f.notify...)}, nil
 }
 
-func (f *fakeBackend) NotifyAdd(_ context.Context, args control.NotifyAddArgs) (control.NotifyChannelInfo, error) {
-	if err := f.act("notifyadd", args.Name); err != nil {
+func (f *fakeBackend) NotifyAdd(ctx context.Context, args control.NotifyAddArgs) (control.NotifyChannelInfo, error) {
+	if err := f.actCtx(ctx, "notifyadd", args.Name); err != nil {
 		return control.NotifyChannelInfo{}, err
 	}
 	f.mu.Lock()
@@ -724,8 +741,8 @@ func (f *fakeBackend) NotifyAdd(_ context.Context, args control.NotifyAddArgs) (
 	return info, nil
 }
 
-func (f *fakeBackend) NotifyRemove(_ context.Context, name string) error {
-	if err := f.act("notifyremove", name); err != nil {
+func (f *fakeBackend) NotifyRemove(ctx context.Context, name string) error {
+	if err := f.actCtx(ctx, "notifyremove", name); err != nil {
 		return err
 	}
 	f.mu.Lock()
@@ -734,15 +751,16 @@ func (f *fakeBackend) NotifyRemove(_ context.Context, name string) error {
 	return nil
 }
 
-func (f *fakeBackend) NotifyTest(_ context.Context, name string) (control.NotifyTestResult, error) {
-	if err := f.act("notifytest", name); err != nil {
+func (f *fakeBackend) NotifyTest(ctx context.Context, name string) (control.NotifyTestResult, error) {
+	if err := f.actCtx(ctx, "notifytest", name); err != nil {
 		return control.NotifyTestResult{}, err
 	}
 	return control.NotifyTestResult{Name: name, Type: control.NotifyWebhook}, nil
 }
 
-func (f *fakeBackend) Secrets(_ context.Context, stack string) (control.SecretListResult, error) {
+func (f *fakeBackend) Secrets(ctx context.Context, stack string) (control.SecretListResult, error) {
 	f.count("secrets")
+	f.noteEngine(ctx, "secrets", stack)
 	if err := f.fail("secrets", stack); err != nil {
 		return control.SecretListResult{}, err
 	}
@@ -751,8 +769,8 @@ func (f *fakeBackend) Secrets(_ context.Context, stack string) (control.SecretLi
 	return control.SecretListResult{Stack: stack, Keys: slices.Clone(f.secrets[stack])}, nil
 }
 
-func (f *fakeBackend) SecretSet(_ context.Context, stack, key, value string) (control.SecretResult, error) {
-	if err := f.act("secretset", stack+"/"+key); err != nil {
+func (f *fakeBackend) SecretSet(ctx context.Context, stack, key, value string) (control.SecretResult, error) {
+	if err := f.actCtx(ctx, "secretset", stack+"/"+key); err != nil {
 		return control.SecretResult{}, err
 	}
 	f.mu.Lock()
@@ -769,8 +787,8 @@ func (f *fakeBackend) SecretSet(_ context.Context, stack, key, value string) (co
 	return control.SecretResult{Stack: stack, Key: key, Replaced: replaced}, nil
 }
 
-func (f *fakeBackend) SecretDelete(_ context.Context, stack, key string) (control.SecretResult, error) {
-	if err := f.act("secretdelete", stack+"/"+key); err != nil {
+func (f *fakeBackend) SecretDelete(ctx context.Context, stack, key string) (control.SecretResult, error) {
+	if err := f.actCtx(ctx, "secretdelete", stack+"/"+key); err != nil {
 		return control.SecretResult{}, err
 	}
 	f.mu.Lock()
@@ -779,8 +797,8 @@ func (f *fakeBackend) SecretDelete(_ context.Context, stack, key string) (contro
 	return control.SecretResult{Stack: stack, Key: key}, nil
 }
 
-func (f *fakeBackend) BackupRestore(_ context.Context, stack, id string) (control.BackupRestoreResult, error) {
-	if err := f.act("restore", stack+"/"+id); err != nil {
+func (f *fakeBackend) BackupRestore(ctx context.Context, stack, id string) (control.BackupRestoreResult, error) {
+	if err := f.actCtx(ctx, "restore", stack+"/"+id); err != nil {
 		return control.BackupRestoreResult{}, err
 	}
 	f.mu.Lock()
@@ -789,8 +807,9 @@ func (f *fakeBackend) BackupRestore(_ context.Context, stack, id string) (contro
 	return control.BackupRestoreResult{Backup: control.BackupInfo{ID: id, Stack: stack}}, nil
 }
 
-func (f *fakeBackend) StackSettings(_ context.Context, stack string) (control.StackSettingsResult, error) {
+func (f *fakeBackend) StackSettings(ctx context.Context, stack string) (control.StackSettingsResult, error) {
 	f.count("settings")
+	f.noteEngine(ctx, "settings", stack)
 	if err := f.fail("settings", stack); err != nil {
 		return control.StackSettingsResult{}, err
 	}
@@ -803,8 +822,8 @@ func (f *fakeBackend) StackSettings(_ context.Context, stack string) (control.St
 	return res, nil
 }
 
-func (f *fakeBackend) StackSettingsSet(_ context.Context, stack string, settings control.StackSettings) (control.StackSettingsSetResult, error) {
-	if err := f.act("settingsset", stack); err != nil {
+func (f *fakeBackend) StackSettingsSet(ctx context.Context, stack string, settings control.StackSettings) (control.StackSettingsSetResult, error) {
+	if err := f.actCtx(ctx, "settingsset", stack); err != nil {
 		return control.StackSettingsSetResult{}, err
 	}
 	f.mu.Lock()
@@ -823,8 +842,8 @@ func (f *fakeBackend) StackSettingsSet(_ context.Context, stack string, settings
 	return res, nil
 }
 
-func (f *fakeBackend) StackSettingsRemove(_ context.Context, stack string) (control.StackSettingsRemoveResult, error) {
-	if err := f.act("settingsremove", stack); err != nil {
+func (f *fakeBackend) StackSettingsRemove(ctx context.Context, stack string) (control.StackSettingsRemoveResult, error) {
+	if err := f.actCtx(ctx, "settingsremove", stack); err != nil {
 		return control.StackSettingsRemoveResult{}, err
 	}
 	f.mu.Lock()
@@ -904,6 +923,21 @@ var svcLevelRank = map[string]int{control.LogLevelDebug: 0, control.LogLevelInfo
 // ServiceLog answers like the service from svcLog: by level, time and cursor (the number of entries already
 // looked at), keeps the last Tail entries and cuts a page at svcPage entries. An error set in errs under
 // "servicelog:" fails the call.
+func (f *fakeBackend) Engines(context.Context) ([]string, error) {
+	if f.engines != nil {
+		return f.engines, nil
+	}
+	return []string{control.EngineSystem}, nil
+}
+
+// actCtx is act that also records the engine the call was addressed to, as "<call>:<arg>@<engine>".
+func (f *fakeBackend) actCtx(ctx context.Context, call, arg string) error {
+	f.mu.Lock()
+	f.engineLog = append(f.engineLog, call+":"+arg+"@"+EngineOf(ctx))
+	f.mu.Unlock()
+	return f.act(call, arg)
+}
+
 func (f *fakeBackend) ServiceLog(_ context.Context, a control.ServiceLogArgs) (control.ServiceLogResult, error) {
 	f.count("servicelog")
 	if err := f.fail("servicelog", ""); err != nil {
@@ -1017,6 +1051,13 @@ func (f *fakeBackend) Diagnose(ctx context.Context) *diagnose.Package {
 	}
 	return diagnose.Build(ctx, diagnose.Options{Call: call, Version: "1.2.3", Now: func() time.Time { return clogStart },
 		Hostname: func() (string, error) { return "demo", nil }})
+}
+
+// noteEngine records the engine a read was addressed to, as "<call>:<arg>@<engine>".
+func (f *fakeBackend) noteEngine(ctx context.Context, call, arg string) {
+	f.mu.Lock()
+	f.engineLog = append(f.engineLog, call+":"+arg+"@"+EngineOf(ctx))
+	f.mu.Unlock()
 }
 
 // planWithInclude is the plan as the service makes it with a choice of unclear files: each chosen file moves from
