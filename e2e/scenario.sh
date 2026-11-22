@@ -2468,6 +2468,8 @@ scenario_stacks_repo() {
 
 	scenario_stack_actions
 
+	scenario_grants
+
 	scenario_tui_sudo
 
 	scenario_tui_deploy_sudo
@@ -4664,6 +4666,45 @@ scenario_stack_actions() {
 	out=$(qd stack stop nope --yes) && fail "stack stop of an unknown stack succeeded: $out"
 	printf '%s' "$out" | grep -q 'no such stack' || fail "the refusal of an unknown stack is unclear: $out"
 	log 'scenario: stack stop, start and restart passed'
+}
+
+# scenario_grants proves the standing grants of demo-stack: a plan without --confirm stores nothing, sudo qhost grant
+# add --confirm allows an administrator of the group qhost one action, the grant is listed by that user without sudo
+# and by a stack filter, adding it without sudo is refused, and sudo qhost grant remove --confirm takes it away.
+scenario_grants() {
+	step 'grant add without --confirm shows the plan and stores nothing'
+	ensure_user e2e-grantee
+	docker exec "$host" usermod -aG qhost,sudo e2e-grantee || fail 'cannot make e2e-grantee an administrator of the group qhost'
+	if out=$(as_admin 'sudo qhost grant add e2e-grantee stack.restart demo-stack 2>&1 </dev/null'); then fail "grant add without --confirm succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'e2e-grantee' || fail "the plan does not name the user: $out"
+	printf '%s' "$out" | grep -q 'stack.restart' || fail "the plan does not name the action: $out"
+	printf '%s' "$out" | grep -q 'demo-stack' || fail "the plan does not name the stack: $out"
+	printf '%s' "$out" | grep -q 'backup:' || fail "the plan does not show the backup state: $out"
+	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list without sudo failed: $out"
+	[ "$(printf '%s' "$out" | jq 'length')" = 0 ] || fail "a plan stored a grant: $out"
+
+	step 'a grant needs sudo to be added'
+	if out=$(as_user e2e-grantee 'qhost grant add e2e-grantee stack.restart demo-stack --confirm 2>&1'); then fail "grant add without sudo succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'must run as root' || fail "the refusal of grant add without sudo is unclear: $out"
+
+	step 'sudo qhost grant add --confirm stores the grant and the user lists it without sudo'
+	out=$(as_admin 'sudo qhost --output json grant add e2e-grantee stack.restart demo-stack --confirm 2>&1 </dev/null') || fail "grant add failed: $out"
+	grant_id=$(printf '%s' "$out" | jq -er '.id') || fail "grant add printed no id: $out"
+	printf '%s' "$grant_id" | grep -Eq '^g-[0-9a-f]{8}$' || fail "the grant id $grant_id has an unexpected form"
+	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list without sudo failed: $out"
+	printf '%s' "$out" | jq -e --arg id "$grant_id" '[.[] | select(.id == $id and .user == "e2e-grantee" and .action == "stack.restart" and .stack == "demo-stack" and .state == "valid")] | length == 1' >/dev/null ||
+		fail "qhost grant list does not show the grant $grant_id as valid: $out"
+	out=$(as_user e2e-grantee 'qhost --output json grant list --stack demo-cache 2>&1') || fail "qhost grant list --stack failed: $out"
+	[ "$(printf '%s' "$out" | jq 'length')" = 0 ] || fail "the stack filter shows a grant of another stack: $out"
+
+	step 'grant remove without --confirm keeps the grant and sudo qhost grant remove --confirm removes it'
+	if out=$(as_admin "sudo qhost grant remove $grant_id 2>&1 </dev/null"); then fail "grant remove without --confirm succeeded: $out"; fi
+	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list failed after the plan: $out"
+	printf '%s' "$out" | jq -e --arg id "$grant_id" 'any(.[]; .id == $id)' >/dev/null || fail "a remove without --confirm took the grant away: $out"
+	as_admin "sudo qhost grant remove $grant_id --confirm 2>&1 </dev/null" >/dev/null || fail "grant remove failed for $grant_id"
+	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list failed after the removal: $out"
+	printf '%s' "$out" | jq -e --arg id "$grant_id" 'any(.[]; .id == $id) | not' >/dev/null || fail "the grant $grant_id is still listed after the removal: $out"
+	log "scenario: grant $grant_id for e2e-grantee was planned, added, listed without sudo and removed"
 }
 
 # scenario_tui_sudo proves the actions of the interface started without sudo that need no secret: the interface asks

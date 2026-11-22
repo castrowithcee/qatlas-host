@@ -132,13 +132,12 @@ var entries = []Entry{
 		object([]string{"id", "fingerprint", "applied"}, props{"id": str(), "fingerprint": str(), "applied": boolean(), "message": str()}),
 		"proposal approve"),
 
-	// The grant commands carry no command line until the command surface has them.
 	deployCmd("grant.add", ClassChange, ScopeStack, "Allow a user one action for a stack, or replace the expiry of that grant.",
 		object([]string{"user", "action", "stack"}, props{"user": str(), "action": str(), "stack": str(), "expires": str(),
-			"sudo_uid": integer(), "confirm": boolean()})),
-	deployCmd("grant.remove", ClassChange, ScopeStack, "Remove a grant by its ID.", idArg),
+			"sudo_uid": integer(), "confirm": boolean()}), "grant add"),
+	deployCmd("grant.remove", ClassChange, ScopeStack, "Remove a grant by its ID.", idArg, "grant remove"),
 	deployCmd("grant.list", ClassRead, ScopeDeploy, "List the grants with their state.",
-		object(nil, props{"stack": str(), "user": str()})),
+		object(nil, props{"stack": str(), "user": str()}), "grant list"),
 
 	// Commands of the host service.
 	hostCmd("status", ClassRead, "Show the state of the host service.", none, "status"),
