@@ -341,7 +341,7 @@ func TestSourceAddFilesWithURLTakesThePlanOfTheComparisonAndMarksWhatTheRemoteVe
 		t.Fatalf("code %d, stderr %q", code, stderr)
 	}
 	for _, want := range []string{"takes 4 files, 1 of them only because the remote versions them", "  README.md (versioned in the remote)",
-		"  compose.yaml\n", "Left out (3)"} {
+		"  compose.yaml\n", "Unclear (1)", "Left out (2)"} {
 		if !strings.Contains(stderr, want) {
 			t.Errorf("preview lacks %q:\n%s", want, stderr)
 		}

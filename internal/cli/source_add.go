@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strings"
 
@@ -19,6 +20,7 @@ import (
 
 func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var url, fingerprint, engine, expectEffect, expectState, expectCommit string
+	var include []string
 	var gate *cobracli.Gate
 	add := &cobra.Command{
 		Use:   "add <path>",
@@ -40,6 +42,14 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			"publish, and after you confirm starts the repository on the history of the remote (the state of the\n" +
 			"host becomes one commit and is pushed when the files differ) and binds it as a remote source. If the\n" +
 			"list changed since it was shown, add stops before it changes anything.\n" +
+			"A file that may be data or a secret is unclear: a file a stack mounts writable (writable-file) and the\n" +
+			"file of a Compose secret (secrets-file). The preview lists these apart from the other left-out files\n" +
+			"with their reason, and they stay out unless you choose them. At a terminal without --yes add asks for\n" +
+			"each one (default no). --include <path> (repeatable, a path below the folder) chooses a file in advance,\n" +
+			"also with --yes and without a terminal; a path that is not unclear is refused and nothing changes. A\n" +
+			"chosen file with a secret in it is taken like any other, and with --url the check of what a push would\n" +
+			"publish still applies to it. --expect-effect covers the choice: take the effect from 'source inspect'\n" +
+			"with the same --include, or add stops with state-changed. Only a folder of files has unclear files.\n" +
 			"A folder that is rejected is refused and nothing changes.\n" +
 			"Like 'source inspect', add checks the Docker engine of the service and the rootless engines of the\n" +
 			"users for containers of the stack folders and names each conflict with its engine, and the engines it\n" +
@@ -69,7 +79,7 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSourceAdd(c, program, gate, state, args[0], url, fingerprint, engine, expectEffect, expectState, expectCommit)
+			return runSourceAdd(c, program, gate, state, args[0], url, fingerprint, engine, expectEffect, expectState, expectCommit, include)
 		},
 	}
 	add.Flags().StringVar(&url, "url", "", "SSH address of the repository to clone, to expect as origin, or to join a folder of files with")
@@ -78,13 +88,14 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 	add.Flags().StringVar(&engine, "engine", "", "Docker engine of the stack folder: system (default) or rootless:<user>")
 	add.Flags().StringVar(&expectEffect, "expect-effect", "",
 		"effect fingerprint from 'source inspect'; refuses with state-changed, changing nothing, when the effect differs now")
+	add.Flags().StringArrayVar(&include, "include", nil, includeUsage)
 	remoteFlags(add, &expectState, &expectCommit)
 	gate = program.AddGate(add, cobracli.Gates{Question: true})
 	return add
 }
 
 func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, path, url, fingerprint, engine,
-	expectEffect, expectState, expectCommit string) error {
+	expectEffect, expectState, expectCommit string, include []string) error {
 	if err := folders.requireRoot(); err != nil {
 		return err
 	}
@@ -95,8 +106,10 @@ func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Ga
 	if _, err := folders.selectEngine(c, engine); err != nil {
 		return err
 	}
+	// At a terminal without --yes the operator is asked about each unclear file.
+	yes, _ := c.Flags().GetBool("yes")
 	plan, err := prepareSourceAdd(c, program, state, c.ErrOrStderr(), path, url, fingerprint,
-		"Run 'qhost source add "+path+" --url <ssh-url>'.", expect)
+		"Run 'qhost source add "+path+" --url <ssh-url>'.", expect, include, !yes && stdinIsTerminal())
 	if err != nil {
 		return err
 	}
@@ -104,7 +117,7 @@ func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Ga
 		return err
 	}
 	return gate.Run(cobracli.Request{Question: plan.question}, func() error {
-		return executeSourceAdd(c, program, state, plan.res, plan.repoURL, fingerprint, plan.perms, plan.remote)
+		return executeSourceAdd(c, program, state, plan.res, plan.repoURL, fingerprint, plan.perms, plan.remote, plan.include)
 	})
 }
 
@@ -119,12 +132,20 @@ type sourceAdd struct {
 	perms     *permPlan
 	remote    *filesRemote
 	question  string
+	// include is the choice of unclear files the plan was made with: --include and the answers at the terminal.
+	include []string
 }
+
+// includeUsage is the help of --include.
+const includeUsage = "unclear file (a writable mount or a secrets file) of a folder of files to take into the first commit; repeatable"
 
 // prepareSourceAdd inspects the folder, shows the case and the changes on notice and returns what applying
 // would do. It changes nothing. needURL is the advice when the case needs an address that was not given.
+//
+// include is the choice of unclear files. With ask the person is asked about each unclear file that is not
+// chosen yet, and the answers join the choice, which the result carries.
 func prepareSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRunning, notice io.Writer,
-	path, url, fingerprint, needURL string, expect *expectedRemote) (*sourceAdd, error) {
+	path, url, fingerprint, needURL string, expect *expectedRemote, include []string, ask bool) (*sourceAdd, error) {
 	if err := folders.requireRoot(); err != nil {
 		return nil, err
 	}
@@ -139,9 +160,25 @@ func prepareSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 	if err := checkPath(peers, path); err != nil {
 		return nil, err
 	}
-	res, err := inspectSource(c, state, path, url)
+	res, err := inspectSource(c, state, path, url, include)
 	if err != nil {
 		return nil, err
+	}
+	if len(include) > 0 && res.Case != control.SourceCaseFiles && res.Case != control.SourceCaseReject {
+		return nil, usageFailure("--include applies to a folder of files without a repository; this folder is case "+res.Case,
+			"Leave out --include.")
+	}
+	if ask && res.Case == control.SourceCaseFiles {
+		more, err := askUnclear(c, res)
+		if err != nil {
+			return nil, err
+		}
+		if len(more) > 0 {
+			include = append(slices.Clone(include), more...)
+			if res, err = inspectSource(c, state, path, url, include); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if !structuredFormat(program.Format()) {
 		shown := res
@@ -181,7 +218,7 @@ func prepareSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 	var remote *filesRemote
 	if res.Case == control.SourceCaseFiles && url != "" {
 		var err error
-		if remote, err = compareFiles(c, state, notice, path, url, fingerprint, expect); err != nil {
+		if remote, err = compareFiles(c, state, notice, path, url, fingerprint, expect, include); err != nil {
 			return nil, err
 		}
 		// The folder joins the remote with the plan of the comparison, which keeps what the remote versions.
@@ -197,7 +234,7 @@ func prepareSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 		return nil, err
 	}
 	question := previewSourceAdd(notice, targetOf(c.Context()), res, repoURL, perms, remote, unchecked)
-	return &sourceAdd{res: res, inspected: inspected, repoURL: repoURL, perms: perms, remote: remote, question: question}, nil
+	return &sourceAdd{res: res, inspected: inspected, repoURL: repoURL, perms: perms, remote: remote, question: question, include: include}, nil
 }
 
 // planAccess works out what must change so that the service can write the folder of res: nil when nothing
@@ -241,7 +278,7 @@ func planAccess(ctx context.Context, res control.SourceInspectResult) (*permPlan
 }
 
 func executeSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRunning, res control.SourceInspectResult,
-	repoURL, fingerprint string, plan *permPlan, remote *filesRemote) error {
+	repoURL, fingerprint string, plan *permPlan, remote *filesRemote, include []string) error {
 	path, notice := res.Path, c.ErrOrStderr()
 	changed := 0
 	if plan != nil {
@@ -249,7 +286,7 @@ func executeSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 	}
 	switch res.Case {
 	case control.SourceCaseFiles:
-		return executeSourceFiles(c, program, state, res, plan, remote)
+		return executeSourceFiles(c, program, state, res, plan, remote, include)
 	case control.SourceCaseClone, control.SourceCaseAdopt:
 		probe, err := trustHostKey(c, state, repoURL, fingerprint)
 		if err != nil {
@@ -288,17 +325,17 @@ func executeSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 // executeSourceFiles starts a repository in a folder of files. It looks at the folder once more first: what
 // was added or left out since the preview is not taken along silently, and nothing has changed by then.
 func executeSourceFiles(c *cobra.Command, program *cobracli.Program, state *notRunning, shown control.SourceInspectResult,
-	plan *permPlan, remote *filesRemote) error {
+	plan *permPlan, remote *filesRemote, include []string) error {
 	path, notice := shown.Path, c.ErrOrStderr()
 	var now control.SourceInspectResult
 	var err error
 	if remote != nil {
 		var cmp control.SourceCompareResult
-		if cmp, err = compareRemote(c, state, path, remote.address, remote.fingerprint); err == nil {
+		if cmp, err = compareRemote(c, state, path, remote.address, remote.fingerprint, include); err == nil {
 			now = (&filesRemote{cmp: cmp}).plan(control.SourceInspectResult{Case: cmp.Case})
 		}
 	} else {
-		now, err = inspectSource(c, state, path, "")
+		now, err = inspectSource(c, state, path, "", include)
 	}
 	if err != nil {
 		return err
@@ -318,7 +355,7 @@ func executeSourceFiles(c *cobra.Command, program *cobracli.Program, state *notR
 		return err
 	}
 	var added control.SourceAddResult
-	args := control.SourceAddArgs{Path: path, Files: shown.PlannedFiles}
+	args := control.SourceAddArgs{Path: path, Files: shown.PlannedFiles, Include: include}
 	callService := credentialCall
 	if remote != nil {
 		args.URL, args.Fingerprint, args.ExpectState, args.ExpectCommit = remote.address, remote.fingerprint, remote.cmp.State, remote.cmp.Commit
@@ -359,19 +396,19 @@ type filesRemote struct {
 // plan is res with the plan of the comparison: the files the folder joins the remote with, including those only
 // the remote versions, and what is left out.
 func (r *filesRemote) plan(res control.SourceInspectResult) control.SourceInspectResult {
-	res.PlannedFiles, res.Excluded = r.cmp.PlannedFiles, r.cmp.Excluded
+	res.PlannedFiles, res.Excluded, res.Included = r.cmp.PlannedFiles, r.cmp.Excluded, r.cmp.Included
 	return res
 }
 
 // compareFiles confirms the host key, compares the folder of files with the remote and shows the result. It
 // stops at secret-like files in what a push would publish, and at a remote without commit. Nothing in the
 // folder has changed by then.
-func compareFiles(c *cobra.Command, state *notRunning, w io.Writer, path, url, fingerprint string, expect *expectedRemote) (*filesRemote, error) {
+func compareFiles(c *cobra.Command, state *notRunning, w io.Writer, path, url, fingerprint string, expect *expectedRemote, include []string) (*filesRemote, error) {
 	probe, err := trustHostKey(c, state, url, fingerprint)
 	if err != nil {
 		return nil, err
 	}
-	cmp, err := compareRemote(c, state, path, url, probe.Fingerprint)
+	cmp, err := compareRemote(c, state, path, url, probe.Fingerprint, include)
 	if err != nil {
 		return nil, err
 	}
@@ -577,6 +614,10 @@ func fileListLines(res control.SourceInspectResult, takes string, remote []strin
 	for _, f := range remote {
 		byRemote[f] = true
 	}
+	chosen := make(map[string]string, len(res.Included))
+	for _, e := range res.Included {
+		chosen[e.Path] = e.Reason
+	}
 	for i, f := range res.PlannedFiles {
 		if i == listLimit {
 			lines = append(lines, fmt.Sprintf("  ... and %d more", len(res.PlannedFiles)-listLimit))
@@ -586,16 +627,40 @@ func fileListLines(res control.SourceInspectResult, takes string, remote []strin
 		if byRemote[f] {
 			line += remoteMark
 		}
+		if reason, ok := chosen[f]; ok {
+			line += " (chosen, " + reason + ")"
+		}
 		lines = append(lines, line)
 	}
 	lines = append(lines, unresolvedLines(res)...)
-	if len(res.Excluded) == 0 {
-		return append(lines, "Nothing is left out.")
+	var unclear, others []control.SourceExcluded
+	for _, e := range res.Excluded {
+		if control.SourceUnclear(e.Reason) {
+			unclear = append(unclear, e)
+		} else {
+			others = append(others, e)
+		}
 	}
-	lines = append(lines, fmt.Sprintf("Left out (%d), not needed by the stacks, recorded only in .git/info/exclude, never in .gitignore:", len(res.Excluded)))
-	for i, e := range res.Excluded {
+	if len(unclear) > 0 {
+		lines = append(lines, fmt.Sprintf("Unclear (%d), may hold data or a secret, left out unless chosen with --include <path>:", len(unclear)))
+		lines = append(lines, excludedLines(unclear)...)
+	}
+	if len(others) == 0 {
+		if len(unclear) == 0 {
+			lines = append(lines, "Nothing is left out.")
+		}
+		return lines
+	}
+	lines = append(lines, fmt.Sprintf("Left out (%d), not needed by the stacks, recorded only in .git/info/exclude, never in .gitignore:", len(others)))
+	return append(lines, excludedLines(others)...)
+}
+
+// excludedLines lists left-out entries with reason and stack, limited to the first ones.
+func excludedLines(list []control.SourceExcluded) []string {
+	var lines []string
+	for i, e := range list {
 		if i == listLimit {
-			lines = append(lines, fmt.Sprintf("  ... and %d more", len(res.Excluded)-listLimit))
+			lines = append(lines, fmt.Sprintf("  ... and %d more", len(list)-listLimit))
 			break
 		}
 		line := "  " + e.Path + ": " + e.Reason
@@ -605,6 +670,47 @@ func fileListLines(res control.SourceInspectResult, takes string, remote []strin
 		lines = append(lines, line)
 	}
 	return lines
+}
+
+// askUnclear asks, for each unclear file the plan leaves out, whether the first commit takes it. Anything but y or
+// yes is no, so an unreadable answer leaves the file out. It returns the paths answered with yes. Standard input
+// is read byte by byte so that the answers after it still reach the next question.
+func askUnclear(c *cobra.Command, res control.SourceInspectResult) ([]string, error) {
+	var chosen []string
+	for _, e := range res.Excluded {
+		if !control.SourceUnclear(e.Reason) {
+			continue
+		}
+		what := "a file mounted writable, which may hold data"
+		if e.Reason == control.SourceExcludedSecretsFile {
+			what = "the file of a secret"
+		}
+		_, _ = fmt.Fprintf(c.ErrOrStderr(), "%s is %s (%s, stack %s). Take it into the first commit? [y/N] ", e.Path, what, e.Reason, e.Stack)
+		answer := strings.ToLower(strings.TrimSpace(readLine(stdinStream())))
+		if answer == "y" || answer == "yes" {
+			chosen = append(chosen, e.Path)
+		}
+	}
+	return chosen, nil
+}
+
+// readLine reads up to the next newline without reading beyond it.
+func readLine(r io.Reader) string {
+	var sb strings.Builder
+	buf := make([]byte, 1)
+	for {
+		n, err := r.Read(buf)
+		if n == 1 {
+			if buf[0] == '\n' {
+				break
+			}
+			sb.WriteByte(buf[0])
+		}
+		if err != nil {
+			break
+		}
+	}
+	return sb.String()
 }
 
 // unresolvedLines names the references of the stacks whose path the service could not resolve, so the operator

@@ -93,7 +93,7 @@ func TestSourceAddFilesWithoutConfirmationChangesNothing(t *testing.T) {
 		"Case files", "Start a git repository", "branch main", "core.sharedRepository=group",
 		"first commit is made as qhost", "no file in the folder is written", "takes 3 files", "  compose.yaml",
 		"big.bin: too-large", "data: bind-mount (stack demo)", "only in .git/info/exclude, never in .gitignore",
-		"acme.json: writable-file (stack demo)", "notes.txt: not-referenced", "Left out (4), not needed by the stacks",
+		"Unclear (1), may hold data or a secret", "acme.json: writable-file (stack demo)", "notes.txt: not-referenced", "Left out (3), not needed by the stacks",
 		"Not resolvable in stack demo", "variable CONF_DIR has no value in .env",
 		"paths get the group", "listed files: group rw", "bind-mount sources and everything below: data",
 		"files that are not listed stay as they are",

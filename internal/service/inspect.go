@@ -62,6 +62,8 @@ type verdict struct {
 	remote bool
 	// plan is set for a folder without a repository.
 	plan *filePlan
+	// include is the choice of unclear files the plan was made with.
+	include []string
 	// list and loadErr are the stacks of the folder when the verdict had to read them already.
 	list    []stacks.Stack
 	loadErr error
@@ -91,6 +93,7 @@ func (s *inspectService) handle(ctx context.Context, raw json.RawMessage) (any, 
 	if v.plan != nil {
 		res.PlannedFiles = v.plan.planned
 		res.Excluded = v.plan.excluded
+		res.Included = v.plan.chosen
 	}
 	if v.view != nil {
 		if !v.loaded {
@@ -111,6 +114,13 @@ func (s *inspectService) classify(ctx context.Context, a control.SourceInspectAr
 	v, err := s.decide(ctx, a)
 	if err != nil || v.kase == control.SourceCaseReject {
 		return v, nil, err
+	}
+	if len(a.Include) > 0 && v.kase != control.SourceCaseFiles {
+		if v.plan != nil {
+			v.plan.close()
+		}
+		return verdict{}, nil, control.NewError(control.CodeInvalid,
+			"a choice of unclear files applies only to a folder of files without a repository")
 	}
 	target := a.Path
 	if v.kase == control.SourceCaseClone {
@@ -268,11 +278,11 @@ func (s *inspectService) decideRepo(ctx context.Context, a control.SourceInspect
 func (s *inspectService) decideFiles(ctx context.Context, a control.SourceInspectArgs) (verdict, error) {
 	// The plan needs the stacks for what they refer to; a folder whose stacks cannot be read has none.
 	list, loadErr := stacks.Load(a.Path)
-	plan, err := planFiles(ctx, a.Path, list, loadErr != nil, nil)
+	plan, err := planFiles(ctx, a.Path, list, loadErr != nil, nil, a.Include)
 	if err != nil {
 		return verdict{}, err
 	}
-	return verdict{kase: control.SourceCaseFiles, url: a.URL, view: plan, plan: plan, list: list, loadErr: loadErr, loaded: true}, nil
+	return verdict{kase: control.SourceCaseFiles, url: a.URL, view: plan, plan: plan, include: a.Include, list: list, loadErr: loadErr, loaded: true}, nil
 }
 
 // filePlan is what a first commit of a folder without a repository would hold, and the git view of it: the
@@ -282,6 +292,8 @@ type filePlan struct {
 	excluded []control.SourceExcluded
 	// remote are the planned files that are planned only because the remote versions them.
 	remote []string
+	// chosen are the unclear files that were chosen into the plan, with the reason they would be left out for.
+	chosen []control.SourceExcluded
 	// rawPlanned and rawExcluded are planned and the paths of excluded as they are on disk, in the same order;
 	// the lists above show them with unprintable characters replaced.
 	rawPlanned, rawExcluded []string
@@ -380,7 +392,16 @@ var collapsible = []string{control.SourceExcludedNotReferenced, control.SourceEx
 // it would only be left out as not referenced, so joining removes nothing the remote versions; a file that is
 // left out for another reason, such as a writable mount, a secrets file, data of a bind mount or a stack that
 // cannot be read, stays out, and so does a file the service cannot read.
-func planFiles(ctx context.Context, root string, list []stacks.Stack, stacksUnread bool, remote map[string]bool) (*filePlan, error) {
+//
+// include holds the unclear files the operator chose: a file a stack mounts writable or names as a secrets file
+// is planned instead of left out. A path that is not unclear by this classification, or that the plan cannot
+// take for another reason, is refused, so a choice never goes unnoticed.
+func planFiles(ctx context.Context, root string, list []stacks.Stack, stacksUnread bool, remote map[string]bool, include []string) (*filePlan, error) {
+	chosenSet := make(map[string]bool, len(include))
+	for _, f := range include {
+		chosenSet[f] = true
+	}
+	unclear := map[string]control.SourceExcluded{}
 	ref := referencesOf(list)
 	var excluded []control.SourceExcluded
 	roots := bindRoots(root, list)
@@ -430,12 +451,16 @@ func planFiles(ctx context.Context, root string, list []stacks.Stack, stacksUnre
 		byRemote := false
 		switch {
 		case ref.needed(f) || !stacksUnread && alwaysPlanned(f):
-		case ref.writable[f] != "":
-			excluded = append(excluded, control.SourceExcluded{Path: f, Reason: control.SourceExcludedWritableFile, Stack: ref.writable[f]})
-			continue
-		case ref.secret[f] != "":
-			excluded = append(excluded, control.SourceExcluded{Path: f, Reason: control.SourceExcludedSecretsFile, Stack: ref.secret[f]})
-			continue
+		case ref.writable[f] != "" || ref.secret[f] != "":
+			e := control.SourceExcluded{Path: f, Reason: control.SourceExcludedWritableFile, Stack: ref.writable[f]}
+			if ref.writable[f] == "" {
+				e = control.SourceExcluded{Path: f, Reason: control.SourceExcludedSecretsFile, Stack: ref.secret[f]}
+			}
+			if !chosenSet[f] {
+				excluded = append(excluded, e)
+				continue
+			}
+			unclear[f] = e
 		case ref.rootBroken != "" && !alwaysPlanned(f):
 			loose = append(loose, control.SourceExcluded{Path: f, Reason: control.SourceExcludedUnreadableStack, Stack: ref.rootBroken})
 			continue
@@ -461,10 +486,17 @@ func planFiles(ctx context.Context, root string, list []stacks.Stack, stacksUnre
 		default:
 			plan.planned = append(plan.planned, maskControl(f))
 			plan.rawPlanned = append(plan.rawPlanned, f)
+			if e, ok := unclear[f]; ok {
+				e.Path = maskControl(f)
+				plan.chosen = append(plan.chosen, e)
+			}
 			if byRemote {
 				plan.remote = append(plan.remote, maskControl(f))
 			}
 		}
+	}
+	if err := checkChosen(include, unclear, plan.rawPlanned); err != nil {
+		return nil, err
 	}
 	excluded = append(excluded, collapseLoose(loose, plan.rawPlanned, excluded)...)
 
@@ -491,6 +523,23 @@ func planFiles(ctx context.Context, root string, list []stacks.Stack, stacksUnre
 	plan.excluded = excluded
 	ok = true
 	return plan, nil
+}
+
+// checkChosen refuses a chosen path that is not an unclear file of the folder, or that is unclear but cannot be
+// planned (unreadable, too large, not a plain file), so the plan never silently differs from the choice.
+func checkChosen(include []string, unclear map[string]control.SourceExcluded, planned []string) error {
+	for _, f := range include {
+		if _, ok := unclear[f]; !ok {
+			return control.NewError(control.CodeInvalid, fmt.Sprintf(
+				"%s is not an unclear file of the folder; only a file left out as %s or %s can be chosen; nothing was changed",
+				printable(f), control.SourceExcludedWritableFile, control.SourceExcludedSecretsFile))
+		}
+		if !slices.Contains(planned, f) {
+			return control.NewError(control.CodeInvalid, fmt.Sprintf(
+				"the chosen file %s cannot be taken: it is not a readable plain file of acceptable size; nothing was changed", printable(f)))
+		}
+	}
+	return nil
 }
 
 // collapseLoose turns files that are left out for a collapsible reason into entries: a folder in which every

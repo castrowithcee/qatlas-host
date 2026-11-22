@@ -171,6 +171,10 @@ func (s *inspectService) compareLocal(ctx context.Context, src *source, a contro
 	if err != nil {
 		return control.SourceCompareResult{}, err
 	}
+	if len(a.Include) > 0 {
+		return control.SourceCompareResult{}, control.NewError(control.CodeInvalid,
+			"a choice of unclear files applies only to a folder of files without a repository")
+	}
 	rc, err := r.remoteConfig(conf, a.URL, a.Path)
 	if err != nil {
 		return control.SourceCompareResult{}, err
@@ -212,7 +216,7 @@ func (s *inspectService) compareLocal(ctx context.Context, src *source, a contro
 
 func (s *inspectService) compareFiles(ctx context.Context, a control.SourceCompareArgs) (control.SourceCompareResult, error) {
 	r := s.repo
-	v, _, err := s.classify(ctx, control.SourceInspectArgs{Path: a.Path, URL: a.URL})
+	v, _, err := s.classify(ctx, control.SourceInspectArgs{Path: a.Path, URL: a.URL, Include: a.Include})
 	if v.plan != nil {
 		defer v.plan.close()
 	}
@@ -250,7 +254,7 @@ func (s *inspectService) compareFiles(ctx context.Context, a control.SourceCompa
 	}
 	defer plan.close()
 	res := compareResult(control.SourceCaseFiles, cmp)
-	res.PlannedFiles, res.Excluded, res.RemoteFiles = plan.planned, plan.excluded, plan.remote
+	res.PlannedFiles, res.Excluded, res.RemoteFiles, res.Included = plan.planned, plan.excluded, plan.remote, plan.chosen
 	if cmp.State == gitrepo.RemoteDifferent {
 		res.Secrets = secretsOf(cmp.Scan)
 	}
@@ -530,7 +534,7 @@ func (s *inspectService) comparePlanned(ctx context.Context, gc gitrepo.Config, 
 		for _, f := range remote {
 			tracked[f] = true
 		}
-		p, err := planFiles(ctx, dir, v.list, v.loadErr != nil, tracked)
+		p, err := planFiles(ctx, dir, v.list, v.loadErr != nil, tracked, v.include)
 		if err != nil {
 			return nil, err
 		}
