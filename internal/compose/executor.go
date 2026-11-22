@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/credhelper"
+	"github.com/castrowithcee/qatlas-host/internal/idmap"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
@@ -76,6 +77,12 @@ type Executor struct {
 	Env []string
 	// Time limits per call; zero means the Default constant.
 	PullTimeout, UpTimeout, StopTimeout, StartTimeout, RestartTimeout, PSTimeout time.Duration
+	// HelperImage is the image of the helper container that reads the engine's user namespace; HelperImage
+	// (the constant) when empty.
+	HelperImage string
+	// IDMaps, when set, returns the UID and GID mapping of the engine's containers instead of reading it
+	// through a helper container; tests replace it.
+	IDMaps func(ctx context.Context, log Logger) (uid, gid idmap.Map, err error)
 }
 
 func orDefault(d, def time.Duration) time.Duration {

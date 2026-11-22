@@ -2472,6 +2472,8 @@ scenario_stacks_repo() {
 
 	scenario_tui_deploy_sudo
 
+	scenario_datadir_nested
+
 	scenario_tui_secrets
 
 	scenario_tui_folder_sudo
@@ -3165,6 +3167,20 @@ bkr_healthy() {
 	[ -n "$(rl_docker ps -q --filter label=com.docker.compose.project=demo-rootless --filter health=healthy)" ]
 }
 
+# bkr_dd_finding succeeds when the instance of $rootless_user shows the finding data-dir-missing for demo-rootless-dirs.
+bkr_dd_finding() {
+	qd --output json status | jq -r --arg k "instance.$rootless_user.stack.demo-rootless-dirs.findings" '.[$k] // ""' | grep -q data-dir-missing
+}
+
+bkr_dd_no_finding() {
+	! bkr_dd_finding
+}
+
+# bkr_dd_healthy succeeds when a container of demo-rootless-dirs in the rootless engine is healthy.
+bkr_dd_healthy() {
+	[ -n "$(rl_docker ps -q --filter label=com.docker.compose.project=demo-rootless-dirs --filter health=healthy)" ]
+}
+
 # bkr_containers prints the ids of the running containers of demo-rootless in the rootless engine.
 bkr_containers() {
 	rl_docker ps -q --filter label=com.docker.compose.project=demo-rootless | sort
@@ -3333,6 +3349,63 @@ check:
 	wait_for 'demo-rootless to run healthy again' 60 bkr_healthy
 	sr_stack_runs || fail 'demo-rootless does not run its previous image after the rollback'
 	log "scenario: run $run of demo-rootless rolled back; restored $run_backup; data identical to the backed-up state; revert $revert"
+
+	step 'a data directory for container user 1234 in the rootless engine gets the host owner the user ID mapping gives, with nested parents'
+	bk_sub_gid=$(docker exec "$host" awk -F: -v u="$rootless_user" '$1 == u { print $2 }' /etc/subgid)
+	[ -n "$bk_sub_gid" ] || fail "$rootless_user has no sub-GIDs"
+	bk_dd=demo-rootless-dirs
+	bk_ddir=$bk_base/$bk_dd
+	bk_dd_owner="$((bk_sub + 1233)):$((bk_sub_gid + 1233))"
+	docker exec "$host" install -d -o "$rootless_user" -g "$bk_group" -m 0775 "$bk_ddir" || fail "cannot create the folder of $bk_dd"
+	cat <<'EOF2' | docker exec -i "$host" sh -ec "cat >'$bk_ddir/compose.yaml'"
+name: demo-rootless-dirs
+
+services:
+  app:
+    image: demo/app:1.0.0
+    user: "1234"
+    restart: unless-stopped
+    volumes:
+      - ./data/db:/data
+EOF2
+	printf 'data/\n' | docker exec -i "$host" sh -ec "cat >'$bk_ddir/.gitignore'" || fail "cannot write the ignore file of $bk_dd"
+	docker exec "$host" sh -ec "chgrp '$bk_group' '$bk_ddir/compose.yaml' '$bk_ddir/.gitignore' && chmod 664 '$bk_ddir/compose.yaml' '$bk_ddir/.gitignore'" ||
+		fail "cannot give the group access to the files of $bk_dd"
+	as_rootless "cd '$bk_base' && git -c safe.directory='$bk_base' add -A &&
+		git -c safe.directory='$bk_base' -c user.name='E2E User' -c user.email=user.qhoste2e.test commit -q -m 'Add demo-rootless-dirs'" ||
+		fail "the user of the instance cannot commit $bk_dd"
+	bkr_restart
+	wait_for "the finding data-dir-missing of $bk_dd in the instance" 240 bkr_dd_finding
+	docker exec "$host" test ! -e "$bk_ddir/data" || fail "the data directory of $bk_dd exists before it was created"
+	out=$(qd_fails stack datadir "$bk_dd" --engine "$bk_engine") || fail "datadir without --yes did not stop: $out"
+	printf '%s' "$out" | grep -qF "data/db (container user 1234:1234, host owner $bk_dd_owner)" ||
+		fail "the command does not show the container user and the host owner $bk_dd_owner: $out"
+	docker exec "$host" test ! -e "$bk_ddir/data" || fail "the command without --yes created the directories of $bk_dd"
+	out=$(qd stack datadir "$bk_dd" --engine "$bk_engine" --yes) || fail "datadir of $bk_dd failed: $out"
+	[ "$(docker exec "$host" stat -c %u:%g "$bk_ddir/data/db")" = "$bk_dd_owner" ] ||
+		fail "data/db has the owner $(docker exec "$host" stat -c %u:%g "$bk_ddir/data/db"), want $bk_dd_owner"
+	[ "$(docker exec "$host" stat -c %u "$bk_ddir/data")" -eq "$rootless_uid" ] ||
+		fail "the parent data has the owner $(docker exec "$host" stat -c %u "$bk_ddir/data"), want $rootless_uid"
+	bk_dd_mode=$(docker exec "$host" stat -c %a "$bk_ddir/data")
+	[ $((0$bk_dd_mode & 0110)) -eq $((0110)) ] || fail "the parent data is not searchable for its owner and group: $bk_dd_mode"
+	wait_for "$bk_dd to run healthy in the rootless engine" 240 bkr_dd_healthy
+	rl_docker run --rm --network none --user 1234 -v "$bk_ddir/data/db:/data" "$backup_image" sh -ec 'echo written >/data/probe && cat /data/probe' |
+		grep -qx written || fail 'container user 1234 cannot write into the data directory'
+	[ "$(docker exec "$host" stat -c %u "$bk_ddir/data/db/probe")" -eq $((bk_sub + 1233)) ] ||
+		fail "the file of container user 1234 has the host owner $(docker exec "$host" stat -c %u "$bk_ddir/data/db/probe")"
+	wait_for "the finding of $bk_dd to clear" 120 bkr_dd_no_finding
+	log "scenario: $bk_dd got data/db for container user 1234 as host owner $bk_dd_owner, parent data owned by the instance user, and runs healthy"
+
+	step "$bk_dd leaves the instance again"
+	as_rootless "cd '$bk_base' && git -c safe.directory='$bk_base' rm -r -q '$bk_dd' &&
+		git -c safe.directory='$bk_base' -c user.name='E2E User' -c user.email=user.qhoste2e.test commit -q -m 'Remove demo-rootless-dirs'" ||
+		fail "the user of the instance cannot remove $bk_dd"
+	bkr_restart
+	as_rootless "docker ps -aq --filter label=com.docker.compose.project=$bk_dd | xargs -r docker rm -f" >/dev/null ||
+		fail "cannot remove the containers of $bk_dd"
+	docker exec "$host" rm -rf "$bk_ddir" || fail "cannot remove the folder of $bk_dd"
+	wait_for 'the instance to be idle' 180 sr_idle
+	sr_stack_runs || fail 'demo-rootless does not run after demo-rootless-dirs left'
 
 	step 'the drop-in of the helper image is removed again and the instance answers'
 	docker exec "$host" sh -ec "rm -f '$bk_dropin' && systemctl daemon-reload" || fail 'cannot remove the drop-in of the instance'
@@ -5019,6 +5092,61 @@ EOF2
 	docker exec "$host" rm -rf "$ds_dir"
 	wait_for 'the deploy service to answer' 30 qd status
 	log 'scenario: demo-dirs is removed'
+}
+
+# scenario_datadir_nested proves a nested data directory in the system engine: the stack demo-nested mounts
+# ./data/db for the user 1000:1000, so qhost stack datadir has to create the parent data as well. The parent keeps
+# the owner of the stack folder and stays searchable for the deploy service, the directory itself gets 1000:1000, and
+# the run that follows finds the directory and deploys the stack. The stack is removed again.
+scenario_datadir_nested() {
+	dn_stack=demo-nested
+	dn_dir=/opt/stacks/$dn_stack
+
+	step 'the stack demo-nested mounts the nested directory data/db that does not exist'
+	as_admin 'cd ~/stacks && git pull -q --ff-only && mkdir demo-nested'
+	cat <<EOF2 | as_admin 'cat >"$HOME"/stacks/demo-nested/compose.yaml'
+services:
+  app:
+    image: registry.$domain/demo/app:1.0.0
+    user: "1000:1000"
+    restart: unless-stopped
+    environment:
+      DEMO_NAME: demo-nested
+    volumes:
+      - ./data/db:/data
+EOF2
+	as_admin 'cd ~/stacks && cp demo-stack/.gitignore demo-nested/.gitignore && git add -A &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Add the demo-nested stack" && git push -q origin main'
+	restart_service
+	wait_for 'the finding data-dir-missing of demo-nested' 240 has_finding "$dn_stack" data-dir-missing
+	docker exec "$host" test ! -e "$dn_dir/data" || fail 'the data directory of demo-nested exists before it was created'
+
+	step 'qhost stack datadir creates the nested directory and the stack finds it'
+	dn_prev=$(newest_run "$dn_stack")
+	out=$(qd stack datadir "$dn_stack" --yes) || fail "datadir of demo-nested failed: $out"
+	[ "$(docker exec "$host" stat -c %u:%g "$dn_dir/data/db")" = 1000:1000 ] ||
+		fail "data/db has the owner $(docker exec "$host" stat -c %u:%g "$dn_dir/data/db"), want 1000:1000"
+	[ "$(docker exec "$host" stat -c %u:%g "$dn_dir/data")" = "$(docker exec "$host" stat -c %u:%g "$dn_dir")" ] ||
+		fail "the parent data has the owner $(docker exec "$host" stat -c %u:%g "$dn_dir/data"), not the one of the stack folder"
+	dn_mode=$(docker exec "$host" stat -c %a "$dn_dir/data")
+	[ $((0$dn_mode & 0110)) -eq $((0110)) ] || fail "the parent data is not searchable for its owner and group: $dn_mode"
+	dn_run=$(next_run "$dn_stack" "$dn_prev") || fail 'no run of demo-nested started after the creation'
+	wait_for "the run $dn_run" 240 run_finished "$dn_stack" "$dn_run"
+	qd stack log "$dn_run" | grep -q ' result succeeded' || fail "the run $dn_run did not succeed: $(qd stack log "$dn_run")"
+	no_finding "$dn_stack" data-dir-missing || fail "demo-nested still shows the finding: $(qd --output json status)"
+	[ -n "$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=$dn_stack --filter status=running)" ] ||
+		fail 'demo-nested does not run after the creation'
+	log "scenario: the nested directory data/db of $dn_stack was created, the parent stays searchable, run $dn_run"
+
+	step 'demo-nested leaves the repository'
+	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q demo-nested &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the demo-nested stack" && git push -q origin main'
+	restart_service
+	docker exec "$host" sh -c "docker ps -aq --filter label=com.docker.compose.project=$dn_stack | xargs -r docker rm -f" >/dev/null ||
+		fail "cannot remove the containers of $dn_stack"
+	docker exec "$host" rm -rf "$dn_dir"
+	wait_for 'the deploy service to answer' 30 qd status
+	log 'scenario: demo-nested is removed'
 }
 
 # ts_watch_start starts two watchers on the host. The first records every process whose command line holds a line of
