@@ -4598,7 +4598,7 @@ EOF2
 	tui_wait "[ ] $ds_stack" 30
 	tui_send Home
 	i=0
-	until tui_screen | grep -q "^> .*\[.\] $ds_stack "; do
+	until tui_screen | grep -q "^\(│ \)\{0,1\}> .*\[.\] $ds_stack "; do
 		i=$((i + 1))
 		[ "$i" -lt 40 ] || fail "the cursor does not reach $ds_stack: $(tui_screen)"
 		tui_send Down
@@ -5998,7 +5998,7 @@ tui_wait() {
 # the focus must be in the list.
 tui_cursor_to() {
 	i=0
-	until tui_screen | grep -q "^> .*\[.\] $1 "; do
+	until tui_screen | grep -q "^\(│ \)\{0,1\}> .*\[.\] $1 "; do
 		i=$((i + 1))
 		[ "$i" -lt 12 ] || fail "the cursor does not reach $1: $(tui_screen)"
 		tui_send Down
@@ -6011,7 +6011,7 @@ tui_cursor_to() {
 tui_folder_to() {
 	tui_send Home
 	i=0
-	until tui_screen | grep -q "^> .*\[.\] [^ ]* $1 ("; do
+	until tui_screen | grep -q "^\(│ \)\{0,1\}> .*\[.\] [^ ]* $1 ("; do
 		i=$((i + 1))
 		[ "$i" -lt 40 ] || fail "the cursor does not reach the folder $1: $(tui_screen)"
 		tui_send Down
@@ -6045,7 +6045,7 @@ tui_wheel() {
 tui_click_row() {
 	tui_click "$1"
 	i=0
-	until tui_screen | grep -q "^> .*\[.\] $1 "; do
+	until tui_screen | grep -q "^\(│ \)\{0,1\}> .*\[.\] $1 "; do
 		i=$((i + 1))
 		[ "$i" -lt 20 ] || fail "the click did not mark $1: $(tui_screen)"
 		sleep 0.25
