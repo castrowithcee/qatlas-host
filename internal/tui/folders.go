@@ -766,6 +766,14 @@ func (m *Model) changeLines(flow *addFlow, width int) []string {
 		lines = append(lines, text(t.Lookup(textChangeAdopt))...)
 	case control.SourceCaseFiles:
 		lines = append(lines, text(t.Lookup(textChangeFiles))...)
+		switch ig := flow.res.Ignore; {
+		case ig == nil:
+			lines = append(lines, text(t.Lookup(textChangeIgnoreNone))...)
+		case ig.Action == control.SourceIgnoreExtend:
+			lines = append(lines, text(t.Lookup(textChangeIgnoreExtend, len(ig.Lines)))...)
+		default:
+			lines = append(lines, text(t.Lookup(textChangeIgnoreCreate, len(ig.Lines)))...)
+		}
 	default:
 		lines = append(lines, text(t.Lookup(textChangeLocal))...)
 	}

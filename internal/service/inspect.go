@@ -94,6 +94,7 @@ func (s *inspectService) handle(ctx context.Context, raw json.RawMessage) (any, 
 		res.PlannedFiles = v.plan.planned
 		res.Excluded = v.plan.excluded
 		res.Included = v.plan.chosen
+		res.Ignore = v.plan.ignoreResult()
 	}
 	if v.view != nil {
 		if !v.loaded {
@@ -279,6 +280,10 @@ func (s *inspectService) decideFiles(ctx context.Context, a control.SourceInspec
 	// The plan needs the stacks for what they refer to; a folder whose stacks cannot be read has none.
 	list, loadErr := stacks.Load(a.Path)
 	plan, err := planFiles(ctx, a.Path, list, loadErr != nil, nil, a.Include)
+	var bad *gitrepo.IgnoreError
+	if errors.As(err, &bad) {
+		return rejected(printable(bad.Error()), ignoreFix), nil
+	}
 	if err != nil {
 		return verdict{}, err
 	}
@@ -297,10 +302,40 @@ type filePlan struct {
 	// rawPlanned and rawExcluded are planned and the paths of excluded as they are on disk, in the same order;
 	// the lists above show them with unprintable characters replaced.
 	rawPlanned, rawExcluded []string
-	preview                 *gitrepo.Preview
+	// ignore is what the repository writes to the .gitignore of the folder for rawExcluded.
+	ignore  gitrepo.IgnorePlan
+	preview *gitrepo.Preview
 }
 
 func (p *filePlan) close() { _ = p.preview.Close() }
+
+// ignoreFix is the advice for a .gitignore that the first commit cannot extend.
+const ignoreFix = "Make .gitignore a regular file of at most 1 MiB that the service can read, or remove it; qhost adds the paths it leaves out to it."
+
+// ignoreResult is the change to the .gitignore of the folder, nil when there is none.
+func (p *filePlan) ignoreResult() *control.SourceIgnore {
+	if !p.ignore.Write {
+		return nil
+	}
+	out := &control.SourceIgnore{Action: control.SourceIgnoreCreate, Lines: []string{}}
+	if p.ignore.Exists {
+		out.Action = control.SourceIgnoreExtend
+	}
+	for _, l := range p.ignore.Added {
+		out.Lines = append(out.Lines, maskControl(l))
+	}
+	return out
+}
+
+// committedFiles is the number of files of the first commit: the planned files and a .gitignore that is written
+// and not among them.
+func (p *filePlan) committedFiles() int {
+	n := len(p.planned)
+	if p.ignore.Write && !slices.Contains(p.rawPlanned, gitrepo.IgnoreName) {
+		n++
+	}
+	return n
+}
 
 func (p *filePlan) TrackedFiles(_ context.Context, dir string) ([]string, error) {
 	if dir == stacks.RootFolder {
@@ -396,6 +431,9 @@ var collapsible = []string{control.SourceExcludedNotReferenced, control.SourceEx
 // include holds the unclear files the operator chose: a file a stack mounts writable or names as a secrets file
 // is planned instead of left out. A path that is not unclear by this classification, or that the plan cannot
 // take for another reason, is refused, so a choice never goes unnoticed.
+//
+// The plan holds the .gitignore that keeps what is left out out of git; a .gitignore of the folder that cannot be
+// extended gives a *gitrepo.IgnoreError.
 func planFiles(ctx context.Context, root string, list []stacks.Stack, stacksUnread bool, remote map[string]bool, include []string) (*filePlan, error) {
 	chosenSet := make(map[string]bool, len(include))
 	for _, f := range include {
@@ -521,6 +559,12 @@ func planFiles(ctx context.Context, root string, list []stacks.Stack, stacksUnre
 		excluded[i].Path = maskControl(excluded[i].Path)
 	}
 	plan.excluded = excluded
+	// A name with a line break cannot be a pattern; source add refuses it as unprintable, so the answer still
+	// shows the folder.
+	patterned := slices.DeleteFunc(slices.Clone(plan.rawExcluded), func(p string) bool { return strings.ContainsAny(p, "\n\r\x00") })
+	if plan.ignore, err = gitrepo.PlanIgnore(root, patterned); err != nil {
+		return nil, err
+	}
 	ok = true
 	return plan, nil
 }

@@ -73,6 +73,7 @@ func listedFilesInspect() control.SourceInspectResult {
 			{Path: "big.bin", Reason: control.SourceExcludedTooLarge},
 			{Path: "data", Reason: control.SourceExcludedBindMount, Stack: "demo"},
 			{Path: "notes.txt", Reason: control.SourceExcludedNotReferenced}},
+		Ignore: &control.SourceIgnore{Action: control.SourceIgnoreCreate, Lines: []string{"/acme.json", "/big.bin", "/data", "/notes.txt"}},
 		Stacks: []control.SourceStack{{Name: "demo", BindMounts: []string{"data"},
 			Unresolved: []string{`env_file "${CONF_DIR}/app.env": variable CONF_DIR has no value in .env`}}},
 	}
@@ -91,8 +92,10 @@ func TestSourceAddFilesWithoutConfirmationChangesNothing(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Case files", "Start a git repository", "branch main", "core.sharedRepository=group",
-		"first commit is made as qhost", "no file in the folder is written", "takes 3 files", "  compose.yaml",
-		"big.bin: too-large", "data: bind-mount (stack demo)", "only in .git/info/exclude, never in .gitignore",
+		"first commit is made as qhost.", "takes 3 files", "  compose.yaml",
+		"big.bin: too-large", "data: bind-mount (stack demo)", "kept out of git by .gitignore:",
+		"Create .gitignore with a block marked by qhost of 4 lines; the first commit holds it:", "  /big.bin", "  /notes.txt",
+		"No other file in the folder is written.",
 		"Unclear (1), may hold data or a secret", "acme.json: writable-file (stack demo)", "notes.txt: not-referenced", "Left out (3), not needed by the stacks",
 		"Not resolvable in stack demo", "variable CONF_DIR has no value in .env",
 		"paths get the group", "listed files: group rw", "bind-mount sources and everything below: data",

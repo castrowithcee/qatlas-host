@@ -17,16 +17,17 @@ const firstCommitMessage = "Import the stack files"
 
 // Init turns the folder dir, which has no .git, into a repository without a remote: branch main,
 // core.sharedRepository=group, and a first commit by qhost that holds exactly the regular files in files, paths
-// relative to dir. excluded are paths relative to dir that the repository leaves out; they are written as
-// anchored patterns to .git/info/exclude only, so no file of the folder is created, changed or removed. Hooks,
-// filters and the configuration of the caller do not apply, and the files are stored as they are on disk.
-// It returns the id of the first commit. If a step fails after .git was created, Init removes that .git again.
+// relative to dir, and the IgnoreName that PlanIgnore works out for excluded, the paths relative to dir that the
+// repository leaves out. That file is the only one of the folder that is created or changed, and only when
+// something is left out; nothing is removed. Hooks, filters and the configuration of the caller do not apply,
+// and the files are stored as they are on disk. It returns the id of the first commit. If a step fails after
+// .git was created, Init removes that .git again and leaves IgnoreName as it was.
 func Init(ctx context.Context, cfg Config, dir string, files, excluded []string) (string, error) {
 	r, err := Open(cfg, dir)
 	if err != nil {
 		return "", err
 	}
-	patterns, err := r.checkFolder(files, excluded)
+	ignore, err := r.checkFolder(files, excluded)
 	if err != nil {
 		return "", err
 	}
@@ -34,7 +35,7 @@ func Init(ctx context.Context, cfg Config, dir string, files, excluded []string)
 	if err != nil {
 		return "", err
 	}
-	commit, err := r.initIn(ctx, gitDir, files, patterns)
+	commit, err := r.initIn(ctx, gitDir, files, ignore)
 	if err != nil {
 		_ = os.RemoveAll(gitDir)
 		return "", err
@@ -42,23 +43,18 @@ func Init(ctx context.Context, cfg Config, dir string, files, excluded []string)
 	return commit, nil
 }
 
-// checkFolder validates the file list and the exclusions and returns the text of .git/info/exclude.
-func (r *Repo) checkFolder(files, excluded []string) (string, error) {
+// checkFolder validates the file list and the exclusions and plans the IgnoreName of the folder.
+func (r *Repo) checkFolder(files, excluded []string) (IgnorePlan, error) {
 	if len(files) == 0 {
-		return "", errors.New("there is no file to commit")
+		return IgnorePlan{}, errors.New("there is no file to commit")
 	}
 	if err := r.checkFiles(files); err != nil {
-		return "", err
+		return IgnorePlan{}, err
 	}
-	var patterns strings.Builder
-	for _, e := range excluded {
-		pat, ok := excludePattern(e)
-		if !ok {
-			return "", fmt.Errorf("%q cannot be written as an ignore pattern", e)
-		}
-		patterns.WriteString(pat + "\n")
+	if err := checkNotExcluded(files, excluded); err != nil {
+		return IgnorePlan{}, err
 	}
-	return patterns.String(), nil
+	return PlanIgnore(r.dir, excluded)
 }
 
 // checkFiles requires every path to be a clean path of a regular file inside the folder and outside .git.
@@ -87,8 +83,8 @@ func (r *Repo) claimGitDir() (string, error) {
 	return gitDir, nil
 }
 
-func (r *Repo) initIn(ctx context.Context, gitDir string, files []string, patterns string) (string, error) {
-	git, tree, err := r.stage(ctx, gitDir, files, patterns, "main")
+func (r *Repo) initIn(ctx context.Context, gitDir string, files []string, ignore IgnorePlan) (string, error) {
+	git, tree, err := r.stage(ctx, gitDir, files, ignore, "main")
 	if err != nil {
 		return "", err
 	}
@@ -100,6 +96,9 @@ func (r *Repo) initIn(ctx context.Context, gitDir string, files []string, patter
 		return "", errors.New("commit-tree returned no commit id")
 	}
 	if _, err := git("update-ref", "refs/heads/main", commit); err != nil {
+		return "", err
+	}
+	if err := r.putIgnore(ctx, ignore); err != nil {
 		return "", err
 	}
 	return commit, nil
@@ -118,9 +117,9 @@ func (r *Repo) gitIn(ctx context.Context, env []string) gitFunc {
 	}
 }
 
-// stage creates the repository in gitDir on the given branch, writes the ignore rules and stages exactly files.
-// It returns the tree of the index and a runner for the next steps.
-func (r *Repo) stage(ctx context.Context, gitDir string, files []string, patterns, branch string) (gitFunc, string, error) {
+// stage creates the repository in gitDir on the given branch and stages exactly files and the planned
+// IgnoreName, which is not written yet. It returns the tree of the index and a runner for the next steps.
+func (r *Repo) stage(ctx context.Context, gitDir string, files []string, ignore IgnorePlan, branch string) (gitFunc, string, error) {
 	// --template= keeps the host's template (hooks, sample files) out of the new repository.
 	if _, err := r.run(ctx, false, maxErrorText, "init", "--quiet", "--template=", "--initial-branch="+branch,
 		"--shared=group", "--", r.dir); err != nil {
@@ -131,10 +130,7 @@ func (r *Repo) stage(ctx context.Context, gitDir string, files []string, pattern
 	}
 	info := filepath.Join(gitDir, "info")
 	if err := os.MkdirAll(info, 0o755); err != nil {
-		return nil, "", fmt.Errorf("write the ignore rules: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(info, "exclude"), []byte(patterns), 0o644); err != nil {
-		return nil, "", fmt.Errorf("write the ignore rules: %w", err)
+		return nil, "", fmt.Errorf("write the attribute rules: %w", err)
 	}
 	// An attribute rule of the folder could convert line endings or run a filter; this one wins and goes away
 	// with the first commit, so the blobs hold the bytes of the files.
@@ -146,7 +142,7 @@ func (r *Repo) stage(ctx context.Context, gitDir string, files []string, pattern
 		"GIT_AUTHOR_NAME=" + commitName, "GIT_AUTHOR_EMAIL=" + commitEmail,
 		"GIT_COMMITTER_NAME=" + commitName, "GIT_COMMITTER_EMAIL=" + commitEmail,
 	}
-	tree, err := r.stageFiles(ctx, env, files)
+	tree, err := r.stageFiles(ctx, env, files, ignore)
 	if err != nil {
 		return nil, "", err
 	}
@@ -159,9 +155,9 @@ func (r *Repo) stage(ctx context.Context, gitDir string, files []string, pattern
 
 const noFilterAttributes = "* -text -filter -ident -working-tree-encoding\n"
 
-// stageFiles adds exactly files to the index that env selects and returns the tree of that index. The paths
-// are read from a list file, so no path is ever a command-line word.
-func (r *Repo) stageFiles(ctx context.Context, env, files []string) (string, error) {
+// stageFiles adds exactly files and the planned IgnoreName to the index that env selects and returns the tree
+// of that index. The paths are read from a list file, so no path is ever a command-line word.
+func (r *Repo) stageFiles(ctx context.Context, env, files []string, ignore IgnorePlan) (string, error) {
 	list, err := os.CreateTemp("", "qhost-init-*")
 	if err != nil {
 		return "", fmt.Errorf("create temporary file: %w", err)
@@ -176,6 +172,9 @@ func (r *Repo) stageFiles(ctx context.Context, env, files []string) (string, err
 	}
 	git := r.gitIn(ctx, env)
 	if _, err := git("add", "--pathspec-from-file="+list.Name(), "--pathspec-file-nul"); err != nil {
+		return "", err
+	}
+	if err := r.stageIgnore(ctx, env, ignore); err != nil {
 		return "", err
 	}
 	tree, err := git("write-tree")

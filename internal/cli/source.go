@@ -184,6 +184,9 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 		if len(res.Included) > 0 {
 			add("included", structured(format, res.Included))
 		}
+		if res.Ignore != nil {
+			add("ignore", structured(format, res.Ignore))
+		}
 		add("stacks", structured(format, res.Stacks))
 		addText("stacks_error", res.StacksError)
 		add("containers_checked", res.ContainersChecked)
@@ -233,6 +236,12 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 	}
 	for _, e := range res.Included {
 		add("included", e.Path+": "+e.Reason+" (chosen)")
+	}
+	if ig := res.Ignore; ig != nil {
+		add("gitignore", ig.Action)
+		for _, l := range ig.Lines {
+			add("gitignore_line", l)
+		}
 	}
 	for _, st := range res.Stacks {
 		p := "stack." + st.Name + "."

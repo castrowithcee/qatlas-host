@@ -89,7 +89,8 @@ func TestInitStartsARepositoryWithExactlyTheGivenFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after := treeState(t, dir); len(after) != len(before) {
+	// The folder gains .gitignore and nothing else.
+	if after := treeState(t, dir); len(after) != len(before)+1 {
 		t.Fatalf("entries before %d, after %d", len(before), len(after))
 	} else {
 		for p, b := range before {
@@ -99,9 +100,11 @@ func TestInitStartsARepositoryWithExactlyTheGivenFiles(t *testing.T) {
 			}
 		}
 	}
-	if _, err := os.Lstat(filepath.Join(dir, ".gitignore")); !os.IsNotExist(err) {
-		t.Fatalf(".gitignore: %v", err)
+	wantIgnore := ignoreBegin + "\n/web/data\n" + `/odd \[a]\*\?\\#!name \ ` + "\n/web/secrets.env\n" + ignoreEnd + "\n"
+	if got := readFile(t, filepath.Join(dir, ".gitignore")); got != wantIgnore {
+		t.Fatalf(".gitignore = %q, want %q", got, wantIgnore)
 	}
+	files = []string{".gitattributes", ".gitignore", "top.txt", "web/.env", "web/compose.yaml"}
 	if got := fixtureGit(t, dir, "rev-parse", "HEAD"); got != id {
 		t.Fatalf("HEAD = %s, init returned %s", got, id)
 	}
@@ -129,16 +132,13 @@ func TestInitStartsARepositoryWithExactlyTheGivenFiles(t *testing.T) {
 	if got := fixtureGit(t, dir, "ls-tree", "HEAD", "top.txt"); !strings.HasPrefix(got, "100755 ") {
 		t.Fatalf("mode = %q", got)
 	}
+	if got := fixtureGit(t, dir, "show", "HEAD:.gitignore"); got+"\n" != wantIgnore {
+		t.Fatalf("committed .gitignore = %q", got)
+	}
 	// Nothing is left to commit or to report: the excluded paths are ignored, the rest is tracked.
-	if got := fixtureGit(t, dir, "status", "--porcelain", "--untracked-files=all"); got != "" {
-		t.Fatalf("status = %q", got)
-	}
-	exclude, err := os.ReadFile(filepath.Join(dir, ".git", "info", "exclude"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(exclude), "/web/data\n") || !strings.Contains(string(exclude), `/odd \[a]\*\?\\#!name \ `+"\n") {
-		t.Fatalf("exclude = %q", exclude)
+	wantClean(t, &Repo{dir: dir})
+	if _, err := os.Lstat(filepath.Join(dir, ".git", "info", "exclude")); !os.IsNotExist(err) {
+		t.Fatalf("exclude written: %v", err)
 	}
 	if _, err := os.Lstat(filepath.Join(dir, ".git", "info", "attributes")); !os.IsNotExist(err) {
 		t.Fatalf("attributes left behind: %v", err)

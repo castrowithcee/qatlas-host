@@ -24,7 +24,7 @@
     demo/.env                                           
     demo/compose.yaml                                   
                                                         
-  Left out (2), not needed by the stacks, recorded only…
+  Left out (2), not needed by the stacks, kept out of g…
     demo/data: bind-mount (stack demo)                  
     demo/notes.txt: not-referenced                      
                                                         
@@ -37,4 +37,4 @@
       not resolvable: env_file "${CONF_DIR}/app.env":   
       variable CONF_DIR has no value in .env            
 y yes, do it  w with a remote  n/esc/enter cancel       
-                                       ↑/↓ scroll  35/52
+                                       ↑/↓ scroll  35/54

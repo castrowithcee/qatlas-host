@@ -1,7 +1,9 @@
 package service_test
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -121,13 +123,15 @@ func TestSourceAddTakesChosenUnclearFilesAndOnlyThem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The planned files and the .gitignore that keeps what is left out out of git.
 	committed := strings.Fields(string(out))
-	if !slices.Contains(committed, "web/acme.json") || slices.Contains(committed, "web/token.txt") || len(committed) != len(shown.PlannedFiles) || res.Files != len(committed) {
+	if !slices.Contains(committed, "web/acme.json") || slices.Contains(committed, "web/token.txt") ||
+		!slices.Contains(committed, ".gitignore") || len(committed) != len(shown.PlannedFiles)+1 || res.Files != len(committed) {
 		t.Fatalf("committed %q, planned %q", committed, shown.PlannedFiles)
 	}
-	exclude, err := exec.Command("cat", dir+"/.git/info/exclude").Output()
-	if err != nil || strings.Contains(string(exclude), "acme.json") || !strings.Contains(string(exclude), "/web/token.txt") {
-		t.Fatalf("exclude = %q, %v", exclude, err)
+	ignore, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	if err != nil || strings.Contains(string(ignore), "acme.json") || !strings.Contains(string(ignore), "/web/token.txt") {
+		t.Fatalf(".gitignore = %q, %v", ignore, err)
 	}
 }
 

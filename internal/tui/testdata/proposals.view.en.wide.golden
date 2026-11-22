@@ -24,7 +24,7 @@
     demo/.env                                                                                                           
     demo/compose.yaml                                                                                                   
                                                                                                                         
-  Left out (2), not needed by the stacks, recorded only in .git/info/exclude                                            
+  Left out (2), not needed by the stacks, kept out of git by .gitignore                                                 
     demo/data: bind-mount (stack demo)                                                                                  
     demo/notes.txt: not-referenced                                                                                      
                                                                                                                         
@@ -37,4 +37,4 @@
       conflict: the container demo-app-1 of the project old-demo runs in the folder, in the engine system               
                                                                                                                         
   Changes after yes                                                                                                     
-esc back  A approve  N reject  r reload  1-7 area  q quit                                              ↑/↓ scroll  36/40
+esc back  A approve  N reject  r reload  1-7 area  q quit                                              ↑/↓ scroll  36/42

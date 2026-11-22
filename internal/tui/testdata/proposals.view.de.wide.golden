@@ -24,7 +24,7 @@
     demo/.env                                                                                                           
     demo/compose.yaml                                                                                                   
                                                                                                                         
-  Ausgelassen (2), von den Stacks nicht gebraucht, nur in .git/info/exclude vermerkt                                    
+  Ausgelassen (2), von den Stacks nicht gebraucht, per .gitignore von Git ausgenommen                                   
     demo/data: bind-mount (Stack demo)                                                                                  
     demo/notes.txt: not-referenced                                                                                      
                                                                                                                         
@@ -37,4 +37,4 @@
       Konflikt: Der Container demo-app-1 des Projekts old-demo läuft im Ordner, in der Engine system                    
                                                                                                                         
   Änderungen nach Ja                                                                                                    
-esc Zurück  A freigeben  N ablehnen  r Neu laden  1-7 Bereich  q Beenden                             ↑/↓ Scrollen  36/40
+esc Zurück  A freigeben  N ablehnen  r Neu laden  1-7 Bereich  q Beenden                             ↑/↓ Scrollen  36/42
