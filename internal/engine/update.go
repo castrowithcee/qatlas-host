@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/castrowithcee/qatlas-host/internal/envfile"
 	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
@@ -62,7 +63,7 @@ func (e *Engine) CheckUpdate(ctx context.Context, name string) (stacks.Stack, er
 	case busy:
 		return stacks.Stack{}, ErrRunActive
 	}
-	if _, err := e.updateBase(ctx, b, name, st.Folder, head); err != nil {
+	if _, err := e.updateBase(ctx, b, name, st.Folder, head, false); err != nil {
 		return stacks.Stack{}, err
 	}
 	return st, nil
@@ -111,7 +112,7 @@ func (e *Engine) UpdateWhile(ctx context.Context, name string, steps []VersionSt
 		if err := e.take(name, "update"); err != nil {
 			return err
 		}
-		if deployed, err = e.updateBase(ctx, b, name, st.Folder, head); err == nil {
+		if deployed, err = e.updateBase(ctx, b, name, st.Folder, head, false); err == nil {
 			err = checkPlan(st, steps)
 		}
 		if err != nil {
@@ -138,7 +139,7 @@ func (e *Engine) UpdateWhile(ctx context.Context, name string, steps []VersionSt
 		if e.base.Err() != nil || (proceed != nil && !proceed()) {
 			break
 		}
-		r, err := e.stepRun(b, st, deployed)
+		r, err := e.stepRun(b, st, deployed, TriggerUpdate)
 		if err != nil {
 			results[i].Error = "the run log cannot be created"
 			e.cfg.Logger.Error("update step not started", "stack", name, "error", err)
@@ -200,8 +201,8 @@ func (e *Engine) updatable(ctx context.Context, b Binding, name string) (stacks.
 }
 
 // updateBase returns the deployed commit of the stack, refusing a paused or pinned stack, one never deployed
-// and one whose folder at head differs from the deployed one. The caller holds the working-copy lock.
-func (e *Engine) updateBase(ctx context.Context, b Binding, name, folder, head string) (string, error) {
+// and one whose folder at head differs from the deployed one. A pinned stack is refused unless pinOK. The caller holds the working-copy lock.
+func (e *Engine) updateBase(ctx context.Context, b Binding, name, folder, head string, pinOK bool) (string, error) {
 	cur, _, err := e.Stack(name)
 	switch {
 	case err != nil:
@@ -210,7 +211,7 @@ func (e *Engine) updateBase(ctx context.Context, b Binding, name, folder, head s
 		return "", ErrPaused
 	case cur.Stopped != nil:
 		return "", ErrStackStopped
-	case cur.Pin != nil:
+	case cur.Pin != nil && !pinOK:
 		return "", ErrPinned
 	case cur.Deployed == "":
 		return "", ErrNotDeployed
@@ -244,9 +245,9 @@ func checkPlan(st stacks.Stack, steps []VersionStep) error {
 	return nil
 }
 
-// stepRun prepares the run of one update step and shows it as the stack's active run. The caller holds the
+// stepRun prepares the run of one update step or of a return and shows it as the stack's active run. The caller holds the
 // stack's slot.
-func (e *Engine) stepRun(b Binding, st stacks.Stack, deployed string) (*run, error) {
+func (e *Engine) stepRun(b Binding, st stacks.Stack, deployed, trigger string) (*run, error) {
 	now := e.cfg.Clock.Now().UTC()
 	id, w, err := e.newLog(now)
 	if err != nil {
@@ -258,7 +259,7 @@ func (e *Engine) stepRun(b Binding, st stacks.Stack, deployed string) (*run, err
 	return &run{
 		e: e, b: b, st: st, deployed: deployed,
 		log: &Log{w: w, redact: e.cfg.Redact, now: e.cfg.Clock.Now},
-		rec: RunRecord{ID: id, Stack: st.Name, Commit: deployed, Trigger: TriggerUpdate, Started: now},
+		rec: RunRecord{ID: id, Stack: st.Name, Commit: deployed, Trigger: trigger, Started: now},
 	}, nil
 }
 
@@ -269,7 +270,7 @@ func (e *Engine) stepRun(b Binding, st stacks.Stack, deployed string) (*run, err
 // holding the run's hold again. r.pushed is set as soon as the commit is on the branch: from then on a
 // failure is rolled back with a revert.
 func (r *run) advance(ctx context.Context) error {
-	e, log, wc, ch := r.e, r.log, r.b.Copy, r.change
+	e, log, wc := r.e, r.log, r.b.Copy
 	log.Step("commit")
 	e.releaseHold()
 	r.held = false
@@ -283,9 +284,7 @@ func (r *run) advance(ctx context.Context) error {
 	e.refs.Lock()
 	defer e.refs.Unlock()
 
-	name := r.st.Name
-	message := fmt.Sprintf("Update %s %s from %s to %s", name, ch.Variable, ch.From, ch.To)
-	edit := func(old []byte) ([]byte, error) { return envfile.Set(old, ch.Variable, ch.To) }
+	message, edit := r.commitEdit()
 	var at string
 	for attempt := 1; at == ""; attempt++ {
 		if err := r.unchangedOnBranch(ctx); err != nil {
@@ -311,7 +310,35 @@ func (r *run) advance(ctx context.Context) error {
 		}
 	}
 	r.pushed, r.rec.Commit = true, at
-	return r.follow(ctx, at, "update")
+	what := "update"
+	if r.back != nil {
+		what = "return"
+	}
+	return r.follow(ctx, at, what)
+}
+
+// commitEdit is the message and the .env edit of the run's version commit: one variable for an update step,
+// every variable of a return.
+func (r *run) commitEdit() (string, func([]byte) ([]byte, error)) {
+	steps, verb := []VersionStep{*r.change}, "Update"
+	if r.back != nil {
+		steps, verb = r.back.changes, "Return"
+	}
+	parts := make([]string, len(steps))
+	for i, s := range steps {
+		parts[i] = fmt.Sprintf("%s from %s to %s", s.Variable, s.From, s.To)
+	}
+	message := fmt.Sprintf("%s %s %s", verb, r.st.Name, strings.Join(parts, "; "))
+	edit := func(old []byte) ([]byte, error) {
+		var err error
+		for _, s := range steps {
+			if old, err = envfile.Set(old, s.Variable, s.To); err != nil {
+				return nil, err
+			}
+		}
+		return old, nil
+	}
+	return message, edit
 }
 
 // landed fetches and reports whether the branch is at commit c. The caller holds the ref lock.

@@ -31,7 +31,9 @@
 # repository: its own stack is deployed, a stack named like one of the first source is reported and never deployed.
 # Version updates with qhost stack update follow: qhost stack settings set commits and pushes the settings of a
 # stack without a run, and they act on the next update: one direct step, a stepwise major jump and a jump whose
-# middle step fails. The maintenance window follows on a real, short window: a stack in automatic mode is updated
+# middle step fails. qhost stack rollback then sets the stack back to the version before an update: with
+# --restore-data the file written since is gone and the stack is pinned and refuses an update; after unpin and a new
+# update, --keep-data leaves such a file. The maintenance window follows on a real, short window: a stack in automatic mode is updated
 # without a human, a stack in manual mode is only reported, a paused and a pinned stack stay as they are, and a change with
 # window set takes effect in the running service; outside the window, a stack in automatic mode with the update trigger
 # interval is updated within two minutes. The terminal interface follows: sudo qhost opens it in a
@@ -2369,6 +2371,81 @@ scenario_update() {
 	update_reset 1.1.0 stepwise
 	settings_set demo-stack "$(demo_stack_settings)"
 	[ "$(stack_images demo-stack)" = "$image:1.1.0" ] || fail "demo-stack does not run 1.1.0 again: $(stack_images demo-stack)"
+
+	scenario_return
+}
+
+# scenario_return sets demo-stack back with 'qhost stack rollback' after an update by qhost, which has backup rules:
+# with --restore-data the file written after the update is gone, the stack is pinned and refuses an update; after
+# unpin and a new update, --keep-data leaves a file written after that update. It starts and leaves demo-stack
+# on 1.1.0, unpinned, without the marker files.
+scenario_return() {
+	image=registry.$domain/demo/app
+	bind=/opt/stacks/demo-stack/data
+
+	step 'an update of demo-stack to 2.0.0 is followed by a file in its backed-up data directory'
+	wait_for 'demo-stack to be idle' 120 stack_idle demo-stack
+	out=$(qd --output json stack update demo-stack --version 2.0.0) || fail "update to 2.0.0 failed: $out"
+	update_run=$(json_values "$out" run | head -n 1)
+	[ -n "$update_run" ] && [ "$(json_values "$out" result)" = succeeded ] || fail "the update to 2.0.0 did not succeed: $out"
+	[ "$(stack_images demo-stack)" = "$image:2.0.0" ] || fail "demo-stack does not run 2.0.0: $(stack_images demo-stack)"
+	[ -n "$(update_run_backup "$(qd stack log "$update_run")")" ] || fail "the update run $update_run made no backup"
+	fixture_run "$bind" 'printf after-update >/data/after-update.txt' || fail 'cannot write the file after the update'
+
+	step 'a return needs exactly one data choice, and without a terminal it needs --yes; both change nothing'
+	out=$(qd_fails stack rollback demo-stack "$update_run") || fail "rollback without a data choice succeeded: $out"
+	printf '%s' "$out" | grep -q 'exactly one of --restore-data and --keep-data' || fail "the refusal does not name the data choice: $out"
+	out=$(qd_fails stack rollback demo-stack "$update_run" --restore-data --keep-data --yes) || fail "rollback with both data choices succeeded: $out"
+	printf '%s' "$out" | grep -q 'exactly one of --restore-data and --keep-data' || fail "the refusal does not name the data choice: $out"
+	out=$(qd_fails stack rollback demo-stack "$update_run" --restore-data) || fail "rollback without a terminal and without --yes succeeded: $out"
+	printf '%s' "$out" | grep -q -- '--yes' || fail "the refusal does not name --yes: $out"
+	[ "$(stack_images demo-stack)" = "$image:2.0.0" ] || fail "a refused rollback changed the stack: $(stack_images demo-stack)"
+	[ -z "$(stack_field demo-stack pinned)" ] || fail 'a refused rollback pinned the stack'
+	fixture_run "$bind" 'test -f /data/after-update.txt' || fail 'a refused rollback removed the file'
+
+	step 'rollback --restore-data returns demo-stack to 1.1.0 with the data of the update, and pins it'
+	out=$(qd --output json stack rollback demo-stack "$update_run" --restore-data --yes) || fail "rollback --restore-data failed: $out"
+	log "scenario: rollback $out"
+	printf '%s' "$out" | jq -e --arg run "$update_run" '.result == "succeeded" and .pinned == true and .update_run == $run and
+		.data == "restore" and .versions == "DEMO_APP_VERSION 2.0.0 -> 1.1.0" and (.note | contains("qhost stack unpin demo-stack"))' >/dev/null ||
+		fail "unexpected answer of the rollback: $out"
+	return_run=$(printf '%s' "$out" | jq -r .run)
+	return_log=$(qd stack log "$return_run")
+	printf '%s' "$return_log" | grep -q ' result succeeded' || fail "the return run did not succeed: $return_log"
+	log "scenario: return steps: $(update_steps "$return_log")"
+	[ "$(stack_images demo-stack)" = "$image:1.1.0" ] || fail "demo-stack does not run 1.1.0 after the rollback: $(stack_images demo-stack)"
+	stack_healthy demo-stack || fail 'demo-stack is not healthy after the rollback'
+	fixture_run "$bind" 'test ! -e /data/after-update.txt' || fail 'the file written after the update is still there after --restore-data'
+	as_admin 'cd ~/stacks && git pull -q --ff-only'
+	[ "$(as_admin "cd ~/stacks && git show HEAD:demo-stack/.env | grep '^DEMO_APP_VERSION='")" = DEMO_APP_VERSION=1.1.0 ] ||
+		fail 'the branch does not hold 1.1.0 after the rollback'
+	[ "$(stack_field demo-stack last_run)" = succeeded ] || fail "the last run of demo-stack is not succeeded: $(stack_field demo-stack last_run)"
+
+	step 'the pinned demo-stack is shown as pinned and refuses an update'
+	[ -n "$(stack_field demo-stack pinned)" ] || fail "status does not show demo-stack as pinned: $(qd --output json status | grep 'stack.demo-stack')"
+	out=$(qd_fails stack update demo-stack) || fail "update of the pinned demo-stack succeeded: $out"
+	printf '%s' "$out" | grep -q 'pinned' || fail "the refusal does not say that the stack is pinned: $out"
+	[ "$(stack_images demo-stack)" = "$image:1.1.0" ] || fail "the refused update changed the stack: $(stack_images demo-stack)"
+
+	step 'after unpin and a new update, rollback --keep-data leaves the file written after that update'
+	out=$(qd stack unpin demo-stack) || fail "unpin failed: $out"
+	out=$(qd --output json stack update demo-stack --version 2.0.0) || fail "second update to 2.0.0 failed: $out"
+	update_run=$(json_values "$out" run | head -n 1)
+	[ -n "$update_run" ] && [ "$(json_values "$out" result)" = succeeded ] || fail "the second update to 2.0.0 did not succeed: $out"
+	[ "$(stack_images demo-stack)" = "$image:2.0.0" ] || fail "demo-stack does not run 2.0.0 again: $(stack_images demo-stack)"
+	fixture_run "$bind" 'printf kept >/data/kept.txt' || fail 'cannot write the file after the second update'
+	out=$(qd --output json stack rollback demo-stack "$update_run" --keep-data --yes) || fail "rollback --keep-data failed: $out"
+	printf '%s' "$out" | jq -e '.result == "succeeded" and .pinned == true and .data == "keep"' >/dev/null || fail "unexpected answer of the rollback: $out"
+	[ "$(stack_images demo-stack)" = "$image:1.1.0" ] || fail "demo-stack does not run 1.1.0 after the second rollback: $(stack_images demo-stack)"
+	stack_healthy demo-stack || fail 'demo-stack is not healthy after the second rollback'
+	[ "$(fixture_run "$bind" 'cat /data/kept.txt')" = kept ] || fail 'the file written after the update is gone after --keep-data'
+	[ -n "$(stack_field demo-stack pinned)" ] || fail 'demo-stack is not pinned after the second rollback'
+
+	step 'demo-stack is released and left on 1.1.0 without the marker files'
+	out=$(qd stack unpin demo-stack) || fail "unpin failed: $out"
+	[ -z "$(stack_field demo-stack pinned)" ] || fail 'demo-stack is still pinned after unpin'
+	fixture_run "$bind" 'rm -f /data/kept.txt /data/after-update.txt' || fail 'cannot remove the marker files'
+	log "scenario: return: demo-stack is back on 1.1.0, unpinned"
 }
 
 scenario_stacks_repo() {

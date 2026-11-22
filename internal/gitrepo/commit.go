@@ -128,3 +128,40 @@ func (r *Repo) IsAncestor(ctx context.Context, a, b string) (bool, error) {
 	}
 	return false, fmt.Errorf("merge-base failed: %w", err)
 }
+
+// ParentOf returns the first parent of the commit, a full commit id; an error when it has none.
+func (r *Repo) ParentOf(ctx context.Context, commit string) (string, error) {
+	if !hexRe.MatchString(commit) {
+		return "", errors.New("the commit must be a full lowercase commit id")
+	}
+	return r.revParse(ctx, commit+"^1^{commit}")
+}
+
+// FileAt returns the content of the regular file path as the commit has it, nil when the commit has no such
+// file. It reads the repository only and does not touch the working copy.
+func (r *Repo) FileAt(ctx context.Context, commit, path string) ([]byte, error) {
+	if !hexRe.MatchString(commit) {
+		return nil, errors.New("the commit must be a full lowercase commit id")
+	}
+	if checkRepoPath(path) != nil || strings.Contains("/"+path+"/", "/.git/") {
+		return nil, errors.New("the path must be a clean path of a file in the working copy")
+	}
+	out, err := r.run(ctx, true, maxErrorText, "--literal-pathspecs", "ls-tree", "-z", commit, "--", path)
+	if err != nil {
+		return nil, fmt.Errorf("ls-tree failed: %w", err)
+	}
+	if out == "" {
+		return nil, nil
+	}
+	entry, name, _ := strings.Cut(strings.TrimSuffix(out, "\x00"), "\t")
+	mode, rest, _ := strings.Cut(entry, " ")
+	kind, blob, _ := strings.Cut(rest, " ")
+	if name != path || kind != "blob" || (mode != "100644" && mode != "100755") || !hexRe.MatchString(blob) {
+		return nil, fmt.Errorf("%s is not a regular file in the commit", path)
+	}
+	text, err := r.run(ctx, true, maxStdout, "cat-file", "blob", blob)
+	if err != nil {
+		return nil, fmt.Errorf("cat-file failed: %w", err)
+	}
+	return []byte(text), nil
+}

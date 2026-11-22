@@ -825,6 +825,14 @@ func (s *sourceSet) CheckUpdate(ctx context.Context, name string) (stacks.Stack,
 	return routed(s, name, func(e *engine.Engine) (stacks.Stack, error) { return e.CheckUpdate(ctx, name) })
 }
 
+func (s *sourceSet) CheckReturn(ctx context.Context, name, runID string, data engine.ReturnData) (engine.ReturnPlan, error) {
+	return routed(s, name, func(e *engine.Engine) (engine.ReturnPlan, error) { return e.CheckReturn(ctx, name, runID, data) })
+}
+
+func (s *sourceSet) Return(ctx context.Context, name, runID string, data engine.ReturnData) (engine.ReturnResult, error) {
+	return routed(s, name, func(e *engine.Engine) (engine.ReturnResult, error) { return e.Return(ctx, name, runID, data) })
+}
+
 func (s *sourceSet) Update(ctx context.Context, name string, steps []engine.VersionStep) ([]engine.StepResult, error) {
 	return s.UpdateWhile(ctx, name, steps, nil)
 }

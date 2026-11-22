@@ -186,6 +186,7 @@ var stackScoped = map[string]func(stacks ...string) string{
 	control.SecretDeleteCommand: one, control.BackupCreateCommand: one, control.BackupListCommand: one,
 	control.BackupRestoreCommand: one, control.UpdatesListCommand: one, control.ChangelogShowCommand: one,
 	control.StacksCheckCommand: one, control.RunsCommand: one, control.UpdateRunCommand: many,
+	control.ReturnCheckCommand: one, control.ReturnRunCommand: one,
 	control.GrantAddCommand: one, control.GrantRemoveCommand: one,
 }
 
