@@ -152,11 +152,11 @@ var (
 	windowHostFile = func() string { return window.HostFilePath }
 )
 
-// setHostWindow changes the host window file; only root writes it. Before the file exists, the window the system
-// deploy service kept before the host window existed becomes its first content.
-func setHostWindow(a control.WindowSetArgs) ([]output.Field, error) {
+// changeHostWindow changes the host window file; only root writes it. Before the file exists, the window the
+// system deploy service kept before the host window existed becomes its first content.
+func changeHostWindow(a control.WindowSetArgs) (window.Window, error) {
 	if windowEuid() != 0 {
-		return nil, &cli.Failure{Code: output.CodePermission, Message: "changing the host window needs root; run with sudo",
+		return window.Window{}, &cli.Failure{Code: output.CodePermission, Message: "changing the host window needs root; run with sudo",
 			NextStep: "Run the same command with sudo, or name a deploy service with --engine to set its own window."}
 	}
 	c, err := windowChange(a)
@@ -167,10 +167,18 @@ func setHostWindow(a control.WindowSetArgs) ([]output.Field, error) {
 	var invalid *window.InvalidError
 	switch {
 	case errors.As(err, &invalid):
-		return nil, usageFailure(invalid.Text, "Run 'qhost window set --help' for the accepted values.")
+		return window.Window{}, usageFailure(invalid.Text, "Run 'qhost window set --help' for the accepted values.")
 	case err != nil:
-		return nil, &cli.Failure{Code: output.CodeRuntime, Message: "the host window was not changed: " + err.Error(),
+		return window.Window{}, &cli.Failure{Code: output.CodeRuntime, Message: "the host window was not changed: " + err.Error(),
 			NextStep: "Fix or move aside " + windowHostFile() + " if it is damaged, then run the command again.", Cause: err}
+	}
+	return w, nil
+}
+
+func setHostWindow(a control.WindowSetArgs) ([]output.Field, error) {
+	w, err := changeHostWindow(a)
+	if err != nil {
+		return nil, err
 	}
 	fields := []output.Field{{Name: "origin", Value: control.WindowOriginHost},
 		{Name: "days", Value: strings.Join(w.Days.Names(), ",")}, {Name: "start", Value: window.FormatStart(w.Start)},

@@ -1,0 +1,24 @@
+◆ qhost                                                                                             [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs  [4 ⚙ Settings]  5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+   General   Credentials  [Maintenance window]  Notifications                                                           
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Own window of rootless:alice                                                                                          
+                                                                                                                        
+            ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  Days      │ mon,thu       ╔═ Set the own window ═════════════════════════════════════════╗                           │
+            ╰───────────────║ ⚠ Set the own window of rootless:alice?                      ║───────────────────────────╯
+            ╔═══════════════║                                                              ║═══════════════════════════╗
+> Start     ║ 04:45_        ║ Only this instance changes. It follows the host window again ║                           ║
+            ╚═══════════════║ only after it is reset.                                      ║═══════════════════════════╝
+            HH:MM on the 24-║ start: 04:45                                                 ║                            
+            ╭───────────────║ $ sudo qhost window set --start 04:45 --output json --engine ║───────────────────────────╮
+  Duration  │ 1h            ║   rootless:alice                                             ║                           │
+            ╰───────────────║                                                              ║───────────────────────────╯
+            ╭───────────────║ [ yes, with sudo ]  > cancel <                               ║───────────────────────────╮
+  Time zone │ UTC           ║ y yes, with sudo  n/esc/enter cancel                         ║                           │
+            ╰───────────────╚══════════════════════════════════════════════════════════════╝───────────────────────────╯
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+[ F2 save ]  [ esc discard ]                                                                                            
+                                                                                                                        

@@ -100,7 +100,12 @@ type Backend interface {
 	Credentials(ctx context.Context) (control.CredentialListResult, error)
 	CredentialSet(ctx context.Context, name, value string) error
 	CredentialDelete(ctx context.Context, name string) error
+	// WindowSet makes the result the own window of the deploy service the context names, WindowReset removes it, so
+	// the service follows the host window again; HostWindowSet changes the host window, a file only root writes,
+	// and reaches no deploy service.
 	WindowSet(ctx context.Context, args control.WindowSetArgs) (control.WindowResult, error)
+	WindowReset(ctx context.Context) (control.WindowResult, error)
+	HostWindowSet(ctx context.Context, args control.WindowSetArgs) (control.WindowResult, error)
 	Notifications(ctx context.Context) (control.NotifyListResult, error)
 	NotifyAdd(ctx context.Context, args control.NotifyAddArgs) (control.NotifyChannelInfo, error)
 	NotifyRemove(ctx context.Context, name string) error
@@ -396,6 +401,11 @@ func (b *ChannelBackend) CredentialSet(ctx context.Context, name, value string) 
 
 func (b *ChannelBackend) CredentialDelete(ctx context.Context, name string) error {
 	return b.call(ctx, control.CredentialDeleteCommand, control.CredentialNameArgs{Name: name}, nil)
+}
+
+func (b *ChannelBackend) WindowReset(ctx context.Context) (res control.WindowResult, err error) {
+	err = b.call(ctx, control.WindowResetCommand, nil, &res)
+	return res, err
 }
 
 func (b *ChannelBackend) WindowSet(ctx context.Context, args control.WindowSetArgs) (res control.WindowResult, err error) {

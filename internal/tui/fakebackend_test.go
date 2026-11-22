@@ -50,8 +50,11 @@ type fakeBackend struct {
 	keyArgs []control.KeySetArgs
 	creds   []control.CredentialInfo
 	window  control.WindowResult
-	notify  []control.NotifyChannelInfo
-	repoSet []control.RepoSetArgs
+	// windowBy, when set, answers Window and takes the changes by engine; hostWindows are the host window changes.
+	windowBy    map[string]control.WindowResult
+	hostWindows []control.WindowSetArgs
+	notify      []control.NotifyChannelInfo
+	repoSet     []control.RepoSetArgs
 	// The stack folders: inspects answers by path (unknown paths are rejected), folderList is the bound list,
 	// compare the answer of source.compare. fetchDirs, sourceAdds and removes record the calls in order; the
 	// reads (inspect, compare, list) are only counted, so a test can tell that nothing changing was called.
@@ -353,14 +356,76 @@ func (f *fakeBackend) ContainerRestart(_ context.Context, id string) (control.Co
 	return f.containerAction("ctrestart", id)
 }
 
-func (f *fakeBackend) Window(context.Context) (control.WindowResult, error) {
+func (f *fakeBackend) Window(ctx context.Context) (control.WindowResult, error) {
 	f.count("window")
+	if err := f.fail("window", EngineOf(ctx)); err != nil {
+		return control.WindowResult{}, err
+	}
 	if err := f.fail("window", ""); err != nil {
 		return control.WindowResult{}, err
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.windowBy != nil {
+		return f.windowBy[engineOrSystem(ctx)], nil
+	}
 	return f.window, nil
+}
+
+func engineOrSystem(ctx context.Context) string {
+	if e := EngineOf(ctx); e != "" {
+		return e
+	}
+	return control.EngineSystem
+}
+
+func applyWindowArgs(w control.WindowResult, args control.WindowSetArgs) control.WindowResult {
+	if args.Days != nil {
+		w.Days = args.Days
+	}
+	if args.Start != "" {
+		w.Start = args.Start
+	}
+	if args.Duration != "" {
+		w.Duration = args.Duration
+	}
+	if args.Zone != "" {
+		w.Zone = args.Zone
+	}
+	return w
+}
+
+func (f *fakeBackend) WindowReset(ctx context.Context) (control.WindowResult, error) {
+	if err := f.actCtx(ctx, "windowreset", ""); err != nil {
+		return control.WindowResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	w := f.windowBy[engineOrSystem(ctx)]
+	w.Origin = control.WindowOriginHost
+	w.Days, w.Start, w.Duration, w.Zone = f.window.Days, f.window.Start, f.window.Duration, f.window.Zone
+	if f.windowBy != nil {
+		f.windowBy[engineOrSystem(ctx)] = w
+	}
+	return w, nil
+}
+
+func (f *fakeBackend) HostWindowSet(ctx context.Context, args control.WindowSetArgs) (control.WindowResult, error) {
+	if err := f.actCtx(ctx, "hostwindowset", ""); err != nil {
+		return control.WindowResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.hostWindows = append(f.hostWindows, args)
+	f.window = applyWindowArgs(f.window, args)
+	for e, w := range f.windowBy {
+		if w.Origin != control.WindowOriginOwn {
+			f.windowBy[e] = applyWindowArgs(w, args)
+		}
+	}
+	res := f.window
+	res.Origin = control.WindowOriginHost
+	return res, nil
 }
 
 // at is a fixed point in time of the fixtures.
@@ -699,18 +764,13 @@ func (f *fakeBackend) WindowSet(ctx context.Context, args control.WindowSetArgs)
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.windows = append(f.windows, args)
-	if args.Days != nil {
-		f.window.Days = args.Days
+	if f.windowBy != nil {
+		w := applyWindowArgs(f.windowBy[engineOrSystem(ctx)], args)
+		w.Origin = control.WindowOriginOwn
+		f.windowBy[engineOrSystem(ctx)] = w
+		return w, nil
 	}
-	if args.Start != "" {
-		f.window.Start = args.Start
-	}
-	if args.Duration != "" {
-		f.window.Duration = args.Duration
-	}
-	if args.Zone != "" {
-		f.window.Zone = args.Zone
-	}
+	f.window = applyWindowArgs(f.window, args)
 	return f.window, nil
 }
 

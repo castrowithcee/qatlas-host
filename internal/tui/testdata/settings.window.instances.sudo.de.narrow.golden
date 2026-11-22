@@ -1,0 +1,24 @@
+◆ qhost                          [esc] Zurück  [?] Hilfe
+  1 2 3 [4 Einstellungen] 5 6 7                         
+  [Wartungsfenster]                                     
+────────────────────────────────────────────────────────
+  Eigenes Fenster von rootless:alice                    
+                                                        
+           ╭───────────────────────────────────────────╮
+  ╔═ Eigenes Fenster setzen ═════════════════════════╗ │
+  ║ ⚠ Das eigene Fenster von rootless:alice setzen?  ║─╯
+  ║                                                  ║═╗
+> ║ Nur diese Instanz ändert sich. Sie folgt dem     ║ ║
+  ║ Host-Fenster erst nach dem Zurücksetzen wieder.  ║═╝
+  ║ Beginn: 04:45                                    ║  
+  ║ $ sudo qhost window set --start 04:45 --output   ║─╮
+  ║   json --engine rootless:alice                   ║ │
+  ║                                                  ║─╯
+  ║ [ ja, mit sudo ]  > abbrechen <                  ║─╮
+  ║ y ja, mit sudo  n/esc/enter abbrechen            ║ │
+  ╚══════════════════════════════════════════════════╝─╯
+                                                        
+                                                        
+                                                        
+[ F2 speichern ]  [ esc Verwerfen ]                     
+                                                        

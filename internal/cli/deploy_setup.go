@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/tui"
+	"github.com/castrowithcee/qatlas-host/internal/window"
 )
 
 // deploySetupHost is everything the setup of the deploy service takes from the host. Production code never
@@ -67,6 +69,16 @@ func (t setupTarget) apply(ctx context.Context, plan deploysetup.Plan) error {
 		return deploySetup.wait(ctx, t.endpoint())
 	}
 	return nil
+}
+
+// adoptHostWindow makes the window the system deploy service kept the host window when the host has none, before
+// an instance for a rootless engine starts and follows the host window. The deploy service cannot write /etc, so
+// root does it here. A failure is a warning: the window can still be set with 'sudo qhost window set'.
+func adoptHostWindow(stderr io.Writer) {
+	if _, err := window.AdoptState(windowHostFile(), stateDir()); err != nil {
+		_, _ = fmt.Fprintf(stderr, "warning: the maintenance window of the system deploy service was not taken over as the host window: %v\n"+
+			"Run 'sudo qhost window set' to set the host window.\n", err)
+	}
 }
 
 // deployInstalled reports whether the setup installed the unit of the deploy service.
@@ -168,6 +180,9 @@ func newDeploySetupCommand(program *cobracli.Program) *cobra.Command {
 				return err
 			}
 			return gate.Run(cobracli.Request{Question: target.question(), Changes: true}, func() error {
+				if target.user != "" {
+					adoptHostWindow(c.ErrOrStderr())
+				}
 				if err := plan.Apply(ctx); err != nil {
 					return setupFailure(err, true)
 				}
@@ -229,6 +244,9 @@ func (tuiDeploySetup) Run(ctx context.Context, user string) error {
 	plan, err := target.plan(ctx)
 	if err != nil {
 		return err
+	}
+	if user != "" {
+		adoptHostWindow(io.Discard)
 	}
 	return target.apply(ctx, plan)
 }

@@ -1,0 +1,30 @@
+◆ qhost                             [esc] back  [?] help
+  1 2 3 [4 Settings] 5 6 7                              
+  [Maintenance window]                                  
+────────────────────────────────────────────────────────
+  Instance: system                                      
+╭─ system ─────────────────────────────── host window ─╮
+│ days: sun                                            │
+│ start: 03:00, duration: 2h, time zone: UTC           │
+│ maintenance window closed                            │
+│ next opening: Sat 2026-10-31 03:00                   │
+│ Warning: the host window file is damaged; the        │
+│ default window applies                               │
+╰──────────────────────────────────────────────────────╯
+╭─ rootless:alice ──────────────────────── own window ─╮
+│ days: mon,thu                                        │
+│ start: 04:30, duration: 1h, time zone: UTC           │
+│ maintenance window closed                            │
+│ next opening: Fri 2026-10-30 04:30                   │
+│ last work began: Tue 2026-10-27 04:30                │
+╰──────────────────────────────────────────────────────╯
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+H instance  e host window  a own window  x follow host  
+esc back  r reload  1-7 area  q quit                    

@@ -2,15 +2,15 @@
   1 2 3 [4 Einstellungen] 5 6 7                         
   [Wartungsfenster]                                     
 ────────────────────────────────────────────────────────
-  Wartungsfenster ändern                                
+  Host-Fenster ändern                                   
                                                         
            ╭───────────────────────────────────────────╮
   Tage     │ sun                                       │
-           ╰───────────────────────────────────────────╯
-  ╔═ Wartungsfenster ändern ═════════════════════════╗═╗
-> ║ ⚠ Das Wartungsfenster ändern?                    ║ ║
-  ║                                                  ║═╝
-  ║ Der laufende Dienst folgt sofort.                ║  
+  ╔═ Host-Fenster ändern ════════════════════════════╗─╯
+  ║ ⚠ Das Wartungsfenster des Hosts ändern?          ║═╗
+> ║                                                  ║ ║
+  ║ Jeder Deploy-Dienst ohne eigenes Fenster folgt   ║═╝
+  ║ innerhalb von Sekunden.                          ║  
   ║ Beginn: 04:30                                    ║─╮
   ║                                                  ║ │
   ║ [ ja, ausführen ]  > abbrechen <                 ║─╯

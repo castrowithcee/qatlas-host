@@ -309,7 +309,7 @@ func (m *Model) kindDone(res kindApplied, done func(text string, details ...stri
 		return []tea.Cmd{m.reloadNow()}
 	}
 	if res.eff.kind == control.ProposalKindWindow {
-		m.set.window.loaded, m.set.windowRes = true, res.window
+		m.set.window = part{}
 		done(t.Lookup(textDoneWindow))
 		return []tea.Cmd{m.reloadNow()}
 	}

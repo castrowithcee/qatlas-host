@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
+	"github.com/castrowithcee/qatlas-host/internal/window"
 	"github.com/castrowithcee/qatlas-host/packaging"
 	"github.com/castrowithcee/qatlas-kit/release/releasetest"
 )
@@ -188,5 +189,53 @@ func TestRefreshInstancesCommandNeedsRootAndIsHidden(t *testing.T) {
 	_, stdout, _ := run(t, "deploy-service", "--help")
 	if strings.Contains(stdout, "refresh-instances") {
 		t.Errorf("the internal command is listed: %q", stdout)
+	}
+}
+
+func TestRefreshInstancesAdoptsTheSystemWindowBeforeTheRestart(t *testing.T) {
+	root, _ := useHostRoot(t, 0)
+	hostFile, state := useWindowPaths(t, root)
+	setUpInstances(t, root, "alice")
+	seedSystemWindow(t, state)
+	var adoptedAtRestart bool
+	deploySetup.host.Run = func(_ context.Context, name string, args ...string) error {
+		if name == "systemctl" && len(args) > 0 && args[0] == "restart" {
+			_, adoptedAtRestart, _ = window.ReadHost(hostFile)
+		}
+		return nil
+	}
+	if code, _, stderr := run(t, "deploy-service", "refresh-instances"); code != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if !adoptedAtRestart {
+		t.Error("the host window did not exist when the instance restarted")
+	}
+	if w, ok, err := window.ReadHost(hostFile); err != nil || !ok || w.Start != 240 {
+		t.Fatalf("host window = %+v, %v, %v", w, ok, err)
+	}
+}
+
+func TestRefreshInstancesWarnsAndGoesOnWhenAdoptionFails(t *testing.T) {
+	root, ran := useHostRoot(t, 0)
+	hostFile, state := useWindowPaths(t, root)
+	setUpInstances(t, root, "alice")
+	seedSystemWindow(t, state)
+	writeTestFile(t, hostFile, "not a window")
+	code, _, stderr := run(t, "deploy-service", "refresh-instances")
+	if code != 0 || !strings.Contains(stderr, "warning: the maintenance window of the system deploy service was not taken over") ||
+		!slices.Contains(*ran, "systemctl restart "+instanceOf(t, "alice").Unit()) {
+		t.Fatalf("code %d, stderr %q, ran %q", code, stderr, *ran)
+	}
+}
+
+func TestRefreshInstancesWithoutInstanceLeavesTheHostWindowAlone(t *testing.T) {
+	root, _ := useHostRoot(t, 0)
+	hostFile, state := useWindowPaths(t, root)
+	seedSystemWindow(t, state)
+	if code, _, stderr := run(t, "deploy-service", "refresh-instances"); code != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if _, ok, _ := window.ReadHost(hostFile); ok {
+		t.Error("the host window was written without an instance")
 	}
 }

@@ -79,6 +79,7 @@ func TestChannelBackendSpeaksTheServiceCommands(t *testing.T) {
 		"credentials":   func() error { _, err := b.Credentials(ctx); return err },
 		"credentialset": func() error { return b.CredentialSet(ctx, "backend-test", "example-value") },
 		"credentialdel": func() error { return b.CredentialDelete(ctx, "backend-test") },
+		"windowreset":   func() error { _, err := b.WindowReset(ctx); return err },
 		"windowset":     func() error { _, err := b.WindowSet(ctx, control.WindowSetArgs{}); return err },
 		"notifications": func() error { _, err := b.Notifications(ctx); return err },
 		"notifyadd":     func() error { _, err := b.NotifyAdd(ctx, control.NotifyAddArgs{}); return err },

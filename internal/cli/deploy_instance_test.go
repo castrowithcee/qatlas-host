@@ -20,6 +20,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/channeltest"
 	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/service"
+	"github.com/castrowithcee/qatlas-host/internal/window"
 )
 
 // useRootlessHost makes a host below a temporary root whose users alice, carol (an administrator) and dave (in
@@ -62,6 +63,7 @@ func useRootlessHost(t *testing.T, euid int) (string, *[]string) {
 			return nil
 		}}}
 	t.Cleanup(func() { deploySetup = old })
+	useWindowPaths(t, root)
 	useHostEndpoint(t, channeltest.Endpoint(t))
 	return root, &ran
 }
@@ -268,3 +270,46 @@ const instancePasswd = "root:x:0:0::/root:/bin/bash\nalice:x:1001:1001::/home/al
 
 // instanceUnit is the unit name of the instance of user.
 func instanceUnit(user string) string { return "qhost-deploy@" + user + ".service" }
+
+// seedSystemWindow gives the system deploy service a window that was set before the host window existed.
+func seedSystemWindow(t *testing.T, state string) {
+	t.Helper()
+	writeTestFile(t, filepath.Join(state, "window.json"),
+		`{"schema":1,"days":["mon"],"start":"04:00","duration":"1h","zone":"UTC"}`)
+}
+
+func TestRootlessSetupAdoptsTheSystemWindowBeforeTheInstanceStarts(t *testing.T) {
+	root, _ := useRootlessHost(t, 0)
+	hostFile, state := useWindowPaths(t, root)
+	seedSystemWindow(t, state)
+	var adoptedBefore bool
+	deploySetup.host.Run = func(ctx context.Context, name string, args ...string) error {
+		if name == "systemctl" && len(args) > 0 && args[0] == "enable" {
+			_, adoptedBefore, _ = window.ReadHost(hostFile)
+		}
+		return nil
+	}
+	if code, _, stderr := run(t, "deploy-service", "setup", "--rootless", "alice", "--confirm", "--yes"); code != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if !adoptedBefore {
+		t.Error("the host window did not exist when the instance was started")
+	}
+	if w, ok, err := window.ReadHost(hostFile); err != nil || !ok || w.Start != 240 {
+		t.Fatalf("host window = %+v, %v, %v", w, ok, err)
+	}
+}
+
+func TestRootlessSetupWarnsWhenTheWindowCannotBeAdopted(t *testing.T) {
+	root, _ := useRootlessHost(t, 0)
+	hostFile, state := useWindowPaths(t, root)
+	seedSystemWindow(t, state)
+	writeTestFile(t, hostFile, "not a window")
+	code, _, stderr := run(t, "deploy-service", "setup", "--rootless", "alice", "--confirm", "--yes")
+	if code != 0 || !strings.Contains(stderr, "warning: the maintenance window of the system deploy service was not taken over") {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if len(instanceUsers(t, root)) != 1 {
+		t.Error("the instance was not set up")
+	}
+}

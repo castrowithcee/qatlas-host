@@ -140,13 +140,14 @@ func decodeFlag(flag string) func(sudoRun) (any, bool) {
 	}
 }
 
-// decodeWindow reads what `window set` prints: the window as scalar fields, the weekdays as one comma list.
+// decodeWindow reads what `window set` and `window reset` print: the window as scalar fields, the weekdays as one comma list.
 func decodeWindow(r sudoRun) (any, bool) {
 	var v struct {
 		Days        string    `json:"days"`
 		Start       string    `json:"start"`
 		Duration    string    `json:"duration"`
 		Zone        string    `json:"zone"`
+		Origin      string    `json:"origin"`
 		Open        bool      `json:"open"`
 		OpenUntil   time.Time `json:"open_until"`
 		NextOpening time.Time `json:"next_opening"`
@@ -156,6 +157,6 @@ func decodeWindow(r sudoRun) (any, bool) {
 	if !r.decode(&v) || v.Start == "" {
 		return nil, false
 	}
-	return control.WindowResult{Days: strings.Split(v.Days, ","), Start: v.Start, Duration: v.Duration, Zone: v.Zone,
+	return control.WindowResult{Days: strings.Split(v.Days, ","), Start: v.Start, Duration: v.Duration, Zone: v.Zone, Origin: v.Origin,
 		Open: v.Open, OpenUntil: v.OpenUntil, NextOpening: v.NextOpening, LastRun: v.LastRun, Running: v.Running}, true
 }

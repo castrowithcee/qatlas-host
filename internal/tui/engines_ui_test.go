@@ -50,6 +50,7 @@ func twoEnginesBackend() *fakeBackend {
 		alice:                {{Name: "alice-hook", Type: control.NotifyWebhook}},
 	}
 	b.window = control.WindowResult{Days: []string{"sun"}, Start: "03:00", Duration: "2h", Zone: "UTC", NextOpening: at(31, 3, 0)}
+	b.window.Origin = control.WindowOriginHost
 	return b
 }
 
