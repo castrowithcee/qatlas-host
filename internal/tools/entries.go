@@ -165,6 +165,7 @@ var entries = []Entry{
 	local("host.groups.show", ClassRead, ScopeHost, "Show one local group.", nameArg, "host group"),
 	local("host.folder.show", ClassRead, ScopeHost, "Show owner, group and permissions of a folder or file.", pathArg, "host folder"),
 	local("host.file.read", ClassRead, ScopeHost, "List a folder or show a file of the host.", pathArg, "host file"),
+	local("hook.list", ClassRead, ScopeHost, "List the webhooks of the stacks without hashes or secrets.", none, "hook list"),
 	local("host.diagnose", ClassRead, ScopeHost, "Write a diagnostic package.", object(nil, props{"out": str()}), "diagnose"),
 	local("host.update.status", ClassRead, ScopeHost, "Show the installed version and the latest stable release.", none, "update status"),
 
@@ -184,6 +185,9 @@ var entries = []Entry{
 	local("host.hook-service.setup", ClassRoot, ScopeHost, "Set up the webhook receiver or change its address.",
 		object(nil, props{"listen": str()}), "hook-service setup"),
 	local("host.hook-service.refresh", ClassRoot, ScopeHost, "Bring the webhook receiver to the unit of this program.", none, "hook-service refresh"),
+	local("hook.add", ClassRoot, ScopeStack, "Give a stack a secret webhook address, shown once.",
+		object([]string{"stack"}, props{"stack": str(), "engine": str()}), "hook add"),
+	local("hook.remove", ClassRoot, ScopeHost, "Remove a webhook of a stack.", idArg, "hook remove"),
 	local("host.uninstall", ClassRoot, ScopeHost, "Remove qhost and the deploy service from this host.",
 		object(nil, props{"purge": boolean()}), "uninstall"),
 	local("host.update.install", ClassRoot, ScopeHost, "Update qhost to the latest stable release or to a given newer one.",
