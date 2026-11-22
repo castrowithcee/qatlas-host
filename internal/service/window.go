@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/engine"
@@ -37,9 +38,9 @@ type stackUpdater struct {
 	notify func(UpdateNotice)
 }
 
-func newWindowService(stateDir string, upd *updatesService, clock window.Clock, log *slog.Logger, notify func(UpdateNotice)) (*windowService, error) {
+func newWindowService(stateDir, hostFile string, hostPoll time.Duration, upd *updatesService, clock window.Clock, log *slog.Logger, notify func(UpdateNotice)) (*windowService, error) {
 	w := &windowService{stackUpdater: stackUpdater{upd: upd, log: log, label: "maintenance window", notify: notify}}
-	sched, err := window.New(window.Config{StateDir: stateDir, Job: w.run, Clock: clock, Logger: log})
+	sched, err := window.New(window.Config{StateDir: stateDir, HostFile: hostFile, HostPoll: hostPoll, Job: w.run, Clock: clock, Logger: log})
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +52,23 @@ func registerWindowCommands(r *control.Registry, w *windowService) error {
 	if err := r.Register(control.WindowShowCommand, reading(w.handleShow)); err != nil {
 		return err
 	}
-	return r.Register(control.WindowSetCommand, changing(w.handleSet))
+	if err := r.Register(control.WindowSetCommand, changing(w.handleSet)); err != nil {
+		return err
+	}
+	return r.Register(control.WindowResetCommand, changing(w.handleReset))
+}
+
+// handleReset removes the own window of this service.
+func (w *windowService) handleReset(_ context.Context, raw json.RawMessage) (any, error) {
+	if err := decodeArgs(raw, &struct{}{}); err != nil {
+		return nil, err
+	}
+	st, err := w.sched.Reset()
+	if err != nil {
+		w.log.Error("window setting not stored", "error", err)
+		return nil, errWindowUnreadable
+	}
+	return windowResult(st), nil
 }
 
 var errWindowUnreadable = control.NewError(control.CodeInternal,
@@ -91,38 +108,9 @@ func (w *windowService) handleSet(_ context.Context, raw json.RawMessage) (any, 
 	return windowResult(st), nil
 }
 
-// windowChange parses the parts a request names. Days present but empty is refused, not read as unset.
+// windowChange parses the parts a request names.
 func windowChange(a control.WindowSetArgs) (window.Change, error) {
-	var c window.Change
-	if a.Days != nil {
-		d, err := window.ParseDays(a.Days)
-		if err != nil {
-			return c, err
-		}
-		c.Days = &d
-	}
-	if a.Start != "" {
-		m, err := window.ParseStart(a.Start)
-		if err != nil {
-			return c, err
-		}
-		c.Start = &m
-	}
-	if a.Duration != "" {
-		d, err := window.ParseDuration(a.Duration)
-		if err != nil {
-			return c, err
-		}
-		c.Duration = &d
-	}
-	if a.Zone != "" {
-		z, err := window.ParseZone(a.Zone)
-		if err != nil {
-			return c, err
-		}
-		c.Zone = &z
-	}
-	return c, nil
+	return window.ParseChange(a.Days, a.Start, a.Duration, a.Zone)
 }
 
 // status is the window part of the status answer; nil when the setting cannot be read.
@@ -139,6 +127,7 @@ func windowResult(st window.Status) control.WindowResult {
 	return control.WindowResult{
 		Days: st.Window.Days.Names(), Start: window.FormatStart(st.Window.Start),
 		Duration: window.FormatDuration(st.Window.Duration), Zone: st.Window.Zone,
+		Origin: string(st.Origin), Warning: st.Warning,
 		Open: st.Open, OpenUntil: st.OpenUntil, NextOpening: st.Next, LastRun: st.LastRun, Running: st.Running,
 	}
 }

@@ -194,19 +194,19 @@ func TestKindSettingsFailedWriteIsKeptAsFailedResult(t *testing.T) {
 func TestKindWindowViewAndApprove(t *testing.T) {
 	b := kindsBackend()
 	m := proposalOpen(t, b, true, kindWindowRow)
-	contains(t, m, "maintenance window", "The maintenance window would change:", "days[0]", "start", "before: \"03:00\"", "after:  \"02:30\"")
+	contains(t, m, "maintenance window", "The maintenance window of the host would change:", "days[0]", "start", "before: \"03:00\"", "after:  \"02:30\"")
 	send(m, "A")
 	contains(t, m, "Approve proposal p-0012 and set this maintenance window?", "after:  \"02:30\"")
-	if len(b.windows) != 0 {
+	if len(b.hostWindows) != 0 {
 		t.Fatal("the window was set before the answer")
 	}
 	send(m, "y")
-	want := []string{"proposalshow:p-0012", "proposalshow:p-0012", "proposalapprove:p-0012", "windowset:", "proposalresult:p-0012", "proposalshow:p-0012"}
+	want := []string{"proposalshow:p-0012", "proposalshow:p-0012", "proposalapprove:p-0012", "hostwindowset:", "proposalresult:p-0012", "proposalshow:p-0012"}
 	if got := b.actions(); !slices.Equal(got, want) {
 		t.Fatalf("calls = %v, want %v", got, want)
 	}
-	if len(b.windows) != 1 || b.windows[0].Start != "02:30" || !slices.Equal(b.windows[0].Days, []string{"mon", "thu"}) {
-		t.Fatalf("windows = %+v", b.windows)
+	if len(b.hostWindows) != 1 || b.hostWindows[0].Start != "02:30" || !slices.Equal(b.hostWindows[0].Days, []string{"mon", "thu"}) {
+		t.Fatalf("windows = %+v", b.hostWindows)
 	}
 	if len(b.proposalResults) != 1 || !b.proposalResults[0].Applied {
 		t.Fatalf("results = %+v", b.proposalResults)
@@ -225,7 +225,7 @@ func TestKindWindowApproveRefusesChangedProposalOrWindowAndKeepsFailedResult(t *
 			send(m, "A")
 			change(b)
 			send(m, "y")
-			if len(b.proposalApproves) != 0 || len(b.windows) != 0 {
+			if len(b.proposalApproves) != 0 || len(b.hostWindows) != 0 {
 				t.Fatalf("something was applied: %v", b.proposalActs)
 			}
 			if !strings.Contains(m.failure, "nothing was applied") {
@@ -234,7 +234,7 @@ func TestKindWindowApproveRefusesChangedProposalOrWindowAndKeepsFailedResult(t *
 		})
 	}
 	b := kindsBackend()
-	b.errs["windowset:"] = control.NewError(control.CodeInvalid, "the start is not a time")
+	b.errs["hostwindowset:"] = control.NewError(control.CodeInvalid, "the start is not a time")
 	m := proposalOpen(t, b, true, kindWindowRow)
 	send(m, "A", "y")
 	if len(b.proposalResults) != 1 || b.proposalResults[0].Applied || b.proposalResults[0].Message != "the start is not a time" {

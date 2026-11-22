@@ -29,12 +29,14 @@ import (
 type harness struct {
 	t     *testing.T
 	state string
-	git   *servicetest.Git
-	srv   *hostkeytest.Server
-	url   string
-	dir   string
-	logs  *lockedBuffer
-	call  func(command string, args, result any) error
+	// hostWindow is the file of the host window the service of the harness reads.
+	hostWindow string
+	git        *servicetest.Git
+	srv        *hostkeytest.Server
+	url        string
+	dir        string
+	logs       *lockedBuffer
+	call       func(command string, args, result any) error
 }
 
 func start(t *testing.T) *harness { return startWith(t, nil) }
@@ -49,7 +51,7 @@ func startWith(t *testing.T, dep engine.Deployer, opts ...func(*service.Config))
 // newHarness prepares a harness whose service is not running yet.
 func newHarness(t *testing.T) *harness {
 	t.Helper()
-	h := &harness{t: t, state: filepath.Join(t.TempDir(), "state"), git: servicetest.New(), srv: hostkeytest.Start(t), logs: &lockedBuffer{}}
+	h := &harness{t: t, state: filepath.Join(t.TempDir(), "state"), hostWindow: filepath.Join(t.TempDir(), "etc", "window.json"), git: servicetest.New(), srv: hostkeytest.Start(t), logs: &lockedBuffer{}}
 	h.git.Files = servicetest.Stacks()
 	h.url = h.srv.URL()
 	h.dir = filepath.Join(t.TempDir(), "stacks")
@@ -70,6 +72,7 @@ func (h *harness) run(dep engine.Deployer, opts ...func(*service.Config)) {
 	go func() {
 		cfg := service.Config{
 			Endpoint: ep, StateDir: h.state, PeerCheck: func(net.Conn) (uint32, error) { return 0, nil }, Git: h.git, Deployer: dep,
+			WindowHostFile: h.hostWindow, WindowHostPoll: 20 * time.Millisecond,
 		}
 		for _, o := range opts {
 			o(&cfg)

@@ -1,0 +1,24 @@
+◆ qhost                             [esc] back  [?] help
+  1 2 3 [4 Settings] 5 6 7                              
+  [Maintenance window]                                  
+────────────────────────────────────────────────────────
+  Own window of rootless:alice                          
+                                                        
+            ╭──────────────────────────────────────────╮
+  ╔═ Set the own window ═════════════════════════════╗ │
+  ║ ⚠ Set the own window of rootless:alice?          ║─╯
+  ║                                                  ║═╗
+> ║ Only this instance changes. It follows the host  ║ ║
+  ║ window again only after it is reset.             ║═╝
+  ║ start: 04:45                                     ║  
+  ║ $ sudo qhost window set --start 04:45 --output   ║─╮
+  ║   json --engine rootless:alice                   ║ │
+  ║                                                  ║─╯
+  ║ [ yes, with sudo ]  > cancel <                   ║─╮
+  ║ y yes, with sudo  n/esc/enter cancel             ║ │
+  ╚══════════════════════════════════════════════════╝─╯
+                                                        
+                                                        
+                                                        
+[ F2 save ]  [ esc discard ]                            
+                                                        

@@ -45,10 +45,11 @@ func TestReviewedApproveOfEachKindShowsWithoutConfirmAndAppliesWithIt(t *testing
 			return env.history
 		}, applied: "show,get,show,get,approve,set,result", fields: map[string]any{"proposal": approveID, "stack": "web", "commit": "abc1234"}},
 		{kind: control.ProposalKindWindow, start: func(t *testing.T) func() string {
+			useHostWindow(t)
 			env := &windowEnv{content: control.WindowSetArgs{Days: []string{"sat"}, Start: "01:30"}}
 			startWindowEnv(t, env)
 			return env.history
-		}, applied: "show,get,show,get,approve,set,result", fields: map[string]any{"proposal": approveID, "days": "sat", "start": "01:30"}},
+		}, applied: "show,show,approve,result", fields: map[string]any{"proposal": approveID, "days": "sat", "start": "01:30"}},
 		{kind: control.ProposalKindNotifyChannel, start: func(t *testing.T) func() string {
 			env := &notifyApproveEnv{content: webhookContent()}
 			startNotifyApproveEnv(t, env)

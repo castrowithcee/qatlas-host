@@ -2,15 +2,15 @@
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs  [4 ⚙ Settings]  5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
    General   Credentials  [Maintenance window]  Notifications                                                           
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  Change the maintenance window                                                                                         
+  Change the host window                                                                                                
                                                                                                                         
             ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
   Days      │ sun                                                                                                      │
-            ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-            ╔═══════════════╔═ Change the maintenance window ══════════════════════════════╗═══════════════════════════╗
-> Start     ║ 04:30_        ║ ⚠ Change the maintenance window?                             ║                           ║
-            ╚═══════════════║                                                              ║═══════════════════════════╝
-            HH:MM on the 24-║ The running service follows at once.                         ║                            
+            ╰───────────────╔═ Change the host window ═════════════════════════════════════╗───────────────────────────╯
+            ╔═══════════════║ ⚠ Change the maintenance window of the host?                 ║═══════════════════════════╗
+> Start     ║ 04:30_        ║                                                              ║                           ║
+            ╚═══════════════║ Every deploy service without an own window follows within    ║═══════════════════════════╝
+            HH:MM on the 24-║ seconds.                                                     ║                            
             ╭───────────────║ start: 04:30                                                 ║───────────────────────────╮
   Duration  │ 2h            ║                                                              ║                           │
             ╰───────────────║ [ yes, do it ]  > cancel <                                   ║───────────────────────────╯

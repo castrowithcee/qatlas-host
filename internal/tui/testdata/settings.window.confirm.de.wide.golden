@@ -2,15 +2,15 @@
    1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe  [4 ⚙ Einstellungen]  5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
    Allgemein   Zugangsdaten  [Wartungsfenster]  Benachrichtigungen                                                      
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  Wartungsfenster ändern                                                                                                
+  Host-Fenster ändern                                                                                                   
                                                                                                                         
            ╭───────────────────────────────────────────────────────────────────────────────────────────────────────────╮
   Tage     │ sun                                                                                                       │
-           ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-           ╔════════════════╔═ Wartungsfenster ändern ═════════════════════════════════════╗═══════════════════════════╗
-> Beginn   ║ 04:30_         ║ ⚠ Das Wartungsfenster ändern?                                ║                           ║
-           ╚════════════════║                                                              ║═══════════════════════════╝
-           HH:MM im 24-Stund║ Der laufende Dienst folgt sofort.                            ║                            
+           ╰────────────────╔═ Host-Fenster ändern ════════════════════════════════════════╗───────────────────────────╯
+           ╔════════════════║ ⚠ Das Wartungsfenster des Hosts ändern?                      ║═══════════════════════════╗
+> Beginn   ║ 04:30_         ║                                                              ║                           ║
+           ╚════════════════║ Jeder Deploy-Dienst ohne eigenes Fenster folgt innerhalb von ║═══════════════════════════╝
+           HH:MM im 24-Stund║ Sekunden.                                                    ║                            
            ╭────────────────║ Beginn: 04:30                                                ║───────────────────────────╮
   Dauer    │ 2h             ║                                                              ║                           │
            ╰────────────────║ [ ja, ausführen ]  > abbrechen <                             ║───────────────────────────╯

@@ -13,6 +13,8 @@ const (
 	textPropSettingsSame         kittui.TextID = "prop.settings.same"
 	textPropWindowChanges        kittui.TextID = "prop.window.changes"
 	textPropWindowSame           kittui.TextID = "prop.window.same"
+	textPropWindowChangesHost    kittui.TextID = "prop.window.changes.host"
+	textPropWindowSameHost       kittui.TextID = "prop.window.same.host"
 	textPropBefore               kittui.TextID = "prop.before"
 	textPropAfter                kittui.TextID = "prop.after"
 	textPropNoStack              kittui.TextID = "prop.nostack"
@@ -43,8 +45,10 @@ func proposalKindEnglish() map[kittui.TextID]string {
 		textPropSettingsNew:       "The stack has no settings yet. These would be set:",
 		textPropSettingsChanges:   "These settings would change:",
 		textPropSettingsSame:      "The settings equal those in force. Nothing would change.",
-		textPropWindowChanges:     "The maintenance window would change:",
-		textPropWindowSame:        "The window equals the one in force. Nothing would change.",
+		textPropWindowChanges:     "The own maintenance window of this instance would change:",
+		textPropWindowChangesHost: "The maintenance window of the host would change:",
+		textPropWindowSameHost:    "The window equals the host window in force. Nothing would change.",
+		textPropWindowSame:        "The window equals the own window of this instance in force. Nothing would change.",
 		textPropBefore:            "before: %s",
 		textPropAfter:             "after:  %s",
 		textPropNoStack:           "The stack %s does not exist. The proposal cannot be approved; reject it.",
@@ -85,8 +89,10 @@ func proposalKindGerman() map[kittui.TextID]string {
 		textPropSettingsNew:       "Der Stack hat noch keine Einstellungen. Diese würden gesetzt:",
 		textPropSettingsChanges:   "Diese Einstellungen würden sich ändern:",
 		textPropSettingsSame:      "Die Einstellungen entsprechen den geltenden. Nichts würde sich ändern.",
-		textPropWindowChanges:     "Das Wartungsfenster würde sich ändern:",
-		textPropWindowSame:        "Das Fenster entspricht dem geltenden. Nichts würde sich ändern.",
+		textPropWindowChanges:     "Das eigene Wartungsfenster dieser Instanz würde sich ändern:",
+		textPropWindowChangesHost: "Das Wartungsfenster des Hosts würde sich ändern:",
+		textPropWindowSameHost:    "Das Fenster entspricht dem geltenden Host-Fenster. Nichts würde sich ändern.",
+		textPropWindowSame:        "Das Fenster entspricht dem geltenden eigenen Fenster dieser Instanz. Nichts würde sich ändern.",
 		textPropBefore:            "vorher:  %s",
 		textPropAfter:             "nachher: %s",
 		textPropNoStack:           "Den Stack %s gibt es nicht. Der Vorschlag kann nicht freigegeben werden, lehne ihn ab.",

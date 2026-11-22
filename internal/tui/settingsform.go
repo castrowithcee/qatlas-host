@@ -52,6 +52,8 @@ type settingsForm struct {
 	folder *hostadmin.Folder
 	// hprop is the proposal of the host a password form belongs to.
 	hprop *hostProposalDetail
+	// engine is the deploy service a window form sets the own window of; empty for the host window.
+	engine string
 	// titleArg is the name of the host the title of the form names.
 	titleArg string
 }
@@ -116,16 +118,6 @@ func (m *Model) credentialForm() *settingsForm {
 		textField("host", textFieldRegistryHost, textHintRegistryHost, ""),
 		textField("user", textFieldRegistryUser, textHintRegistryUser, ""),
 		maskedField("token", textFieldToken, textHintToken),
-	})
-}
-
-func (m *Model) windowForm() *settingsForm {
-	w := m.set.windowRes
-	return m.newSettingsForm(formWindow, textTitleWindow, []kittui.FormField{
-		textField("days", textFieldDays, textHintDays, strings.Join(w.Days, ",")),
-		textField("start", textFieldStart, textHintStart, w.Start),
-		textField("duration", textFieldDuration, textHintDuration, w.Duration),
-		textField("zone", textFieldZone, textHintZone, w.Zone),
 	})
 }
 
@@ -339,46 +331,6 @@ func (m *Model) submitCredential(f *settingsForm, kind, host, user, token string
 		args:   m.settingsArgs([]string{"credential", "set", "--output", "json", "--", name}),
 		input:  secretInput(value),
 		decode: decodeFlag("stored")})
-	return nil
-}
-
-func (m *Model) submitWindow(f *settingsForm, days, start, duration, zone string) tea.Cmd {
-	cur := m.set.windowRes
-	var args control.WindowSetArgs
-	var details []string
-	if want := splitList(days); len(want) > 0 && strings.Join(want, ",") != strings.Join(cur.Days, ",") {
-		args.Days = want
-		details = append(details, m.text.Lookup(textDetailDays, m.dayList(want)))
-	}
-	for _, part := range []struct {
-		value, current string
-		set            *string
-		detail         kittui.TextID
-	}{{start, cur.Start, &args.Start, textDetailStart}, {duration, cur.Duration, &args.Duration, textDetailDuration},
-		{zone, cur.Zone, &args.Zone, textDetailZone}} {
-		if part.value != "" && part.value != part.current {
-			*part.set = part.value
-			details = append(details, m.text.Lookup(part.detail, part.value))
-		}
-	}
-	if len(details) == 0 {
-		f.problem(m.text.Lookup(textProblemNoChange), m.text.Lookup(textFormFix))
-		return nil
-	}
-	argv := []string{"window", "set"}
-	if len(args.Days) > 0 {
-		argv = append(argv, "--days", strings.Join(args.Days, ","))
-	}
-	for _, flag := range []struct{ name, value string }{{"--start", args.Start}, {"--duration", args.Duration}, {"--zone", args.Zone}} {
-		if flag.value != "" {
-			argv = append(argv, flag.name, flag.value)
-		}
-	}
-	m.askSetting(settingChange{title: textTitleWindow, question: m.text.Lookup(textAskWindow),
-		consequence: m.text.Lookup(textWhatWindow), details: details, op: opWindowSet,
-		direct: func(b Backend) (any, error) { return b.WindowSet(m.ctx, args) },
-		args:   append(argv, "--output", "json"),
-		decode: decodeWindow})
 	return nil
 }
 

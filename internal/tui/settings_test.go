@@ -30,7 +30,7 @@ const (
 func settingsBackend() *fakeBackend {
 	b := demoBackend()
 	b.probe = control.RepoProbeResult{Host: "example.test", Port: "22", KeyType: "ssh-ed25519", Fingerprint: fingerprint}
-	b.window = control.WindowResult{Days: []string{"sun"}, Start: "03:00", Duration: "2h", Zone: "UTC", NextOpening: at(31, 3, 0)}
+	b.window = control.WindowResult{Days: []string{"sun"}, Start: "03:00", Duration: "2h", Zone: "UTC", Origin: control.WindowOriginHost, NextOpening: at(31, 3, 0)}
 	b.creds = []control.CredentialInfo{{Name: "registry.docker.io", Modified: at(30, 9, 0)}, {Name: "github.com", Modified: at(29, 9, 0)}}
 	b.notify = []control.NotifyChannelInfo{
 		{Name: "ops-hook", Type: control.NotifyWebhook, Events: []string{"failed", "rolled-back"}},
@@ -283,12 +283,12 @@ func TestWindowIsChangedAfterConfirmation(t *testing.T) {
 	send(m, "f2")
 	contains(t, m, "start: 04:30")
 	send(m, "n")
-	if len(b.windows) != 0 {
+	if len(b.hostWindows) != 0 {
 		t.Fatal("changed before the confirmation")
 	}
 	send(m, "f2", "y")
-	if len(b.windows) != 1 || !windowArgsEqual(b.windows[0], control.WindowSetArgs{Start: "04:30"}) {
-		t.Fatalf("windows = %+v", b.windows)
+	if len(b.windows) != 0 || len(b.hostWindows) != 1 || !windowArgsEqual(b.hostWindows[0], control.WindowSetArgs{Start: "04:30"}) {
+		t.Fatalf("own %+v, host %+v", b.windows, b.hostWindows)
 	}
 	send(m, "enter")
 	contains(t, m, "start: 04:30")
@@ -308,8 +308,8 @@ func TestWindowDaysAreSplit(t *testing.T) {
 	}
 	send(m, typed("mon, thu")...)
 	send(m, "f2", "y")
-	if len(b.windows) != 1 || !slices.Equal(b.windows[0].Days, []string{"mon", "thu"}) {
-		t.Fatalf("windows = %+v", b.windows)
+	if len(b.hostWindows) != 1 || !slices.Equal(b.hostWindows[0].Days, []string{"mon", "thu"}) {
+		t.Fatalf("windows = %+v", b.hostWindows)
 	}
 }
 
@@ -459,7 +459,7 @@ func TestSettingsKeysDoNothingOutsideTheirPage(t *testing.T) {
 	}
 	send(m, toSubtabs...)
 	send(m, "right", "right")
-	send(m, "a", "x", "b", "F", "G", "s")
+	send(m, "b", "F", "G", "s")
 	if m.modal != nil || m.set.form != nil || len(b.actions()) != 0 || m.set.page != pageWindow {
 		t.Fatalf("a settings key acted outside its page: page %q", m.set.page)
 	}

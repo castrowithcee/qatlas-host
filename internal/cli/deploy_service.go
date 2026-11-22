@@ -137,13 +137,17 @@ func newRefreshInstancesCommand(program *cobracli.Program) *cobra.Command {
 			"template unit. If deploy service instances for rootless engines are set up, it replaces\n" +
 			"qhost-deploy@.service where it differs from the one built into this program, runs systemctl daemon-reload and\n" +
 			"restarts every instance; it warns about an instance whose unit or template an administrator overrides in\n" +
-			"/etc/systemd/system. Without an instance it changes nothing. A failed restart does not stop the others and\n" +
+			"/etc/systemd/system. Before the restart it makes a window the system deploy service holds the host window if the host\n" +
+			"has none, so that the instances follow it. Without an instance it changes nothing. A failed restart does not stop the others and\n" +
 			"makes the command fail. Needs root.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if deploySetup.euid() != 0 {
 				return &cli.Failure{Code: output.CodePermission, Message: "renewing the deploy service instances needs root; run with sudo",
 					NextStep: "Run the same command with sudo."}
+			}
+			if instances, _ := deploysetup.Instances(deploySetup.host.Root); len(instances) > 0 {
+				adoptHostWindow(c.ErrOrStderr())
 			}
 			res, err := deploySetup.host.RefreshInstances(c.Context())
 			for _, unit := range res.Shadowed {

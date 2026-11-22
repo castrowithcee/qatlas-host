@@ -32,6 +32,7 @@ var stores = []store{
 	{"service", "service/sources.go", "stacks-repo.json (earlier format, read for the transition)", "version", false},
 	{"backup", "backup/store.go", "<stack>/<id>/meta.json", "schema", false},
 	{"window", "window/scheduler.go", "window.json", "schema", false},
+	{"window", "window/hostfile.go", "/etc/qhost/window.json", "schema", true},
 	{"engine", "engine/engine.go", "deploy/state.json", "schema", false},
 	{"engine", "engine/runlog.go", "deploy/runs/<run>.log (first line)", "schema", true},
 	{"hookservice", "hookservice/config.go", "/etc/qhost-hook/config.json", "version", false},

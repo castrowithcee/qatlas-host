@@ -14,6 +14,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/diagnose"
 	"github.com/castrowithcee/qatlas-host/internal/tui"
+	"github.com/castrowithcee/qatlas-host/internal/window"
 )
 
 // engineBackend is the tui.Backend over every deploy service of the host: the one of the system engine, when it
@@ -512,6 +513,34 @@ func (b *engineBackend) CredentialDelete(ctx context.Context, name string) error
 
 func (b *engineBackend) WindowSet(ctx context.Context, args control.WindowSetArgs) (control.WindowResult, error) {
 	return onInstance(b, ctx, func(c *tui.ChannelBackend) (control.WindowResult, error) { return c.WindowSet(ctx, args) })
+}
+
+func (b *engineBackend) WindowReset(ctx context.Context) (control.WindowResult, error) {
+	return onInstance(b, ctx, func(c *tui.ChannelBackend) (control.WindowResult, error) { return c.WindowReset(ctx) })
+}
+
+// HostWindow reads the host window, from its file or what the state kept before it existed, as the CLI does.
+func (b *engineBackend) HostWindow(_ context.Context) (control.WindowResult, error) {
+	w, err := window.HostBase(windowHostFile(), stateDir())
+	if err != nil {
+		return control.WindowResult{}, routeFailure(err)
+	}
+	return control.WindowResult{Days: w.Days.Names(), Start: window.FormatStart(w.Start), Duration: window.FormatDuration(w.Duration),
+		Zone: w.Zone, Origin: control.WindowOriginHost}, nil
+}
+
+// HostWindowSet writes the host window file, as 'sudo qhost window set' does; no deploy service is involved.
+func (b *engineBackend) HostWindowSet(_ context.Context, args control.WindowSetArgs) (control.WindowResult, error) {
+	w, err := changeHostWindow(args)
+	if err != nil {
+		return control.WindowResult{}, routeFailure(err)
+	}
+	res := control.WindowResult{Days: w.Days.Names(), Start: window.FormatStart(w.Start), Duration: window.FormatDuration(w.Duration),
+		Zone: w.Zone, Origin: control.WindowOriginHost}
+	if next, err := w.Next(time.Now()); err == nil {
+		res.NextOpening = next.Start
+	}
+	return res, nil
 }
 
 func (b *engineBackend) Notifications(ctx context.Context) (control.NotifyListResult, error) {

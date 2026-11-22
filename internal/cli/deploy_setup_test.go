@@ -55,8 +55,20 @@ func useHostRoot(t *testing.T, euid int) (string, *[]string) {
 			return nil
 		}}}
 	t.Cleanup(func() { deploySetup = old })
+	useWindowPaths(t, root)
 	useHostEndpoint(t, channeltest.Endpoint(t))
 	return root, &ran
+}
+
+// useWindowPaths puts the host window file and the state of the system deploy service under root, so that no
+// command of a test touches the real ones.
+func useWindowPaths(t *testing.T, root string) (hostFile, state string) {
+	t.Helper()
+	hostFile, state = filepath.Join(root, "etc", "qhost", "window.json"), filepath.Join(root, "var", "lib", "qhost-deploy")
+	oldFile, oldState := windowHostFile, stateDir
+	windowHostFile, stateDir = func() string { return hostFile }, func() string { return state }
+	t.Cleanup(func() { windowHostFile, stateDir = oldFile, oldState })
+	return hostFile, state
 }
 
 func TestSetupNeedsRoot(t *testing.T) {

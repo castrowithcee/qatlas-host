@@ -14,7 +14,7 @@
     start: "02:30"                                                              
                                                                                 
   Effect if applied now                                                         
-    The maintenance window would change:                                        
+    The maintenance window of the host would change:                            
        days                                                                     
        before: "sun"                                                            
        after:  "mon,thu"                                                        

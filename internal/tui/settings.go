@@ -74,8 +74,9 @@ type settingsState struct {
 	credData map[kittui.ItemID]control.CredentialInfo
 	credRead []control.CredentialInfo
 
-	window    part
-	windowRes control.WindowResult
+	// window is the read of the window page: one entry per deploy service in windows.
+	window  part
+	windows []windowRead
 
 	notify     part
 	notifyList *kittui.List
@@ -253,7 +254,8 @@ func (m *Model) loadPage(force bool) tea.Cmd {
 	case pageCreds:
 		return read(&s.creds, func() (any, error) { return b.Credentials(ctx) })
 	case pageWindow:
-		return read(&s.window, func() (any, error) { return b.Window(ctx) })
+		engines := m.windowEngines()
+		return read(&s.window, func() (any, error) { return readWindows(m.ctx, b, engines), nil })
 	case pageNotify:
 		return read(&s.notify, func() (any, error) { return b.Notifications(ctx) })
 	}
@@ -294,9 +296,9 @@ func (m *Model) applySettingsLoad(msg settingsLoadMsg) {
 		if msg.err == nil {
 			m.setCredentials(res.Credentials)
 		}
-	case control.WindowResult:
+	case windowList:
 		if msg.err == nil {
-			s.windowRes = res
+			s.windows = res
 		}
 	case control.NotifyListResult:
 		if msg.err == nil {
@@ -377,9 +379,9 @@ func (m *Model) selectedChannel() (control.NotifyChannelInfo, bool) {
 func (m *Model) settingsAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 	s := m.set
 	if id == actInstance {
-		return m.nextInstance(), perInstance(s.page)
+		return m.nextInstance(), chooses(s.page)
 	}
-	if perInstance(s.page) && (id == actAdd || id == actRemove || id == actTest) && m.needInstance() {
+	if chooses(s.page) && (id == actAdd || id == actRemove || id == actTest) && m.needInstance() {
 		return nil, true
 	}
 	switch {
@@ -388,7 +390,11 @@ func (m *Model) settingsAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 	case id == actRemove && s.page == pageCreds:
 		return m.askCredentialDelete(), true
 	case id == actEdit && s.page == pageWindow:
-		return m.openForm(m.windowForm()), true
+		return m.openWindowForm(""), true
+	case id == actAdd && s.page == pageWindow:
+		return m.openWindowForm(m.windowTarget()), true
+	case id == actRemove && s.page == pageWindow:
+		return m.askWindowReset(), true
 	case id == actAdd && s.page == pageNotify:
 		return m.openForm(m.notifyBasicsForm()), true
 	case id == actRemove && s.page == pageNotify:
@@ -539,9 +545,9 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		m.ask(textTitleKey, t.Lookup(textAskKeyReplace), t.Lookup(textWhatKeyReplace), res.details, true, res.replace)
 		return nil
 	case control.WindowResult:
-		s.window.loaded, s.windowRes = true, res
+		s.window = part{}
 		done(t.Lookup(textDoneWindow))
-		cmds = append(cmds, m.reloadNow())
+		cmds = append(cmds, m.loadPage(true), m.reloadNow())
 	case control.NotifyChannelInfo:
 		done(t.Lookup(textDoneAdded, res.Name))
 		cmds = append(cmds, m.loadPage(true))
@@ -775,7 +781,9 @@ func (m *Model) settingsFooter(common, nav []kittui.Hint) []kittui.Hint {
 		own = append(own, m.instanceHints()...)
 		own = append(own, kittui.Hint{Action: actAdd, Label: textKeyAdd, Priority: 3}, kittui.Hint{Action: actRemove, Label: textKeyRemove, Priority: 3})
 	case pageWindow:
-		own = append(own, kittui.Hint{Action: actEdit, Label: textKeyEdit, Priority: 3})
+		own = append(own, m.instanceHints()...)
+		own = append(own, kittui.Hint{Action: actEdit, Label: textKeyWindowHost, Priority: 3},
+			kittui.Hint{Action: actAdd, Label: textKeyWindowOwn, Priority: 3}, kittui.Hint{Action: actRemove, Label: textKeyWindowReset, Priority: 3})
 	case pageNotify:
 		own = append(own, m.instanceHints()...)
 		own = append(own, kittui.Hint{Action: actAdd, Label: textKeyAdd, Priority: 3}, kittui.Hint{Action: actTest, Label: textKeyTest, Priority: 3},
@@ -830,34 +838,6 @@ func (m *Model) pageLines(width, height int) []string {
 		return m.windowLines(width, height)
 	}
 	return nil
-}
-
-func (m *Model) windowLines(width, height int) []string {
-	s, t := m.set, m.text
-	if !s.window.loaded || s.window.err != nil {
-		return m.partLines(s.window, width)
-	}
-	w := s.windowRes
-	state := t.Lookup(textHeaderWindowShut)
-	if w.Open {
-		state = t.Lookup(textHeaderWindowOpen)
-	}
-	return m.framed(t.Lookup(textPageWindow), "", width, height, func(width int) []string {
-		lines := []string{
-			m.line(detailIndent, kittui.StyleText, t.Lookup(textDetailDays, m.dayList(w.Days)), width),
-			m.line(detailIndent, kittui.StyleText, t.Lookup(textDetailStart, w.Start), width),
-			m.line(detailIndent, kittui.StyleText, t.Lookup(textDetailDuration, w.Duration), width),
-			m.line(detailIndent, kittui.StyleText, t.Lookup(textDetailZone, w.Zone), width),
-			m.line(detailIndent, kittui.StyleText, state, width),
-		}
-		if !w.NextOpening.IsZero() {
-			lines = append(lines, m.line(detailIndent, kittui.StyleText, t.Lookup(textDetailNext, m.stamp(w.NextOpening)), width))
-		}
-		if !w.LastRun.IsZero() {
-			lines = append(lines, m.line(detailIndent, kittui.StyleText, t.Lookup(textDetailLastRun, m.stamp(w.LastRun)), width))
-		}
-		return lines
-	})
 }
 
 // settingsTyped gives a key to the list of the page that has the text focus.

@@ -2,11 +2,9 @@
    1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe  [4 ⚙ Einstellungen]  5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
    Allgemein   Zugangsdaten  [Wartungsfenster]  Benachrichtigungen                                                      
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-╭─ Wartungsfenster ────────────────────────────────────────────────────────────────────────────────────────────────────╮
+╭─ Wartungsfenster ───────────────────────────────────────────────────────────────────────────────────── Host-Fenster ─╮
 │ Tage: so                                                                                                             │
-│ Beginn: 03:00                                                                                                        │
-│ Dauer: 2h                                                                                                            │
-│ Zeitzone: UTC                                                                                                        │
+│ Beginn: 03:00, Dauer: 2h, Zeitzone: UTC                                                                              │
 │ Wartungsfenster zu                                                                                                   │
 │ nächste Öffnung: Sa 2026-10-31 03:00                                                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -21,4 +19,6 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-e ändern  esc Zurück  r Neu laden  1-7 Bereich  q Beenden                                                               
+                                                                                                                        
+                                                                                                                        
+e Host-Fenster  a eigenes Fenster  x Host folgen  esc Zurück  r Neu laden  1-7 Bereich  q Beenden                       

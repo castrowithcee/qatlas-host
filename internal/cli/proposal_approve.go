@@ -68,7 +68,9 @@ func newProposalApprove(program *cobracli.Program, state *notRunning, secrets *r
 			"here as well; a process without a terminal on standard input is accepted when it has a terminal of its own,\n" +
 			"as when the terminal interface runs the command. The result is printed as an object: the fields of 'qhost\n" +
 			"source add' for source-add, proposal, stack, changed and commit for stack-settings, proposal and the fields\n" +
-			"of 'qhost window show' for window, and proposal, name, type, events and settings for notify-channel.",
+			"of 'qhost window set' for window, and proposal, name, type, events and settings for notify-channel.\n" +
+			"A proposal of the kind window sets the host window, as 'sudo qhost window set' does, unless --engine is given:\n" +
+			"then it sets the own window of that engine's deploy service, as 'qhost window set --engine' does.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			// Without --confirm a run with --fingerprint shows the proposal and this error then ends it.

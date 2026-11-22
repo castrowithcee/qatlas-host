@@ -2,21 +2,21 @@
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs  [4 ⚙ Settings]  5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
    General   Credentials  [Maintenance window]  Notifications                                                           
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  Change the maintenance window                                                                                         
+  Change the host window                                                                                                
                                                                                                                         
             ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
   Days      │ sun                                                                                                      │
-            ╰───────────────╔═ Change the maintenance window ══════════════════════════════╗───────────────────────────╯
-            ╔═══════════════║ ⚠ Change the maintenance window?                             ║═══════════════════════════╗
+            ╰───────────────╔═ Change the host window ═════════════════════════════════════╗───────────────────────────╯
+            ╔═══════════════║ ⚠ Change the maintenance window of the host?                 ║═══════════════════════════╗
 > Start     ║ 04:30_        ║                                                              ║                           ║
-            ╚═══════════════║ The running service follows at once.                         ║═══════════════════════════╝
-            HH:MM on the 24-║ start: 04:30                                                 ║                            
-            ╭───────────────║ $ sudo qhost window set --start 04:30 --output json          ║───────────────────────────╮
-  Duration  │ 2h            ║                                                              ║                           │
-            ╰───────────────║ [ yes, with sudo ]  > cancel <                               ║───────────────────────────╯
-            ╭───────────────║ y yes, with sudo  n/esc/enter cancel                         ║───────────────────────────╮
-  Time zone │ UTC           ╚══════════════════════════════════════════════════════════════╝                           │
-            ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+            ╚═══════════════║ Every deploy service without an own window follows within    ║═══════════════════════════╝
+            HH:MM on the 24-║ seconds.                                                     ║                            
+            ╭───────────────║ start: 04:30                                                 ║───────────────────────────╮
+  Duration  │ 2h            ║ $ sudo qhost window set --start 04:30 --output json          ║                           │
+            ╰───────────────║                                                              ║───────────────────────────╯
+            ╭───────────────║ [ yes, with sudo ]  > cancel <                               ║───────────────────────────╮
+  Time zone │ UTC           ║ y yes, with sudo  n/esc/enter cancel                         ║                           │
+            ╰───────────────╚══════════════════════════════════════════════════════════════╝───────────────────────────╯
                                                                                                                         
                                                                                                                         
                                                                                                                         

@@ -26,6 +26,10 @@ func (m *Model) instances() []string {
 // perInstance reports whether the page holds the settings of one deploy service.
 func perInstance(p settingsPage) bool { return p == pageCreds || p == pageNotify }
 
+// chooses reports whether the person chooses an instance on the page, as the keys of the page act on it. The window
+// page shows every instance and uses the choice only for the own window.
+func chooses(p settingsPage) bool { return perInstance(p) || p == pageWindow }
+
 // settingsEngine is the instance the page shows: empty with one deploy service, and also empty while several
 // exist and none is chosen (see instanceChosen).
 func (m *Model) settingsEngine() string {
@@ -65,12 +69,15 @@ func (m *Model) needInstance() bool {
 // nextInstance chooses the next instance and reads the page again for it.
 func (m *Model) nextInstance() tea.Cmd {
 	inst := m.instances()
-	if inst == nil || !perInstance(m.set.page) || m.settingsBusy() {
+	if inst == nil || !chooses(m.set.page) || m.settingsBusy() {
 		return nil
 	}
 	at := slices.Index(inst, m.settingsEngine())
 	s := m.set
 	s.engine = inst[(at+1)%len(inst)]
+	if m.set.page == pageWindow {
+		return nil
+	}
 	s.creds, s.notify = part{}, part{}
 	m.setCredentials(nil)
 	m.setChannels(nil)
@@ -79,7 +86,7 @@ func (m *Model) nextInstance() tea.Cmd {
 
 // instanceLines are the lines above a page with the settings of one instance: which one it shows.
 func (m *Model) instanceLines(width int) []string {
-	if m.instances() == nil || !perInstance(m.set.page) {
+	if m.instances() == nil || !chooses(m.set.page) {
 		return nil
 	}
 	t := m.text

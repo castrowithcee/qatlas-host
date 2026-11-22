@@ -2,14 +2,14 @@
   1 2 3 [4 Settings] 5 6 7                              
   [Maintenance window]                                  
 ────────────────────────────────────────────────────────
-  Change the maintenance window                         
+  Change the host window                                
                                                         
             ╭──────────────────────────────────────────╮
-  Days      │ sun                                      │
-  ╔═ Change the maintenance window ══════════════════╗─╯
-  ║ ⚠ Change the maintenance window?                 ║═╗
-> ║                                                  ║ ║
-  ║ The running service follows at once.             ║═╝
+  ╔═ Change the host window ═════════════════════════╗ │
+  ║ ⚠ Change the maintenance window of the host?     ║─╯
+  ║                                                  ║═╗
+> ║ Every deploy service without an own window       ║ ║
+  ║ follows within seconds.                          ║═╝
   ║ start: 04:30                                     ║  
   ║ $ sudo qhost window set --start 04:30 --output   ║─╮
   ║   json                                           ║ │

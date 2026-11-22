@@ -41,7 +41,7 @@ func TestTargetsAreTheFixedPaths(t *testing.T) {
 	if got := Targets(false, testPages); !slices.Equal(got, want) {
 		t.Errorf("targets = %q, want %q", got, want)
 	}
-	purge := append(slices.Clone(want), "/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host", "/etc/qhost-hook")
+	purge := append(slices.Clone(want), "/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host", "/etc/qhost-hook", "/etc/qhost/window.json", "/etc/qhost")
 	if got := Targets(true, testPages); !slices.Equal(got, purge) {
 		t.Errorf("purge targets = %q, want %q", got, purge)
 	}
@@ -108,7 +108,7 @@ func newHost(t *testing.T) (*fakeHost, string, []string) {
 		}
 	}
 	for _, p := range Targets(true, testPages) {
-		if filepath.Ext(p) == ".d" || strings.HasPrefix(p, "/var/lib") || p == channelDir || p == deploysetup.HookRunDir || p == deploysetup.HookConfigDir {
+		if filepath.Ext(p) == ".d" || strings.HasPrefix(p, "/var/lib") || p == channelDir || p == deploysetup.HookRunDir || p == deploysetup.HookConfigDir || p == windowDir {
 			continue
 		}
 		write(p, "invented")
@@ -239,7 +239,7 @@ func TestPurgeRemovesStateJournalUsersAndGroup(t *testing.T) {
 	before := tree(t, f.root)
 	apply(t, f, true)
 	assertOnlyTargetsVanished(t, before, tree(t, f.root), true)
-	for _, p := range []string{"/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host", "/etc/qhost-hook", "/run/qhost-hook"} {
+	for _, p := range []string{"/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host", "/etc/qhost-hook", "/run/qhost-hook", "/etc/qhost/window.json"} {
 		if exists(f.root, p) {
 			t.Errorf("%s was not removed", p)
 		}
@@ -425,5 +425,24 @@ func TestPurgeSkipsAReceiverUserAndGroupThatDoNotExist(t *testing.T) {
 		if strings.Contains(c, "del qhost-hook") {
 			t.Errorf("ran %q although the account does not exist", c)
 		}
+	}
+}
+
+func TestPurgeRemovesTheHostWindowFileAndItsEmptyFolder(t *testing.T) {
+	f, _, _ := newHost(t)
+	if err := os.Remove(filepath.Join(f.root, "etc/qhost/keep")); err != nil {
+		t.Fatal(err)
+	}
+	apply(t, f, true)
+	if exists(f.root, "/etc/qhost/window.json") || exists(f.root, "/etc/qhost") {
+		t.Error("the host window file or its empty folder is still there")
+	}
+}
+
+func TestRemovalWithoutPurgeKeepsTheHostWindowFile(t *testing.T) {
+	f, _, _ := newHost(t)
+	apply(t, f, false)
+	if !exists(f.root, "/etc/qhost/window.json") {
+		t.Error("the host window file was removed without --purge")
 	}
 }

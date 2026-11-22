@@ -12,6 +12,21 @@ const (
 	textKeyFetch              kittui.TextID = "key.fetch"
 	textKeyAdd                kittui.TextID = "key.add"
 	textKeyRemove             kittui.TextID = "key.remove"
+	textTitleWindowOwn        kittui.TextID = "title.window.own"
+	textTitleWindowOwnSet     kittui.TextID = "title.window.ownset"
+	textTitleWindowReset      kittui.TextID = "title.window.reset"
+	textAskWindowOwn          kittui.TextID = "ask.window.own"
+	textWhatWindowOwn         kittui.TextID = "what.window.own"
+	textAskWindowReset        kittui.TextID = "ask.window.reset"
+	textWhatWindowReset       kittui.TextID = "what.window.reset"
+	textKeyWindowHost         kittui.TextID = "key.window.host"
+	textKeyWindowOwn          kittui.TextID = "key.window.own"
+	textKeyWindowReset        kittui.TextID = "key.window.reset"
+	textWindowOriginHost      kittui.TextID = "window.origin.host"
+	textWindowOriginOwn       kittui.TextID = "window.origin.own"
+	textWindowWarning         kittui.TextID = "window.warning"
+	textWindowNotRead         kittui.TextID = "window.notread"
+	textWindowNoOwn           kittui.TextID = "window.noown"
 	textKeyEdit               kittui.TextID = "key.edit"
 	textKeyTest               kittui.TextID = "key.test"
 	textKeyCancelForm         kittui.TextID = "key.cancelform"
@@ -101,7 +116,7 @@ const (
 	textDetailNext            kittui.TextID = "detail.next"
 	textDetailLastRun         kittui.TextID = "detail.lastrunat"
 	textTitleCred             kittui.TextID = "title.cred"
-	textTitleWindow           kittui.TextID = "title.window"
+	textTitleWindowHost       kittui.TextID = "title.window"
 	textTitleNotify           kittui.TextID = "title.notify"
 	textTitleNotifyDetail     kittui.TextID = "title.notifydetail"
 	textFieldURL              kittui.TextID = "field.url"
@@ -182,8 +197,8 @@ const (
 	textProblemPasswordNoUser kittui.TextID = "problem.passwordnouser"
 	textAskCredSet            kittui.TextID = "ask.credset"
 	textWhatCredSet           kittui.TextID = "what.credset"
-	textAskWindow             kittui.TextID = "ask.window"
-	textWhatWindow            kittui.TextID = "what.window"
+	textAskWindowHost         kittui.TextID = "ask.window"
+	textWhatWindowHost        kittui.TextID = "what.window"
 	textAskNotifyAdd          kittui.TextID = "ask.notifyadd"
 	textWhatNotifyAdd         kittui.TextID = "what.notifyadd"
 	textTitleDiscard          kittui.TextID = "title.discard"
@@ -290,6 +305,21 @@ func settingsEnglish() map[kittui.TextID]string {
 		textKeyFetch:              "fetch now",
 		textKeyAdd:                "add",
 		textKeyRemove:             "remove",
+		textTitleWindowOwn:        "Own window of %s",
+		textTitleWindowOwnSet:     "Set the own window",
+		textTitleWindowReset:      "Follow the host window",
+		textAskWindowOwn:          "Set the own window of %s?",
+		textWhatWindowOwn:         "Only this instance changes. It follows the host window again only after it is reset.",
+		textAskWindowReset:        "Let %s follow the host window again?",
+		textWhatWindowReset:       "The own window of the instance is removed. The host window is not touched.",
+		textKeyWindowHost:         "host window",
+		textKeyWindowOwn:          "own window",
+		textKeyWindowReset:        "follow host",
+		textWindowOriginHost:      "host window",
+		textWindowOriginOwn:       "own window",
+		textWindowWarning:         "Warning: %s",
+		textWindowNotRead:         "The window of this instance could not be read.",
+		textWindowNoOwn:           "%s has no own window and follows the host window.",
 		textKeyEdit:               "edit",
 		textKeyTest:               "send test",
 		textKeyCancelForm:         "discard",
@@ -379,7 +409,7 @@ func settingsEnglish() map[kittui.TextID]string {
 		textDetailNext:            "next opening: %s",
 		textDetailLastRun:         "last work began: %s",
 		textTitleCred:             "Set a credential",
-		textTitleWindow:           "Change the maintenance window",
+		textTitleWindowHost:       "Change the host window",
 		textTitleNotify:           "Add a notification channel",
 		textTitleNotifyDetail:     "Settings of the channel",
 		textFieldURL:              "SSH URL",
@@ -460,8 +490,8 @@ func settingsEnglish() map[kittui.TextID]string {
 		textProblemPasswordNoUser: "A password needs a user.",
 		textAskCredSet:            "Store the credential %s?",
 		textWhatCredSet:           "The service stores the value and never shows it again. A credential of that name is replaced.",
-		textAskWindow:             "Change the maintenance window?",
-		textWhatWindow:            "The running service follows at once.",
+		textAskWindowHost:         "Change the maintenance window of the host?",
+		textWhatWindowHost:        "Every deploy service without an own window follows within seconds.",
 		textAskNotifyAdd:          "Add the channel %s (%s)?",
 		textWhatNotifyAdd:         "The service stores the secret parts and never shows them again.",
 		textTitleDiscard:          "Discard the changes",
@@ -569,6 +599,21 @@ func settingsGerman() map[kittui.TextID]string {
 		textKeyFetch:              "jetzt abrufen",
 		textKeyAdd:                "hinzufügen",
 		textKeyRemove:             "entfernen",
+		textTitleWindowOwn:        "Eigenes Fenster von %s",
+		textTitleWindowOwnSet:     "Eigenes Fenster setzen",
+		textTitleWindowReset:      "Dem Host-Fenster folgen",
+		textAskWindowOwn:          "Das eigene Fenster von %s setzen?",
+		textWhatWindowOwn:         "Nur diese Instanz ändert sich. Sie folgt dem Host-Fenster erst nach dem Zurücksetzen wieder.",
+		textAskWindowReset:        "%s wieder dem Host-Fenster folgen lassen?",
+		textWhatWindowReset:       "Das eigene Fenster der Instanz wird entfernt. Das Host-Fenster bleibt unberührt.",
+		textKeyWindowHost:         "Host-Fenster",
+		textKeyWindowOwn:          "eigenes Fenster",
+		textKeyWindowReset:        "Host folgen",
+		textWindowOriginHost:      "Host-Fenster",
+		textWindowOriginOwn:       "eigenes Fenster",
+		textWindowWarning:         "Warnung: %s",
+		textWindowNotRead:         "Das Fenster dieser Instanz konnte nicht gelesen werden.",
+		textWindowNoOwn:           "%s hat kein eigenes Fenster und folgt dem Host-Fenster.",
 		textKeyEdit:               "ändern",
 		textKeyTest:               "Test senden",
 		textKeyCancelForm:         "verwerfen",
@@ -658,7 +703,7 @@ func settingsGerman() map[kittui.TextID]string {
 		textDetailNext:            "nächste Öffnung: %s",
 		textDetailLastRun:         "letzte Arbeit begann: %s",
 		textTitleCred:             "Zugangsdaten setzen",
-		textTitleWindow:           "Wartungsfenster ändern",
+		textTitleWindowHost:       "Host-Fenster ändern",
 		textTitleNotify:           "Benachrichtigungskanal anlegen",
 		textTitleNotifyDetail:     "Einstellungen des Kanals",
 		textFieldURL:              "SSH-URL",
@@ -739,8 +784,8 @@ func settingsGerman() map[kittui.TextID]string {
 		textProblemPasswordNoUser: "Ein Passwort braucht einen Benutzer.",
 		textAskCredSet:            "Die Zugangsdaten %s speichern?",
 		textWhatCredSet:           "Der Dienst speichert den Wert und zeigt ihn nie wieder. Zugangsdaten gleichen Namens werden ersetzt.",
-		textAskWindow:             "Das Wartungsfenster ändern?",
-		textWhatWindow:            "Der laufende Dienst folgt sofort.",
+		textAskWindowHost:         "Das Wartungsfenster des Hosts ändern?",
+		textWhatWindowHost:        "Jeder Deploy-Dienst ohne eigenes Fenster folgt innerhalb von Sekunden.",
 		textAskNotifyAdd:          "Den Kanal %s (%s) anlegen?",
 		textWhatNotifyAdd:         "Der Dienst speichert die geheimen Teile und zeigt sie nie wieder.",
 		textTitleDiscard:          "Änderungen verwerfen",
