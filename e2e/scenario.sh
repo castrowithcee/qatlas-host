@@ -3799,7 +3799,67 @@ EOF2
 	[ -z "$(files_git remote)" ] || fail 'the rollback gave the repository a remote'
 	[ "$(stack_images demo-files)" = "$image:1.1.0" ] || fail "demo-files does not run the previous image 1.1.0: $(stack_images demo-files)"
 	log 'scenario: a folder of files got a repository with group access, deployed 1.1.0 and rolled back 2.0.0 by a local revert'
+	scenario_source_files_include
 	scenario_source_files_unreadable
+}
+
+# scenario_source_files_include proves the choice of an unclear file: the folder below /srv/qd-include mounts acme.json
+# writable, so the first commit leaves it out as writable-file (as the folder before shows). A path that is not
+# unclear is refused and changes nothing; --include acme.json with --yes takes the file into the first commit.
+scenario_source_files_include() {
+	base=/srv/qd-include
+
+	step 'a folder of files with a writable single-file mount is prepared as root'
+	docker exec "$host" sh -ec "rm -rf '$base' && mkdir -p '$base' && chmod 0755 '$base'" || fail 'cannot create the folder with a writable file'
+	cat <<EOF2 | docker exec -i "$host" sh -ec "cat >'$base/compose.yaml'"
+name: demo-include
+
+services:
+  app:
+    image: registry.$domain/demo/app:\${DEMO_APP_VERSION}
+    restart: unless-stopped
+    environment:
+      DEMO_NAME: demo-include
+      DEMO_VERSION: \${DEMO_APP_VERSION}
+      DEMO_HEALTH: \${DEMO_HEALTH}
+    volumes:
+      - ./acme.json:/srv/demo-acme.json
+EOF2
+	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/.env'"
+	docker exec "$host" sh -ec "echo '{}' >'$base/acme.json' && echo notes >'$base/notes.txt' &&
+		chmod 0644 '$base/compose.yaml' '$base/.env' '$base/acme.json' '$base/notes.txt'" || fail 'cannot create the files of the folder with a writable file'
+
+	step 'source inspect leaves the writable file out, and with --include plans it and names it as included'
+	out=$(qd --output json source inspect "$base") || fail "source inspect of the folder with a writable file failed: $out"
+	printf '%s' "$out" | jq -e '.case == "files" and (.planned_files == [".env", "compose.yaml"]) and
+		([.excluded[] | select(.path == "acme.json" and .reason == "writable-file")] | length) == 1 and (.included // []) == []' >/dev/null ||
+		fail "unexpected inspection without a choice: $out"
+	out=$(qd --output json source inspect "$base" --include acme.json) || fail "source inspect --include failed: $out"
+	printf '%s' "$out" | jq -e '(.planned_files == [".env", "acme.json", "compose.yaml"]) and
+		([.included[] | select(.path == "acme.json" and .reason == "writable-file")] | length) == 1 and
+		([.excluded[] | select(.path == "acme.json")] | length) == 0' >/dev/null || fail "unexpected inspection with a choice: $out"
+
+	step 'a path that is not an unclear file is refused and nothing is created'
+	for bad in notes.txt compose.yaml missing.txt; do
+		out=$(qd_fails source add "$base" --include "$bad" --yes) || fail "source add --include $bad succeeded: $out"
+		if docker exec "$host" test -e "$base/.git"; then fail "a refused source add --include $bad made a repository"; fi
+		if list_has_path "$base"; then fail "a refused source add --include $bad bound the folder"; fi
+	done
+
+	step 'source add --include acme.json --yes takes the file into the first commit'
+	out=$(qd --output json source add "$base" --include acme.json --yes) || fail "source add --include failed: $out"
+	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local" and .files == 4' >/dev/null || fail "unexpected source add --include result: $out"
+	wait_for 'the deploy service to answer' 30 qd status
+	[ "$(folder_git "$base" ls-files)" = "$(printf '.env\n.gitignore\nacme.json\ncompose.yaml')" ] ||
+		fail "the first commit holds the wrong files: $(folder_git "$base" ls-files)"
+	if docker exec "$host" grep -qx '/acme.json' "$base/.gitignore"; then fail 'the chosen file is in .gitignore'; fi
+	docker exec "$host" grep -qx '/notes.txt' "$base/.gitignore" || fail 'notes.txt is not in .gitignore'
+	wait_for 'the stack with the chosen file to be deployed' 180 stack_settled demo-include succeeded
+
+	step 'the folder with the chosen file is released and its containers are removed'
+	out=$(qd --output json source remove "$base" --yes) || fail "source remove of the folder with a writable file failed: $out"
+	docker exec "$host" docker compose -p demo-include down >/dev/null 2>&1 || fail 'cannot remove the containers of demo-include'
+	log 'scenario: an unclear file chosen with --include went into the first commit'
 }
 
 # source_polled_clean succeeds when the source of the folder $1 has been polled and reports no poll error.

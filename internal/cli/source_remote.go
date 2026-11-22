@@ -57,6 +57,7 @@ func newSourceRemoteCommand(program *cobracli.Program, state *notRunning) *cobra
 
 func newSourceCompareCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var fingerprint, engine string
+	var include []string
 	compare := &cobra.Command{
 		Use:   "compare <path> <ssh-url>",
 		Short: "Compare a folder with a remote repository and show how they relate; changes nothing in the folder",
@@ -72,7 +73,9 @@ func newSourceCompareCommand(program *cobracli.Program, state *notRunning) *cobr
 			"With --output json the fields are case, state, branch, commit, paths, path_count, secrets (total and\n" +
 			"findings) and, for a folder of files, planned_files, excluded, remote_files and ignore: the plan the\n" +
 			"folder joins the remote with, where remote_files are the planned files no stack refers to that the\n" +
-			"remote versions and ignore is the change to the .gitignore (action and lines), absent when none.",
+			"remote versions and ignore is the change to the .gitignore (action and lines), absent when none.\n" +
+			"--include <path> (repeatable) plans an unclear file into that plan, as 'source add --include' does, and\n" +
+			"lists it in included.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return usageFailure("source compare takes two arguments, the path of the folder and the SSH address",
@@ -81,11 +84,12 @@ func newSourceCompareCommand(program *cobracli.Program, state *notRunning) *cobr
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSourceCompare(c, program, state, args[0], args[1], fingerprint, engine)
+			return runSourceCompare(c, program, state, args[0], args[1], fingerprint, engine, include)
 		},
 	}
 	compare.Flags().StringVar(&fingerprint, "fingerprint", "",
 		"expected SHA256 fingerprint of the server's host key; required without a terminal")
+	compare.Flags().StringArrayVar(&include, "include", nil, includeUsage)
 	addEngineFlag(compare, &engine, compareEngineUsage, compareEngineNote)
 	return compare
 }
@@ -106,7 +110,7 @@ func checkRemoteInput(path, url, fingerprint string) error {
 	return nil
 }
 
-func runSourceCompare(c *cobra.Command, program *cobracli.Program, state *notRunning, path, url, fingerprint, engine string) error {
+func runSourceCompare(c *cobra.Command, program *cobracli.Program, state *notRunning, path, url, fingerprint, engine string, include []string) error {
 	if err := folders.requireRoot(); err != nil {
 		return err
 	}
@@ -120,7 +124,7 @@ func runSourceCompare(c *cobra.Command, program *cobracli.Program, state *notRun
 	if err != nil {
 		return err
 	}
-	cmp, err := compareRemote(c, state, path, url, probe.Fingerprint)
+	cmp, err := compareRemote(c, state, path, url, probe.Fingerprint, include)
 	if err != nil {
 		return err
 	}
@@ -144,6 +148,9 @@ func compareFields(format output.Format, cmp control.SourceCompareResult) output
 		}
 		if len(cmp.Excluded) > 0 {
 			add("excluded", structured(format, cmp.Excluded))
+		}
+		if len(cmp.Included) > 0 {
+			add("included", structured(format, cmp.Included))
 		}
 		if len(cmp.RemoteFiles) > 0 {
 			add("remote_files", cmp.RemoteFiles)
@@ -185,6 +192,9 @@ func compareFields(format output.Format, cmp control.SourceCompareResult) output
 		}
 		add("excluded", value)
 	}
+	for _, e := range cmp.Included {
+		add("included", e.Path+": "+e.Reason+" (chosen)")
+	}
 	if ig := cmp.Ignore; ig != nil {
 		add("gitignore", ig.Action)
 		for i, l := range ig.Lines {
@@ -225,7 +235,7 @@ func runSourceRemote(c *cobra.Command, program *cobracli.Program, gate *cobracli
 	if err != nil {
 		return err
 	}
-	cmp, err := compareRemote(c, state, path, url, probe.Fingerprint)
+	cmp, err := compareRemote(c, state, path, url, probe.Fingerprint, nil)
 	if err != nil {
 		return err
 	}
@@ -266,10 +276,10 @@ func runSourceRemote(c *cobra.Command, program *cobracli.Program, gate *cobracli
 	})
 }
 
-func compareRemote(c *cobra.Command, state *notRunning, path, url, fingerprint string) (control.SourceCompareResult, error) {
+func compareRemote(c *cobra.Command, state *notRunning, path, url, fingerprint string, include []string) (control.SourceCompareResult, error) {
 	var cmp control.SourceCompareResult
 	err := repoCall(c, state, control.SourceCompareCommand,
-		control.SourceCompareArgs{Path: path, URL: url, Fingerprint: fingerprint}, &cmp)
+		control.SourceCompareArgs{Path: path, URL: url, Fingerprint: fingerprint, Include: include}, &cmp)
 	return cmp, err
 }
 

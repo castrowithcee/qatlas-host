@@ -252,13 +252,13 @@ func (m *Model) readProposal() tea.Cmd {
 	}
 	v.loading = true
 	ctx, b, host, gen, id, root := m.ctx, m.backend, m.folders, v.gen, v.id, m.euid() == 0
-	return func() tea.Msg { return loadProposal(ctx, b, host, gen, id, root) }
+	return func() tea.Msg { return loadProposal(ctx, b, host, gen, id, root, nil) }
 }
 
 // loadProposal reads the proposal id and, while it is an open one with readable content, works out its effect:
 // for the kind source-add only when the interface runs with root, for the kinds stack-settings and window
 // always. It only reads.
-func loadProposal(ctx context.Context, b Backend, host Folders, gen int, id string, root bool) proposalMsg {
+func loadProposal(ctx context.Context, b Backend, host Folders, gen int, id string, root bool, include []string) proposalMsg {
 	msg := proposalMsg{gen: gen, id: id}
 	if msg.res, msg.err = b.ProposalShow(ctx, id); msg.err != nil {
 		return msg
@@ -277,7 +277,7 @@ func loadProposal(ctx context.Context, b Backend, host Folders, gen int, id stri
 		msg.needsRoot = true
 		return msg
 	}
-	res, err := inspectFolder(ctx, b, host, msg.content.Path)
+	res, err := inspectFolder(ctx, b, host, msg.content.Path, include)
 	if err != nil {
 		msg.effectErr = err
 		return msg

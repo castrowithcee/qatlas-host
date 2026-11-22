@@ -96,7 +96,7 @@ func TestSourceAddFilesWithoutConfirmationChangesNothing(t *testing.T) {
 		"big.bin: too-large", "data: bind-mount (stack demo)", "kept out of git by .gitignore:",
 		"Create .gitignore with a block marked by qhost of 4 lines; the first commit holds it:", "  /big.bin", "  /notes.txt",
 		"No other file in the folder is written.",
-		"acme.json: writable-file (stack demo)", "notes.txt: not-referenced", "Left out (4), not needed by the stacks",
+		"Unclear (1), may hold data or a secret", "acme.json: writable-file (stack demo)", "notes.txt: not-referenced", "Left out (3), not needed by the stacks",
 		"Not resolvable in stack demo", "variable CONF_DIR has no value in .env",
 		"paths get the group", "listed files: group rw", "bind-mount sources and everything below: data",
 		"files that are not listed stay as they are",

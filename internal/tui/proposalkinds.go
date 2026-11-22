@@ -275,7 +275,7 @@ func (m *Model) approveKind() tea.Cmd {
 // shown fingerprint, which locks the proposal; then the content shown is written through the call the forms and
 // the CLI use, and its result is kept on the proposal. A difference or a refusal before the write changes nothing.
 func approveKindAndApply(ctx context.Context, b Backend, p *proposalCtx, eff *kindEffect) (any, error) {
-	now := loadProposal(ctx, b, nil, p.gen, p.id, true)
+	now := loadProposal(ctx, b, nil, p.gen, p.id, true, nil)
 	if now.err != nil {
 		return nil, now.err
 	}

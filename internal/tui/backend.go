@@ -96,7 +96,7 @@ type Backend interface {
 	// the interface makes only after a confirmation, and SourceAdd only after the host side has granted the folder.
 
 	// SourceInspect classifies a folder; url is the SSH address to clone or to expect as origin, and may be empty.
-	SourceInspect(ctx context.Context, path, url string) (control.SourceInspectResult, error)
+	SourceInspect(ctx context.Context, path, url string, include []string) (control.SourceInspectResult, error)
 	SourceCompare(ctx context.Context, args control.SourceCompareArgs) (control.SourceCompareResult, error)
 	SourceAdd(ctx context.Context, args control.SourceAddArgs) (control.SourceAddResult, error)
 	// SourceRemote gives a local stack folder its remote, as the comparison the person was shown.
@@ -304,8 +304,8 @@ func (b *ChannelBackend) RepoFetch(ctx context.Context, dir string) (res control
 	return res, err
 }
 
-func (b *ChannelBackend) SourceInspect(ctx context.Context, path, url string) (res control.SourceInspectResult, err error) {
-	err = b.call(ctx, control.SourceInspectCommand, control.SourceInspectArgs{Path: path, URL: url}, &res)
+func (b *ChannelBackend) SourceInspect(ctx context.Context, path, url string, include []string) (res control.SourceInspectResult, err error) {
+	err = b.call(ctx, control.SourceInspectCommand, control.SourceInspectArgs{Path: path, URL: url, Include: include}, &res)
 	return res, err
 }
 

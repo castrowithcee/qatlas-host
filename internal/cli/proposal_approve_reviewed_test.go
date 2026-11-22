@@ -385,7 +385,7 @@ func TestReviewedApproveRefusesTheFlagsOfSourceAddForOtherKinds(t *testing.T) {
 	env := &windowEnv{content: control.WindowSetArgs{Start: "01:30"}}
 	startWindowEnv(t, env)
 	for _, flag := range [][]string{{"--expect-effect", "sha256:x"}, {"--host-key-fingerprint", remoteKeyPrint},
-		{"--expect-state", "empty"}, {"--url", remoteURL}} {
+		{"--expect-state", "empty"}, {"--url", remoteURL}, {"--include", "acme.json"}} {
 		useReviewedRun(t, "")
 		args := append([]string{"proposal", "approve", approveID, "--fingerprint", "fp-one", "--confirm"}, flag...)
 		code, _, stderr := run(t, args...)

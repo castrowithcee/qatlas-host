@@ -212,6 +212,8 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitFolder(f, text("path"))
 	case formFolderURL:
 		return m.submitFolderURL(f, text("url"))
+	case formFolderInclude:
+		return m.submitFolderInclude(v)
 	case formProposalReject:
 		return m.submitProposalReject(f, text("reason"))
 	case formProposalSecrets:

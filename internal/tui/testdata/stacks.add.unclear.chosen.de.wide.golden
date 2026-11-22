@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                                                                    [?] Hilfe
+  [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ In /srv/files-example ein Git-Repository anlegen und übernehmen?                                                    
+                                                                                                                        
+  Ja prüft den Ordner noch einmal und nimmt die unten aufgeführten Änderungen nur vor, wenn seine Liste unverändert ist.
+  Container dieser Stacks laufen bereits, ein Deploy würde daher doppelte Container erzeugen und deren Ports doppelt    
+  belegen. qhost warnt nur.                                                                                             
+                                                                                                                        
+    Ordner: /srv/files-example                                                                                          
+    Fall: files (Dateien ohne Repository; ein erster Commit nimmt die aufgeführten Dateien)                             
+    Eigentümer: root, Gruppe: root, Modus: 0755                                                                         
+    der Dienst kann ihn schreiben: nein                                                                                 
+    Rechte werden gesetzt: ja                                                                                           
+                                                                                                                        
+  Dateien des ersten Commits (3)                                                                                        
+    demo/.env                                                                                                           
+    demo/acme.json                                                                                                      
+    demo/compose.yaml                                                                                                   
+                                                                                                                        
+  Unklare Dateien (2), Daten oder ein Secret können darin liegen                                                        
+    Sie bleiben draußen, solange du sie nicht wählst; die Wahl plant den Ordner neu. Eine gewählte Datei mit Secret-    
+    Inhalt wird vor jedem Push weiter geprüft.                                                                          
+y ja, ausführen  w mit Remote  c Dateien wählen  n/esc/enter abbrechen                               ↑/↓ Scrollen  20/42

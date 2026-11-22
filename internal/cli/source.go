@@ -31,6 +31,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"the group qhost; inspect, add, move, compare, remote and remove need sudo. See 'qhost help sources'.",
 	}
 	var url string
+	var include []string
 	inspect := &cobra.Command{
 		Use:   "inspect <path>",
 		Short: "Classify a folder and show its permissions, files, stacks and container conflicts; changes nothing",
@@ -55,7 +56,12 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"permissions) and effect, a fingerprint of the case, missing, the listed and the left-out files and the\n" +
 			"permission changes. Pass the effect to 'source add --expect-effect' to apply exactly what was shown:\n" +
 			"add stops with the code state-changed when the effect differs by then. The address, the stacks and the\n" +
-			"containers are not part of the effect. A rejected folder has none of these fields.",
+			"containers are not part of the effect. A rejected folder has none of these fields.\n" +
+			"--include <path> (repeatable) plans a folder of files as if you had chosen that unclear file for the first\n" +
+			"commit, as 'source add --include' does: a file a stack mounts writable or names as a secrets file. The\n" +
+			"choice is part of the effect, so pass the same --include to 'source add' together with the effect; an\n" +
+			"effect worked out with another choice makes add stop with state-changed. A path that is not unclear is\n" +
+			"refused.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return usageFailure("source inspect takes exactly one argument, the path of the folder",
@@ -64,17 +70,18 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSourceInspect(c, program, state, args[0], url)
+			return runSourceInspect(c, program, state, args[0], url, include)
 		},
 	}
 	inspect.Flags().StringVar(&url, "url", "", "SSH address of the repository to clone, or to expect as origin")
+	inspect.Flags().StringArrayVar(&include, "include", nil, includeUsage)
 	group.AddCommand(inspect, newSourceAddCommand(program, state), newSourceRemoteCommand(program, state), newSourceCompareCommand(program, state), newSourceListCommand(program, state),
 		newSourceRemoveCommand(program, state), newSourceMoveCommand(program, state))
 	return group
 }
 
-func runSourceInspect(c *cobra.Command, program *cobracli.Program, state *notRunning, path, url string) error {
-	res, err := inspectSource(c, state, path, url)
+func runSourceInspect(c *cobra.Command, program *cobracli.Program, state *notRunning, path, url string, include []string) error {
+	res, err := inspectSource(c, state, path, url, include)
 	if err != nil {
 		return err
 	}
@@ -101,7 +108,7 @@ const gitNotWritableWarning = "warning: the service cannot write .git; source ad
 func structuredFormat(f output.Format) bool { return f == output.FormatJSON || f == output.FormatTOON }
 
 // inspectSource validates the arguments, asks the service and adds what only this client can tell.
-func inspectSource(c *cobra.Command, state *notRunning, path, url string) (control.SourceInspectResult, error) {
+func inspectSource(c *cobra.Command, state *notRunning, path, url string, include []string) (control.SourceInspectResult, error) {
 	var res control.SourceInspectResult
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
 		return res, usageFailure("the path must be absolute and clean", "Pass the absolute path of the folder.")
@@ -111,7 +118,7 @@ func inspectSource(c *cobra.Command, state *notRunning, path, url string) (contr
 			return res, usageFailure(err.Error(), "Pass the SSH address of the repository.")
 		}
 	}
-	if err := credentialCall(c, state, control.SourceInspectCommand, control.SourceInspectArgs{Path: path, URL: url}, &res); err != nil {
+	if err := credentialCall(c, state, control.SourceInspectCommand, control.SourceInspectArgs{Path: path, URL: url, Include: include}, &res); err != nil {
 		return res, err
 	}
 	// The service is sandboxed and sees every path that is not granted as read-only, so only this client can tell.
@@ -186,6 +193,9 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 		add("access", structured(format, res.Access))
 		add("planned_files", res.PlannedFiles)
 		add("excluded", structured(format, res.Excluded))
+		if len(res.Included) > 0 {
+			add("included", structured(format, res.Included))
+		}
 		if res.Ignore != nil {
 			add("ignore", structured(format, res.Ignore))
 		}
@@ -235,6 +245,9 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 			value += " (stack " + e.Stack + ")"
 		}
 		add("excluded", value)
+	}
+	for _, e := range res.Included {
+		add("included", e.Path+": "+e.Reason+" (chosen)")
 	}
 	if ig := res.Ignore; ig != nil {
 		add("gitignore", ig.Action)

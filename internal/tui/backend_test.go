@@ -67,7 +67,7 @@ func TestChannelBackendSpeaksTheServiceCommands(t *testing.T) {
 		"reposet":       func() error { _, err := b.RepoSet(ctx, control.RepoSetArgs{}); return err },
 		"fetch":         func() error { _, err := b.RepoFetch(ctx, ""); return err },
 		"fetchdir":      func() error { _, err := b.RepoFetch(ctx, "/var/tmp/demo-stacks"); return err },
-		"sourceinspect": func() error { _, err := b.SourceInspect(ctx, "/var/tmp/demo-stacks", ""); return err },
+		"sourceinspect": func() error { _, err := b.SourceInspect(ctx, "/var/tmp/demo-stacks", "", nil); return err },
 		"sourcecompare": func() error { _, err := b.SourceCompare(ctx, control.SourceCompareArgs{}); return err },
 		"sourceadd":     func() error { _, err := b.SourceAdd(ctx, control.SourceAddArgs{}); return err },
 		"sourceremote":  func() error { _, err := b.SourceRemote(ctx, control.SourceRemoteArgs{}); return err },

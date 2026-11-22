@@ -852,9 +852,21 @@ const (
 
 // SourceInspectArgs are the arguments of SourceInspectCommand. Path is the folder; URL is the SSH address of the
 // repository to clone or to expect as origin and may be empty.
+//
+// Include names unclear files of a folder of files that the first commit takes although they are left out
+// otherwise: files a stack mounts writable (SourceExcludedWritableFile) and files of a Compose secret
+// (SourceExcludedSecretsFile), as paths below the folder. The service plans with the choice and refuses a path
+// that it does not classify as unclear itself, and any choice for another case.
 type SourceInspectArgs struct {
-	Path string `json:"path"`
-	URL  string `json:"url,omitempty"`
+	Path    string   `json:"path"`
+	URL     string   `json:"url,omitempty"`
+	Include []string `json:"include,omitempty"`
+}
+
+// SourceUnclear tells whether a reason marks a file that may be chosen into the first commit (see
+// SourceInspectArgs.Include).
+func SourceUnclear(reason string) bool {
+	return reason == SourceExcludedWritableFile || reason == SourceExcludedSecretsFile
 }
 
 // SourceInspectResult answers SourceInspectCommand.
@@ -862,7 +874,8 @@ type SourceInspectArgs struct {
 // Case is one of the SourceCase constants. URL is the repository address of the clone, of the adopted clone and
 // of a folder of files that is to be joined with it. NeedsURL is set for a clone without a URL. Reason and Fix are set for a rejection. Access says who owns the
 // folder and what the service may do there; it is empty for a rejection. PlannedFiles, Excluded and Ignore are
-// set for SourceCaseFiles only. Stacks holds the stacks the folder would bring, none for a clone or a rejection;
+// set for SourceCaseFiles only; Included holds the unclear files that were chosen (they are among PlannedFiles,
+// with the reason they would be left out for). Stacks holds the stacks the folder would bring, none for a clone or a rejection;
 // StacksError says they could not be read. ContainersChecked says the container engine was asked;
 // ContainersError says why it could not be, and then the rest of the answer still holds. EnginesNotChecked
 // lists the rootless engines that are set up but could not be asked, each with the reason; only the root
@@ -877,6 +890,7 @@ type SourceInspectResult struct {
 	Access            *SourceAccess    `json:"access,omitempty"`
 	PlannedFiles      []string         `json:"planned_files,omitempty"`
 	Excluded          []SourceExcluded `json:"excluded,omitempty"`
+	Included          []SourceExcluded `json:"included,omitempty"`
 	Ignore            *SourceIgnore    `json:"ignore,omitempty"`
 	Stacks            []SourceStack    `json:"stacks"`
 	StacksError       string           `json:"stacks_error,omitempty"`
@@ -918,7 +932,9 @@ const SourceAddCommand = "source.add"
 // SourceAddArgs are the arguments of SourceAddCommand. Files is the list of planned files the operator confirmed
 // for a folder without a repository (SourceCaseFiles); only then does the service start a repository with
 // exactly these files, and only if the list still matches what the folder holds. With URL it is the plan of
-// SourceCompareResult, which includes the files the remote versions.
+// SourceCompareResult, which includes the files the remote versions. Include is the choice of unclear files as
+// for SourceInspectArgs: the service plans with it, so Files must hold the chosen files too, and refuses
+// otherwise.
 //
 // URL, Fingerprint, ExpectState and ExpectCommit connect that folder to a repository at URL: they are the
 // address, the confirmed host key and the SourceCompareResult (State and Commit) the operator was shown. The
@@ -927,6 +943,7 @@ const SourceAddCommand = "source.add"
 type SourceAddArgs struct {
 	Path         string   `json:"path"`
 	Files        []string `json:"files,omitempty"`
+	Include      []string `json:"include,omitempty"`
 	URL          string   `json:"url,omitempty"`
 	Fingerprint  string   `json:"fingerprint,omitempty"`
 	ExpectState  string   `json:"expect_state,omitempty"`
@@ -953,11 +970,12 @@ type SourceAddResult struct {
 const SourceCompareCommand = "source.compare"
 
 // SourceCompareArgs are the arguments of SourceCompareCommand. Fingerprint is the host key the operator
-// confirmed (see RepoProbeCommand).
+// confirmed (see RepoProbeCommand). Include is the choice of unclear files as for SourceInspectArgs.
 type SourceCompareArgs struct {
-	Path        string `json:"path"`
-	URL         string `json:"url"`
-	Fingerprint string `json:"fingerprint"`
+	Path        string   `json:"path"`
+	URL         string   `json:"url"`
+	Fingerprint string   `json:"fingerprint"`
+	Include     []string `json:"include,omitempty"`
 }
 
 // How a remote branch relates to the files of the folder.
@@ -979,9 +997,9 @@ const (
 // For SourceCaseFiles, PlannedFiles and Excluded are the plan that was compared, made as for
 // SourceInspectResult with the remote commit taken into account: a file of the folder that the remote commit
 // versions and that would only be left out as SourceExcludedNotReferenced is planned, so joining the remote
-// removes nothing it versions. RemoteFiles lists those planned files. Ignore is the change to the .gitignore
-// as for SourceInspectResult; the compared tree holds it. This plan is what SourceAddArgs.Files confirms when the
-// folder joins the remote.
+// removes nothing it versions. RemoteFiles lists those planned files. Included holds the unclear files that
+// were chosen. Ignore is the change to the .gitignore as for SourceInspectResult; the compared tree holds it.
+// This plan is what SourceAddArgs.Files confirms when the folder joins the remote.
 type SourceCompareResult struct {
 	Case         string           `json:"case"`
 	State        string           `json:"state"`
@@ -992,6 +1010,7 @@ type SourceCompareResult struct {
 	PlannedFiles []string         `json:"planned_files,omitempty"`
 	Excluded     []SourceExcluded `json:"excluded,omitempty"`
 	RemoteFiles  []string         `json:"remote_files,omitempty"`
+	Included     []SourceExcluded `json:"included,omitempty"`
 	Ignore       *SourceIgnore    `json:"ignore,omitempty"`
 	Secrets      *SourceSecrets   `json:"secrets,omitempty"`
 }

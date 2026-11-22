@@ -64,6 +64,8 @@ type addFlow struct {
 	// proposal is set when the person approves a proposal; the last question then approves it, and applying
 	// the change is checked against what the proposal and its effect were when they were shown.
 	proposal *proposalCtx
+	// include is the choice of unclear files the plan of res was made with; every later call sends it again.
+	include []string
 }
 
 // inspected is the answer of the inspection of a folder to add.
@@ -336,17 +338,17 @@ func (m *Model) submitFolder(f *settingsForm, path string) tea.Cmd {
 		return nil
 	}
 	ctx, host := m.ctx, m.folders
-	return m.writeCall(opInspect, path, func(b Backend) (any, error) { return inspectFolder(ctx, b, host, path) })
+	return m.writeCall(opInspect, path, func(b Backend) (any, error) { return inspectFolder(ctx, b, host, path, nil) })
 }
 
 // inspectFolder asks the service what the folder is and adds what only the host can tell: a read-only file
 // system, a missing folder and the permissions the service would need. It only reads.
-func inspectFolder(ctx context.Context, b Backend, host Folders, path string) (any, error) {
-	res, err := b.SourceInspect(ctx, path, "")
+func inspectFolder(ctx context.Context, b Backend, host Folders, path string, include []string) (any, error) {
+	res, err := b.SourceInspect(ctx, path, "", include)
 	if err != nil {
 		return nil, err
 	}
-	flow := &addFlow{res: res}
+	flow := &addFlow{res: res, include: include}
 	if res.Case == control.SourceCaseReject {
 		return inspected{flow}, nil
 	}
@@ -407,14 +409,16 @@ func (m *Model) showInspection(flow *addFlow) {
 			// The command takes the address of the proposal along, so a folder without remote is not offered:
 			// the command would refuse it every time. The only way on is with the remote, as for a clone.
 			m.askSheet(title, m.finalQuestion(flow, t.Lookup(textAskFolderFiles, res.Path)), m.finalConsequence(flow, textWhatFolderFiles), body,
-				[]kittui.Answer{{Action: actYes, Label: textAnswerWithRemote}, {Action: actNo, Label: textAnswerCancel}},
+				chooseAnswers(flow, []kittui.Answer{{Action: actYes, Label: textAnswerWithRemote}, {Action: actNo, Label: textAnswerCancel}}),
 				func() tea.Cmd { return m.openForm(m.folderURLForm()) })
+			m.offerChoice(flow)
 			return
 		}
 		files := []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actWithRemote, Label: textAnswerWithRemote},
 			{Action: actNo, Label: textAnswerCancel}}
-		m.askSheet(title, m.finalQuestion(flow, t.Lookup(textAskFolderFiles, res.Path)), m.finalConsequence(flow, textWhatFolderFiles), final, files,
-			m.lastStep(flow, func() tea.Cmd { return m.addFolder(flow) }))
+		m.askSheet(title, m.finalQuestion(flow, t.Lookup(textAskFolderFiles, res.Path)), m.finalConsequence(flow, textWhatFolderFiles), final,
+			chooseAnswers(flow, files), m.lastStep(flow, func() tea.Cmd { return m.addFolder(flow) }))
+		m.offerChoice(flow)
 		if m.modal != nil {
 			// The same comparison as for a local folder, with the repository that already holds content.
 			m.modal.alt = func() tea.Cmd { return m.openForm(m.folderURLForm()) }
@@ -572,10 +576,11 @@ func applyFolder(ctx context.Context, b Backend, host Folders, flow *addFlow) (a
 		var err error
 		if flow.cmp != nil {
 			var cmp control.SourceCompareResult
-			cmp, err = b.SourceCompare(ctx, control.SourceCompareArgs{Path: path, URL: flow.url, Fingerprint: flow.probe.Fingerprint})
+			cmp, err = b.SourceCompare(ctx, control.SourceCompareArgs{Path: path, URL: flow.url, Fingerprint: flow.probe.Fingerprint,
+				Include: flow.include})
 			now = withComparison(control.SourceInspectResult{Case: cmp.Case}, cmp)
 		} else {
-			now, err = b.SourceInspect(ctx, path, "")
+			now, err = b.SourceInspect(ctx, path, "", flow.include)
 		}
 		if err != nil {
 			return nil, err
@@ -603,7 +608,7 @@ func applyFolder(ctx context.Context, b Backend, host Folders, flow *addFlow) (a
 		set, err := b.RepoSet(ctx, control.RepoSetArgs{URL: flow.url, Dir: path, Fingerprint: flow.probe.Fingerprint})
 		return set, kept(err)
 	case control.SourceCaseFiles:
-		args := control.SourceAddArgs{Path: path, Files: res.PlannedFiles}
+		args := control.SourceAddArgs{Path: path, Files: res.PlannedFiles, Include: flow.include}
 		if c := flow.cmp; c != nil {
 			args.URL, args.Fingerprint, args.ExpectState, args.ExpectCommit = flow.url, flow.probe.Fingerprint, c.State, c.Commit
 		}
@@ -617,9 +622,12 @@ func applyFolder(ctx context.Context, b Backend, host Folders, flow *addFlow) (a
 // listDiffers says the answer now differs from the one shown in the case, the planned files or what is left out.
 func listDiffers(shown, now control.SourceInspectResult) bool {
 	excluded := func(r control.SourceInspectResult) []string {
-		out := make([]string, 0, len(r.Excluded))
+		out := make([]string, 0, len(r.Excluded)+len(r.Included))
 		for _, e := range r.Excluded {
 			out = append(out, e.Path+"\x00"+e.Reason)
+		}
+		for _, e := range r.Included {
+			out = append(out, "+\x00"+e.Path+"\x00"+e.Reason)
 		}
 		return out
 	}
@@ -669,17 +677,21 @@ func (m *Model) inspectionLines(flow *addFlow, width int) []string {
 	if res.Case == control.SourceCaseFiles {
 		lines = append(lines, "", m.line(detailMargin, kittui.StyleActive, t.Lookup(textHeadFiles, len(res.PlannedFiles)), width))
 		lines = append(lines, m.entryLines(res.PlannedFiles, width)...)
-		lines = append(lines, "", m.line(detailMargin, kittui.StyleActive, t.Lookup(textHeadExcluded, len(res.Excluded)), width))
-		if len(res.Excluded) == 0 {
-			lines = append(lines, text(kittui.StyleHint, t.Lookup(textExcludedNone))...)
-		}
+		lines = append(lines, m.unclearLines(res, width)...)
 		var left []string
 		for _, e := range res.Excluded {
+			if control.SourceUnclear(e.Reason) {
+				continue
+			}
 			entry := t.Lookup(textExcludedEntry, e.Path, e.Reason)
 			if e.Stack != "" {
 				entry = t.Lookup(textExcludedStack, e.Path, e.Reason, e.Stack)
 			}
 			left = append(left, entry)
+		}
+		lines = append(lines, "", m.line(detailMargin, kittui.StyleActive, t.Lookup(textHeadExcluded, len(left)), width))
+		if len(left) == 0 {
+			lines = append(lines, text(kittui.StyleHint, t.Lookup(textExcludedNone))...)
 		}
 		lines = append(lines, m.entryLines(left, width)...)
 	}
