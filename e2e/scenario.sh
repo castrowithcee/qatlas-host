@@ -3580,7 +3580,7 @@ EOF2
 	printf '%s' "$out" | jq -e '([.warnings[].code] | index("downtime")) != null' >/dev/null || fail "no downtime warning for a running project: $out"
 	out=$(qd source move "$base" --into "$into") || fail "source move in text failed: $out"
 	printf '%s' "$out" | grep -qF "$into/moveapp" || fail "the text does not show the target folder: $out"
-	printf '%s' "$out" | grep -q 'planned_file.*compose.yaml' || fail "the text does not list compose.yaml: $out"
+	printf '%s' "$out" | grep -q '^PLANNED_FILE .*compose.yaml' || fail "the text does not list compose.yaml: $out"
 
 	step 'nothing changed: the containers run on, the folders are as they were'
 	[ "$(docker exec "$host" docker ps -q --no-trunc --filter label=com.docker.compose.project=moveapp | sort)" = "$ids_before" ] ||
