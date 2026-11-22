@@ -3360,7 +3360,14 @@ scenario_tui_engine() {
 	tui_wait "Engine $te_engine" 30
 	tui_wait 'demo-rootless' 30
 	tui_send Home
-	tui_cursor_to demo-rootless
+	# The rootless section comes after every row of the system section, more rows than tui_cursor_to walks.
+	i=0
+	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] demo-rootless "; do
+		i=$((i + 1))
+		[ "$i" -lt 40 ] || fail "the cursor does not reach demo-rootless: $(tui_screen)"
+		tui_send Down
+		sleep 0.2
+	done
 	tui_excerpt 'demo-rootless' 12
 
 	step 'a deploy from the section runs through sudo in the instance'
@@ -4790,7 +4797,7 @@ EOF2
 	tui_wait "[ ] $ds_stack" 30
 	tui_send Home
 	i=0
-	until tui_screen | grep -q "^\(│ \)\{0,1\}> .*\[.\] $ds_stack "; do
+	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] $ds_stack "; do
 		i=$((i + 1))
 		[ "$i" -lt 40 ] || fail "the cursor does not reach $ds_stack: $(tui_screen)"
 		tui_send Down
@@ -6190,7 +6197,7 @@ tui_wait() {
 # the focus must be in the list.
 tui_cursor_to() {
 	i=0
-	until tui_screen | grep -q "^\(│ \)\{0,1\}> .*\[.\] $1 "; do
+	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] $1 "; do
 		i=$((i + 1))
 		[ "$i" -lt 12 ] || fail "the cursor does not reach $1: $(tui_screen)"
 		tui_send Down
@@ -6203,7 +6210,7 @@ tui_cursor_to() {
 tui_folder_to() {
 	tui_send Home
 	i=0
-	until tui_screen | grep -q "^\(│ \)\{0,1\}> .*\[.\] [^ ]* $1 ("; do
+	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] [^ ]* $1 ("; do
 		i=$((i + 1))
 		[ "$i" -lt 40 ] || fail "the cursor does not reach the folder $1: $(tui_screen)"
 		tui_send Down
@@ -6237,7 +6244,7 @@ tui_wheel() {
 tui_click_row() {
 	tui_click "$1"
 	i=0
-	until tui_screen | grep -q "^\(│ \)\{0,1\}> .*\[.\] $1 "; do
+	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] $1 "; do
 		i=$((i + 1))
 		[ "$i" -lt 20 ] || fail "the click did not mark $1: $(tui_screen)"
 		sleep 0.25
