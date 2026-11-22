@@ -20,6 +20,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/changelog"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/deploylog"
 	"github.com/castrowithcee/qatlas-host/internal/engine"
 	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 	"github.com/castrowithcee/qatlas-host/internal/grants"
@@ -148,6 +149,19 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 	registry := control.NewRegistry()
 	if err := registerServiceLogCommands(registry, logs, secrets); err != nil {
 		return err
+	}
+	// Only the service writes the action log. A service without a state directory keeps none.
+	var audit auditSink
+	if cfg.StateDir != "" {
+		auditDir := filepath.Join(cfg.StateDir, deploylog.DirName)
+		logger, err := deploylog.Open(auditDir)
+		if err != nil {
+			return err
+		}
+		audit = logger
+		if err := registerAuditCommands(registry, auditDir); err != nil {
+			return err
+		}
 	}
 	started := time.Now().UTC().Truncate(time.Second)
 	notifier, err := newNotifyService(cfg.StateDir, store, cfg.Notify, secrets, cfg.Version, log)
@@ -316,7 +330,7 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 		check = kernelPeer
 	}
 	log.Info("service started")
-	serve(ctx, l, registry, check, db.authorize, log)
+	serve(ctx, l, registry, check, db.authorize, log, audit)
 	log.Info("service stopped")
 	return nil
 }

@@ -2595,6 +2595,7 @@ scenario_stacks_repo() {
 	scenario_container_actions
 
 	scenario_stack_actions
+	scenario_deploy_audit
 
 	scenario_grants
 
@@ -5046,6 +5047,32 @@ scenario_stack_actions() {
 	out=$(qd stack stop nope --yes) && fail "stack stop of an unknown stack succeeded: $out"
 	printf '%s' "$out" | grep -q 'no such stack' || fail "the refusal of an unknown stack is unclear: $out"
 	log 'scenario: stack stop, start and restart passed'
+}
+
+# scenario_deploy_audit proves the action log of the deploy service: a listing by the administrator without sudo and
+# a restart by root appear in 'qhost audit --service deploy' with their two different users, the stack of the
+# restart and the origin of the command line, and the chain of the log checks out.
+scenario_deploy_audit() {
+	step 'the action log of the deploy service shows a request without sudo and one with sudo with their users'
+	admin_uid=$(as_admin 'id -u')
+	[ "$admin_uid" != 0 ] || fail 'the administrator is root'
+	out=$(as_admin 'qhost stack list 2>&1') || fail "qhost stack list without sudo failed: $out"
+	out=$(qd stack restart demo-stack --yes) || fail "stack restart failed: $out"
+	out=$(as_admin 'qhost --output json audit --service deploy --limit 200 2>&1') || fail "qhost audit --service deploy failed: $out"
+	flat=$(printf '%s' "$out" | tr -d '\n')
+	printf '%s' "$flat" | grep -q "\"command\": *\"stacks.list\"[^}]*\"client_uid\": *$admin_uid\b\|\"client_uid\": *$admin_uid\b[^}]*\"command\": *\"stacks.list\"" ||
+		fail "the audit log of the deploy service has no stacks.list request of user $admin_uid: $out"
+	printf '%s' "$flat" | grep -q '"command": *"stack.restart"' || fail "the audit log of the deploy service has no stack.restart request: $out"
+	printf '%s' "$flat" | grep -q '"stack": *"demo-stack"' || fail "the audit log of the deploy service does not name the stack of the restart: $out"
+	printf '%s' "$flat" | grep -q '"client_uid": *0\b' || fail "the audit log of the deploy service has no request of root: $out"
+	printf '%s' "$flat" | grep -q '"origin": *"cli"' || fail "the audit log of the deploy service does not show the origin cli: $out"
+	printf '%s' "$flat" | grep -q '"service": *"deploy"' || fail "the audit output does not name the service: $out"
+	printf '%s' "$flat" | grep -q '"engine": *"system"' || fail "the audit output does not name the engine: $out"
+	if printf '%s' "$out" | grep -qF -- not-a-real-secret-e2e; then fail "a secret value shows in the audit log of the deploy service: $out"; fi
+	out=$(as_admin 'qhost audit verify --service deploy 2>&1') || fail "qhost audit verify --service deploy failed: $out"
+	printf '%s' "$out" | grep -q 'intact' || fail "qhost audit verify --service deploy does not report the log as intact: $out"
+	[ "$(docker exec "$host" stat -c %U:%a /var/lib/qhost-deploy/audit)" = qhost-deploy:700 ] || fail 'the audit log of the deploy service has the wrong owner or mode'
+	log 'scenario: the audit log of the deploy service named both users, the stack and the origin, and its chain is intact'
 }
 
 # scenario_grants proves the standing grants of demo-stack: a plan without --confirm stores nothing, sudo qhost grant

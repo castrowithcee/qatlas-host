@@ -18,20 +18,31 @@ import (
 func newAuditCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var since, until, action, result string
 	var limit int
+	var target auditTarget
 	cmd := &cobra.Command{
-		Use:   "audit [--since <time>] [--until <time>] [--action <action>] [--result success|failure] [--limit <n>]",
-		Short: "Show the action log of the qhost host service, newest first",
+		Use: "audit [--service host|deploy] [--engine <engine>] [--since <time>] [--until <time>] [--action <action>] " +
+			"[--result success|failure] [--limit <n>]",
+		Short: "Show the action log of the qhost host service or of a deploy service, newest first",
 		Long: "audit shows the action log that the host service keeps: one entry per request on its channel and per change of\n" +
 			"the host, with time, the user ID of the client, the action, the result with its error code, and the duration.\n" +
 			"An entry never holds an argument or a secret value. A change of the host names the person behind sudo, the\n" +
 			"registered action and its journal entry. The log is a hash chain; 'qhost audit verify' checks it. It is\n" +
 			"not the log of the service itself ('qhost service log') and not the protocol of a run ('qhost stack log').\n\n" +
+			"--service deploy shows the log of a deploy service instead: one entry per request and per refusal, with time,\n" +
+			"the user ID of the client, the command, its class and scope, the stack of a command for one stack, the\n" +
+			"result with its error code, the duration and the origin (cli, tui, mcp or unknown) the client claimed, which\n" +
+			"is for display only. --action then shows one command, such as stack.restart. --engine chooses the deploy\n" +
+			"service: " + instanceRule + " Every deploy service keeps its own log, readable only by its service user. The\n" +
+			"machine-readable output names the service and the engine.\n\n" +
 			"--since and --until take a duration back from now (90s, 15m, 2h) or a time (2026-01-02T15:04:05Z) and are\n" +
 			"inclusive. --action shows one action, such as log.read or host.change. --result shows success or failure\n" +
 			fmt.Sprintf("only. --limit shows at most n entries (default %d, at most %d). ", control.HostLogDefaultLimit, control.HostLogMaxLimit) +
 			"It changes nothing and needs no sudo for an\nadministrator in the group qhost.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
+			if err := target.resolve(c); err != nil {
+				return err
+			}
 			now := time.Now()
 			from, err := parseLogTime("--since", since, now)
 			if err != nil {
@@ -56,6 +67,9 @@ func newAuditCommand(program *cobracli.Program, state *notRunning) *cobra.Comman
 			}
 			if !to.IsZero() {
 				a.To = to.UTC().Format(time.RFC3339)
+			}
+			if target.deploy() {
+				return auditDeployList(c, program, state, a)
 			}
 			var res control.HostLogListResult
 			if err := hostCall(c, state, control.HostLogListCommand, a, &res); err != nil {
@@ -94,11 +108,13 @@ func newAuditCommand(program *cobracli.Program, state *notRunning) *cobra.Comman
 	cmd.Flags().StringVar(&action, "action", "", "only entries of this action, such as log.read or host.change")
 	cmd.Flags().StringVar(&result, "result", "", "only entries with this result: success or failure")
 	cmd.Flags().IntVar(&limit, "limit", control.HostLogDefaultLimit, "show at most n entries")
-	cmd.AddCommand(newAuditVerifyCommand(program, state))
+	cmd.PersistentFlags().StringVar(&target.service, "service", auditServiceHost, "service whose log is shown: host or deploy")
+	cmd.PersistentFlags().StringVar(&target.engine, "engine", "", instanceEngineUsage+"; only with --service deploy")
+	cmd.AddCommand(newAuditVerifyCommand(program, state, &target))
 	return cmd
 }
 
-func newAuditVerifyCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
+func newAuditVerifyCommand(program *cobracli.Program, state *notRunning, target *auditTarget) *cobra.Command {
 	return &cobra.Command{
 		Use:   "verify",
 		Short: "Check the hash chain of the action log, day by day",
@@ -107,11 +123,19 @@ func newAuditVerifyCommand(program *cobracli.Program, state *notRunning) *cobra.
 			"An unreadable line, such as one torn by a crash, that a marker entry right after it documents leaves the\n" +
 			"chain intact and is counted as damaged. A broken chain ends with exit code 1 after the report. The chain\n" +
 			"shows damage and gaps; whoever controls root or the service user can still rewrite the log consistently.\n" +
+			"--service deploy checks the log of a deploy service; --engine chooses it as 'qhost audit' describes.\n" +
 			"It changes nothing and needs no sudo for an administrator in the group qhost.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
+			if err := target.resolve(c); err != nil {
+				return err
+			}
 			var res control.HostLogVerifyResult
-			if err := hostCall(c, state, control.HostLogVerifyCommand, nil, &res); err != nil {
+			if target.deploy() {
+				if err := credentialCall(c, state, control.HostLogVerifyCommand, nil, &res); err != nil {
+					return err
+				}
+			} else if err := hostCall(c, state, control.HostLogVerifyCommand, nil, &res); err != nil {
 				return err
 			}
 			problems := map[string]control.HostLogProblem{}
@@ -127,14 +151,15 @@ func newAuditVerifyCommand(program *cobracli.Program, state *notRunning) *cobra.
 						row["detail"] = problemDetail(p)
 					}
 				}
+				target.label(c, row)
 				rows = append(rows, row)
 			}
 			if err := output.Encode(c.OutOrStdout(), program.Format(), output.Collection{
-				Columns: []string{"day", "entries", "chain", "damaged", "detail"}, Rows: rows}); err != nil {
+				Columns: target.columns("day", "entries", "chain", "damaged", "detail"), Rows: rows}); err != nil {
 				return err
 			}
 			if !res.Intact {
-				return &cli.Failure{Code: output.CodeRuntime, Message: "the action log of the host service is broken",
+				return &cli.Failure{Code: output.CodeRuntime, Message: "the action log of the " + target.service + " service is broken",
 					NextStep:      "Read the report above for the broken day; keep the log files as they are and restore them from a backup if needed.",
 					AgentNextStep: "Tell the user which day is broken; do not repair or delete log files."}
 			}
@@ -185,4 +210,75 @@ func hostFailure(err error) error {
 			NextStep: "Fix the argument and run the command again.", Cause: err}
 	}
 	return failureOf(err)
+}
+
+// The services whose action log qhost audit shows.
+const (
+	auditServiceHost   = "host"
+	auditServiceDeploy = "deploy"
+)
+
+// auditTarget is the choice of --service and --engine.
+type auditTarget struct{ service, engine string }
+
+func (t *auditTarget) deploy() bool { return t.service == auditServiceDeploy }
+
+// resolve checks the options and, for the deploy service, makes the instance --engine names the target of every
+// later call. The host service has one log, so --engine without --service deploy is an error.
+func (t *auditTarget) resolve(c *cobra.Command) error {
+	switch t.service {
+	case auditServiceHost:
+		if t.engine != "" {
+			return usageFailure("--engine needs --service deploy", "Add --service deploy, or leave --engine out.")
+		}
+		return nil
+	case auditServiceDeploy:
+		return routeInstance(c, t.engine)
+	}
+	return usageFailure("--service must be host or deploy", "Fix the value and run the command again.")
+}
+
+// label names the service and, for the deploy service, the engine in a row; the log of the host service has
+// neither, so its output stays as it was.
+func (t *auditTarget) label(c *cobra.Command, row output.Row) {
+	if t.deploy() {
+		row["service"], row["engine"] = auditServiceDeploy, targetOf(c.Context()).id()
+	}
+}
+
+// columns puts the service and engine columns of the deploy service before cols.
+func (t *auditTarget) columns(cols ...string) []string {
+	if t.deploy() {
+		return append([]string{"service", "engine"}, cols...)
+	}
+	return cols
+}
+
+// auditDeployList shows the entries of the action log of the chosen deploy service.
+func auditDeployList(c *cobra.Command, program *cobracli.Program, state *notRunning, args control.HostLogListArgs) error {
+	var res control.DeployLogListResult
+	if err := credentialCall(c, state, control.HostLogListCommand, args, &res); err != nil {
+		return err
+	}
+	target := auditTarget{service: auditServiceDeploy}
+	rows := make([]output.Row, 0, len(res.Entries))
+	for _, e := range res.Entries {
+		row := output.Row{
+			"seq": int64(e.Seq), "time": e.Time.UTC().Format(time.RFC3339Nano), "result": e.Result,
+			"duration_ms": e.DurationMS, "origin": e.Origin,
+		}
+		for k, v := range map[string]string{"command": e.Command, "class": e.Class, "scope": e.Scope, "stack": e.Stack, "error_code": e.ErrorCode} {
+			if v != "" {
+				row[k] = v
+			}
+		}
+		if e.ClientUID != nil {
+			row["client_uid"] = int64(*e.ClientUID)
+		}
+		target.label(c, row)
+		rows = append(rows, row)
+	}
+	return output.Encode(c.OutOrStdout(), program.Format(), output.Collection{
+		Columns: target.columns("seq", "time", "client_uid", "command", "class", "scope", "stack", "result", "error_code", "duration_ms", "origin"),
+		Rows:    rows})
 }

@@ -194,6 +194,8 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		control.ContainerListCommand:    {control.ContainerListArgs{}},
 		control.ContainerGetCommand:     {control.ContainerGetArgs{Name: app.Name}},
 		control.ServiceLogCommand:       {control.ServiceLogArgs{}},
+		control.HostLogListCommand:      {control.HostLogListArgs{}},
+		control.HostLogVerifyCommand:    {nil},
 		control.ProposalListCommand:     {nil},
 		control.ProposalShowCommand:     {control.ProposalIDArgs{ID: prop.ID}},
 		control.GrantListCommand:        {nil, control.GrantListArgs{Stack: "plain-stack"}},
