@@ -443,10 +443,10 @@ push_private_images() {
 		rm -rf /tmp/private-image /tmp/private-docker" || fail 'pushing the images to the private registry failed'
 }
 
-# backup_helper_ref prints the default helper image of the backup package, name and digest.
+# backup_helper_ref prints the default helper image of backups and the namespace check, name and digest.
 backup_helper_ref() {
-	ref=$(sed -n 's/^const DefaultImage = "\(busybox@sha256:[0-9a-f]*\)"$/\1/p' "$root/internal/backup/backup.go")
-	[ -n "$ref" ] || fail 'the default backup image is not found in internal/backup/backup.go'
+	ref=$(sed -n 's/^\tHelperImage = "\(busybox@sha256:[0-9a-f]*\)"$/\1/p' "$root/internal/compose/datadirs.go")
+	[ -n "$ref" ] || fail 'the default helper image is not found in internal/compose/datadirs.go'
 	printf '%s\n' "$ref"
 }
 

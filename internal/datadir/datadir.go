@@ -77,7 +77,7 @@ type Request struct {
 }
 
 // Result says what a creation did. Created are the requested directories that were made, Parents the missing
-// intermediate directories made on the way (same owner and mode), Existing the requested paths that already
+// intermediate directories made on the way (owner of the nearest existing parent, see Create), Existing the requested paths that already
 // existed and were left untouched.
 type Result struct {
 	Created  []string
@@ -91,10 +91,17 @@ var (
 	chmodFd = unix.Fchmod
 )
 
+// parentMode is what a created parent gets at least: search and listing for owner and group.
+const parentMode fs.FileMode = 0o750
+
 const openDir = unix.O_RDONLY | unix.O_DIRECTORY | unix.O_NOFOLLOW | unix.O_CLOEXEC
 
 // Create makes the missing directories of req. It validates everything before it changes anything. On an
 // error it returns what was done up to then.
+//
+// Only a requested directory gets req.Owner. A missing parent gets the owner of the nearest existing parent and
+// the mode with at least 0750, so the service user that walks the path keeps its search right even when the
+// requested owner is a container user.
 func Create(req Request) (Result, error) {
 	var res Result
 	mode := req.Mode
@@ -191,16 +198,28 @@ func createOne(root int, rel string, mode fs.FileMode, req Request, requested ma
 			return fmt.Errorf("create %s: %w", prefix, err)
 		}
 		next, err = unix.Openat(cur, seg, openDir, 0)
-		unix.Close(cur)
+		parent := cur
 		if err != nil {
+			unix.Close(parent)
 			return fmt.Errorf("open %s after creating it: %w", prefix, err)
 		}
+		owner, dirMode := req.Owner, mode
+		if !requested[prefix] {
+			var st unix.Stat_t
+			if err := unix.Fstat(parent, &st); err != nil {
+				unix.Close(parent)
+				unix.Close(next)
+				return fmt.Errorf("read the owner of the folder above %s: %w", prefix, err)
+			}
+			owner, dirMode = Owner{UID: st.Uid, GID: st.Gid}, mode|parentMode
+		}
+		unix.Close(parent)
 		cur = next
-		if err := chownFd(cur, int(req.Owner.UID), int(req.Owner.GID)); err != nil {
+		if err := chownFd(cur, int(owner.UID), int(owner.GID)); err != nil {
 			unix.Close(cur)
 			return fmt.Errorf("set the owner of %s: %w", prefix, err)
 		}
-		if err := chmodFd(cur, uint32(mode)); err != nil {
+		if err := chmodFd(cur, uint32(dirMode)); err != nil {
 			unix.Close(cur)
 			return fmt.Errorf("set the mode of %s: %w", prefix, err)
 		}

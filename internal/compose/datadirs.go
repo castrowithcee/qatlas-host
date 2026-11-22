@@ -12,12 +12,15 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/idmap"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
@@ -26,6 +29,11 @@ const (
 	maxImageFile = 1 << 20
 	// imageCallTimeout bounds each docker call that inspects an image.
 	imageCallTimeout = 30 * time.Second
+	// HelperImage is the helper image: busybox 1.37.0, pinned by the digest of its multi-platform index.
+	HelperImage = "busybox@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
+	// NamespaceScript prints the two mappings of the user namespace a container of the engine runs in, separated
+	// by a line with two dashes. It is constant.
+	NamespaceScript = "cat /proc/self/uid_map; echo --; cat /proc/self/gid_map"
 )
 
 var (
@@ -91,13 +99,18 @@ func (x *Executor) MissingDataDirs(ctx context.Context, st stacks.Stack,
 	}
 	sort.Strings(names)
 	var found []dataCandidate
+	var unreadable []string
 	seen := map[string]bool{}
 	for _, n := range names {
 		for _, v := range cfg.Services[n].Volumes {
 			if v.Type != "bind" || (v.Bind != nil && v.Bind.CreateHostPath != nil && !*v.Bind.CreateHostPath) {
 				continue
 			}
-			rel, ok := missingBelow(dir, real, v.Source)
+			rel, ok, err := missingBelow(dir, real, v.Source)
+			if err != nil {
+				unreadable = append(unreadable, err.Error())
+				continue
+			}
 			if !ok || seen[rel] {
 				continue
 			}
@@ -105,12 +118,17 @@ func (x *Executor) MissingDataDirs(ctx context.Context, st stacks.Stack,
 			found = append(found, dataCandidate{rel: rel, service: n})
 		}
 	}
+	if len(unreadable) > 0 {
+		sort.Strings(unreadable)
+		return nil, fmt.Errorf("a data directory cannot be checked: %s", strings.Join(slices.Compact(unreadable), "; "))
+	}
 	if len(found) == 0 {
 		return nil, nil
 	}
 
 	users := &imageUsers{x: x, st: st, log: log, cfg: cfg.Services, cache: map[string]*imageInfo{}}
 	var out []engine.MissingDir
+	host := &hostIDs{x: x, log: log, dir: dir}
 	for _, c := range found {
 		if versioned != nil {
 			v, err := versioned(ctx, c.rel)
@@ -122,9 +140,18 @@ func (x *Executor) MissingDataDirs(ctx context.Context, st stacks.Stack,
 			}
 		}
 		owner, needed := users.owner(ctx, c.service)
-		if needed {
-			out = append(out, engine.MissingDir{Path: c.rel, Owner: owner})
+		if !needed {
+			continue
 		}
+		d := engine.MissingDir{Path: c.rel}
+		if owner != "" {
+			d.Container = owner
+			d.Owner, d.Warning = host.translate(ctx, owner)
+			if d.Warning != "" {
+				log.Printf("no owner is proposed for %s: %s", c.rel, d.Warning)
+			}
+		}
+		out = append(out, d)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 	return out, nil
@@ -132,18 +159,20 @@ func (x *Executor) MissingDataDirs(ctx context.Context, st stacks.Stack,
 
 // missingBelow returns the path of source relative to the stack folder dir when it is a candidate: absolute,
 // strictly inside dir, absent, and with the deepest existing ancestor resolving inside realDir, the stack
-// folder with symlinks resolved. Anything else, also an unreadable or dangling parent, is no candidate.
-func missingBelow(dir, realDir, source string) (string, bool) {
+// folder with symlinks resolved. Anything else is no candidate, except a path that cannot be examined (no
+// access to a parent, say): that is an error, so it is reported and not passed over.
+func missingBelow(dir, realDir, source string) (string, bool, error) {
 	if !filepath.IsAbs(source) || strings.ContainsRune(source, 0) {
-		return "", false
+		return "", false, nil
 	}
 	p := filepath.Clean(source)
 	rel, err := filepath.Rel(dir, p)
 	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", false
+		return "", false, nil
 	}
+	rel = filepath.ToSlash(rel)
 	if _, err := os.Lstat(p); !errors.Is(err, fs.ErrNotExist) {
-		return "", false
+		return "", false, examineError(rel, err)
 	}
 	anc := filepath.Dir(p)
 	for {
@@ -152,15 +181,95 @@ func missingBelow(dir, realDir, source string) (string, bool) {
 			break
 		}
 		if !errors.Is(err, fs.ErrNotExist) || anc == dir {
-			return "", false
+			return "", false, examineError(rel, err)
 		}
 		anc = filepath.Dir(anc)
 	}
 	res, err := filepath.EvalSymlinks(anc)
-	if err != nil || (res != realDir && !strings.HasPrefix(res, realDir+string(filepath.Separator))) {
-		return "", false
+	if err != nil {
+		return "", false, examineError(rel, err)
 	}
-	return filepath.ToSlash(rel), true
+	if res != realDir && !strings.HasPrefix(res, realDir+string(filepath.Separator)) {
+		return "", false, nil
+	}
+	return rel, true, nil
+}
+
+// examineError is nil for the outcomes that only make a path no candidate: it exists (err is nil), a parent is a
+// file, or a link dangles. Any other error, in particular a refused access, is returned with the path.
+func examineError(rel string, err error) error {
+	if err == nil || errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) || errors.Is(err, syscall.ELOOP) {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", rel, err)
+}
+
+// hostIDs converts the UID:GID of a container user into the host IDs they stand for. The engine's mapping is
+// read once, on the first need, through a helper container that runs in the namespace of the engine's
+// containers.
+type hostIDs struct {
+	x      *Executor
+	log    Logger
+	dir    string
+	loaded bool
+	uid    idmap.Map
+	gid    idmap.Map
+	err    error
+}
+
+// translate returns the host "UID:GID" of the container "UID:GID" owner. When the mapping cannot be read or
+// an ID lies outside it, the owner is empty and the warning says why.
+func (h *hostIDs) translate(ctx context.Context, owner string) (string, string) {
+	if !h.loaded {
+		h.loaded = true
+		h.uid, h.gid, h.err = h.x.idMaps(ctx, h.log, h.dir)
+	}
+	if h.err != nil {
+		return "", "the user namespace of the engine cannot be read: " + h.err.Error()
+	}
+	us, gs, _ := strings.Cut(owner, ":")
+	hostUID, okU := h.uid.Outside(uint64(atoi(us)))
+	hostGID, okG := h.gid.Outside(uint64(atoi(gs)))
+	switch {
+	case !okU:
+		return "", "container user " + us + " is outside the user ID range of the engine"
+	case !okG:
+		return "", "container group " + gs + " is outside the group ID range of the engine"
+	case hostUID >= 1<<32-1 || hostGID >= 1<<32-1:
+		return "", "the host ID of container user " + owner + " is out of range"
+	}
+	return strconv.FormatUint(hostUID, 10) + ":" + strconv.FormatUint(hostGID, 10), ""
+}
+
+// idMaps returns the UID and GID mapping of the engine's containers: IDMaps when set, else read through a
+// container of the helper image, which runs no code of the stacks.
+func (x *Executor) idMaps(ctx context.Context, log Logger, dir string) (idmap.Map, idmap.Map, error) {
+	if x.IDMaps != nil {
+		return x.IDMaps(ctx, log)
+	}
+	img := x.HelperImage
+	if img == "" {
+		img = HelperImage
+	}
+	var out bytes.Buffer
+	c := Command{Name: dockerProgram, Dir: dir, Env: x.Env, Stdout: &out, Args: []string{"run", "--rm", "--network", "none",
+		"--read-only", "--security-opt", "no-new-privileges", img, "sh", "-c", NamespaceScript}}
+	if _, err := x.runNamed(ctx, log, c, orDefault(x.PullTimeout, DefaultPullTimeout), "engine namespace"); err != nil {
+		return nil, nil, err
+	}
+	uidText, gidText, ok := strings.Cut(out.String(), "\n--\n")
+	if !ok {
+		return nil, nil, errors.New("unexpected output of the helper container")
+	}
+	uid, err := idmap.Parse(uidText)
+	if err != nil {
+		return nil, nil, err
+	}
+	gid, err := idmap.Parse(gidText)
+	if err != nil {
+		return nil, nil, err
+	}
+	return uid, gid, nil
 }
 
 // imageInfo is what is known about an image: the user it runs as, and /etc/passwd and /etc/group once read.
