@@ -137,13 +137,15 @@ func runDatadir(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate
 	}
 	paths := make([]string, len(dirs))
 	proposals := map[string]bool{}
+	var shown []string
 	for i, d := range dirs {
 		paths[i] = d.Path
 		proposals[d.Owner] = true
+		shown = append(shown, dirLine(d))
 	}
 	if chosen == nil {
 		if len(proposals) != 1 || proposals[""] {
-			return usageFailure("the finding proposes no single owner for "+strings.Join(paths, ", "),
+			return usageFailure("the finding proposes no single owner for:\n  "+strings.Join(shown, "\n  "),
 				"Run the command again with --owner UID:GID, the user the container runs as.")
 		}
 		o, err := datadir.ParseOwner(dirs[0].Owner)
@@ -161,7 +163,7 @@ func runDatadir(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate
 		verb = "Creating"
 	}
 	if _, err := fmt.Fprintf(c.ErrOrStderr(), "%s in %s, owner %s, mode %04o:\n  %s\n",
-		verb, dir, chosen, mode, strings.Join(paths, "\n  ")); err != nil {
+		verb, dir, chosen, mode, strings.Join(shown, "\n  ")); err != nil {
 		return err
 	}
 	question := fmt.Sprintf("Create %d data director%s of stack %s as %s with mode %04o and deploy it?",
@@ -184,4 +186,16 @@ func runDatadir(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate
 			{Name: "run", Value: dep.ID}, {Name: "commit", Value: dep.Commit},
 		}})
 	})
+}
+
+// dirLine is a listed directory with the container user it is for, the host owner that user maps to and the
+// reason when there is none.
+func dirLine(d control.DirInfo) string {
+	switch {
+	case d.Container != "" && d.Owner != "":
+		return fmt.Sprintf("%s (container user %s, host owner %s)", d.Path, d.Container, d.Owner)
+	case d.Warning != "":
+		return fmt.Sprintf("%s (container user %s, no host owner: %s)", d.Path, d.Container, d.Warning)
+	}
+	return d.Path
 }

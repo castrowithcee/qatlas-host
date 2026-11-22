@@ -124,6 +124,32 @@ func (f *fakeCopy) RevertStack(_ context.Context, stack, deployed, failed, reaso
 	return id, nil
 }
 
+// ParentOf is the base a commit was built on.
+func (f *fakeCopy) ParentOf(_ context.Context, c string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if p, ok := f.bases[c]; ok {
+		return p, nil
+	}
+	return "", errors.New("no parent known")
+}
+
+// FileAt is the file as the nearest commit at or below c that wrote it has it, nil when none did.
+func (f *fakeCopy) FileAt(_ context.Context, c, path string) ([]byte, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for {
+		if body, ok := f.files[c][path]; ok {
+			return body, nil
+		}
+		p, ok := f.bases[c]
+		if !ok {
+			return nil, nil
+		}
+		c = p
+	}
+}
+
 func (f *fakeCopy) IsAncestor(_ context.Context, a, b string) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -289,6 +315,8 @@ type fakeDeployer struct {
 	backedUp []string
 	// gone are the backup ids HasBackup reports missing.
 	gone []string
+	// backupName, when set, names the backup of a deployed commit instead of the default.
+	backupName func(deployed string) string
 }
 
 func (d *fakeDeployer) do(ctx context.Context, step string, st stacks.Stack) error {
@@ -333,6 +361,9 @@ func (d *fakeDeployer) Backup(ctx context.Context, st stacks.Stack, deployed str
 	d.mu.Unlock()
 	if d.noRules || d.lateNoRules {
 		return "", ErrNoBackup
+	}
+	if d.backupName != nil {
+		return d.backupName(deployed), nil
 	}
 	return "backup-of-" + deployed[:8], nil
 }

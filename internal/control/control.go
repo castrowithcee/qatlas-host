@@ -356,11 +356,13 @@ type FindingInfo struct {
 	Dirs []DirInfo `json:"dirs,omitempty"`
 }
 
-// DirInfo is a missing data directory: Path relative to the stack folder, Owner the proposed "UID:GID",
-// empty when unknown.
+// DirInfo is a missing data directory: Path relative to the stack folder, Container the "UID:GID" of the
+// container's user, Owner the proposed host "UID:GID" (empty when unknown) and Warning why there is none.
 type DirInfo struct {
-	Path  string `json:"path"`
-	Owner string `json:"owner,omitempty"`
+	Path      string `json:"path"`
+	Owner     string `json:"owner,omitempty"`
+	Container string `json:"container,omitempty"`
+	Warning   string `json:"warning,omitempty"`
 }
 
 // The commands that control runs. ResumeCommand clears the pause of a stack and starts no run.
@@ -1359,6 +1361,57 @@ type UpdateStepInfo struct {
 	Commit   string `json:"commit,omitempty"`
 	Result   string `json:"result,omitempty"`
 	Error    string `json:"error,omitempty"`
+}
+
+// The commands that set a stack back to the versions before an update run. ReturnCheckCommand changes
+// nothing: it refuses as ReturnRunCommand would and tells which versions the return sets. ReturnRunCommand
+// runs the return as a secured run and, after a success, pins the stack. Both need the right to change the
+// stack, so a caller who may not return it learns nothing about its runs.
+const (
+	ReturnCheckCommand = "return.check"
+	ReturnRunCommand   = "return.run"
+)
+
+// The data choices of ReturnArgs.
+const (
+	ReturnRestoreData = "restore"
+	ReturnKeepData    = "keep"
+)
+
+// ReturnArgs are the arguments of ReturnCheckCommand and ReturnRunCommand. Run is the id of a successful update
+// run of the stack; Data is ReturnRestoreData, which restores the backup that update made, or ReturnKeepData.
+type ReturnArgs struct {
+	Stack string `json:"stack"`
+	Run   string `json:"run"`
+	Data  string `json:"data"`
+}
+
+// ReturnStepInfo is one version variable a return sets, from the value the stack has to the one it gets.
+type ReturnStepInfo struct {
+	Variable string `json:"variable"`
+	From     string `json:"from"`
+	To       string `json:"to"`
+}
+
+// ReturnCheckResult answers ReturnCheckCommand. Backup is the backup a restore puts back, empty with
+// ReturnKeepData.
+type ReturnCheckResult struct {
+	Stack  string           `json:"stack"`
+	Run    string           `json:"run"`
+	Data   string           `json:"data"`
+	Backup string           `json:"backup,omitempty"`
+	Steps  []ReturnStepInfo `json:"steps"`
+}
+
+// ReturnRunResult answers ReturnRunCommand for a return that was started. ReturnRun is the id of the
+// return's own run; Result is a run result and Commit the pushed commit, or the deployed one when the return
+// failed before its push. A succeeded return leaves the stack pinned.
+type ReturnRunResult struct {
+	ReturnCheckResult
+	ReturnRun string `json:"return_run"`
+	Commit    string `json:"commit,omitempty"`
+	Result    string `json:"result"`
+	Error     string `json:"error,omitempty"`
 }
 
 // ChangelogShowCommand shows the release notes between the current and the available version of every

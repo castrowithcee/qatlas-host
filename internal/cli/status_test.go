@@ -41,6 +41,9 @@ var testBackups service.Backups
 // testDocker reads the containers of the next service a test starts; nil means the engine at the default socket.
 var testDocker service.Docker
 
+// testGroupFile and testPasswdFile name the user database the service checks; empty means the system files.
+var testGroupFile, testPasswdFile string
+
 func useEndpoint(t *testing.T, ep localipc.ServiceEndpoint) {
 	t.Helper()
 	old := serviceEndpoint
@@ -104,7 +107,7 @@ func startServiceLogged(t *testing.T, check service.PeerCheck, logOut io.Writer)
 	done := make(chan error, 1)
 	go func() {
 		done <- service.Run(ctx, slog.New(slog.NewTextHandler(logOut, &slog.HandlerOptions{Level: slog.LevelDebug})),
-			service.Config{Version: "9.9.9", Endpoint: ep, StateDir: dir, PeerCheck: check, Git: testGit, Deployer: testDeployer, Backups: testBackups, Registry: testRegistry, Changelog: testChangelog, Docker: testDocker})
+			service.Config{Version: "9.9.9", Endpoint: ep, StateDir: dir, PeerCheck: check, Git: testGit, Deployer: testDeployer, Backups: testBackups, Registry: testRegistry, Changelog: testChangelog, Docker: testDocker, GroupFile: testGroupFile, PasswdFile: testPasswdFile})
 	}()
 	t.Cleanup(func() { cancel(); <-done })
 	channeltest.WaitReady(t, ep)

@@ -89,6 +89,9 @@ type WorkingCopy interface {
 	RevertStack(ctx context.Context, stack, deployed, failed, reason string) (string, error)
 	CommitFile(ctx context.Context, path string, edit func(old []byte) ([]byte, error), message string) (string, error)
 	IsAncestor(ctx context.Context, a, b string) (bool, error)
+	// ParentOf is the first parent of a commit; FileAt is a file as a commit has it, nil when it has none.
+	ParentOf(ctx context.Context, commit string) (string, error)
+	FileAt(ctx context.Context, commit, path string) ([]byte, error)
 	Push(ctx context.Context, commit string) error
 }
 
@@ -625,8 +628,13 @@ func dataDirDetail(dirs []MissingDir) string {
 	parts := make([]string, len(dirs))
 	for i, d := range dirs {
 		parts[i] = d.Path
-		if d.Owner != "" {
+		switch {
+		case d.Owner != "" && d.Container != "" && d.Container != d.Owner:
+			parts[i] += " (owner " + d.Owner + " for container user " + d.Container + ")"
+		case d.Owner != "":
 			parts[i] += " (owner " + d.Owner + ")"
+		case d.Warning != "":
+			parts[i] += " (no owner proposed: " + d.Warning + ")"
 		}
 	}
 	return "data directories are missing and the image does not run as root: " + strings.Join(parts, ", ") +

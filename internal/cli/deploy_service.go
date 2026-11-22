@@ -109,9 +109,11 @@ func newDeployRunCommand() *cobra.Command {
 			defer stop()
 			backups := backup.NewManager(filepath.Join(target.stateDir, "backups"), target.stateDir, target.socket)
 			backups.Image = backupImage
+			deployer := compose.New(backups.ForRuns(), target.stateDir, target.socket)
+			deployer.Exec.HelperImage = backupImage
 			return service.Run(ctx, slog.New(slog.NewTextHandler(c.ErrOrStderr(), nil)).With("pid", os.Getpid()),
 				service.Config{Version: version, Endpoint: target.endpoint, StateDir: target.stateDir,
-					Deployer: compose.New(backups.ForRuns(), target.stateDir, target.socket), Backups: backups, DockerSocket: target.socket, Engine: target.engine,
+					Deployer: deployer, Backups: backups, DockerSocket: target.socket, Engine: target.engine,
 					HookDir: target.hookDir})
 		},
 	}

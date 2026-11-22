@@ -60,10 +60,10 @@ type Git struct {
 	history   bool
 }
 
-// fakeCommit is a commit CommitFile made: the file it changes and its message.
+// fakeCommit is a commit CommitFile made: the file it changes, its message and its parent.
 type fakeCommit struct {
-	path, message string
-	content       []byte
+	path, message, parent string
+	content               []byte
 }
 
 // New returns a fake with a fixed commit id.
@@ -268,6 +268,37 @@ func (c *copyOf) IsAncestor(context.Context, string, string) (bool, error) {
 	return !c.g.NotAncestor, nil
 }
 
+// ParentOf knows the parents of the commits CommitFile made; the first of them follows the commit the fake
+// had as the branch head, which has no parent.
+func (c *copyOf) ParentOf(_ context.Context, commit string) (string, error) {
+	c.g.mu.Lock()
+	defer c.g.mu.Unlock()
+	if fc, ok := c.g.commits[commit]; ok {
+		return fc.parent, nil
+	}
+	return "", errors.New("the fake working copy has no parent of that commit")
+}
+
+// FileAt reads a path as the commits CommitFile made left it: the newest of them back from the commit that
+// changed it, else the file the clone wrote.
+func (c *copyOf) FileAt(_ context.Context, commit, path string) ([]byte, error) {
+	c.g.mu.Lock()
+	defer c.g.mu.Unlock()
+	for {
+		fc, ok := c.g.commits[commit]
+		if !ok {
+			if body, ok := c.g.Files[path]; ok {
+				return []byte(body), nil
+			}
+			return nil, nil
+		}
+		if fc.path == path {
+			return fc.content, nil
+		}
+		commit = fc.parent
+	}
+}
+
 // FastForward follows a pushed commit of CommitFile and does nothing otherwise.
 func (c *copyOf) FastForward(_ context.Context, to string) error {
 	c.g.mu.Lock()
@@ -324,7 +355,11 @@ func (c *copyOf) CommitFile(_ context.Context, path string, edit func([]byte) ([
 		c.g.commits = map[string]fakeCommit{}
 	}
 	id := fmt.Sprintf("%040x", 0xc0de00+len(c.g.commits))
-	c.g.commits[id] = fakeCommit{path: path, message: message, content: content}
+	parent := c.g.Remote
+	if parent == "" {
+		parent = c.g.Head
+	}
+	c.g.commits[id] = fakeCommit{path: path, message: message, parent: parent, content: content}
 	return id, nil
 }
 
