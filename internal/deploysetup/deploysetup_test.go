@@ -119,8 +119,14 @@ func TestSetupCreatesEverythingAndRepeatsWithoutChange(t *testing.T) {
 	if !slices.Equal(f.calls, want) {
 		t.Fatalf("commands run:\n%v\nwant\n%v", f.calls, want)
 	}
-	if got := len(plan.Commands()); got != len(want)+2 {
-		t.Fatalf("the plan lists %d steps, want %d: %v", got, len(want)+2, plan.Commands())
+	if got := len(plan.Commands()); got != len(want)+3 {
+		t.Fatalf("the plan lists %d steps, want %d: %v", got, len(want)+3, plan.Commands())
+	}
+	if i, j := slices.Index(plan.Commands(), "mkdir /etc/qhost-deploy (root, mode 0755)"), slices.Index(plan.Commands(), "systemctl enable --now qhost-deploy"); i < 0 || i > j {
+		t.Fatalf("the plan does not create the configuration folder before the start: %v", plan.Commands())
+	}
+	if info, err := os.Stat(filepath.Join(f.root, "etc/qhost-deploy")); err != nil || !info.IsDir() || info.Mode().Perm() != 0o755 {
+		t.Fatalf("configuration folder: %v %v", info, err)
 	}
 	if got := f.read("/etc/tmpfiles.d/qhost-deploy.conf"); got != "d /run/qhost-deploy 2750 qhost-deploy qhost -\n" {
 		t.Fatalf("tmpfiles rule: %q", got)
@@ -142,6 +148,38 @@ func TestSetupCreatesEverythingAndRepeatsWithoutChange(t *testing.T) {
 	}
 	if !again.Empty() || len(f.calls) != 0 {
 		t.Fatalf("a repeated setup changes something: %v %v", again.Commands(), f.calls)
+	}
+}
+
+// systemd may have created the configuration folder for the service user; the setup gives it back to root.
+func TestSetupRepairsTheConfigurationFolder(t *testing.T) {
+	f := newFakeHost(t, baseGroups, basePasswd)
+	if _, err := f.setUp(); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(f.root, "etc/qhost-deploy")
+	if err := os.Chmod(dir, 0o775); err != nil {
+		t.Fatal(err)
+	}
+	var owner []int
+	f.host.Chown = func(p string, uid, gid int) error {
+		if p == dir {
+			owner = []int{uid, gid}
+		}
+		return nil
+	}
+	p, err := f.setUp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := p.Commands(); len(got) != 1 || got[0] != "mkdir /etc/qhost-deploy (root, mode 0755)" {
+		t.Fatalf("plan: %v", got)
+	}
+	if !slices.Equal(owner, []int{os.Geteuid(), os.Getegid()}) {
+		t.Fatalf("the folder was given to %v, want the user running the setup", owner)
+	}
+	if info, err := os.Stat(dir); err != nil || info.Mode().Perm() != 0o755 {
+		t.Fatalf("configuration folder: %v %v", info, err)
 	}
 }
 

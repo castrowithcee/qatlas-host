@@ -78,7 +78,7 @@ func (h *hookHost) setUpDeploy() {
 		h.t.Fatal(err)
 	}
 	h.running["qhost-deploy"] = true
-	h.calls = nil
+	h.calls, h.chowns = nil, nil
 }
 
 func (h *hookHost) setUpHook(listen string) (Plan, error) {

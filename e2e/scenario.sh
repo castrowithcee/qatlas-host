@@ -547,6 +547,8 @@ setup_service() {
 	[ "$(docker exec "$host" stat -c %G "$(docker exec "$host" sh -c 'ls /run/qhost-deploy/*.sock | head -n 1')")" = qhost ] ||
 		fail 'the socket of the deploy service does not have the group qhost'
 	[ "$(docker exec "$host" stat -c %a /var/lib/qhost-deploy)" = 700 ] || fail "/var/lib/qhost-deploy has the mode $(docker exec "$host" stat -c %a /var/lib/qhost-deploy), want 700"
+	[ "$(docker exec "$host" stat -c %U:%G:%a /etc/qhost-deploy)" = root:root:755 ] ||
+		fail "/etc/qhost-deploy is $(docker exec "$host" stat -c %U:%G:%a /etc/qhost-deploy), want root:root:755"
 	if as_user e2e-outsider 'ls /run/qhost-deploy' >/dev/null 2>&1; then fail 'a user outside the group qhost can list /run/qhost-deploy'; fi
 	log "scenario: qhost-deploy runs as pid $dpid, user qhost-deploy, group docker; /run/qhost-deploy qhost-deploy:qhost 2750, /var/lib/qhost-deploy 700"
 
