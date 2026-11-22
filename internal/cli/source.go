@@ -31,7 +31,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"the group qhost, and so does changes; inspect, add, move, compare, remote, remove, diff and discard need sudo.\n" +
 			"See 'qhost help sources'.",
 	}
-	var url string
+	var url, engine string
 	var include []string
 	inspect := &cobra.Command{
 		Use:   "inspect <path>",
@@ -62,7 +62,11 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"commit, as 'source add --include' does: a file a stack mounts writable or names as a secrets file. The\n" +
 			"choice is part of the effect, so pass the same --include to 'source add' together with the effect; an\n" +
 			"effect worked out with another choice makes add stop with state-changed. A path that is not unclear is\n" +
-			"refused.",
+			"refused.\n" +
+			"--engine inspects the folder as it would be taken over into that Docker engine: system (the default) or\n" +
+			"rootless:<user>. The deploy service and the service account of that engine decide the permissions and the\n" +
+			"effect, and containers that run in that engine are not conflicts. Pass the same --engine to 'source add'\n" +
+			"together with the effect.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return usageFailure("source inspect takes exactly one argument, the path of the folder",
@@ -71,11 +75,15 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
+			if _, err := folders.selectEngine(c, engine); err != nil {
+				return err
+			}
 			return runSourceInspect(c, program, state, args[0], url, include)
 		},
 	}
 	inspect.Flags().StringVar(&url, "url", "", "SSH address of the repository to clone, or to expect as origin")
 	inspect.Flags().StringArrayVar(&include, "include", nil, includeUsage)
+	inspect.Flags().StringVar(&engine, "engine", "", "Docker engine the folder would be taken over into: system (default) or rootless:<user>")
 	group.AddCommand(inspect, newSourceAddCommand(program, state), newSourceRemoteCommand(program, state), newSourceCompareCommand(program, state), newSourceListCommand(program, state),
 		newSourceRemoveCommand(program, state), newSourceMoveCommand(program, state), newSourceChangesCommand(program, state),
 		newSourceDiffCommand(program, state), newSourceDiscardCommand(program, state))

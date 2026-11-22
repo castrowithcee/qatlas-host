@@ -79,7 +79,7 @@ func (m *Model) askProposalChannel(eff *kindEffect, shown *proposalCtx, add cont
 		t.Lookup(textWhatProposalChannel), body,
 		[]kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}},
 		func() tea.Cmd {
-			ctx := m.ctx
+			ctx := m.engineCtx(shown.engine)
 			return m.writeCall(opProposalApply, shown.id, func(b Backend) (any, error) {
 				return approveChannelAndAdd(ctx, b, shown, eff, add)
 			})

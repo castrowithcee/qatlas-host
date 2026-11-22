@@ -2091,6 +2091,9 @@ type ProposalInfo struct {
 	Expires       time.Time `json:"expires"`
 	// Message is the reason of a rejection or the failure of an approval; the service keeps it printable and at most 300 characters.
 	Message string `json:"message,omitempty"`
+	// Engine is the engine of the deploy service that stores the proposal; a deploy service leaves it empty, a
+	// client that merges several deploy services sets it, as StackStatus.Engine does.
+	Engine string `json:"engine,omitempty"`
 }
 
 // UnreadableInfo names a stored file that is left out of an answer because this version cannot read it.

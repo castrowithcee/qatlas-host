@@ -241,7 +241,7 @@ type kindApplied struct {
 func (m *Model) approveKind() tea.Cmd {
 	v := &m.pv
 	eff := v.kind
-	shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, effect: eff.sig, gen: v.gen}
+	shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, effect: eff.sig, gen: v.gen, engine: v.engine}
 	t := m.text
 	if eff.kind == control.ProposalKindNotifyChannel {
 		return m.openForm(m.proposalSecretsForm(eff, shown))
@@ -262,7 +262,7 @@ func (m *Model) approveKind() tea.Cmd {
 	m.askSheet(textTitleProposalApprove, question, t.Lookup(consequence), body,
 		[]kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}},
 		func() tea.Cmd {
-			ctx := m.ctx
+			ctx := m.engineCtx(shown.engine)
 			return m.writeCall(opProposalApply, shown.id, func(b Backend) (any, error) {
 				return approveKindAndApply(ctx, b, shown, eff)
 			})

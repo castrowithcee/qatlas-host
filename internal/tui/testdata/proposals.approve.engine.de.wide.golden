@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container  [6 ◈ Vorschläge]  7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Vorschlag p-0005 freigeben und diese Änderungen an /srv/files-example anwenden?                                     
+                                                                                                                        
+  Ja markiert den Vorschlag als freigegeben und nimmt dann die gezeigten Änderungen vor, so wie das Hinzufügen des      
+  Ordners von Hand. Direkt davor werden der Vorschlag und seine Wirkung neu gelesen, und nichts wird angewendet, wenn   
+  eines von beiden vom Gezeigten abweicht. Das Ergebnis bleibt am Vorschlag. Der Ordner gehört zur Engine               
+  rootless:alice. Container dieser Stacks laufen bereits, ein Deploy würde daher doppelte Container erzeugen und deren  
+  Ports doppelt belegen. qhost warnt nur.                                                                               
+                                                                                                                        
+    Ordner: /srv/files-example                                                                                          
+    Fall: files (Dateien ohne Repository; ein erster Commit nimmt die aufgeführten Dateien)                             
+    Engine: rootless:alice                                                                                              
+    Container des Ordners laufen in der Engine system, nicht in rootless:alice. Ein Deploy würde in rootless:alice eine 
+    zweite Gruppe starten und die anderen weiterlaufen lassen; nichts verschiebt sie.                                   
+    Eigentümer: root, Gruppe: root, Modus: 0755                                                                         
+    der Dienst kann ihn schreiben: nein                                                                                 
+    Rechte werden gesetzt: ja                                                                                           
+                                                                                                                        
+  Dateien des ersten Commits (2)                                                                                        
+    demo/.env                                                                                                           
+    demo/compose.yaml                                                                                                   
+                                                                                                                        
+  Ausgelassen (2), von den Stacks nicht gebraucht, per .gitignore von Git ausgenommen                                   
+    demo/data: bind-mount (Stack demo)                                                                                  
+    demo/notes.txt: not-referenced                                                                                      
+                                                                                                                        
+  Stacks (1)                                                                                                            
+    demo (Ordner demo)                                                                                                  
+      funktioniert: deploy                                                                                              
+      funktioniert nicht: backup                                                                                        
+      warning secrets-env-not-ignored: secrets.env is not listed in .gitignore                                          
+      nicht auflösbar: env_file "${CONF_DIR}/app.env": variable CONF_DIR has no value in .env                           
+      Konflikt: Der Container demo-app-1 des Projekts old-demo läuft im Ordner, in der Engine system                    
+      Konflikt: Der Container demo-web-1 des Projekts demo läuft im Ordner, in der Engine system                        
+                                                                                                                        
+  Änderungen nach Ja                                                                                                    
+    Ein Git-Repository wird mit Branch main und einem ersten Commit der aufgeführten Dateien als qhost angelegt. Es wird
+y ja, ausführen  w mit Remote  n/esc/enter abbrechen                                                 ↑/↓ Scrollen  36/41
