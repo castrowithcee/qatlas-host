@@ -2564,6 +2564,8 @@ scenario_stacks_repo() {
 
 	scenario_source_remote
 
+	scenario_source_move
+
 	scenario_tui_remote
 
 	scenario_repair_end
@@ -4077,6 +4079,99 @@ EOF2
 	[ "$(remote_head "$url3")" = "$repo_head3" ] || fail 'a refused source add changed the repository'
 	docker exec "$host" rm -rf "$diff_dir" /srv/qd-secret "$equal"
 	log 'scenario: source add --url took over the history of an equal repository and left a differing folder alone'
+}
+
+# scenario_source_move proves the preview of source move. A person runs a foreign Compose project from /opt/qd-move/moveapp,
+# outside every source, with the bind mount ./data and an invented data file. The preview into /opt/stacks, a
+# source with a remote in the git container, shows the target folder, the files a commit would take (compose.yaml and
+# .env, not the data) and the lines for the .gitignore, and changes nothing: the containers keep their ids and
+# keep running, the project folder and the source stay as they were, and no repository, commit or file appears. A
+# source that is a root stack is reported as a block with reason and fix, and so is a .env with a secret-like key
+# when the source has a remote, with the key and never the value.
+scenario_source_move() {
+	base=/opt/qd-move/moveapp
+	into=/opt/stacks
+	secret_value=not-a-real-secret-4711
+
+	step 'a person starts a foreign Compose project with a data folder outside every source'
+	docker exec "$host" sh -ec "rm -rf /opt/qd-move && mkdir -p '$base/data' && chmod 0755 /opt/qd-move '$base' '$base/data'" ||
+		fail 'cannot create the project folder to move'
+	cat <<EOF2 | docker exec -i "$host" sh -ec "cat >'$base/compose.yaml'"
+services:
+  app:
+    image: registry.$domain/demo/app:\${DEMO_APP_VERSION}
+    restart: unless-stopped
+    environment:
+      DEMO_NAME: move-app
+      DEMO_VERSION: \${DEMO_APP_VERSION}
+      DEMO_HEALTH: \${DEMO_HEALTH}
+    volumes:
+      - ./data:/data
+EOF2
+	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/.env'"
+	printf 'invented record 1\n' | docker exec -i "$host" sh -ec "cat >'$base/data/records.txt'"
+	docker exec "$host" sh -ec "chmod 0644 '$base/compose.yaml' '$base/.env' '$base/data/records.txt'" || fail 'cannot set the modes of the project files'
+	docker exec "$host" sh -ec "cd '$base' && docker compose up -d" >/dev/null 2>&1 || fail 'cannot start the project to move'
+	wait_for 'the project moveapp' 60 stack_healthy moveapp
+	ids_before=$(docker exec "$host" docker ps -q --no-trunc --filter label=com.docker.compose.project=moveapp | sort)
+	[ -n "$ids_before" ] || fail 'the project to move has no running container'
+	sums_project=$(tree_sums "$base")
+	sums_source=$(tree_sums "$into")
+	source_head=$(folder_git "$into" rev-parse HEAD)
+	# Earlier scenarios may leave untracked paths in the source; the preview must not add to them.
+	source_status=$(folder_git "$into" status --porcelain)
+	sources_before=$(qd --output json source list | jq -c '[.sources[] | [.path, .kind, .head]]')
+
+	step 'the preview shows the target folder, the files and the exclusions'
+	out=$(qd --output json source move "$base" --into "$into") || fail "source move failed: $out"
+	printf '%s' "$out" | jq -e --arg b "$base" --arg t "$into/moveapp" \
+		'.path == $b and .target == $t and .engine == "system" and .source_kind == "remote" and .project == "moveapp" and .new_project == "moveapp" and .movable == true and (.blocks | length) == 0' >/dev/null ||
+		fail "unexpected source move result: $out"
+	printf '%s' "$out" | jq -e '(.planned_files | index("compose.yaml")) != null and (.planned_files | index(".env")) != null and ([.planned_files[] | select(startswith("data"))] | length) == 0' >/dev/null ||
+		fail "the planned files are not compose.yaml and .env: $out"
+	printf '%s' "$out" | jq -e '([.excluded[] | select(.path == "data" and .reason == "bind-mount")] | length) == 1 and .ignore.action == "create" and (.ignore.lines | index("/data")) != null' >/dev/null ||
+		fail "the data folder is not left out and put in the .gitignore: $out"
+	printf '%s' "$out" | jq -e '([.warnings[].code] | index("downtime")) != null' >/dev/null || fail "no downtime warning for a running project: $out"
+	out=$(qd source move "$base" --into "$into") || fail "source move in text failed: $out"
+	printf '%s' "$out" | grep -qF "$into/moveapp" || fail "the text does not show the target folder: $out"
+	printf '%s' "$out" | grep -q '^PLANNED_FILE .*compose.yaml' || fail "the text does not list compose.yaml: $out"
+
+	step 'nothing changed: the containers run on, the folders are as they were'
+	[ "$(docker exec "$host" docker ps -q --no-trunc --filter label=com.docker.compose.project=moveapp | sort)" = "$ids_before" ] ||
+		fail 'the containers of the project changed'
+	stack_healthy moveapp || fail 'the project is not healthy after the preview'
+	[ "$(tree_sums "$base")" = "$sums_project" ] || fail 'the preview changed the project folder'
+	if docker exec "$host" test -e "$base/.gitignore"; then fail 'the preview wrote a .gitignore into the project folder'; fi
+	[ "$(tree_sums "$into")" = "$sums_source" ] || fail 'the preview changed the source folder'
+	if docker exec "$host" test -e "$into/moveapp"; then fail 'the preview made the target folder'; fi
+	[ "$(folder_git "$into" rev-parse HEAD)" = "$source_head" ] || fail 'the preview committed to the source'
+	[ "$(folder_git "$into" status --porcelain)" = "$source_status" ] || fail "the preview left changes in the source: $(folder_git "$into" status --porcelain)"
+	if docker exec "$host" test -e "$base/.git"; then fail 'the preview made a repository in the project folder'; fi
+	[ "$(qd --output json source list | jq -c '[.sources[] | [.path, .kind, .head]]')" = "$sources_before" ] || fail 'the preview changed the sources'
+	[ -z "$(stack_field moveapp source)" ] || fail 'the preview made a stack moveapp'
+
+	step 'a secret-like key in .env blocks the move into a source with a remote, by key and never by value'
+	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\nDEMO_API_TOKEN=%s\n' "$secret_value" | docker exec -i "$host" sh -ec "cat >'$base/.env'"
+	out=$(qd --output json source move "$base" --into "$into") || fail "source move with a secret in .env failed: $out"
+	printf '%s' "$out" | jq -e '.movable == false and ([.blocks[] | select(.code == "secrets-in-env" and .items == ["DEMO_API_TOKEN"] and (.reason | length) > 0 and (.fix | contains("secrets.env")))] | length) == 1' >/dev/null ||
+		fail "the secret in .env is not reported as a block with its key: $out"
+	if printf '%s' "$out" | grep -q "$secret_value"; then fail 'the preview shows the value of the secret'; fi
+	out=$(qd source move "$base" --into "$into") || fail "source move in text with a secret in .env failed: $out"
+	if printf '%s' "$out" | grep -q "$secret_value"; then fail 'the text shows the value of the secret'; fi
+	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/.env'"
+	[ "$(tree_sums "$base")" = "$sums_project" ] || fail 'the project folder is not as it was after the secret check'
+
+	step 'a source that is a root stack is reported as a block with reason and fix'
+	out=$(qd --output json source move "$base" --into /opt/stacks3) || fail "source move into the root stack failed: $out"
+	printf '%s' "$out" | jq -e '.movable == false and ([.blocks[] | select(.code == "root-stack" and (.reason | length) > 0 and (.fix | length) > 0)] | length) == 1' >/dev/null ||
+		fail "the root stack is not reported as a block: $out"
+	if docker exec "$host" test -e /opt/stacks3/moveapp; then fail 'the preview made a folder in the root stack'; fi
+	[ "$(docker exec "$host" docker ps -q --no-trunc --filter label=com.docker.compose.project=moveapp | sort)" = "$ids_before" ] ||
+		fail 'the containers of the project changed'
+
+	docker exec "$host" sh -ec "cd '$base' && docker compose down" >/dev/null 2>&1 || fail 'cannot stop the project to move'
+	docker exec "$host" rm -rf /opt/qd-move
+	log 'scenario: source move previewed the move of a running project into a source with a remote, blocked a secret and a root stack, and changed nothing'
 }
 
 # scenario_tui_remote proves the remote of a local stack folder in the Stacks area of the interface. A local folder

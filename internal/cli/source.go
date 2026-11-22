@@ -28,7 +28,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 		Use:   "source",
 		Short: "Inspect, take over, list and release stack folders",
 		Long: "The source commands work on the stack folders of the host. list needs no sudo for an administrator in\n" +
-			"the group qhost; inspect, add, compare, remote and remove need sudo. See 'qhost help sources'.",
+			"the group qhost; inspect, add, move, compare, remote and remove need sudo. See 'qhost help sources'.",
 	}
 	var url string
 	inspect := &cobra.Command{
@@ -69,7 +69,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 	}
 	inspect.Flags().StringVar(&url, "url", "", "SSH address of the repository to clone, or to expect as origin")
 	group.AddCommand(inspect, newSourceAddCommand(program, state), newSourceRemoteCommand(program, state), newSourceCompareCommand(program, state), newSourceListCommand(program, state),
-		newSourceRemoveCommand(program, state))
+		newSourceRemoveCommand(program, state), newSourceMoveCommand(program, state))
 	return group
 }
 
@@ -152,6 +152,18 @@ func pathOnReadOnlyFS(path string) (bool, error) {
 		return false, err
 	}
 	return st.Flags&stRdonly != 0, nil
+}
+
+// pathsOnSameFS reports whether two existing paths lie on the same file system, without following links.
+func pathsOnSameFS(a, b string) (bool, error) {
+	var sa, sb syscall.Stat_t
+	if err := syscall.Lstat(a, &sa); err != nil {
+		return false, &fs.PathError{Op: "lstat", Path: a, Err: err}
+	}
+	if err := syscall.Lstat(b, &sb); err != nil {
+		return false, &fs.PathError{Op: "lstat", Path: b, Err: err}
+	}
+	return sa.Dev == sb.Dev, nil
 }
 
 // sourceResult is the nested result for JSON and TOON and one flat field list for the text formats.
