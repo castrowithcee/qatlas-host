@@ -3566,6 +3566,8 @@ EOF2
 	sums_project=$(tree_sums "$base")
 	sums_source=$(tree_sums "$into")
 	source_head=$(folder_git "$into" rev-parse HEAD)
+	# Earlier scenarios may leave untracked paths in the source; the preview must not add to them.
+	source_status=$(folder_git "$into" status --porcelain)
 	sources_before=$(qd --output json source list | jq -c '[.sources[] | [.path, .kind, .head]]')
 
 	step 'the preview shows the target folder, the files and the exclusions'
@@ -3591,7 +3593,7 @@ EOF2
 	[ "$(tree_sums "$into")" = "$sums_source" ] || fail 'the preview changed the source folder'
 	if docker exec "$host" test -e "$into/moveapp"; then fail 'the preview made the target folder'; fi
 	[ "$(folder_git "$into" rev-parse HEAD)" = "$source_head" ] || fail 'the preview committed to the source'
-	[ -z "$(folder_git "$into" status --porcelain)" ] || fail "the preview left changes in the source: $(folder_git "$into" status --porcelain)"
+	[ "$(folder_git "$into" status --porcelain)" = "$source_status" ] || fail "the preview left changes in the source: $(folder_git "$into" status --porcelain)"
 	if docker exec "$host" test -e "$base/.git"; then fail 'the preview made a repository in the project folder'; fi
 	[ "$(qd --output json source list | jq -c '[.sources[] | [.path, .kind, .head]]')" = "$sources_before" ] || fail 'the preview changed the sources'
 	[ -z "$(stack_field moveapp source)" ] || fail 'the preview made a stack moveapp'
