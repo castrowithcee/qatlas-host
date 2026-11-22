@@ -3373,7 +3373,8 @@ scenario_tui_engine() {
 	step 'a deploy from the section runs through sudo in the instance'
 	tui_send d
 	tui_wait 'Deploy demo-rootless?' 15
-	tui_has "sudo qhost stack deploy --output json --engine $te_engine -- demo-rootless" ||
+	# The dialog may break the command after --engine.
+	tui_has 'sudo qhost stack deploy --output json --engine' && tui_has "$te_engine -- demo-rootless" ||
 		fail "the question does not show the command with the engine: $(tui_screen)"
 	tui_send y
 	tui_wait 'deploy finished: 1 ok, 0 failed' 240
