@@ -114,9 +114,9 @@ func (m *Model) submitFolderInclude(v map[kittui.FieldID]kittui.FormValue) tea.C
 func (m *Model) replan(flow *addFlow, include []string) tea.Cmd {
 	path := flow.res.Path
 	if m.euid() != 0 {
-		return m.inspectSudoFor(path, flow.foreign, flow.proposal, include)
+		return m.inspectSudoFor(path, flow.foreign, flow.proposal, include, flow.engine)
 	}
-	ctx, host, foreign, shown := m.ctx, m.folders, flow.foreign, flow.proposal
+	ctx, host, foreign, shown, engineSet := m.engineCtx(flow.engine), m.folders, flow.foreign, flow.proposal, flow.engineSet
 	if host == nil {
 		return nil
 	}
@@ -131,6 +131,7 @@ func (m *Model) replan(flow *addFlow, include []string) tea.Cmd {
 				now.effectErr != nil || now.flow == nil {
 				return proposalRefused{now}, nil
 			}
+			now.flow.engineSet = true
 			replanned := *shown
 			replanned.effect = effectSignature(now.flow)
 			now.flow.proposal = &replanned
@@ -141,7 +142,7 @@ func (m *Model) replan(flow *addFlow, include []string) tea.Cmd {
 			return nil, err
 		}
 		if in, ok := got.(inspected); ok {
-			in.flow.foreign = foreign
+			in.flow.foreign, in.flow.engineSet = foreign, engineSet || in.flow.engine != ""
 		}
 		return got, nil
 	})

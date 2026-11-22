@@ -45,16 +45,17 @@ func (f *addFlow) noPermissions() bool {
 // inspectSudo inspects the folder with `sudo qhost source inspect` and goes on like the inspection as root. It only
 // reads, so it asks nothing first. foreign is the project the folder belongs to when it is adopted.
 func (m *Model) inspectSudo(path string, foreign *foreignSource) tea.Cmd {
-	return m.inspectSudoFor(path, foreign, nil, nil)
+	return m.inspectSudoFor(path, foreign, nil, nil, "")
 }
 
 // inspectSudoFor is inspectSudo for a folder a proposal names: the flow then ends in approving the proposal.
-// include is the choice of unclear files; the command plans with it and its effect belongs to it.
-func (m *Model) inspectSudoFor(path string, foreign *foreignSource, proposal *proposalCtx, include []string) tea.Cmd {
+// include is the choice of unclear files; the command plans with it and its effect belongs to it. A named engine
+// makes the command inspect the folder as it would be taken over into that engine.
+func (m *Model) inspectSudoFor(path string, foreign *foreignSource, proposal *proposalCtx, include []string, engine string) tea.Cmd {
 	gen := m.beginSetting()
 	args := append([]string{"source", "inspect"}, includeArgs(include)...)
 	args = append(args, "--output", "json", "--", path)
-	return m.runSudo(args, func(r sudoRun) tea.Cmd {
+	return m.runSudo(m.engineArgs(engine, args), func(r sudoRun) tea.Cmd {
 		msg := settingMsg{gen: gen, op: opInspect, name: path}
 		var got sudoInspection
 		// A folder that can be taken over always has an effect when root inspected it.
@@ -63,7 +64,8 @@ func (m *Model) inspectSudoFor(path string, foreign *foreignSource, proposal *pr
 			return m.applySetting(msg)
 		}
 		flow := &addFlow{res: got.SourceInspectResult, effect: got.Effect, foreign: foreign,
-			missing: got.Missing && got.Case == control.SourceCaseClone, proposal: proposal, include: include}
+			missing: got.Missing && got.Case == control.SourceCaseClone, proposal: proposal, include: include,
+			engine: m.flowEngine(engine), engineSet: proposal != nil || engine != ""}
 		if proposal != nil {
 			flow.proposal.effect = got.Effect
 		}
@@ -78,10 +80,11 @@ func (m *Model) inspectSudoFor(path string, foreign *foreignSource, proposal *pr
 // askProbeSudo asks to read the host key of the server of the address with `sudo qhost repo probe`.
 func (m *Model) askProbeSudo(flow *addFlow) {
 	t, url := m.text, flow.url
+	ctx := m.engineCtx(m.engineOfFlow(flow))
 	m.askSetting(settingChange{title: flow.title(), question: t.Lookup(textAskProbe, url), remote: t.Lookup(textSudoRemoteGit),
 		consequence: t.Lookup(textWhatProbe), op: opProbe,
-		direct: func(b Backend) (any, error) { return b.RepoProbe(m.ctx, url) },
-		args:   []string{"repo", "probe", "--output", "json", "--", url},
+		direct: func(b Backend) (any, error) { return b.RepoProbe(ctx, url) },
+		args:   m.engineArgs(m.engineOfFlow(flow), []string{"repo", "probe", "--output", "json", "--", url}),
 		decode: decodeSudo[control.RepoProbeResult](func(r control.RepoProbeResult) bool { return r.Fingerprint != "" })})
 }
 
@@ -89,24 +92,22 @@ func (m *Model) askProbeSudo(flow *addFlow) {
 // with the host key confirmed before.
 func (m *Model) askCompareSudo(flow *addFlow) {
 	t, path, url, fp, include := m.text, flow.res.Path, flow.url, flow.probe.Fingerprint, flow.include
-	ctx := m.engineCtx(m.folderEngineOf(path))
+	engine := m.engineOfFlow(flow)
+	ctx := m.engineCtx(engine)
 	m.askSetting(settingChange{title: flow.title(), question: t.Lookup(textAskCompare, path, url), remote: t.Lookup(textSudoRemoteGit),
 		consequence: t.Lookup(textWhatCompare), op: opCompare, name: path,
 		direct: func(b Backend) (any, error) {
 			return b.SourceCompare(ctx, control.SourceCompareArgs{Path: path, URL: url, Fingerprint: fp, Include: include})
 		},
-		args: m.engineArgs(m.folderEngineOf(path),
+		args: m.engineArgs(engine,
 			append(append([]string{"source", "compare", "--fingerprint", fp}, includeArgs(flow.include)...), "--output", "json", "--", path, url)),
 		decode: decodeSudo[control.SourceCompareResult](func(r control.SourceCompareResult) bool { return r.State != "" })})
 }
 
-// flowArgs are sudoArgs of the flow; the remote of a bound folder names its engine, as the other commands about a
-// bound folder do. Adding a folder is the one thing that names none.
+// flowArgs are sudoArgs of the flow with the engine of the flow: that of the bound folder for a remote, as the other
+// commands about a bound folder do, else the engine chosen for the folder or the one of the proposal.
 func (m *Model) flowArgs(f *addFlow) []string {
-	if f.remote {
-		return m.engineArgs(m.folderEngineOf(f.res.Path), f.sudoArgs())
-	}
-	return f.sudoArgs()
+	return m.engineArgs(m.engineOfFlow(f), f.sudoArgs())
 }
 
 // sudoArgs are the arguments after qhost of the command that applies what the flow showed.

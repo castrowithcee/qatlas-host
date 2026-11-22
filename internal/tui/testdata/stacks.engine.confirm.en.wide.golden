@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                              [?] help
+  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Start a git repository in /srv/files-example and take it over?                                                      
+                                                                                                                        
+  Yes looks at the folder once more and makes the changes listed below only if its list is unchanged. The folder belongs
+  to the engine rootless:alice. Containers of these stacks already run, so deploying would create duplicate containers  
+  and take their ports twice. qhost only warns.                                                                         
+                                                                                                                        
+    folder: /srv/files-example                                                                                          
+    case: files (files without a repository; a first commit takes the listed files)                                     
+    engine: rootless:alice                                                                                              
+    owner: root, group: root, mode: 0755                                                                                
+    the service can write it: no                                                                                        
+    permissions are set: yes                                                                                            
+                                                                                                                        
+  Files of the first commit (2)                                                                                         
+    demo/.env                                                                                                           
+    demo/compose.yaml                                                                                                   
+                                                                                                                        
+  Left out (2), not needed by the stacks, kept out of git by .gitignore                                                 
+    demo/data: bind-mount (stack demo)                                                                                  
+    demo/notes.txt: not-referenced                                                                                      
+                                                                                                                        
+  Stacks (1)                                                                                                            
+    demo (folder demo)                                                                                                  
+      works: deploy                                                                                                     
+      does not work: backup                                                                                             
+      warning secrets-env-not-ignored: secrets.env is not listed in .gitignore                                          
+      not resolvable: env_file "${CONF_DIR}/app.env": variable CONF_DIR has no value in .env                            
+      conflict: the container demo-app-1 of the project old-demo runs in the folder, in the engine system               
+                                                                                                                        
+  Changes after yes                                                                                                     
+    A git repository is started with branch main and a first commit of the listed files as qhost. It is taken over as a 
+    local stack folder.                                                                                                 
+    A .gitignore is created with the 2 paths left out in a block marked by qhost, and the first commit holds it. No     
+    other file in the folder is written.                                                                                
+    3 paths get the group of the service account with group write; the owner stays                                      
+    The folder is added to the systemd drop-in of the service, which restarts once.                                     
+y yes, do it  w with a remote  n/esc/enter cancel                                                             ↑/↓ scroll

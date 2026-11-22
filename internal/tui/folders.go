@@ -66,6 +66,10 @@ type addFlow struct {
 	proposal *proposalCtx
 	// include is the choice of unclear files the plan of res was made with; every later call sends it again.
 	include []string
+	// engine is the Docker engine the folder is taken over into: the engine the person chose, or that of the
+	// proposal. It is empty on a host with one engine. engineSet says the inspection was made for it.
+	engine    string
+	engineSet bool
 }
 
 // inspected is the answer of the inspection of a folder to add.
@@ -356,7 +360,7 @@ func inspectFolder(ctx context.Context, b Backend, host Folders, path string, in
 	if err != nil {
 		return nil, err
 	}
-	flow := &addFlow{res: res, include: include}
+	flow := &addFlow{res: res, include: include, engine: EngineOf(ctx)}
 	if res.Case == control.SourceCaseReject {
 		return inspected{flow}, nil
 	}
@@ -473,7 +477,8 @@ func (m *Model) probeFolder() tea.Cmd {
 		m.askProbeSudo(flow)
 		return nil
 	}
-	return m.writeCall(opProbe, "", func(b Backend) (any, error) { return b.RepoProbe(m.ctx, url) })
+	ctx := m.engineCtx(m.engineOfFlow(flow))
+	return m.writeCall(opProbe, "", func(b Backend) (any, error) { return b.RepoProbe(ctx, url) })
 }
 
 // askHostKey asks whether the host key the server presented is the one to trust. Yes passes nothing on: the
@@ -505,8 +510,9 @@ func (m *Model) hostKeyDetails(flow *addFlow) []string {
 // checkFolderKey looks for the deploy key of the folder; without one the clone could not work.
 func (m *Model) checkFolderKey(flow *addFlow) tea.Cmd {
 	path := flow.res.Path
+	ctx := m.engineCtx(m.engineOfFlow(flow))
 	return m.writeCall(opKeyCheck, path, func(b Backend) (any, error) {
-		key, err := b.KeyShow(m.ctx, path)
+		key, err := b.KeyShow(ctx, path)
 		var remote *control.Error
 		switch {
 		case err == nil:
@@ -551,6 +557,7 @@ func (m *Model) keyDone(checked keyChecked) tea.Cmd {
 		for _, d := range m.hostKeyDetails(flow) {
 			lines = append(lines, m.wrapped(detailIndent, kittui.StyleText, d, width)...)
 		}
+		lines = append(lines, m.engineLines(flow, width)...)
 		lines = append(lines, m.warnLines(flow, width)...)
 		lines = append(lines, m.changeLines(flow, width)...)
 		return append(lines, m.sudoLines(flow, width)...)
@@ -565,7 +572,7 @@ func (m *Model) keyDone(checked keyChecked) tea.Cmd {
 // A folder of files is looked at once more first, and nothing changes when its list differs from the one shown.
 // For a proposal the approval comes in between, in the same step.
 func (m *Model) addFolder(flow *addFlow) tea.Cmd {
-	ctx, host, path := m.ctx, m.folders, flow.res.Path
+	ctx, host, path := m.engineCtx(m.engineOfFlow(flow)), m.folders, flow.res.Path
 	return m.writeCall(opFolderAdd, path, func(b Backend) (any, error) {
 		if flow.proposal != nil {
 			return approveAndApply(ctx, b, host, flow)
@@ -655,6 +662,7 @@ func (m *Model) inspectionLines(flow *addFlow, width int) []string {
 	lines := []string{""}
 	lines = append(lines, text(kittui.StyleText, t.Lookup(textDetailDir, res.Path))...)
 	lines = append(lines, text(kittui.StyleText, t.Lookup(textDetailCase, t.Lookup(caseText(res.Case))))...)
+	lines = append(lines, m.engineLines(flow, width)...)
 	if flow.foreign != nil {
 		lines = append(lines, m.foreignLines(*flow.foreign, width)...)
 		lines = append(lines, m.warnLines(flow, width)...)

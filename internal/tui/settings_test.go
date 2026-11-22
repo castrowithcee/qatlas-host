@@ -497,6 +497,16 @@ type fakeFolders struct {
 	calls    []string
 	// engines, when set, adds what the rootless engines tell to an answer.
 	engines func(control.SourceInspectResult) control.SourceInspectResult
+	// enginesFor is engines for the engine the call was addressed to.
+	enginesFor func(engine string, res control.SourceInspectResult) control.SourceInspectResult
+}
+
+// engineSuffix is the engine the call was addressed to, as a suffix of a recorded call; none for the default.
+func engineSuffix(ctx context.Context) string {
+	if e := EngineOf(ctx); e != "" {
+		return "@" + e
+	}
+	return ""
 }
 
 func (f *fakeFolders) Missing(dir string) (bool, error) {
@@ -504,18 +514,18 @@ func (f *fakeFolders) Missing(dir string) (bool, error) {
 	return f.absent, nil
 }
 
-func (f *fakeFolders) Grant(_ context.Context, dir string, create bool) error {
-	f.calls = append(f.calls, fmt.Sprintf("grant:%s:%t", dir, create))
+func (f *fakeFolders) Grant(ctx context.Context, dir string, create bool) error {
+	f.calls = append(f.calls, fmt.Sprintf("grant:%s:%t%s", dir, create, engineSuffix(ctx)))
 	return f.grantErr
 }
 
-func (f *fakeFolders) PlanPermissions(_ context.Context, res control.SourceInspectResult) (PermPlan, error) {
-	f.calls = append(f.calls, "plan:"+res.Path)
+func (f *fakeFolders) PlanPermissions(ctx context.Context, res control.SourceInspectResult) (PermPlan, error) {
+	f.calls = append(f.calls, "plan:"+res.Path+engineSuffix(ctx))
 	return f.plans[res.Path], nil
 }
 
-func (f *fakeFolders) ApplyPermissions(_ context.Context, p PermPlan) error {
-	f.calls = append(f.calls, fmt.Sprintf("apply:%d", p.Changed))
+func (f *fakeFolders) ApplyPermissions(ctx context.Context, p PermPlan) error {
+	f.calls = append(f.calls, fmt.Sprintf("apply:%d%s", p.Changed, engineSuffix(ctx)))
 	return nil
 }
 
@@ -524,7 +534,10 @@ func (f *fakeFolders) ReadOnly(path string) (bool, error) {
 	return f.readOnly, nil
 }
 
-func (f *fakeFolders) Engines(_ context.Context, res control.SourceInspectResult) control.SourceInspectResult {
+func (f *fakeFolders) Engines(ctx context.Context, res control.SourceInspectResult) control.SourceInspectResult {
+	if f.enginesFor != nil {
+		return f.enginesFor(EngineOf(ctx), res)
+	}
 	if f.engines != nil {
 		return f.engines(res)
 	}

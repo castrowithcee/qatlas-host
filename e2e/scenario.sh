@@ -2552,6 +2552,8 @@ scenario_stacks_repo() {
 
 	scenario_proposal_engine
 
+	scenario_tui_engine_choice
+
 	scenario_key_set
 
 	scenario_observe_end
@@ -3074,6 +3076,145 @@ scenario_proposal_engine() {
 	docker exec "$host" rm -rf "$pe_dir" || fail "cannot remove $pe_dir"
 	if list_has_path "$pe_dir"; then fail 'the folder is still bound'; fi
 	log "scenario: proposal $pe_id was submitted with --engine $pe_engine, approved under sudo and applied in the instance; demo-proposed ran in the rootless engine only"
+}
+
+# tc_runs succeeds when the stack $1 runs in the rootless engine of $rootless_user.
+tc_runs() {
+	as_rootless "docker ps --filter label=com.docker.compose.project=$1 --format '{{.Image}}'" | grep -qx 'demo/app:1.0.0'
+}
+
+# tc_idle succeeds when the instance of $rootless_user has no run of the stack $1 in progress and has finished one.
+tc_idle() {
+	qd --output json status | jq -e --arg p "instance.$rootless_user.stack.$1." '
+		(.[$p + "active_run"] // "") == "" and (.[$p + "last_run"] // "") != ""' >/dev/null
+}
+
+# tc_has_flat succeeds when the text $1 stands on the screen of the interface once its line breaks and the runs of
+# spaces are taken out, as a command that the sheet breaks between its arguments does.
+tc_has_flat() {
+	tui_screen | tr -s ' \n' '  ' | grep -qF -- "$1"
+}
+
+# tc_release releases the folder $2 with the stack $1 in the rootless engine and removes both again.
+tc_release() {
+	wait_for "the first run of $1 in the instance" 180 tc_idle "$1"
+	out=$(qd --output json source remove "$2" --yes) || fail "source remove of $2 failed: $out"
+	as_rootless "docker compose -p $1 down" >/dev/null 2>&1 || fail "cannot remove the compose project $1"
+	[ -z "$(as_rootless "docker ps -aq --filter label=com.docker.compose.project=$1")" ] || fail "the rootless engine still has $1"
+	docker exec "$host" rm -rf "$2" || fail "cannot remove $2"
+	if list_has_path "$2"; then fail "the folder $2 is still bound"; fi
+}
+
+# scenario_tui_engine_choice proves the choice of the engine in the interface. The interface of $admin without sudo adds
+# a folder with a stack: the engine is asked after the inspection, the system engine is preselected because no
+# container of the folder runs anywhere, the choice of the rootless engine inspects the folder again for it, the last
+# question names the engine and shows the command through sudo with --engine, and the folder is bound in the
+# instance of $rootless_user, which runs the stack, while the system engine neither lists the folder nor runs the
+# stack. Then a proposal submitted for the instance is approved in the interface under sudo: the view and the
+# question show the engine, the folder is added to the instance and the proposal is applied. Both folders and
+# stacks are released and removed again.
+scenario_tui_engine_choice() {
+	tc_engine=rootless:$rootless_user
+	tc_dir=/srv/qd-tui-engine
+	tc_pdir=/srv/qd-tui-engine-prop
+	tc_dropin=/etc/systemd/system/qhost-deploy@$rootless_user.service.d/10-stack-folders.conf
+	tui_log=$work/tui-engine-choice-screens.log
+	: >"$tui_log"
+
+	step 'two folders with a stack each are prepared as root'
+	docker exec "$host" sh -ec "rm -rf '$tc_dir' '$tc_pdir' && mkdir -p '$tc_dir/demo-tuiengine' '$tc_pdir/demo-tuiprop' &&
+		chmod 0755 '$tc_dir' '$tc_pdir'" || fail 'cannot create the folders for the choice of the engine'
+	printf 'name: demo-tuiengine\nservices:\n  app:\n    image: demo/app:1.0.0\n    restart: unless-stopped\n' |
+		docker exec -i "$host" sh -ec "cat >'$tc_dir/demo-tuiengine/compose.yaml'" || fail 'cannot write the compose file of demo-tuiengine'
+	printf 'name: demo-tuiprop\nservices:\n  app:\n    image: demo/app:1.0.0\n    restart: unless-stopped\n' |
+		docker exec -i "$host" sh -ec "cat >'$tc_pdir/demo-tuiprop/compose.yaml'" || fail 'cannot write the compose file of demo-tuiprop'
+	if list_has_path "$tc_dir" || list_has_path "$tc_pdir"; then fail 'a folder of the choice is bound before it'; fi
+	for p in demo-tuiengine demo-tuiprop; do
+		[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=$p)" ] || fail "the system engine already runs $p"
+	done
+
+	step "the interface without sudo asks for the engine after the inspection and inspects the folder again for $tc_engine"
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'trap : INT; qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 1
+	tui_wait "Engine $tc_engine" 30
+	tui_send a
+	tui_wait 'Add a stack folder' 10
+	tui_type "$tc_dir"
+	tui_send F2
+	tui_wait 'whose deploy service runs the stacks' 60
+	tui_excerpt 'Add a stack folder' 8
+	if list_has_path "$tc_dir"; then fail 'the folder is bound at the question for the engine'; fi
+	tui_send Right
+	i=0
+	until tui_has "$tc_engine"; do
+		i=$((i + 1))
+		[ "$i" -lt 20 ] || fail "the choice does not reach $tc_engine: $(tui_screen)"
+		sleep 0.25
+	done
+	tui_send F2
+	tui_wait "Start a git repository in $tc_dir and take it over?" 60
+	tui_has "engine: $tc_engine" || fail "the question does not show the engine: $(tui_screen)"
+	# The command stands at the end of the sheet, below the window.
+	for _ in 1 2 3 4 5 6 7 8 9 10; do tui_send Down; done
+	tui_wait 'sudo qhost source add' 10
+	tc_has_flat "--engine $tc_engine" || fail "the question does not show the command with the engine: $(tui_screen)"
+	tui_excerpt 'Start a git repository' 20
+	if list_has_path "$tc_dir" || docker exec "$host" test -e "$tc_dir/.git"; then fail 'the folder is bound or changed before the last answer'; fi
+
+	step "yes binds the folder in the instance of $tc_engine and the stack runs in the rootless engine only"
+	tui_send y
+	tui_wait "The stack folder $tc_dir is added" 120
+	tui_send Enter
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	wait_for 'the deploy service to answer' 60 qd status
+	tc_listed=$(qd --output json source list | jq -r --arg p "$tc_dir" '[.sources[] | select(.path == $p) | .engine] | join(",")')
+	[ "$tc_listed" = "$tc_engine" ] || fail "source list does not show the folder once, with the engine $tc_engine, but as: $tc_listed"
+	docker exec "$host" grep -qx "ReadWritePaths=-$tc_dir" "$tc_dropin" || fail "the drop-in of the instance does not list $tc_dir"
+	if docker exec "$host" grep -qF "$tc_dir" /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf; then
+		fail 'the drop-in of the system service names the folder of the interface'
+	fi
+	wait_for 'the stack demo-tuiengine to run in the rootless engine' 180 tc_runs demo-tuiengine
+	[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=demo-tuiengine)" ] ||
+		fail 'the system engine runs the stack the interface took over into the instance'
+	log "scenario: the interface took $tc_dir over into $tc_engine; demo-tuiengine runs in the rootless engine only"
+
+	step "a proposal for $tc_engine is approved in the interface under sudo with the engine shown"
+	out=$(printf '{"path":"%s"}' "$tc_pdir" | as_admin "qhost --output json proposal submit --kind source-add --engine $tc_engine" 2>&1) ||
+		fail "qhost proposal submit --engine $tc_engine failed: $out"
+	tc_id=$(printf '%s' "$out" | sed -n 's/.*"id": *"\(p-[0-9a-f]*\)".*/\1/p' | head -n 1)
+	[ -n "$tc_id" ] || fail "qhost proposal submit printed no id: $out"
+	prop_tui
+	tui_send 6
+	tui_wait 'stack folder' 15
+	tui_send Enter
+	tui_wait 'Effect if applied now' 30
+	tui_wait "path: $tc_pdir" 10
+	tui_has "$tc_id" || fail "the view does not show $tc_id: $(tui_screen)"
+	tui_has "$tc_engine" || fail "the view does not show the engine $tc_engine: $(tui_screen)"
+	tui_send A
+	tui_wait "Approve proposal $tc_id and apply these changes to $tc_pdir?" 30
+	tui_has "engine: $tc_engine" || fail "the approval does not show the engine: $(tui_screen)"
+	[ "$(prop_state "$tc_id")" = open ] || fail 'the proposal left the state open before the last answer'
+	if list_has_path "$tc_pdir"; then fail 'the folder is bound before the last answer'; fi
+	tui_send y
+	tui_wait "The stack folder $tc_pdir is added" 120
+	tui_send Enter
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	wait_for 'the proposal to be applied' 30 prop_is "$tc_id" applied
+	tc_listed=$(qd --output json source list | jq -r --arg p "$tc_pdir" '[.sources[] | select(.path == $p) | .engine] | join(",")')
+	[ "$tc_listed" = "$tc_engine" ] || fail "source list does not show the proposed folder once, with the engine $tc_engine, but as: $tc_listed"
+	wait_for 'the stack demo-tuiprop to run in the rootless engine' 180 tc_runs demo-tuiprop
+	[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=demo-tuiprop)" ] ||
+		fail 'the system engine runs the stack of the proposal'
+	log "scenario: proposal $tc_id was approved in the interface and applied in $tc_engine; demo-tuiprop runs in the rootless engine only"
+
+	step 'the folders are released and their stacks removed again'
+	tc_release demo-tuiengine "$tc_dir"
+	tc_release demo-tuiprop "$tc_pdir"
+	wait_for 'the qhost service to answer' 30 qd status
 }
 
 # rl_docker runs the Docker client as $rootless_user against its rootless engine, without standard input.

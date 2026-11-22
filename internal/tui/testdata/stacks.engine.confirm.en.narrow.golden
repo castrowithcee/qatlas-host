@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                      [?] help
+  [1 Stacks] 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+  ⚠ Start a git repository in /srv/files-example and take it over?              
+                                                                                
+  Yes looks at the folder once more and makes the changes listed below only if  
+  its list is unchanged. The folder belongs to the engine rootless:alice.       
+  Containers of these stacks already run, so deploying would create duplicate   
+  containers and take their ports twice. qhost only warns.                      
+                                                                                
+    folder: /srv/files-example                                                  
+    case: files (files without a repository; a first commit takes the listed    
+    files)                                                                      
+    engine: rootless:alice                                                      
+    owner: root, group: root, mode: 0755                                        
+    the service can write it: no                                                
+    permissions are set: yes                                                    
+                                                                                
+  Files of the first commit (2)                                                 
+    demo/.env                                                                   
+    demo/compose.yaml                                                           
+                                                                                
+  Left out (2), not needed by the stacks, kept out of git by .gitignore         
+y yes, do it  w with a remote  n/esc/enter cancel              ↑/↓ scroll  20/43
