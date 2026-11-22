@@ -14,7 +14,7 @@
     start: "02:30"                                                              
                                                                                 
   Wirkung bei Anwendung jetzt                                                   
-    Das Wartungsfenster würde sich ändern:                                      
+    Das Wartungsfenster des Hosts würde sich ändern:                            
        days                                                                     
        vorher:  "sun"                                                           
        nachher: "mon,thu"                                                       

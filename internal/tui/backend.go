@@ -106,6 +106,8 @@ type Backend interface {
 	WindowSet(ctx context.Context, args control.WindowSetArgs) (control.WindowResult, error)
 	WindowReset(ctx context.Context) (control.WindowResult, error)
 	HostWindowSet(ctx context.Context, args control.WindowSetArgs) (control.WindowResult, error)
+	// HostWindow reads the host window from its file; it reaches no deploy service and needs no root.
+	HostWindow(ctx context.Context) (control.WindowResult, error)
 	Notifications(ctx context.Context) (control.NotifyListResult, error)
 	NotifyAdd(ctx context.Context, args control.NotifyAddArgs) (control.NotifyChannelInfo, error)
 	NotifyRemove(ctx context.Context, name string) error

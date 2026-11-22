@@ -414,6 +414,14 @@ func (f *fakeBackend) WindowReset(ctx context.Context) (control.WindowResult, er
 	return w, nil
 }
 
+func (f *fakeBackend) HostWindow(_ context.Context) (control.WindowResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	w := f.window
+	w.Origin = control.WindowOriginHost
+	return w, nil
+}
+
 func (f *fakeBackend) HostWindowSet(ctx context.Context, args control.WindowSetArgs) (control.WindowResult, error) {
 	if err := f.actCtx(ctx, "hostwindowset", ""); err != nil {
 		return control.WindowResult{}, err

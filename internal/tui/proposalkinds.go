@@ -22,7 +22,10 @@ type kindEffect struct {
 	stack    string
 	settings control.StackSettings
 	window   control.WindowSetArgs
-	channel  control.ProposalNotifyChannel
+	// host is set for a window proposal of the system deploy service, which changes the host window; one from a
+	// rootless instance changes the own window of that instance.
+	host    bool
+	channel control.ProposalNotifyChannel
 	// proposed lists every value of the content in full.
 	proposed []approval.Change
 	// worked is set once the difference to what applies now was worked out.
@@ -39,6 +42,10 @@ type kindEffect struct {
 
 // stackNameRe is the shape of a stack name the service accepts; a name of another shape is not looked up.
 var stackNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,62}$`)
+
+// hostWindowEngine says a window proposal submitted to the engine concerns the host window, as in the CLI,
+// where `proposal approve` without --engine sets it: the system service or a host with one engine.
+func hostWindowEngine(engine string) bool { return engine == "" || engine == control.EngineSystem }
 
 // isKindProposal says the kind is one that is shown with its effect and applied through the write the forms and
 // the CLI use.
@@ -72,6 +79,7 @@ func loadKind(ctx context.Context, b Backend, msg *proposalMsg) {
 			msg.bad = true
 			return
 		}
+		eff.host = hostWindowEngine(EngineOf(ctx))
 		raw, _ = json.Marshal(eff.window)
 	}
 	var err error
@@ -130,7 +138,11 @@ func settingsKindEffect(ctx context.Context, b Backend, eff *kindEffect) error {
 
 // windowKindEffect compares with the window in force; a part the proposal leaves out keeps its value.
 func windowKindEffect(ctx context.Context, b Backend, eff *kindEffect) error {
-	cur, err := b.Window(ctx)
+	read := b.Window
+	if eff.host {
+		read = b.HostWindow
+	}
+	cur, err := read(ctx)
 	if err != nil {
 		return err
 	}
@@ -201,11 +213,19 @@ func (m *Model) kindEffectLines(eff *kindEffect, width int) []string {
 	case eff.kind == control.ProposalKindNotifyChannel:
 		return m.wrapped(detailIndent, kittui.StyleText, t.Lookup(textPropChannelNew), width)
 	case len(eff.changes) == 0 && eff.kind == control.ProposalKindWindow:
-		return m.wrapped(detailIndent, kittui.StyleHint, t.Lookup(textPropWindowSame), width)
+		same := textPropWindowSame
+		if eff.host {
+			same = textPropWindowSameHost
+		}
+		return m.wrapped(detailIndent, kittui.StyleHint, t.Lookup(same), width)
 	case len(eff.changes) == 0:
 		return m.wrapped(detailIndent, kittui.StyleHint, t.Lookup(textPropSettingsSame), width)
 	case eff.kind == control.ProposalKindWindow:
-		lines = m.wrapped(detailIndent, kittui.StyleText, t.Lookup(textPropWindowChanges), width)
+		head := textPropWindowChanges
+		if eff.host {
+			head = textPropWindowChangesHost
+		}
+		lines = m.wrapped(detailIndent, kittui.StyleText, t.Lookup(head), width)
 	case !eff.had:
 		lines = m.wrapped(detailIndent, kittui.StyleText, t.Lookup(textPropSettingsNew), width)
 	default:
@@ -290,7 +310,11 @@ func approveKindAndApply(ctx context.Context, b Backend, p *proposalCtx, eff *ki
 	if eff.kind == control.ProposalKindStackSettings {
 		applied.settings, err = b.StackSettingsSet(ctx, eff.stack, eff.settings)
 	} else {
-		applied.window, err = b.WindowSet(ctx, eff.window)
+		if hostWindowEngine(p.engine) {
+			applied.window, err = b.HostWindowSet(ctx, eff.window)
+		} else {
+			applied.window, err = b.WindowSet(ctx, eff.window)
+		}
 	}
 	result := control.ProposalResultArgs{ID: p.id, Fingerprint: p.fingerprint, Applied: err == nil}
 	var res any = applied

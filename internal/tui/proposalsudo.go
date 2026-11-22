@@ -52,9 +52,14 @@ func (m *Model) askProposalRejectSudo(id, reason, engine string) {
 func (m *Model) askKindSudo(eff *kindEffect, shown *proposalCtx, question string, consequence kittui.TextID,
 	input func() []byte, secrets ...string) {
 	var gen int
+	args := m.engineArgs(shown.engine, proposalApproveArgs(shown))
+	if eff.kind == control.ProposalKindWindow && hostWindowEngine(shown.engine) {
+		// Without --engine the command sets the host window; with "system" it would set the own window of that service.
+		args = proposalApproveArgs(shown)
+	}
 	a := sudoAsk{title: textTitleProposalApprove, question: question, consequence: m.text.Lookup(consequence),
 		body:  func(width int) []string { return m.kindEffectLines(eff, width) },
-		args:  m.engineArgs(shown.engine, proposalApproveArgs(shown)),
+		args:  args,
 		begin: func() { gen = m.beginSetting() },
 		done: func(r sudoRun) tea.Cmd {
 			msg := settingMsg{gen: gen, op: opProposalApply, name: shown.id}
