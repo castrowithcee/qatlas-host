@@ -1405,12 +1405,22 @@ type ChangelogRelease struct {
 // ChangelogTimeout bounds how long the service spends on the GitHub and label lookups of one request.
 const ChangelogTimeout = 2 * time.Minute
 
-// The commands of the maintenance window. WindowShowCommand answers the window and its openings;
-// WindowSetCommand replaces the parts it names and answers the same. The running service follows a change at
-// once.
+// The commands of the maintenance window of one deploy service. WindowShowCommand answers the window that
+// applies, its origin and its openings; WindowSetCommand replaces the parts it names and makes the result the
+// own window of this service, and answers the same; WindowResetCommand removes the own window, so the service
+// follows the host window again. The running service follows a change at once. The host window is a file the
+// client writes under sudo; no command of a service changes it.
 const (
-	WindowShowCommand = "window.show"
-	WindowSetCommand  = "window.set"
+	WindowShowCommand  = "window.show"
+	WindowSetCommand   = "window.set"
+	WindowResetCommand = "window.reset"
+)
+
+// The origins of a window: the host window (or the default while the host has none) and the own window of the
+// service.
+const (
+	WindowOriginHost = "host"
+	WindowOriginOwn  = "own"
 )
 
 // WindowSetArgs are the arguments of WindowSetCommand. A part left empty keeps its value; at least one must be
@@ -1425,12 +1435,15 @@ type WindowSetArgs struct {
 
 // WindowResult is the maintenance window and its openings, with times in the window's zone. OpenUntil is set
 // while the window is open; NextOpening is the opening after the current one then. LastRun is when the work of
-// an opening last began, Running whether it is in progress.
+// an opening last began, Running whether it is in progress. Origin is WindowOriginHost or WindowOriginOwn;
+// Warning is set when the host window file cannot be used and the default window applies.
 type WindowResult struct {
 	Days        []string  `json:"days"`
 	Start       string    `json:"start"`
 	Duration    string    `json:"duration"`
 	Zone        string    `json:"zone"`
+	Origin      string    `json:"origin"`
+	Warning     string    `json:"warning,omitempty"`
 	Open        bool      `json:"open"`
 	OpenUntil   time.Time `json:"open_until,omitzero"`
 	NextOpening time.Time `json:"next_opening"`

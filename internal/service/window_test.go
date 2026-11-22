@@ -2,7 +2,10 @@ package service_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +16,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/service"
 	"github.com/castrowithcee/qatlas-host/internal/service/servicetest"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/window"
 )
 
 // svcClock is a manual clock for the service's poll loop and maintenance window.
@@ -402,3 +406,99 @@ func TestWindowShowAndSetValidateEveryPart(t *testing.T) {
 		t.Fatalf("status window = %+v", st.Window)
 	}
 }
+
+func windowOf(t *testing.T, h *harness) control.WindowResult {
+	t.Helper()
+	var res control.WindowResult
+	if err := h.call(control.WindowShowCommand, nil, &res); err != nil {
+		t.Fatal(err)
+	}
+	return res
+}
+
+// awaitWindow waits until the window the service reports satisfies ok; the service looks at the host file by itself.
+func awaitWindow(t *testing.T, h *harness, what string, ok func(control.WindowResult) bool) control.WindowResult {
+	t.Helper()
+	for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+		if res := windowOf(t, h); ok(res) {
+			return res
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the window never %s: %+v", what, windowOf(t, h))
+		}
+	}
+}
+
+func TestWindowFollowsTheHostFileUntilItHasAnOwnWindow(t *testing.T) {
+	clock := &svcClock{now: noon}
+	h := startWith(t, nil, withClock(clock, nil))
+	if res := windowOf(t, h); res.Origin != control.WindowOriginHost || res.Start != "03:00" || res.Warning != "" {
+		t.Fatalf("default = %+v", res)
+	}
+	start := func(s string) window.Change {
+		m, err := window.ParseStart(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return window.Change{Start: &m, Zone: ptr("UTC")}
+	}
+	if _, err := window.SetHost(h.hostWindow, "", start("05:30")); err != nil {
+		t.Fatal(err)
+	}
+	res := awaitWindow(t, h, "followed the host", func(r control.WindowResult) bool { return r.Start == "05:30" })
+	if res.Origin != control.WindowOriginHost || res.Zone != "UTC" {
+		t.Fatalf("host = %+v", res)
+	}
+
+	var own control.WindowResult
+	if err := h.call(control.WindowSetCommand, control.WindowSetArgs{Duration: "1h"}, &own); err != nil {
+		t.Fatal(err)
+	}
+	if own.Origin != control.WindowOriginOwn || own.Start != "05:30" || own.Duration != "1h" {
+		t.Fatalf("own = %+v", own)
+	}
+	if _, err := window.SetHost(h.hostWindow, "", start("06:45")); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(200 * time.Millisecond)
+	if res := windowOf(t, h); res.Origin != control.WindowOriginOwn || res.Start != "05:30" {
+		t.Fatalf("a host change reached the own window: %+v", res)
+	}
+
+	var reset control.WindowResult
+	if err := h.call(control.WindowResetCommand, nil, &reset); err != nil {
+		t.Fatal(err)
+	}
+	if reset.Origin != control.WindowOriginHost || reset.Start != "06:45" || reset.Duration != "2h" {
+		t.Fatalf("reset = %+v", reset)
+	}
+	wantCode(t, h.call(control.WindowResetCommand, map[string]any{"x": 1}, nil), control.CodeBadRequest)
+	var st control.StatusResult
+	if err := h.call(control.StatusCommand, nil, &st); err != nil || st.Window == nil || st.Window.Origin != control.WindowOriginHost {
+		t.Fatalf("status window = %+v, %v", st.Window, err)
+	}
+}
+
+func TestWindowWithABrokenHostFileUsesTheDefaultAndWarns(t *testing.T) {
+	clock := &svcClock{now: noon}
+	h := startWith(t, nil, withClock(clock, nil))
+	if err := os.MkdirAll(filepath.Dir(h.hostWindow), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(h.hostWindow, []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := windowOf(t, h)
+	if res.Origin != control.WindowOriginHost || res.Start != "03:00" || res.Warning == "" {
+		t.Fatalf("window = %+v", res)
+	}
+	if !strings.Contains(h.logs.String(), "the default window applies") {
+		t.Fatalf("no warning in the log: %s", h.logs.String())
+	}
+	// the service still answers and takes an own window
+	if err := h.call(control.WindowSetCommand, control.WindowSetArgs{Start: "04:00"}, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func ptr[T any](v T) *T { return &v }

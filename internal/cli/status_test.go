@@ -100,11 +100,12 @@ func startServiceLogged(t *testing.T, check service.PeerCheck, logOut io.Writer)
 	ep := channeltest.Endpoint(t)
 	useEndpoint(t, ep)
 	dir := useStateDir(t)
+	hostWindow := windowHostFile()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
 		done <- service.Run(ctx, slog.New(slog.NewTextHandler(logOut, &slog.HandlerOptions{Level: slog.LevelDebug})),
-			service.Config{Version: "9.9.9", Endpoint: ep, StateDir: dir, PeerCheck: check, Git: testGit, Deployer: testDeployer, Backups: testBackups, Registry: testRegistry, Changelog: testChangelog, Docker: testDocker})
+			service.Config{Version: "9.9.9", Endpoint: ep, StateDir: dir, WindowHostFile: hostWindow, WindowHostPoll: 20 * time.Millisecond, PeerCheck: check, Git: testGit, Deployer: testDeployer, Backups: testBackups, Registry: testRegistry, Changelog: testChangelog, Docker: testDocker})
 	}()
 	t.Cleanup(func() { cancel(); <-done })
 	channeltest.WaitReady(t, ep)

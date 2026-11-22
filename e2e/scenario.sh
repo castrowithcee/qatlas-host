@@ -2492,6 +2492,8 @@ scenario_stacks_repo() {
 
 	scenario_window
 
+	scenario_window_instances
+
 	scenario_tui
 
 	step 'a changed host key of the git server aborts qhost'
@@ -6038,7 +6040,7 @@ scenario_uninstall() {
 	[ -n "$containers" ] || fail 'no container runs before the uninstall'
 	[ "$(docker exec "$host" systemctl is-active "$un_unit")" = active ] || fail "the instance $un_unit does not run before the uninstall"
 	for p in "$un_template" "$un_rule" "$un_channel" "$un_state" "$un_config" "$un_dropin" /usr/local/lib/systemd/system/qhost-hook.service \
-		/etc/tmpfiles.d/qhost-hook.conf /run/qhost-hook /etc/qhost-hook; do
+		/etc/tmpfiles.d/qhost-hook.conf /run/qhost-hook /etc/qhost-hook /etc/qhost/window.json; do
 		docker exec "$host" test -e "$p" || fail "$p is missing before the uninstall"
 	done
 	as_rootless "docker rm -f $un_ct >/dev/null 2>&1; docker run -d --quiet --name $un_ct demo/app:1.0.0" >/dev/null ||
@@ -6099,13 +6101,14 @@ scenario_uninstall() {
 	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host /etc/qhost-hook; do
 		docker exec "$host" test -d "$p" || fail "uninstall without --purge removed $p"
 	done
+	docker exec "$host" test -f /etc/qhost/window.json || fail 'uninstall without --purge removed the host window file'
 	docker exec "$host" sh -ec 'id qhost && id qhost-deploy && id qhost-hook && getent group qhost && getent group qhost-deploy && getent group qhost-hook' >/dev/null ||
 		fail 'uninstall without --purge removed a user or a group'
 	log "scenario: uninstalled both services, the containers and stack folders are unchanged: $out"
 
 	step 'sudo qhost uninstall --purge removes the three state folders, the configuration of the receiver, the state and configuration of the instance, the users and the group'
 	out=$(as_admin 'sudo /root/qhost.copy uninstall --purge --yes --confirm 2>&1') || fail "uninstall --purge failed: $out"
-	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host /etc/qhost-hook "$un_state" "$un_config"; do
+	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host /etc/qhost-hook /etc/qhost/window.json /etc/qhost "$un_state" "$un_config"; do
 		if docker exec "$host" test -e "$p"; then fail "uninstall --purge left $p: $out"; fi
 	done
 	for u in qhost qhost-deploy qhost-hook; do
@@ -6133,9 +6136,15 @@ refuse_update() {
 	log "scenario: tampered release $1 refused, installation unchanged: $out"
 }
 
-# window_field prints one field of qhost window show (empty when it is absent).
+# window_field prints one field of the line of qhost window show for the engine $2 (default system); empty when
+# the field is absent.
 window_field() {
-	qd --output json window show | sed -n "s/.*\"$1\": *\"\{0,1\}\([^\",}]*\).*/\1/p"
+	qd --output json window show | jq -r --arg f "$1" --arg e "${2:-system}" '.[] | select(.engine == $e) | if .[$f] == null then empty else .[$f] end'
+}
+
+# window_open succeeds while the window of the system engine is open.
+window_open() {
+	[ "$(window_field open)" = true ]
 }
 
 # window_far_away opens the window daily at the time twelve hours from now, for one minute, and prints the answer.
@@ -6231,7 +6240,7 @@ scenario_window() {
 	[ "$head_before" = "$setup_commit" ] || fail "the stacks repository moved after the setup commit: $head_before"
 
 	step 'the window opens and updates the automatic stack by itself'
-	wait_for 'the window to open' 150 sh -c "docker exec -i $host qhost --output json window show | grep -q '\"open\": *true'"
+	wait_for 'the window to open' 150 window_open
 	log "scenario: window open: $(qd --output json window show | tr -d '\n ')"
 	wait_for 'the window work to finish' 300 window_done
 	[ "$(window_field open)" = true ] || fail "the window work ran past the end of the window: $(qd --output json window show)"
@@ -6416,6 +6425,76 @@ tui_click_row() {
 # tui_excerpt logs the lines of the screen from the first one containing $1, at most $2 lines.
 tui_excerpt() {
 	tui_screen | sed -n "/$1/,\$p" | head -n "$2" | sed 's/ *$//; s/^/e2e:   | /'
+}
+
+# scenario_window_instances proves the host window and the own window of an instance: sudo qhost window set without
+# --engine writes /etc/qhost/window.json, which the system service and the rootless instance both follow; an own window
+# for the rootless instance changes only that one and survives a change of the host window; window reset lets it follow
+# the host again; a damaged file gives the default and a warning without stopping the services; without sudo the host
+# window stays as it is. It leaves the host window far away like scenario_window.
+scenario_window_instances() {
+	wi_engine=rootless:$rootless_user
+	wi_file=/etc/qhost/window.json
+	wi_start() { date -u -d "+$1 hours" +%H:%M; }
+	wi_a=$(wi_start 5) wi_b=$(wi_start 7) wi_c=$(wi_start 9)
+
+	step 'sudo qhost window set without --engine writes the host window, which both instances follow'
+	out=$(qd --output json window set --days daily --zone UTC --start "$wi_a" --duration 7m) || fail "window set failed: $out"
+	printf '%s' "$out" | jq -e --arg s "$wi_a" '.origin == "host" and .start == $s and .duration == "7m" and .zone == "UTC"' >/dev/null ||
+		fail "window set does not print the host window: $out"
+	[ "$(docker exec "$host" stat -c %U:%G:%a "$wi_file")" = root:root:644 ] ||
+		fail "$wi_file is $(docker exec "$host" stat -c %U:%G:%a "$wi_file"), want root:root:644"
+	docker exec "$host" grep -q '"schema": 1' "$wi_file" || fail "$wi_file carries no format number: $(docker exec "$host" cat "$wi_file")"
+	for e in system "$wi_engine"; do
+		[ "$(window_field origin "$e")" = host ] && [ "$(window_field start "$e")" = "$wi_a" ] && [ "$(window_field duration "$e")" = 7m ] ||
+			fail "the engine $e does not follow the host window: $(qd --output json window show)"
+	done
+	[ "$(qd --output json window show | jq length)" = 2 ] || fail "window show does not list exactly the two instances: $(qd --output json window show)"
+	qd window show | grep -q "^$wi_engine .*host" || fail "the table does not show the origin of $wi_engine: $(qd window show)"
+
+	step 'an own window for the rootless instance changes only that instance'
+	out=$(qd --output json window set --engine "$wi_engine" --start "$wi_b" --duration 3m) || fail "own window set failed: $out"
+	printf '%s' "$out" | jq -e --arg e "$wi_engine" --arg s "$wi_b" '.engine == $e and .origin == "own" and .start == $s and .duration == "3m" and .zone == "UTC"' >/dev/null ||
+		fail "own window set does not print the own window: $out"
+	[ "$(window_field origin "$wi_engine")" = own ] && [ "$(window_field start "$wi_engine")" = "$wi_b" ] ||
+		fail "the rootless instance has no own window: $(qd --output json window show)"
+	[ "$(window_field origin)" = host ] && [ "$(window_field start)" = "$wi_a" ] ||
+		fail "the own window changed the system service: $(qd --output json window show)"
+	docker exec "$host" grep -q "\"start\": \"$wi_a\"" "$wi_file" || fail "the own window changed $wi_file"
+
+	step 'a change of the host window reaches the system service and not the own window'
+	qd window set --start "$wi_c" >/dev/null || fail 'host window set failed'
+	[ "$(window_field start)" = "$wi_c" ] && [ "$(window_field origin)" = host ] || fail "the system service does not follow: $(qd --output json window show)"
+	[ "$(window_field start "$wi_engine")" = "$wi_b" ] && [ "$(window_field origin "$wi_engine")" = own ] ||
+		fail "the host window reached an own window: $(qd --output json window show)"
+
+	step 'window reset lets the rootless instance follow the host window again'
+	out=$(qd --output json window reset --engine "$wi_engine") || fail "window reset failed: $out"
+	[ "$(window_field origin "$wi_engine")" = host ] && [ "$(window_field start "$wi_engine")" = "$wi_c" ] ||
+		fail "the rootless instance does not follow the host after the reset: $(qd --output json window show)"
+	qd_fails window reset | grep -q -- '--engine' || fail 'window reset without --engine does not ask for it'
+
+	step 'without sudo the host window stays as it is and window show still works'
+	if out=$(as_admin 'qhost window set --start 04:00 2>&1'); then fail "window set without sudo succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'needs root' || fail "window set without sudo does not say it needs root: $out"
+	[ "$(window_field start)" = "$wi_c" ] || fail "window set without sudo changed the host window: $(qd --output json window show)"
+	as_admin 'qhost --output json window show' | jq -e 'length == 2' >/dev/null || fail 'window show without sudo does not list both instances'
+
+	step 'a damaged host file gives the default window and a warning, and window set keeps the file'
+	docker exec "$host" cp -p "$wi_file" "$wi_file.aside" || fail 'cannot keep the host file aside'
+	docker exec "$host" sh -ec "printf '{\"schema\": 1, \"days\": [' >$wi_file"
+	for e in system "$wi_engine"; do
+		[ "$(window_field origin "$e")" = host ] && [ "$(window_field start "$e")" = 03:00 ] && [ -n "$(window_field warning "$e")" ] ||
+			fail "the engine $e does not use the default with a warning: $(qd --output json window show)"
+	done
+	out=$(qd_fails window set --start 04:00) || fail "window set over a damaged file succeeded: $out"
+	[ "$(docker exec "$host" cat "$wi_file")" = '{"schema": 1, "days": [' ] || fail "window set changed the damaged file: $(docker exec "$host" cat "$wi_file")"
+	docker exec "$host" mv "$wi_file.aside" "$wi_file" || fail 'cannot put the host file back'
+	[ "$(window_field start)" = "$wi_c" ] && [ -z "$(window_field warning)" ] || fail "the window is not back after the file is fixed: $(qd --output json window show)"
+	[ "$(status_field started_at)" != "" ] || fail 'status does not answer after the damaged file'
+
+	step 'the window is moved away again'
+	window_far_away >/dev/null || fail 'cannot move the maintenance window out of the way'
 }
 
 # scenario_tui drives the terminal interface of the running service the way an administrator does. demo-cache
@@ -7166,10 +7245,10 @@ scenario_tui_proposal_kinds() {
 	pk_settings=$(printf '%s' "$out" | jq -c '.settings') || fail "stack settings shows no settings: $out"
 	[ "$pk_settings" != null ] || fail "$pk_stack has no settings: $out"
 	out=$(qd --output json window show) || fail "window show failed: $out"
-	pk_days=$(printf '%s' "$out" | jq -r '.days | if type == "array" then join(",") else . end')
-	pk_start=$(printf '%s' "$out" | jq -r '.start')
-	pk_duration=$(printf '%s' "$out" | jq -r '.duration')
-	pk_zone=$(printf '%s' "$out" | jq -r '.zone')
+	pk_days=$(window_field days)
+	pk_start=$(window_field start)
+	pk_duration=$(window_field duration)
+	pk_zone=$(window_field zone)
 	if qd --output json notify list | grep -q '"prop-hook"'; then fail 'the channel prop-hook exists before the proposal'; fi
 	[ "$(as_admin 'qhost --output json proposal list' | jq '(if type == "array" then . else .proposals end) | [.[]? | select(.state == "open")] | length')" = 0 ] ||
 		fail 'a proposal is open before the section'
@@ -7867,7 +7946,7 @@ EOF2
 	out=$(qd --output json window set --days daily --zone UTC --start "$start" --duration 5m) || fail "window set failed: $out"
 	[ "$(window_field open)" = false ] || fail "the window is open before its start: $(qd --output json window show)"
 	window_last_before=$(window_field last_run)
-	wait_for 'the window to open' 150 sh -c "docker exec -i $host qhost --output json window show | grep -q '\"open\": *true'"
+	wait_for 'the window to open' 150 window_open
 	wait_for 'the window work to finish' 300 window_done
 	[ "$(window_field open)" = true ] || fail "the window work ran past the end of the window: $(qd --output json window show)"
 	[ "$(status_field started_at)" = "$started" ] || fail 'the service restarted'

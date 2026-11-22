@@ -382,7 +382,7 @@ acc_update_window() {
 	start=$(date -u -d '+2 minutes' +%H:%M)
 	out=$(qd --output json window set --days daily --zone UTC --start "$start" --duration 25m) || fail "window set failed: $out"
 	window_last_before=$(window_field last_run)
-	wait_for 'the window to open' 180 sh -c "docker exec -i $host qhost --output json window show | grep -q '\"open\": *true'"
+	wait_for 'the window to open' 180 window_open
 	wait_for 'the window work to finish' 1500 window_done
 	[ "$(status_field started_at)" = "$started" ] || fail 'the service restarted'
 	stack_images n8n | grep -qx "$N8N_IMAGE:2.47.0" || fail "n8n does not run 2.47.0: $(stack_images n8n)"

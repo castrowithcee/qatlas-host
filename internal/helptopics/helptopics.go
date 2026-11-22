@@ -18,6 +18,7 @@ func All() []helptopics.Topic {
 		{Name: "stack-settings", Short: "Stack settings", Text: stackSettingsTopic},
 		{Name: "backups", Short: "Backing up and restoring the data of a stack", Text: backupsTopic},
 		{Name: "data-directories", Short: "Missing data directories of a stack: the data-dir-missing finding and how to resolve it", Text: dataDirectoriesTopic},
+		{Name: "maintenance-window", Short: "The maintenance window: one window for the host, an own one per deploy service, where it is kept and how a change reaches the services", Text: maintenanceWindowTopic},
 		{Name: "notifications", Short: "Notification channels: events, types and secrets", Text: notificationsTopic},
 		{Name: "proposals", Short: "Proposals: asking for a change of the setup or the host without sudo, the kinds source-add, stack-settings, window, notify-channel, host-change and the switched command, limits and states", Text: proposalsTopic},
 		{Name: "containers", Short: "The containers of the host: kinds, states, metrics, start, stop, restart", Text: containersTopic},
@@ -56,7 +57,7 @@ Commands:
 - qhost stack pause|unpause <stack>: keep the maintenance window from running a stack, or lift that; unrelated to the pause of a failed rollback (run with sudo)
 - qhost stack pin|unpin <stack>: hold the image versions of a stack, so the maintenance window and qhost stack update leave them alone, or release them (run with sudo)
 - qhost stack start|stop|restart <stack> [--yes]: start, stop or restart the containers of a stack after a question; a stop keeps the stack stopped against new commits and the maintenance window until a start, and qhost status and stack list show it (run with sudo; see qhost help containers)
-- qhost window show|set: show the maintenance window, in which the service checks the registries and updates the stacks in automatic mode, or change its weekdays, start, duration and time zone; the running service follows at once (show runs without sudo for an administrator in the group qhost; set needs sudo)
+- qhost window show|set|reset: show the maintenance window of every deploy service with its origin (host or own), in which the service checks the registries and updates the stacks in automatic mode, or change the weekdays, start, duration and time zone of the host window, or with --engine of the own window of one deploy service; reset lets that service follow the host again; the running services follow within seconds (show runs without sudo for an administrator in the group qhost; set and reset need sudo; see qhost help maintenance-window)
 - qhost stack update <stack>... [--version <v>]: update the image versions of stacks, each version step a commit of the stack's .env pushed to the branch and a run with backup, check and rollback (run with sudo)
 - qhost stack updates [stack] [--refresh]: show the current and the available image versions per stack and variable, with newer major versions flagged as not automatic; --refresh asks the registries now (without --refresh it runs without sudo for an administrator in the group qhost; --refresh needs sudo)
 - qhost stack changelog <stack>: show the release notes between the current and the available version of each variable with an update; qhost stack updates --changelog shows them for all stacks (run with sudo, as it asks GitHub)
@@ -421,13 +422,13 @@ Kind stack-settings proposes the settings of a stack (see qhost stack settings -
 - settings: the settings object of qhost stack settings, with the members version (1, required), compose, update, backup and check; it is checked with the same rules as qhost stack settings set
 Example: {"stack": "web", "settings": {"version": 1, "update": {"mode": "manual"}, "backup": {"paths": ["data"]}}}
 The schema has no secret member, so a secret is not proposable: a proposal with a field the schema does not name is refused, never trimmed. Approving shows the difference to the settings that apply now, every value in full and broken into lines, a backup command marked because it runs on the host later; the settings are then written the way qhost stack settings set writes them (a commit, pushed when the folder has a remote).
-Kind window proposes the maintenance window of the host (see qhost window set --help). Its content is a JSON object with these fields and no others, at least one of them; a part left out keeps its value:
+Kind window proposes the maintenance window (see qhost window set --help and qhost help maintenance-window). Its content is a JSON object with these fields and no others, at least one of them; a part left out keeps its value:
 - days: weekday names such as ["mon", "wed"], or ["daily"]
 - start: the start time HH:MM on the 24-hour clock
 - duration: whole minutes such as 2h or 1h30m, from 1m to 12h
 - zone: local or an IANA time zone name
 Example: {"days": ["mon", "thu"], "start": "02:30", "duration": "90m", "zone": "UTC"}
-The values are checked with the same rules as qhost window set, so a wrong weekday, time, duration or zone is refused when submitting, and a field the schema does not name, a secret included, is refused, never trimmed. Approving shows the difference to the window that applies now, every value in full; the window is then set the way qhost window set sets it.
+The values are checked with the same rules as qhost window set, so a wrong weekday, time, duration or zone is refused when submitting, and a field the schema does not name, a secret included, is refused, never trimmed. Approving shows the difference to the window that applies now, every value in full; the window is then set the way qhost window set sets it: without --engine on qhost proposal approve it is the host window, written by the client under sudo, and with --engine the own window of that engine's deploy service, which must be the one that stores the proposal.
 Kind notify-channel proposes a notification channel (see qhost help notifications). Its content is a JSON object with these fields and no others: the fields of qhost notify add without its secret parts.
 - name: 1 to 32 characters, lowercase letters, digits or '-', starting with a letter (required); a name that is taken is refused when submitting and when approving
 - type: webhook, slack, telegram or smtp (required)
@@ -540,3 +541,21 @@ const troubleshootingTopic = `Every file qhost stores and reads back carries a f
 What happens depends on the file. If it belongs to the core state of a service, that service does not start. It writes the message to its log, and qhost status shows the service as not running and names the file. As root, qhost status checks the state files of a service that does not run; without root it says so and points to sudo qhost status. If the file is only one part, the service keeps running and the part is shown as not readable with its file: a proposal in qhost proposal list, the settings of a stack as the finding unreadable, a backup as unreadable in qhost stack backup list, and the log of a run in qhost stack runs (qhost stack log names the file).
 
 Next step: a number that is newer means a newer qhost wrote the file, so install that version again (qhost update status shows what is installed). A missing or too old number means the file comes from an earlier release: move it aside, for example with mv, and start the service again, which then begins that part afresh; keep the moved file as long as you may need it. Edit the number in the file only if you know what the newer fields mean. Then start the service again with systemctl start qhost-deploy, or qhost-deploy@<user> for an instance. For the webhook receiver, qhost status shows hook_config as unreadable with its file.`
+
+const maintenanceWindowTopic = `In the maintenance window every deploy service asks the registries for the versions of its stacks and updates the stacks in automatic mode (see qhost window --help). One window is set for the whole host and applies to every deploy service, the one of the system engine and the instance of each rootless engine. A service can have an own window instead and can follow the host again.
+
+Where it is kept:
+- The host window is the file /etc/qhost/window.json, owned by root, mode 0644, so every service can read it. It holds the format number (schema), days, start, duration and zone, with the same values as qhost window set. Only the client running under sudo writes it, through qhost window set or the approval of a proposal; no service writes it or reaches another service for it. Nobody edits it by hand; a file that is damaged, or has a format number this version does not read, is never overwritten (see qhost help troubleshooting).
+- The own window of a service is kept in the state of that service and marked as own.
+- Which window applies to a service: its own, else the host window, else the default, every day at 03:00 for 2 hours in the local time zone.
+
+Commands:
+- sudo qhost window set [--days D] [--start HH:MM] [--duration T] [--zone Z]: change the host window; the parts left out keep their value. The first time, when the host has no file, the window the system deploy service kept before the host window existed becomes the starting point and the first content of the file.
+- sudo qhost window set --engine <id> ...: set the own window of the deploy service of that engine (system or rootless:<user>), starting from the window that applies to it.
+- sudo qhost window reset --engine <id>: remove the own window, so the service follows the host window again.
+- qhost window show: one line per deploy service with the engine, the origin (host or own), the window, whether it is open, when it opens next and a warning. With --output json every line has the fields engine, origin, days, start, duration, zone, open, open_until, next_opening, last_run, running and warning.
+
+A running service looks at the host file every few seconds and follows a change without a restart. If the file is missing, the service uses the default window (or the window it kept before). If the file cannot be read or is malformed, the service does not stop: it uses the default window, shows a warning in qhost window show and logs it once, until the file is fixed or removed. A service with an own window is not affected.
+
+sudo qhost uninstall --purge removes the file and its folder when nothing else is in it; without --purge the file stays.
+`

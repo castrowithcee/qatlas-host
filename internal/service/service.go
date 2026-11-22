@@ -23,6 +23,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 	registryclient "github.com/castrowithcee/qatlas-host/internal/registry"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
+	"github.com/castrowithcee/qatlas-host/internal/window"
 )
 
 // DefaultStateDir is the state directory of the deploy service under systemd's StateDirectory convention.
@@ -83,6 +84,11 @@ type Config struct {
 	// HookDir is the folder the webhook receiver leaves its markers for this instance in, one file per stack to
 	// check at once. Empty means no markers are taken. A folder that does not exist is no error.
 	HookDir string
+	// WindowHostFile is the file of the host window every instance follows unless it has an own window; empty
+	// means window.HostFilePath. Tests point it into a temporary folder.
+	WindowHostFile string
+	// WindowHostPoll is how often the service looks whether that file changed; zero means ten seconds. Tests shorten it.
+	WindowHostPoll time.Duration
 	// HookInterval is the time between looks into HookDir; zero means two seconds. Tests shorten it.
 	HookInterval time.Duration
 	// MonitorInterval is the time between container readings of the failure monitor; zero means 30 seconds.
@@ -179,7 +185,7 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 	if err != nil {
 		return err
 	}
-	win, err := newWindowService(cfg.StateDir, upd, cfg.Clock, log, func(n UpdateNotice) {
+	win, err := newWindowService(cfg.StateDir, cmp.Or(cfg.WindowHostFile, window.HostFilePath), cfg.WindowHostPoll, upd, cfg.Clock, log, func(n UpdateNotice) {
 		if cfg.OnUpdateAvailable != nil {
 			cfg.OnUpdateAvailable(n)
 		}
