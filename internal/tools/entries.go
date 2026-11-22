@@ -78,6 +78,8 @@ var entries = []Entry{
 		object([]string{"path", "url", "fingerprint", "expect_state"}, props{"path": str(), "url": str(), "fingerprint": str(),
 			"expect_state": str(), "expect_commit": str()}), "source remote"),
 	deployCmd("source.list", ClassRead, ScopeDeploy, "List the bound stack folders.", none, "source list"),
+	deployCmd("source.move", ClassChange, ScopeDeploy, "Preview the move of a project folder into a source; changes nothing.",
+		object([]string{"path", "into"}, props{"path": str(), "into": str()}), "source move"),
 	deployCmd("source.remove", ClassChange, ScopeDeploy, "Release a bound stack folder.", pathArg, "source remove"),
 	deployCmd("backup.create", ClassChange, ScopeStack, "Stop a stack, back up its data and start it again.", stackArg, "stack backup create"),
 	deployCmd("backup.list", ClassRead, ScopeStack, "List the backups of a stack.", stackArg, "stack backup list"),
