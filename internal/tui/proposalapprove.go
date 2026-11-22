@@ -59,9 +59,12 @@ func effectSignature(flow *addFlow) string {
 		slices.Sort(out)
 		return out
 	}
-	var left, conflicts, notChecked []string
+	var left, chosen, conflicts, notChecked []string
 	for _, e := range flow.res.Excluded {
 		left = append(left, e.Path+"\x00"+e.Reason+"\x00"+e.Stack)
+	}
+	for _, e := range flow.res.Included {
+		chosen = append(chosen, e.Path+"\x00"+e.Reason)
 	}
 	for _, st := range flow.res.Stacks {
 		for _, c := range st.Conflicts {
@@ -78,11 +81,12 @@ func effectSignature(flow *addFlow) string {
 		Missing    bool
 		Files      []string
 		Excluded   []string
+		Included   []string
 		Conflicts  []string
 		NotChecked []string
 		Changed    int
 		Plan       []string
-	}{flow.res.Case, flow.res.Reason, flow.readOnly, flow.missing, sorted(flow.res.PlannedFiles), sorted(left),
+	}{flow.res.Case, flow.res.Reason, flow.readOnly, flow.missing, sorted(flow.res.PlannedFiles), sorted(left), sorted(chosen),
 		sorted(conflicts), sorted(notChecked), flow.plan.Changed, flow.plan.Summary})
 	return string(raw)
 }
@@ -170,12 +174,12 @@ func (m *Model) approveProposal() tea.Cmd {
 	}
 	if m.euid() != 0 {
 		shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, url: v.content.URL, gen: v.gen}
-		return m.inspectSudoFor(v.content.Path, nil, shown)
+		return m.inspectSudoFor(v.content.Path, nil, shown, nil)
 	}
 	shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, effect: effectSignature(v.flow), url: v.content.URL, gen: v.gen}
 	ctx, host, path := m.ctx, m.folders, v.content.Path
 	return m.writeCall(opInspect, path, func(b Backend) (any, error) {
-		now := loadProposal(ctx, b, host, shown.gen, shown.id, true)
+		now := loadProposal(ctx, b, host, shown.gen, shown.id, true, nil)
 		if now.err != nil {
 			return nil, now.err
 		}
@@ -193,7 +197,7 @@ func (m *Model) approveProposal() tea.Cmd {
 // is kept on the proposal. A difference or a refusal before the change leaves everything as it was.
 func approveAndApply(ctx context.Context, b Backend, host Folders, flow *addFlow) (any, error) {
 	p := flow.proposal
-	now := loadProposal(ctx, b, host, p.gen, p.id, true)
+	now := loadProposal(ctx, b, host, p.gen, p.id, true, flow.include)
 	if now.err != nil {
 		return nil, now.err
 	}

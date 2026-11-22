@@ -30,6 +30,8 @@ type approveOptions struct {
 	unconfirmed error
 	// hostKey, expectEffect, expectState and expectCommit bind a source-add proposal to the state that was shown.
 	hostKey, expectEffect, expectState, expectCommit string
+	// include is the choice of unclear files of a source-add proposal.
+	include []string
 }
 
 // asks says the person is asked at the terminal.
@@ -56,8 +58,8 @@ func (o approveOptions) check() error {
 
 // onlyForSourceAdd refuses the flags that only a source-add proposal takes.
 func (o approveOptions) onlyForSourceAdd(id string) error {
-	if o.url != "" || o.hostKey != "" || o.expectEffect != "" || o.expectState != "" || o.expectCommit != "" {
-		return usageFailure("--url, --host-key-fingerprint, --expect-effect, --expect-state and --expect-commit apply to proposals of the kind source-add only",
+	if o.url != "" || o.hostKey != "" || o.expectEffect != "" || o.expectState != "" || o.expectCommit != "" || len(o.include) > 0 {
+		return usageFailure("--url, --include, --host-key-fingerprint, --expect-effect, --expect-state and --expect-commit apply to proposals of the kind source-add only",
 			"Run 'sudo qhost proposal approve "+id+"' without them.")
 	}
 	return nil
@@ -96,7 +98,7 @@ func approveSourceAddReviewed(c *cobra.Command, program *cobracli.Program, state
 	c.SetContext(withoutHostKeyQuestion(c.Context(), "--host-key-fingerprint"))
 	var seen bytes.Buffer
 	both := io.MultiWriter(notice, &seen)
-	sa, err := prepareSourceAdd(c, program, state, both, content.Path, url, o.hostKey, rerun, expect)
+	sa, err := prepareSourceAdd(c, program, state, both, content.Path, url, o.hostKey, rerun, expect, o.include, false)
 	if err != nil {
 		return err
 	}
@@ -147,7 +149,7 @@ func approveSourceAddReviewed(c *cobra.Command, program *cobracli.Program, state
 		return notReviewed(id)
 	}
 	var fresh bytes.Buffer
-	sa, err = prepareSourceAdd(c, program, state, &fresh, content.Path, url, hostKey, rerun, expect)
+	sa, err = prepareSourceAdd(c, program, state, &fresh, content.Path, url, hostKey, rerun, expect, sa.include, false)
 	if err != nil {
 		return err
 	}

@@ -50,6 +50,10 @@ func newSourceEffect(res control.SourceInspectResult, perms *permPlan) (*sourceE
 		left = append(left, e.Path+": "+e.Reason)
 	}
 	files := append([]string{}, res.PlannedFiles...)
+	var included []string
+	for _, e := range res.Included {
+		included = append(included, e.Path+": "+e.Reason)
+	}
 	summary, changed := []string{}, 0
 	if perms != nil {
 		summary, changed = perms.summary(), perms.changed()
@@ -59,9 +63,11 @@ func newSourceEffect(res control.SourceInspectResult, perms *permPlan) (*sourceE
 		Missing  bool     `json:"missing"`
 		Files    []string `json:"files"`
 		Excluded []string `json:"excluded"`
+		// Included is the choice of unclear files; the effect of a folder without one stays what it was.
+		Included []string `json:"included,omitempty"`
 		Changed  int      `json:"changed"`
 		Summary  []string `json:"summary"`
-	}{res.Case, missing, files, left, changed, summary})
+	}{res.Case, missing, files, left, included, changed, summary})
 	if err != nil {
 		return nil, folderFailure("cannot fingerprint the effect of the folder", err)
 	}
@@ -106,6 +112,11 @@ func effectFields(format output.Format, e *sourceEffect) []output.Field {
 
 // checkExpectedEffect refuses, before anything changes, when the effect of adding the folder is not the one
 // the operator was shown. An empty expected effect asks for no check.
+//
+// The choice of unclear files is part of the effect, because it changes the files and what is left out: the
+// effect of 'source inspect' with the same --include is the one that matches, and an effect worked out with
+// another choice never passes. A folder of files that joins a remote is added with the plan of the comparison, which
+// may hold more files, but the unclear files of both plans are the same ones.
 //
 // The effect is the one source inspect shows. A folder of files that joins a remote is added with the plan of the
 // comparison, which may hold more files; those rest on the remote commit, which --expect-state and

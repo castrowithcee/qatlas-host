@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+  Unklare Dateien wählen                                
+                                                        
+                     ╔═════════════════════════════════╗
+> Dateien übernehmen ║ >[x] demo/acme.json (writable-f ║
+                     ║  [ ] demo/secrets/db.txt (secre ║
+                     ╚═════════════════════════════════╝
+                     Leertaste wählt eine Datei;        
+                     gewählte Dateien kommen in den     
+                     ersten Commit, die anderen bleiben 
+                     draußen                            
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+[ F2 speichern ]  [ esc Verwerfen ]                     
+space Umschalten  F2 Speichern  esc verwerfen           
+               tab Nächstes Feld  shift+tab Voriges Feld

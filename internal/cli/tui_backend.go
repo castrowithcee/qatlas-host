@@ -541,9 +541,9 @@ func (b *engineBackend) SecretDelete(ctx context.Context, stack, key string) (co
 
 // SourceInspect reads a folder at the service that has it bound; a folder no service has bound follows the
 // rule of the whole engine.
-func (b *engineBackend) SourceInspect(ctx context.Context, path, url string) (control.SourceInspectResult, error) {
+func (b *engineBackend) SourceInspect(ctx context.Context, path, url string, include []string) (control.SourceInspectResult, error) {
 	return onFolder(b, ctx, path, true, func(c *tui.ChannelBackend) (control.SourceInspectResult, error) {
-		return c.SourceInspect(ctx, path, url)
+		return c.SourceInspect(ctx, path, url, include)
 	})
 }
 

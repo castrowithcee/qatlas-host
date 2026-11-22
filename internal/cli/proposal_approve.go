@@ -59,6 +59,11 @@ func newProposalApprove(program *cobracli.Program, state *notRunning, secrets *r
 			"pinned already, --expect-effect binds the run to the effect 'qhost source inspect' shows, and\n" +
 			"--expect-state with --expect-commit to the comparison 'qhost source compare' shows, as for 'qhost source\n" +
 			"add'; when the folder or the remote changed, nothing is applied and the command fails with state-changed.\n" +
+			"For a folder of files the preview lists the unclear files (a writable mount, the file of a secret) apart\n" +
+			"with their reason; they stay out unless you choose them: the question asks for each one (default no) or\n" +
+			"--include <path> (repeatable) chooses it in advance, also with --fingerprint. The choice is part of the\n" +
+			"effect the approval is bound to, so --expect-effect takes the effect of 'qhost source inspect' with the\n" +
+			"same --include.\n" +
 			"A folder without deploy key is refused; create the key with 'qhost key generate' first. --agent is refused\n" +
 			"here as well; a process without a terminal on standard input is accepted when it has a terminal of its own,\n" +
 			"as when the terminal interface runs the command. The result is printed as an object: the fields of 'qhost\n" +
@@ -81,6 +86,7 @@ func newProposalApprove(program *cobracli.Program, state *notRunning, secrets *r
 	c.Flags().StringVar(&o.expectEffect, "expect-effect", "",
 		"source-add with --fingerprint: effect fingerprint from 'source inspect'; refuses with state-changed when it differs now")
 	remoteFlags(c, &o.expectState, &o.expectCommit)
+	c.Flags().StringArrayVar(&o.include, "include", nil, "source-add: "+includeUsage)
 	gate = program.AddGate(c, cobracli.Gates{Change: true})
 	return c
 }
@@ -213,7 +219,7 @@ func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 
 	var seen bytes.Buffer
 	both := io.MultiWriter(notice, &seen)
-	sa, err := prepareSourceAdd(c, program, state, both, content.Path, url, "", rerun, nil)
+	sa, err := prepareSourceAdd(c, program, state, both, content.Path, url, "", rerun, nil, o.include, true)
 	if err != nil {
 		return err
 	}
@@ -257,7 +263,7 @@ func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 			"Run 'sudo qhost proposal approve "+id+"' again and review it.")
 	}
 	var fresh bytes.Buffer
-	sa, err = prepareSourceAdd(c, program, state, &fresh, content.Path, url, fingerprint, rerun, nil)
+	sa, err = prepareSourceAdd(c, program, state, &fresh, content.Path, url, fingerprint, rerun, nil, sa.include, false)
 	if err == nil {
 		warnOtherEngine(c.Context(), &fresh, sa.res)
 		var again string
@@ -294,7 +300,7 @@ func applySourceProposal(c *cobra.Command, program *cobracli.Program, state *not
 		control.ProposalApproveArgs{ID: id, Fingerprint: proposal}, &control.ProposalInfo{}); err != nil {
 		return err
 	}
-	applyErr := executeSourceAdd(c, program, state, sa.res, sa.repoURL, hostKey, sa.perms, sa.remote)
+	applyErr := executeSourceAdd(c, program, state, sa.res, sa.repoURL, hostKey, sa.perms, sa.remote, sa.include)
 	result := control.ProposalResultArgs{ID: id, Fingerprint: proposal, Applied: applyErr == nil}
 	if applyErr != nil {
 		result.Message = failureText(applyErr)
@@ -361,9 +367,12 @@ func shortText(s string) string {
 // effectOf is the fingerprint of what applying the proposal would do: every line shown and the complete lists
 // of files, of which the text shows only the first ones, including those taken because the remote versions them.
 func effectOf(sa *sourceAdd, text string) (string, error) {
-	var left, remote []string
+	var left, remote, included []string
 	for _, e := range sa.res.Excluded {
 		left = append(left, e.Path+": "+e.Reason)
+	}
+	for _, e := range sa.res.Included {
+		included = append(included, e.Path+": "+e.Reason)
 	}
 	if sa.remote != nil {
 		remote = sa.remote.cmp.RemoteFiles
@@ -375,7 +384,9 @@ func effectOf(sa *sourceAdd, text string) (string, error) {
 		Remote   []string `json:"remote"`
 		Excluded []string `json:"excluded"`
 		Engines  []string `json:"engines"`
-	}{text, sa.question, sa.res.PlannedFiles, remote, left, engineSignature(sa.res)})
+		// Included is the choice of unclear files; the effect of a proposal without one stays what it was.
+		Included []string `json:"included,omitempty"`
+	}{text, sa.question, sa.res.PlannedFiles, remote, left, engineSignature(sa.res), included})
 }
 
 // ensureDeployKey shows the deploy key of the folder, or offers to generate one and waits until the person has

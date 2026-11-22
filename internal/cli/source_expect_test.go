@@ -483,7 +483,7 @@ func TestSourceCompareShowsTheComparisonAndChangesNothing(t *testing.T) {
 		t.Errorf("secrets = %v", secrets)
 	}
 	if !fake.untouched() || svc.count(control.SourceInspectCommand) != 0 ||
-		len(fake.compared) != 1 || fake.compared[0] != (control.SourceCompareArgs{Path: dir, URL: remoteURL, Fingerprint: remoteKeyPrint}) {
+		len(fake.compared) != 1 || !reflect.DeepEqual(fake.compared[0], control.SourceCompareArgs{Path: dir, URL: remoteURL, Fingerprint: remoteKeyPrint}) {
 		t.Fatalf("compared %+v", fake.compared)
 	}
 

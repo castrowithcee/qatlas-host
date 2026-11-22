@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+  [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Unklare Dateien wählen                                                                                                
+                                                                                                                        
+                     ╔═════════════════════════════════════════════════════════════════════════════════════════════════╗
+> Dateien übernehmen ║ >[x] demo/acme.json (writable-file)  [ ] demo/secrets/db.txt (secrets-file)                     ║
+                     ╚═════════════════════════════════════════════════════════════════════════════════════════════════╝
+                     Leertaste wählt eine Datei; gewählte Dateien kommen in den ersten Commit, die anderen bleiben      
+                     draußen                                                                                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+[ F2 speichern ]  [ esc Verwerfen ]                                                                                     
+space Umschalten  F2 Speichern  esc verwerfen                                  tab Nächstes Feld  shift+tab Voriges Feld

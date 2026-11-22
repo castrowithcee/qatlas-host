@@ -139,6 +139,8 @@ type modal struct {
 	yes func() tea.Cmd
 	// alt is what the answer actWithRemote does, for a question that offers it.
 	alt func() tea.Cmd
+	// choose is what the answer actChoose does, for a question that offers it.
+	choose func() tea.Cmd
 	// drop runs on every answer but yes, so a question that holds a secret overwrites it.
 	drop func()
 	// input is what the answer enter of a dialog with an input does with the text typed.
@@ -467,6 +469,10 @@ func (m *Model) answer(answer kittui.ActionID) tea.Cmd {
 	case actWithRemote, actRootless:
 		if md.alt != nil {
 			return md.alt()
+		}
+	case actChoose:
+		if md.choose != nil {
+			return md.choose()
 		}
 	case actEnter:
 		if md.input != nil {

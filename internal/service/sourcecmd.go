@@ -47,7 +47,7 @@ func (s *inspectService) handleAdd(ctx context.Context, raw json.RawMessage) (an
 	}
 	s.repo.setMu.Lock()
 	defer s.repo.setMu.Unlock()
-	v, access, err := s.classify(ctx, control.SourceInspectArgs{Path: a.Path, URL: a.URL})
+	v, access, err := s.classify(ctx, control.SourceInspectArgs{Path: a.Path, URL: a.URL, Include: a.Include})
 	if v.plan != nil {
 		defer v.plan.close()
 	}

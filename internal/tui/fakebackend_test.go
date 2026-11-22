@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"slices"
 	"strconv"
@@ -61,8 +62,10 @@ type fakeBackend struct {
 	sourceAdds []control.SourceAddArgs
 	// compares records the comparisons asked for; remotes the source.remote calls, and remoteRes is their answer.
 	compares []control.SourceCompareArgs
-	remotes  []control.SourceRemoteArgs
-	removes  []string
+	// inspectIncludes records the choice of unclear files of every inspection, in order.
+	inspectIncludes [][]string
+	remotes         []control.SourceRemoteArgs
+	removes         []string
 	// host is the host side the model gets; nil gives it none.
 	host *fakeFolders
 	// sent are the arguments of the credential and channel writes in order, kept to check what reached the
@@ -513,15 +516,16 @@ func (f *fakeBackend) RepoFetch(ctx context.Context, dir string) (control.RepoFe
 	return control.RepoFetchResult{Dir: stackDir, Head: commitA, RemoteHead: commitB, UpdatesAvailable: true}, nil
 }
 
-func (f *fakeBackend) SourceInspect(_ context.Context, path, url string) (control.SourceInspectResult, error) {
+func (f *fakeBackend) SourceInspect(_ context.Context, path, url string, include []string) (control.SourceInspectResult, error) {
 	f.count("sourceinspect")
 	if err := f.fail("sourceinspect", path); err != nil {
 		return control.SourceInspectResult{}, err
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.inspectIncludes = append(f.inspectIncludes, slices.Clone(include))
 	if res, ok := f.inspects[path]; ok {
-		return res, nil
+		return planWithInclude(res, include)
 	}
 	return control.SourceInspectResult{Path: path, Case: control.SourceCaseReject, Reason: "no such folder in the fake",
 		Stacks: []control.SourceStack{}}, nil
@@ -1054,4 +1058,26 @@ func (f *fakeBackend) noteEngine(ctx context.Context, call, arg string) {
 	f.mu.Lock()
 	f.engineLog = append(f.engineLog, call+":"+arg+"@"+EngineOf(ctx))
 	f.mu.Unlock()
+}
+
+// planWithInclude is the plan as the service makes it with a choice of unclear files: each chosen file moves from
+// the left-out files to the included ones and the planned files. A path that is not left out as unclear is refused.
+func planWithInclude(res control.SourceInspectResult, include []string) (control.SourceInspectResult, error) {
+	if len(include) == 0 {
+		return res, nil
+	}
+	res.Excluded, res.PlannedFiles = slices.Clone(res.Excluded), slices.Clone(res.PlannedFiles)
+	for _, p := range include {
+		i := slices.IndexFunc(res.Excluded, func(e control.SourceExcluded) bool {
+			return e.Path == p && control.SourceUnclear(e.Reason)
+		})
+		if i < 0 {
+			return res, errors.New("not an unclear file: " + p)
+		}
+		res.Included = append(res.Included, res.Excluded[i])
+		res.Excluded = slices.Delete(res.Excluded, i, i+1)
+		res.PlannedFiles = append(res.PlannedFiles, p)
+	}
+	slices.Sort(res.PlannedFiles)
+	return res, nil
 }
