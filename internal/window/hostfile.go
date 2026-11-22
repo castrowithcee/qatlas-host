@@ -8,15 +8,18 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 // The file of the host window. It is owned by root and readable by every service; only the client running
 // under sudo writes it, and every deploy service instance reads it afresh, so a change applies without a restart.
+// It lies in the configuration folder of the deploy services, which every local user can read: the instances
+// for rootless engines run as different users, and the folder of the host service is closed to them.
 const (
 	// HostFilePath is the production path of the host window.
-	HostFilePath = "/etc/qhost/window.json"
+	HostFilePath = "/etc/qhost-deploy/window.json"
 	hostFileMode = 0o644
 	hostDirMode  = 0o755
 	hostSchema   = 1
@@ -67,11 +70,15 @@ func ReadHost(path string) (w Window, ok bool, err error) {
 	return w, true, nil
 }
 
-// WriteHost replaces the file at path with w. A file that exists but cannot be used is refused and kept. The
-// file is written whole to a temporary file next to it and moved over, mode 0644; a missing folder is created
-// with mode 0755.
+// WriteHost replaces the file at path with w. A file that exists but cannot be used is refused and kept, and so
+// is a folder the deploy services cannot read (see hostDir). The file is written whole to a temporary file next
+// to it and moved over, mode 0644; a missing folder is created with mode 0755.
 func WriteHost(path string, w Window) error {
 	if err := w.check(); err != nil {
+		return err
+	}
+	dir := filepath.Dir(path)
+	if err := hostDir(dir); err != nil {
 		return err
 	}
 	if _, _, err := ReadHost(path); err != nil {
@@ -80,10 +87,6 @@ func WriteHost(path string, w Window) error {
 	data, err := json.MarshalIndent(hostDoc{Schema: hostSchema, Days: w.Days.Names(), Start: FormatStart(w.Start),
 		Duration: FormatDuration(w.Duration), Zone: w.Zone}, "", "  ")
 	if err != nil {
-		return err
-	}
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, hostDirMode); err != nil {
 		return err
 	}
 	tmp, err := os.CreateTemp(dir, ".window-*")
@@ -105,6 +108,32 @@ func WriteHost(path string, w Window) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
+}
+
+// hostDir creates the folder of the host file when it is missing and refuses one that is not a plain folder of
+// the writing user (root in production, since only root writes the host window), that others can write, or that
+// others cannot enter and read: every deploy service runs as a user of its own and must read the file.
+func hostDir(dir string) error {
+	if _, err := os.Lstat(dir); errors.Is(err, fs.ErrNotExist) {
+		if err := os.MkdirAll(dir, hostDirMode); err != nil {
+			return err
+		}
+		// MkdirAll is subject to the umask, which can be 027 under sudo.
+		if err := os.Chmod(dir, hostDirMode); err != nil {
+			return err
+		}
+	}
+	info, err := os.Lstat(dir)
+	if err != nil {
+		return err
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	perm := info.Mode().Perm()
+	if !info.IsDir() || !ok || int(st.Uid) != os.Geteuid() || perm&0o022 != 0 || perm&0o005 != 0o005 {
+		return fmt.Errorf("%s must be a folder owned by root that only root can write and every user can read and enter "+
+			"(like mode 0755), because every deploy service reads the host window there; nothing was written", dir)
+	}
+	return nil
 }
 
 // Apply returns w with the named parts replaced and checks the result. A zone is checked against the zone database.

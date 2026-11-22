@@ -19,7 +19,6 @@ import (
 	"syscall"
 
 	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
-	"github.com/castrowithcee/qatlas-host/internal/window"
 )
 
 // The units, users and groups of the two services.
@@ -45,12 +44,10 @@ const (
 	dropInFile = "/etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf"
 	dropInDir  = "/etc/systemd/system/qhost-deploy.service.d"
 
-	// windowFile is the host window every deploy service follows; its folder goes with it when nothing else is in it.
-	windowFile = window.HostFilePath
-	windowDir  = "/etc/qhost"
-
 	hostStateDir   = "/var/lib/qhost"
 	deployStateDir = "/var/lib/qhost-deploy"
+	// deployConfigDir is the configuration every deploy service reads, the host window among it.
+	deployConfigDir = "/etc/qhost-deploy"
 	// journalDir is the root-only journal of the changes of the host, below the folder of that name.
 	journalDir = "/var/lib/qhost-host"
 )
@@ -115,10 +112,11 @@ func (p Plan) Commands() []string {
 func (p Plan) Sentence() string {
 	s := "Remove qhost and the deploy service from this host: both services are stopped and disabled, and the program, " +
 		"the units, the drop-in of the deploy unit, the rule of its channel and the manpages are deleted."
-	keep := " The state of both services, the journal of the host changes, the host window file, the users and the group stay."
+	keep := " The state of both services, the configuration of the deploy services with the host window, the journal of the host changes, the users and the group stay."
 	if p.Purge {
-		s += " The state and the log of both services, including credentials and backups, the journal of the host " +
-			"changes, the host window file, the system users qhost and qhost-deploy and the group qhost are deleted too, and they cannot be restored."
+		s += " The state and the log of both services, including credentials and backups, the configuration of the deploy " +
+			"services with the host window, the journal of the host changes, the system users qhost and qhost-deploy and the group qhost " +
+			"are deleted too, and they cannot be restored."
 		keep = ""
 	}
 	if len(p.Instances) > 0 {
@@ -172,7 +170,7 @@ func Targets(purge bool, pages []string, instances ...deploysetup.Instance) []st
 	}
 	out = append(out, binaryPath)
 	if purge {
-		out = append(out, hostStateDir, deployStateDir, journalDir, deploysetup.HookConfigDir, windowFile, windowDir)
+		out = append(out, hostStateDir, deployStateDir, deployConfigDir, journalDir, deploysetup.HookConfigDir)
 		for _, i := range instances {
 			out = append(out, i.StateDir(), i.ConfigDir())
 		}
@@ -216,7 +214,7 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 		recursive = append(recursive, i.ChannelDir())
 	}
 	if purge {
-		recursive = append(recursive, hostStateDir, deployStateDir, journalDir, deploysetup.HookConfigDir)
+		recursive = append(recursive, hostStateDir, deployStateDir, deployConfigDir, journalDir, deploysetup.HookConfigDir)
 		for _, i := range purged {
 			recursive = append(recursive, i.StateDir(), i.ConfigDir())
 		}
@@ -372,7 +370,7 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 	}
 
 	if purge {
-		for _, d := range []string{hostStateDir, deployStateDir, journalDir, deploysetup.HookConfigDir} {
+		for _, d := range []string{hostStateDir, deployStateDir, deployConfigDir, journalDir, deploysetup.HookConfigDir} {
 			if err := h.dir(&plan, d, "rm -r "+d, exists); err != nil {
 				return Plan{}, err
 			}
@@ -383,14 +381,6 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 					return Plan{}, err
 				}
 			}
-		}
-		if err := file(windowFile); err != nil {
-			return Plan{}, err
-		}
-		if ok, err := exists(windowDir); err != nil {
-			return Plan{}, err
-		} else if ok {
-			add("rmdir "+windowDir+" if it is empty", func(context.Context) error { return h.removeEmptyDir(windowDir) })
 		}
 		users, err := h.names("/etc/passwd")
 		if err != nil {

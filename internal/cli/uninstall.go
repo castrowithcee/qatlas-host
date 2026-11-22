@@ -51,10 +51,11 @@ func newUninstallCommand(program *cobracli.Program) *cobra.Command {
 		Short: "Remove qhost and the deploy service from this host",
 		Long: "uninstall stops and disables the host service qhost and, if it is set up, the deploy service qhost-deploy, and\n" +
 			"deletes the program, both units, the drop-in of the deploy unit, /etc/tmpfiles.d/qhost-deploy.conf with its\n" +
-			"channel directory and the manpages. The state of both services, the journal of the host changes, the system\n" +
-			"users qhost and qhost-deploy and the group qhost stay.\n" +
+			"channel directory and the manpages. The state of both services, the configuration of the deploy services, the\n" +
+			"journal of the host changes, the system users qhost and qhost-deploy and the group qhost stay.\n" +
 			"With --purge it also deletes /var/lib/qhost, /var/lib/qhost-deploy (credentials and backups included),\n" +
-			"/var/lib/qhost-host (the journal) and the users and groups; that cannot be undone.\n" +
+			"/etc/qhost-deploy (the host window), /var/lib/qhost-host (the journal) and the users and groups; that cannot\n" +
+			"be undone.\n" +
 			"The stack folders, their data and the containers are never touched, and containers keep running. If a\n" +
 			"deletion would reach a bound stack folder, nothing is changed.\n" +
 			"Uninstalling needs root. It first shows what it will do and the exact commands; without --confirm it\n" +
