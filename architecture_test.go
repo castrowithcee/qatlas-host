@@ -154,7 +154,7 @@ func TestArchitecture(t *testing.T) {
 		{
 			Name:  "deploylog-knows-the-protocol-only",
 			Files: archtest.Files{Under: []string{"internal/deploylog"}, Tests: archtest.WithTests},
-			Check: archtest.AllowImports("internal/control"),
+			Check: archtest.AllowImports("internal/control", "internal/formatnum"),
 			Hint:  "the action log of a deploy service knows the wire protocol and nothing of the services that write it",
 		},
 		{
