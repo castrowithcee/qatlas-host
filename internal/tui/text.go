@@ -104,6 +104,7 @@ const (
 	textColResult        kittui.TextID = "col.result"
 	textColTrigger       kittui.TextID = "col.trigger"
 	textColDuration      kittui.TextID = "col.duration"
+	textColTag           kittui.TextID = "col.tag"
 	textRunsEmpty        kittui.TextID = "runs.empty"
 	textRunsOnly         kittui.TextID = "runs.only"
 	textRunsNoStack      kittui.TextID = "runs.nostack"
@@ -350,6 +351,7 @@ func baseCatalog() i18n.Catalogs[kittui.TextID] {
 			textColResult:        "result",
 			textColTrigger:       "trigger",
 			textColDuration:      "duration",
+			textColTag:           "tag",
 			textRunsEmpty:        "No runs recorded.",
 			textRunsOnly:         "Runs of %s only. {stackonly} shows all stacks.",
 			textRunsNoStack:      "Choose a stack in Stacks first.",
@@ -545,6 +547,7 @@ func baseCatalog() i18n.Catalogs[kittui.TextID] {
 			textColResult:        "Ergebnis",
 			textColTrigger:       "Auslöser",
 			textColDuration:      "Dauer",
+			textColTag:           "Tag",
 			textRunsEmpty:        "Keine Läufe aufgezeichnet.",
 			textRunsOnly:         "Nur Läufe von %s. {stackonly} zeigt alle Stacks.",
 			textRunsNoStack:      "Wähle zuerst einen Stack unter Stacks.",

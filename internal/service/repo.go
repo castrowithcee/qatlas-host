@@ -46,6 +46,7 @@ type WorkingCopy interface {
 	ParentOf(ctx context.Context, commit string) (string, error)
 	FileAt(ctx context.Context, commit, path string) ([]byte, error)
 	Push(ctx context.Context, commit string) error
+	TagCommit(ctx context.Context, name, commit string) error
 	Diff(ctx context.Context, path string) (text string, truncated bool, err error)
 	Discard(ctx context.Context, paths []string) error
 	TrackedFiles(ctx context.Context, dir string) ([]string, error)

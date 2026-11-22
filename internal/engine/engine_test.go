@@ -39,6 +39,8 @@ type fakeCopy struct {
 	ffErr        error
 	revertErrs   []error
 	pushErrs     []error
+	tagErrs      []error // one per TagCommit call, nil once used up
+	tags         []tagCall
 	reverts      []revertCall
 	pushed       []string
 	commitErrs   []error
@@ -59,6 +61,8 @@ type fakeCopy struct {
 }
 
 type revertCall struct{ Stack, Deployed, Failed, Reason, Base string }
+
+type tagCall struct{ Name, Commit string }
 
 type commitCall struct {
 	Path, Message, Base string
@@ -192,6 +196,17 @@ func (f *fakeCopy) base() string {
 		return f.head
 	}
 	return f.remote
+}
+
+// TagCommit records the call and keeps no calls entry, so tests of the other steps stay unchanged.
+func (f *fakeCopy) TagCommit(_ context.Context, name, c string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := pop(&f.tagErrs); err != nil {
+		return err
+	}
+	f.tags = append(f.tags, tagCall{name, c})
+	return nil
 }
 
 func (f *fakeCopy) Push(_ context.Context, c string) error {
@@ -331,7 +346,8 @@ type fakeDeployer struct {
 	// trace, when set, gets every step as it starts.
 	trace func(string)
 	// backedUp lists the deployed commit of every backup.
-	backedUp []string
+	backedUp   []string
+	backupTags []string // the tag each backup got through its context
 	// gone are the backup ids HasBackup reports missing.
 	gone []string
 	// backupName, when set, names the backup of a deployed commit instead of the default.
@@ -377,6 +393,7 @@ func (d *fakeDeployer) Backup(ctx context.Context, st stacks.Stack, deployed str
 	}
 	d.mu.Lock()
 	d.backedUp = append(d.backedUp, deployed)
+	d.backupTags = append(d.backupTags, stacks.DeployedTag(ctx, deployed))
 	d.mu.Unlock()
 	if d.noRules || d.lateNoRules {
 		return "", ErrNoBackup

@@ -2,9 +2,9 @@
    1 ▤ Stacks   2 ▣ Stack-Details  [3 ▶ Läufe]  4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Nur Läufe von demo-stack. f zeigt alle Stacks.                                                                        
-  STACK       START        ERGEBNIS        AUSLÖSER  DAUER  LAUF                                                        
-> demo-stack  10-30 14:02  erfolgreich     update    48s    20261030T140200Z-0000000c                                   
-  demo-stack  10-29 02:00  fehlgeschlagen  poll      850ms  20261029T020000Z-00000010                                   
+  STACK       START        ERGEBNIS        AUSLÖSER  DAUER  LAUF                       TAG                              
+> demo-stack  10-30 14:02  erfolgreich     update    48s    20261030T140200Z-0000000c  -                                
+  demo-stack  10-29 02:00  fehlgeschlagen  poll      850ms  20261029T020000Z-00000010  -                                
                                                                                                                         
                                                                                                                         
                                                                                                                         

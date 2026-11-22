@@ -154,7 +154,7 @@ func (m *Manager) Create(ctx context.Context, st stacks.Stack, commit string, lo
 	if err != nil {
 		return Result{}, err
 	}
-	meta := Meta{ID: id, Stack: st.Name, Created: m.now(), Commit: validCommit(commit), Images: imagesOf(st), Identity: &identity}
+	meta := Meta{ID: id, Stack: st.Name, Created: m.now(), Commit: validCommit(commit), Tag: validTag(stacks.DeployedTag(ctx, commit)), Images: imagesOf(st), Identity: &identity}
 
 	defer func() {
 		if err != nil {
@@ -397,6 +397,14 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// validTag keeps only a tag name made of plain ref characters, so metadata never carries stray text.
+func validTag(t string) string {
+	if tagForm.MatchString(t) {
+		return t
+	}
+	return ""
 }
 
 func validCommit(c string) string {

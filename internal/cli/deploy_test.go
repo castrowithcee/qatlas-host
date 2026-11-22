@@ -107,13 +107,16 @@ func TestDeployRunsLogAndStatus(t *testing.T) {
 			t.Fatalf("runs = %q: %v", out, err)
 		}
 		if len(rows) > 0 && rows[0]["run"] == id && rows[0]["result"] == engine.ResultSucceeded && rows[0]["trigger"] == "manual" {
+			if tag, _ := rows[0]["tag"].(string); !strings.HasPrefix(tag, "qhost/") || !strings.HasSuffix(tag, "/plain-stack/"+id) {
+				t.Fatalf("run tag = %q, want qhost/<host>/plain-stack/%s", tag, id)
+			}
 			break
 		}
 		if time.Now().After(deadline) {
 			t.Fatalf("runs = %q", out)
 		}
 	}
-	if code, out, _ := run(t, "stack", "runs"); code != 0 || !strings.Contains(out, id) {
+	if code, out, _ := run(t, "stack", "runs"); code != 0 || !strings.Contains(out, id) || !strings.Contains(out, " TAG ") {
 		t.Fatalf("runs table: %d %q", code, out)
 	}
 	if code, out, _ := run(t, "stack", "log", id); code != 0 || !strings.Contains(out, "deploy plain-stack") {

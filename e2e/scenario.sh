@@ -1661,6 +1661,22 @@ slack_url_value=https://hooks.$domain/slack/T000/B000/demo-slack-path-e2e
 bot_credential=123456:demo-bot-credential-e2e
 mail_login_value=demo-mail-login-e2e
 
+# remote_run_tag prints the tag of the run $2 of the stack $1 and its commit as "<tag> <commit>" from the remote.
+remote_run_tag() {
+	as_admin "git ls-remote --tags $repo 'refs/tags/qhost/*'" | awk -v suffix="/$1/$2" '
+		substr($2, length($2) - length(suffix) + 1) == suffix { sub("^refs/tags/", "", $2); print $2, $1 }'
+}
+
+# tag_rejected_gone succeeds once no stack has that finding.
+tag_rejected_gone() {
+	! tag_rejected_seen
+}
+
+# tag_rejected_seen succeeds while some stack of the deploy service has the finding tag-rejected.
+tag_rejected_seen() {
+	qd --output json status | grep -q 'tag-rejected'
+}
+
 scenario_deploy() {
 	secret=not-a-real-secret-e2e
 
@@ -1703,6 +1719,14 @@ $hook_signing_value
 	docker exec "$host" docker inspect -f '{{.Config.Env}}' "$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=demo-stack)" |
 		grep -q "DEMO_SECRET=$secret" || fail 'the container did not get the value of secrets.env'
 	log "scenario: deploy succeeded, run $run, deployed commit $commit"
+	tag_line=$(remote_run_tag demo-stack "$run")
+	[ "$(printf '%s' "$tag_line" | cut -d ' ' -f 2)" = "$commit" ] || fail "the remote has no tag qhost/<host>/demo-stack/$run on $commit: $tag_line"
+	case "$(printf '%s' "$tag_line" | cut -d ' ' -f 1)" in qhost/*/demo-stack/"$run") ;; *) fail "the tag of run $run does not follow the scheme: $tag_line" ;; esac
+	qd --output json stack runs demo-stack | jq -e --arg r "$run" --arg t "$(printf '%s' "$tag_line" | cut -d ' ' -f 1)" 'any(.[]; .run == $r and .tag == $t)' >/dev/null ||
+		fail "qhost stack runs does not show the tag of run $run"
+	as_admin "rm -rf ~/stacks-tags && git clone -q $repo ~/stacks-tags"
+	[ "$(as_admin "cd ~/stacks-tags && git tag -l 'qhost/*/demo-stack/*' | tail -n 1")" = "$(printf '%s' "$tag_line" | cut -d ' ' -f 1)" ] ||
+		fail "a fresh clone does not list the tag of run $run as the latest of demo-stack: $(as_admin "cd ~/stacks-tags && git tag -l 'qhost/*'")"
 	wait_for 'the webhook for the deployed run' 60 hook_seen /notify succeeded demo-stack
 	log "scenario: the webhook receiver was told of the succeeded run"
 
@@ -1758,6 +1782,7 @@ $hook_signing_value
 	[ "$(stack_images demo-cache)" = "registry.$domain/demo/app:1.1.0" ] || fail "demo-cache does not run the previous image 1.1.0: $(stack_images demo-cache)"
 	stack_healthy demo-cache || fail 'demo-cache is not healthy after the rollback'
 	log "scenario: failing healthcheck: run $failed_run rolled back, bad commit $bad reverted by $revert"
+	[ "$(remote_run_tag demo-cache "$failed_run" | cut -d ' ' -f 2)" = "$revert" ] || fail "the tag of the rolled-back run $failed_run is not on the revert commit $revert: $(remote_run_tag demo-cache "$failed_run")"
 	wait_for 'the webhook for the rolled-back run' 60 hook_seen /notify rolled-back demo-cache
 	log "scenario: the webhook receiver was told of the rolled-back run"
 
@@ -1769,6 +1794,31 @@ $hook_signing_value
 	[ "$(stack_field demo-cache deployed)" = "$revert" ] || fail 'the poll changed the deployed commit of demo-cache'
 	[ -z "$(stack_field demo-cache pending)" ] || fail "demo-cache has a pending commit after the rollback: $(stack_field demo-cache pending)"
 	[ -z "$(stack_field demo-cache findings)" ] || fail "demo-cache has findings after the rollback: $(stack_field demo-cache findings)"
+
+	step 'a remote that refuses the run tag gives the stack the finding tag-rejected, the run still succeeds, and the next tag clears it'
+	docker exec -i "$prefix-git" sh -ec 'cat >/srv/git/stacks.git/hooks/update && chmod 755 /srv/git/stacks.git/hooks/update' <<'HOOK'
+#!/bin/sh
+case "$1" in refs/tags/qhost/*) echo 'tag refused by the test hook' >&2; exit 1 ;; esac
+HOOK
+	want=$(stack_field demo-stack deployed)
+	out=$(qd --output json stack deploy demo-stack) || fail "deploy failed: $out"
+	run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
+	[ -n "$run" ] || fail "deploy did not report a run: $out"
+	wait_for "the run $run" 240 run_finished demo-stack "$run"
+	qd stack log "$run" | grep -q ' result succeeded' || fail "a refused tag made the run fail: $(qd stack log "$run")"
+	wait_for 'the finding tag-rejected' 30 tag_rejected_seen
+	[ -z "$(remote_run_tag demo-stack "$run")" ] || fail "the remote holds the tag of run $run although the hook refuses it"
+	[ "$(stack_field demo-stack deployed)" = "$want" ] || fail 'a refused tag changed the deployed commit of demo-stack'
+	qd --output json stack runs demo-stack | jq -e --arg r "$run" 'any(.[]; .run == $r and .result == "succeeded" and (.tag // "") == "")' >/dev/null ||
+		fail "the run $run does not show as succeeded without a tag"
+	docker exec "$prefix-git" rm -f /srv/git/stacks.git/hooks/update || fail 'cannot remove the tag hook'
+	out=$(qd --output json stack deploy demo-stack) || fail "deploy failed: $out"
+	run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
+	[ -n "$run" ] || fail "deploy did not report a run: $out"
+	wait_for "the run $run" 240 run_finished demo-stack "$run"
+	wait_for 'the finding tag-rejected to go' 30 tag_rejected_gone
+	[ "$(remote_run_tag demo-stack "$run" | cut -d ' ' -f 2)" = "$want" ] || fail "the remote has no tag for run $run on $want after the hook was removed"
+	log "scenario: a refused tag raised tag-rejected and the next run cleared it"
 
 	step 'no run log holds a secret value'
 	ids=$(qd stack runs | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')

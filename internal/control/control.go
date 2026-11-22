@@ -576,6 +576,8 @@ type RunInfo struct {
 	DurationMS int64     `json:"duration_ms"`
 	Result     string    `json:"result"`
 	Error      string    `json:"error,omitempty"`
+	// Tag is the Git tag the run set on its resulting commit, empty when it set none or the remote refused it.
+	Tag string `json:"tag,omitempty"`
 	// LogUnreadable is the refusal of the run's log when this version does not read it; it names the file.
 	LogUnreadable string `json:"log_unreadable,omitempty"`
 	// Engine is the engine of the deploy service that recorded the run; empty as in StackStatus.Engine.
@@ -1322,10 +1324,12 @@ type BackupItemInfo struct {
 
 // BackupInfo describes one backup. Incomplete marks a directory of the store without valid metadata.
 type BackupInfo struct {
-	ID         string           `json:"id"`
-	Stack      string           `json:"stack"`
-	Created    time.Time        `json:"created,omitzero"`
-	Commit     string           `json:"commit,omitempty"`
+	ID      string    `json:"id"`
+	Stack   string    `json:"stack"`
+	Created time.Time `json:"created,omitzero"`
+	Commit  string    `json:"commit,omitempty"`
+	// Tag is the Git tag that marks Commit, empty when it has none.
+	Tag        string           `json:"tag,omitempty"`
 	Size       int64            `json:"size"`
 	Items      []BackupItemInfo `json:"items"`
 	Incomplete bool             `json:"incomplete,omitempty"`
