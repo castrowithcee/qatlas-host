@@ -2546,11 +2546,11 @@ scenario_stacks_repo() {
 
 	scenario_source_engine
 
+	scenario_tui_engine
+
 	scenario_backup_rootless
 
 	scenario_proposal_engine
-
-	scenario_tui_engine
 
 	scenario_key_set
 
