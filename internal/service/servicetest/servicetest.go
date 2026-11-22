@@ -259,6 +259,13 @@ func (c *copyOf) RemoteHead(context.Context) (string, error) {
 // Status and ChangedFolders report an unchanged, clean working copy.
 func (c *copyOf) Status(context.Context) ([]gitrepo.Change, error) { return nil, nil }
 
+// Diff and Discard find no local change in a clean working copy.
+func (c *copyOf) Diff(context.Context, string) (string, bool, error) {
+	return "", false, gitrepo.ErrNotChanged
+}
+
+func (c *copyOf) Discard(context.Context, []string) error { return gitrepo.ErrNotChanged }
+
 func (c *copyOf) ChangedFolders(context.Context, string, string) ([]string, error) { return nil, nil }
 
 // IsAncestor answers yes unless NotAncestor is set: the fake's working copy never runs ahead of the branch.

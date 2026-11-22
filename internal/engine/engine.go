@@ -93,6 +93,8 @@ type WorkingCopy interface {
 	ParentOf(ctx context.Context, commit string) (string, error)
 	FileAt(ctx context.Context, commit, path string) ([]byte, error)
 	Push(ctx context.Context, commit string) error
+	Diff(ctx context.Context, path string) (text string, truncated bool, err error)
+	Discard(ctx context.Context, paths []string) error
 }
 
 // Binding is the working copy to watch and the directory it lives in. Blocked, when set, maps the names of the
@@ -676,13 +678,25 @@ func normalize(s State) State {
 // change exists, also outside every stack. A root stack in list holds every path but those below
 // stacks.SettingsTop.
 func classify(changes []gitrepo.Change, list []stacks.Stack) (byStack map[string][]string, dirty bool) {
+	counted, dirty := countedChanges(changes, list)
+	byStack = map[string][]string{}
+	for folder, cs := range counted {
+		for _, c := range cs {
+			byStack[folder] = append(byStack[folder], c.Path)
+		}
+	}
+	return byStack, dirty
+}
+
+// countedChanges is classify with the status entries kept, so that a caller can tell the kind of a change.
+func countedChanges(changes []gitrepo.Change, list []stacks.Stack) (byStack map[string][]gitrepo.Change, dirty bool) {
 	mounts := map[string][]string{}
 	root := false
 	for _, st := range list {
 		mounts[st.Folder] = st.BindMounts
 		root = root || st.Folder == stacks.RootFolder
 	}
-	byStack = map[string][]string{}
+	byStack = map[string][]gitrepo.Change{}
 	for _, c := range changes {
 		folder, rel, inStack := strings.Cut(c.Path, "/")
 		if root {
@@ -698,7 +712,7 @@ func classify(changes []gitrepo.Change, list []stacks.Stack) (byStack map[string
 		}
 		dirty = true
 		if inStack {
-			byStack[folder] = append(byStack[folder], c.Path)
+			byStack[folder] = append(byStack[folder], c)
 		}
 	}
 	return byStack, dirty

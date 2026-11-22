@@ -26,9 +26,10 @@ const readOnlyReason = "the folder lies on a read-only file system"
 func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
 	group := &cobra.Command{
 		Use:   "source",
-		Short: "Inspect, take over, list and release stack folders",
+		Short: "Inspect, take over, list and release stack folders, and show or discard their uncommitted changes",
 		Long: "The source commands work on the stack folders of the host. list needs no sudo for an administrator in\n" +
-			"the group qhost; inspect, add, move, compare, remote and remove need sudo. See 'qhost help sources'.",
+			"the group qhost, and so does changes; inspect, add, move, compare, remote, remove, diff and discard need sudo.\n" +
+			"See 'qhost help sources'.",
 	}
 	var url string
 	var include []string
@@ -76,7 +77,8 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 	inspect.Flags().StringVar(&url, "url", "", "SSH address of the repository to clone, or to expect as origin")
 	inspect.Flags().StringArrayVar(&include, "include", nil, includeUsage)
 	group.AddCommand(inspect, newSourceAddCommand(program, state), newSourceRemoteCommand(program, state), newSourceCompareCommand(program, state), newSourceListCommand(program, state),
-		newSourceRemoveCommand(program, state), newSourceMoveCommand(program, state))
+		newSourceRemoveCommand(program, state), newSourceMoveCommand(program, state), newSourceChangesCommand(program, state),
+		newSourceDiffCommand(program, state), newSourceDiscardCommand(program, state))
 	return group
 }
 

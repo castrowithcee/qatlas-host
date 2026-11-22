@@ -231,6 +231,25 @@ func (f *fakeCopy) Status(context.Context) ([]gitrepo.Change, error) {
 	}
 	return slices.Clone(f.changes), nil
 }
+
+// Diff answers a fixed text for a path of the status; Discard drops the entries of its paths from it.
+func (f *fakeCopy) Diff(_ context.Context, path string) (string, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !slices.ContainsFunc(f.changes, func(c gitrepo.Change) bool { return c.Path == path }) {
+		return "", false, gitrepo.ErrNotChanged
+	}
+	return "diff of " + path, false, nil
+}
+
+func (f *fakeCopy) Discard(_ context.Context, paths []string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, "discard:"+strings.Join(paths, ","))
+	f.changes = slices.DeleteFunc(f.changes, func(c gitrepo.Change) bool { return slices.Contains(paths, c.Path) })
+	return nil
+}
+
 func (f *fakeCopy) ChangedFolders(_ context.Context, from, to string) ([]string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
