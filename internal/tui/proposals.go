@@ -39,6 +39,8 @@ type proposalState struct {
 type proposalView struct {
 	open, loading, loaded bool
 	id                    string
+	// engine is the engine of the deploy service that stores the proposal; empty on a host with one engine.
+	engine string
 	// gen tells the answer of the proposal that was left from that of the current one.
 	gen        int
 	err        error
@@ -239,7 +241,7 @@ func (m *Model) openProposal(id kittui.ItemID) tea.Cmd {
 	if !ok {
 		return nil
 	}
-	m.pv = proposalView{open: true, loading: true, id: p.ID, gen: m.pv.gen + 1}
+	m.pv = proposalView{open: true, loading: true, id: p.ID, engine: m.flowEngine(p.Engine), gen: m.pv.gen + 1}
 	return m.readProposal()
 }
 
@@ -251,7 +253,7 @@ func (m *Model) readProposal() tea.Cmd {
 		return nil
 	}
 	v.loading = true
-	ctx, b, host, gen, id, root := m.ctx, m.backend, m.folders, v.gen, v.id, m.euid() == 0
+	ctx, b, host, gen, id, root := m.engineCtx(v.engine), m.backend, m.folders, v.gen, v.id, m.euid() == 0
 	return func() tea.Msg { return loadProposal(ctx, b, host, gen, id, root, nil) }
 }
 
@@ -283,6 +285,7 @@ func loadProposal(ctx context.Context, b Backend, host Folders, gen int, id stri
 		return msg
 	}
 	msg.flow = res.(inspected).flow
+	msg.flow.engineSet = true
 	return msg
 }
 
@@ -347,12 +350,16 @@ func (m *Model) proposalLines(width int) []string {
 	}
 	p := v.info
 	state, tone := m.proposalStateWord(p.State)
-	lines = append(lines, m.fieldLines([]field{
+	fields := []field{
 		{t.Lookup(textPropFieldSubmitter), fmt.Sprintf("%s (%d)", proposalShort(p.SubmitterName), p.SubmitterUID), kittui.StyleText},
 		{t.Lookup(textPropFieldSubmitted), m.proposalTime(p.Submitted), kittui.StyleText},
 		{t.Lookup(textPropFieldExpires), m.proposalTime(p.Expires), kittui.StyleText},
 		{t.Lookup(textPropFieldState), state, tone},
-	}, width)...)
+	}
+	if v.engine != "" {
+		fields = append(fields, field{t.Lookup(textPropFieldEngine), v.engine, kittui.StyleText})
+	}
+	lines = append(lines, m.fieldLines(fields, width)...)
 	if p.Message != "" {
 		style, label := kittui.StyleText, textPropMessage
 		switch p.State {

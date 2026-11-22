@@ -83,7 +83,12 @@ func (m *Model) dataDirSection(stack string, width int) []string {
 		var lines []string
 		for _, d := range f.Dirs {
 			text := t.Lookup(textDataDirLineNoOwner, d.Path)
-			if d.Owner != "" {
+			switch {
+			case d.Container != "" && d.Owner != "":
+				text = t.Lookup(textDataDirLineMapped, d.Path, d.Container, d.Owner)
+			case d.Container != "" && d.Warning != "":
+				text = t.Lookup(textDataDirLineUnmapped, d.Path, d.Container, d.Warning)
+			case d.Owner != "":
 				text = t.Lookup(textDataDirLine, d.Path, d.Owner)
 			}
 			lines = append(lines, m.line(detailIndent, kittui.StyleWarn, text, width))

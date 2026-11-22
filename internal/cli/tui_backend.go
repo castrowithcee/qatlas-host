@@ -606,8 +606,23 @@ func (b *engineBackend) StackSettingsRemove(ctx context.Context, stack string) (
 	})
 }
 
+// ProposalList merges the proposals of every deploy service, each marked with the engine of the service that
+// stores it, newest first. A service that cannot be asked adds none.
 func (b *engineBackend) ProposalList(ctx context.Context) (control.ProposalListResult, error) {
-	return onInstance(b, ctx, func(c *tui.ChannelBackend) (control.ProposalListResult, error) { return c.ProposalList(ctx) })
+	g, err := gather[control.ProposalListResult](ctx, b, control.ProposalListCommand, nil, overviewLimit)
+	if err != nil {
+		return control.ProposalListResult{}, err
+	}
+	var res control.ProposalListResult
+	for _, r := range g.ok {
+		for _, p := range r.value.Proposals {
+			p.Engine = r.target.id()
+			res.Proposals = append(res.Proposals, p)
+		}
+		res.Unreadable = append(res.Unreadable, r.value.Unreadable...)
+	}
+	sort.SliceStable(res.Proposals, func(i, j int) bool { return res.Proposals[i].Submitted.After(res.Proposals[j].Submitted) })
+	return res, nil
 }
 
 func (b *engineBackend) ProposalShow(ctx context.Context, id string) (control.ProposalShowResult, error) {

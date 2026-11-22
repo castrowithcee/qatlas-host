@@ -461,6 +461,9 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		cmds = append(cmds, m.reloadNow(), m.readProposal())
 	case inspected:
 		s.form, s.add = nil, res.flow
+		if m.askEngine(res.flow) {
+			return nil
+		}
 		m.showInspection(res.flow)
 		return nil
 	case control.RepoProbeResult:

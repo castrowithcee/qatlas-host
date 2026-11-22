@@ -31,7 +31,9 @@
 # repository: its own stack is deployed, a stack named like one of the first source is reported and never deployed.
 # Version updates with qhost stack update follow: qhost stack settings set commits and pushes the settings of a
 # stack without a run, and they act on the next update: one direct step, a stepwise major jump and a jump whose
-# middle step fails. The maintenance window follows on a real, short window: a stack in automatic mode is updated
+# middle step fails. qhost stack rollback then sets the stack back to the version before an update: with
+# --restore-data the file written since is gone and the stack is pinned and refuses an update; after unpin and a new
+# update, --keep-data leaves such a file. The maintenance window follows on a real, short window: a stack in automatic mode is updated
 # without a human, a stack in manual mode is only reported, a paused and a pinned stack stay as they are, and a change with
 # window set takes effect in the running service; outside the window, a stack in automatic mode with the update trigger
 # interval is updated within two minutes. The terminal interface follows: sudo qhost opens it in a
@@ -60,7 +62,8 @@
 # container stay throughout. The webhook receiver is set up with sudo qhost hook-service setup at the start of the update
 # section: it runs as qhost-hook without the groups docker and qhost, its marker folder has the owner and group of the
 # contract, status shows it with its address, an unknown secret gets 404, the update renews its stale unit and restarts it,
-# and both uninstalls remove its unit, rule, folders, user and group. Sourced by run.sh scenario.
+# and both uninstalls remove its unit, rule, folders, user and group. sudo qhost hook add gives demo-stack a secret
+# path that is shown once; a POST to it updates the stack within 30 seconds, a wrong or a removed secret gets 404. Sourced by run.sh scenario.
 
 # signature_asset is the name of the release file with the signature; it must match release.SignatureAsset.
 signature_asset=checksums.txt.sig
@@ -2368,6 +2371,81 @@ scenario_update() {
 	update_reset 1.1.0 stepwise
 	settings_set demo-stack "$(demo_stack_settings)"
 	[ "$(stack_images demo-stack)" = "$image:1.1.0" ] || fail "demo-stack does not run 1.1.0 again: $(stack_images demo-stack)"
+
+	scenario_return
+}
+
+# scenario_return sets demo-stack back with 'qhost stack rollback' after an update by qhost, which has backup rules:
+# with --restore-data the file written after the update is gone, the stack is pinned and refuses an update; after
+# unpin and a new update, --keep-data leaves a file written after that update. It starts and leaves demo-stack
+# on 1.1.0, unpinned, without the marker files.
+scenario_return() {
+	image=registry.$domain/demo/app
+	bind=/opt/stacks/demo-stack/data
+
+	step 'an update of demo-stack to 2.0.0 is followed by a file in its backed-up data directory'
+	wait_for 'demo-stack to be idle' 120 stack_idle demo-stack
+	out=$(qd --output json stack update demo-stack --version 2.0.0) || fail "update to 2.0.0 failed: $out"
+	update_run=$(json_values "$out" run | head -n 1)
+	[ -n "$update_run" ] && [ "$(json_values "$out" result)" = succeeded ] || fail "the update to 2.0.0 did not succeed: $out"
+	[ "$(stack_images demo-stack)" = "$image:2.0.0" ] || fail "demo-stack does not run 2.0.0: $(stack_images demo-stack)"
+	[ -n "$(update_run_backup "$(qd stack log "$update_run")")" ] || fail "the update run $update_run made no backup"
+	fixture_run "$bind" 'printf after-update >/data/after-update.txt' || fail 'cannot write the file after the update'
+
+	step 'a return needs exactly one data choice, and without a terminal it needs --yes; both change nothing'
+	out=$(qd_fails stack rollback demo-stack "$update_run") || fail "rollback without a data choice succeeded: $out"
+	printf '%s' "$out" | grep -q 'exactly one of --restore-data and --keep-data' || fail "the refusal does not name the data choice: $out"
+	out=$(qd_fails stack rollback demo-stack "$update_run" --restore-data --keep-data --yes) || fail "rollback with both data choices succeeded: $out"
+	printf '%s' "$out" | grep -q 'exactly one of --restore-data and --keep-data' || fail "the refusal does not name the data choice: $out"
+	out=$(qd_fails stack rollback demo-stack "$update_run" --restore-data) || fail "rollback without a terminal and without --yes succeeded: $out"
+	printf '%s' "$out" | grep -q -- '--yes' || fail "the refusal does not name --yes: $out"
+	[ "$(stack_images demo-stack)" = "$image:2.0.0" ] || fail "a refused rollback changed the stack: $(stack_images demo-stack)"
+	[ -z "$(stack_field demo-stack pinned)" ] || fail 'a refused rollback pinned the stack'
+	fixture_run "$bind" 'test -f /data/after-update.txt' || fail 'a refused rollback removed the file'
+
+	step 'rollback --restore-data returns demo-stack to 1.1.0 with the data of the update, and pins it'
+	out=$(qd --output json stack rollback demo-stack "$update_run" --restore-data --yes) || fail "rollback --restore-data failed: $out"
+	log "scenario: rollback $out"
+	printf '%s' "$out" | jq -e --arg run "$update_run" '.result == "succeeded" and .pinned == true and .update_run == $run and
+		.data == "restore" and .versions == "DEMO_APP_VERSION 2.0.0 -> 1.1.0" and (.note | contains("qhost stack unpin demo-stack"))' >/dev/null ||
+		fail "unexpected answer of the rollback: $out"
+	return_run=$(printf '%s' "$out" | jq -r .run)
+	return_log=$(qd stack log "$return_run")
+	printf '%s' "$return_log" | grep -q ' result succeeded' || fail "the return run did not succeed: $return_log"
+	log "scenario: return steps: $(update_steps "$return_log")"
+	[ "$(stack_images demo-stack)" = "$image:1.1.0" ] || fail "demo-stack does not run 1.1.0 after the rollback: $(stack_images demo-stack)"
+	stack_healthy demo-stack || fail 'demo-stack is not healthy after the rollback'
+	fixture_run "$bind" 'test ! -e /data/after-update.txt' || fail 'the file written after the update is still there after --restore-data'
+	as_admin 'cd ~/stacks && git pull -q --ff-only'
+	[ "$(as_admin "cd ~/stacks && git show HEAD:demo-stack/.env | grep '^DEMO_APP_VERSION='")" = DEMO_APP_VERSION=1.1.0 ] ||
+		fail 'the branch does not hold 1.1.0 after the rollback'
+	[ "$(stack_field demo-stack last_run)" = succeeded ] || fail "the last run of demo-stack is not succeeded: $(stack_field demo-stack last_run)"
+
+	step 'the pinned demo-stack is shown as pinned and refuses an update'
+	[ -n "$(stack_field demo-stack pinned)" ] || fail "status does not show demo-stack as pinned: $(qd --output json status | grep 'stack.demo-stack')"
+	out=$(qd_fails stack update demo-stack) || fail "update of the pinned demo-stack succeeded: $out"
+	printf '%s' "$out" | grep -q 'pinned' || fail "the refusal does not say that the stack is pinned: $out"
+	[ "$(stack_images demo-stack)" = "$image:1.1.0" ] || fail "the refused update changed the stack: $(stack_images demo-stack)"
+
+	step 'after unpin and a new update, rollback --keep-data leaves the file written after that update'
+	out=$(qd stack unpin demo-stack) || fail "unpin failed: $out"
+	out=$(qd --output json stack update demo-stack --version 2.0.0) || fail "second update to 2.0.0 failed: $out"
+	update_run=$(json_values "$out" run | head -n 1)
+	[ -n "$update_run" ] && [ "$(json_values "$out" result)" = succeeded ] || fail "the second update to 2.0.0 did not succeed: $out"
+	[ "$(stack_images demo-stack)" = "$image:2.0.0" ] || fail "demo-stack does not run 2.0.0 again: $(stack_images demo-stack)"
+	fixture_run "$bind" 'printf kept >/data/kept.txt' || fail 'cannot write the file after the second update'
+	out=$(qd --output json stack rollback demo-stack "$update_run" --keep-data --yes) || fail "rollback --keep-data failed: $out"
+	printf '%s' "$out" | jq -e '.result == "succeeded" and .pinned == true and .data == "keep"' >/dev/null || fail "unexpected answer of the rollback: $out"
+	[ "$(stack_images demo-stack)" = "$image:1.1.0" ] || fail "demo-stack does not run 1.1.0 after the second rollback: $(stack_images demo-stack)"
+	stack_healthy demo-stack || fail 'demo-stack is not healthy after the second rollback'
+	[ "$(fixture_run "$bind" 'cat /data/kept.txt')" = kept ] || fail 'the file written after the update is gone after --keep-data'
+	[ -n "$(stack_field demo-stack pinned)" ] || fail 'demo-stack is not pinned after the second rollback'
+
+	step 'demo-stack is released and left on 1.1.0 without the marker files'
+	out=$(qd stack unpin demo-stack) || fail "unpin failed: $out"
+	[ -z "$(stack_field demo-stack pinned)" ] || fail 'demo-stack is still pinned after unpin'
+	fixture_run "$bind" 'rm -f /data/kept.txt /data/after-update.txt' || fail 'cannot remove the marker files'
+	log "scenario: return: demo-stack is back on 1.1.0, unpinned"
 }
 
 scenario_stacks_repo() {
@@ -2468,9 +2546,13 @@ scenario_stacks_repo() {
 
 	scenario_stack_actions
 
+	scenario_grants
+
 	scenario_tui_sudo
 
 	scenario_tui_deploy_sudo
+
+	scenario_datadir_nested
 
 	scenario_tui_secrets
 
@@ -2553,6 +2635,8 @@ scenario_stacks_repo() {
 	scenario_backup_rootless
 
 	scenario_proposal_engine
+
+	scenario_tui_engine_choice
 
 	scenario_key_set
 
@@ -3078,6 +3162,145 @@ scenario_proposal_engine() {
 	log "scenario: proposal $pe_id was submitted with --engine $pe_engine, approved under sudo and applied in the instance; demo-proposed ran in the rootless engine only"
 }
 
+# tc_runs succeeds when the stack $1 runs in the rootless engine of $rootless_user.
+tc_runs() {
+	as_rootless "docker ps --filter label=com.docker.compose.project=$1 --format '{{.Image}}'" | grep -qx 'demo/app:1.0.0'
+}
+
+# tc_idle succeeds when the instance of $rootless_user has no run of the stack $1 in progress and has finished one.
+tc_idle() {
+	qd --output json status | jq -e --arg p "instance.$rootless_user.stack.$1." '
+		(.[$p + "active_run"] // "") == "" and (.[$p + "last_run"] // "") != ""' >/dev/null
+}
+
+# tc_has_flat succeeds when the text $1 stands on the screen of the interface once its line breaks and the runs of
+# spaces are taken out, as a command that the sheet breaks between its arguments does.
+tc_has_flat() {
+	tui_screen | tr -s ' \n' '  ' | grep -qF -- "$1"
+}
+
+# tc_release releases the folder $2 with the stack $1 in the rootless engine and removes both again.
+tc_release() {
+	wait_for "the first run of $1 in the instance" 180 tc_idle "$1"
+	out=$(qd --output json source remove "$2" --yes) || fail "source remove of $2 failed: $out"
+	as_rootless "docker compose -p $1 down" >/dev/null 2>&1 || fail "cannot remove the compose project $1"
+	[ -z "$(as_rootless "docker ps -aq --filter label=com.docker.compose.project=$1")" ] || fail "the rootless engine still has $1"
+	docker exec "$host" rm -rf "$2" || fail "cannot remove $2"
+	if list_has_path "$2"; then fail "the folder $2 is still bound"; fi
+}
+
+# scenario_tui_engine_choice proves the choice of the engine in the interface. The interface of $admin without sudo adds
+# a folder with a stack: the engine is asked after the inspection, the system engine is preselected because no
+# container of the folder runs anywhere, the choice of the rootless engine inspects the folder again for it, the last
+# question names the engine and shows the command through sudo with --engine, and the folder is bound in the
+# instance of $rootless_user, which runs the stack, while the system engine neither lists the folder nor runs the
+# stack. Then a proposal submitted for the instance is approved in the interface under sudo: the view and the
+# question show the engine, the folder is added to the instance and the proposal is applied. Both folders and
+# stacks are released and removed again.
+scenario_tui_engine_choice() {
+	tc_engine=rootless:$rootless_user
+	tc_dir=/srv/qd-tui-engine
+	tc_pdir=/srv/qd-tui-engine-prop
+	tc_dropin=/etc/systemd/system/qhost-deploy@$rootless_user.service.d/10-stack-folders.conf
+	tui_log=$work/tui-engine-choice-screens.log
+	: >"$tui_log"
+
+	step 'two folders with a stack each are prepared as root'
+	docker exec "$host" sh -ec "rm -rf '$tc_dir' '$tc_pdir' && mkdir -p '$tc_dir/demo-tuiengine' '$tc_pdir/demo-tuiprop' &&
+		chmod 0755 '$tc_dir' '$tc_pdir'" || fail 'cannot create the folders for the choice of the engine'
+	printf 'name: demo-tuiengine\nservices:\n  app:\n    image: demo/app:1.0.0\n    restart: unless-stopped\n' |
+		docker exec -i "$host" sh -ec "cat >'$tc_dir/demo-tuiengine/compose.yaml'" || fail 'cannot write the compose file of demo-tuiengine'
+	printf 'name: demo-tuiprop\nservices:\n  app:\n    image: demo/app:1.0.0\n    restart: unless-stopped\n' |
+		docker exec -i "$host" sh -ec "cat >'$tc_pdir/demo-tuiprop/compose.yaml'" || fail 'cannot write the compose file of demo-tuiprop'
+	if list_has_path "$tc_dir" || list_has_path "$tc_pdir"; then fail 'a folder of the choice is bound before it'; fi
+	for p in demo-tuiengine demo-tuiprop; do
+		[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=$p)" ] || fail "the system engine already runs $p"
+	done
+
+	step "the interface without sudo asks for the engine after the inspection and inspects the folder again for $tc_engine"
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'trap : INT; qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 1
+	tui_wait "Engine $tc_engine" 30
+	tui_send a
+	tui_wait 'Add a stack folder' 10
+	tui_type "$tc_dir"
+	tui_send F2
+	tui_wait 'whose deploy service runs the stacks' 60
+	tui_excerpt 'Add a stack folder' 8
+	if list_has_path "$tc_dir"; then fail 'the folder is bound at the question for the engine'; fi
+	tui_send Right
+	i=0
+	until tui_has "$tc_engine"; do
+		i=$((i + 1))
+		[ "$i" -lt 20 ] || fail "the choice does not reach $tc_engine: $(tui_screen)"
+		sleep 0.25
+	done
+	tui_send F2
+	tui_wait "Start a git repository in $tc_dir and take it over?" 60
+	tui_has "engine: $tc_engine" || fail "the question does not show the engine: $(tui_screen)"
+	# The command stands at the end of the sheet, below the window.
+	for _ in 1 2 3 4 5 6 7 8 9 10; do tui_send Down; done
+	tui_wait 'sudo qhost source add' 10
+	tc_has_flat "--engine $tc_engine" || fail "the question does not show the command with the engine: $(tui_screen)"
+	tui_excerpt 'Start a git repository' 20
+	if list_has_path "$tc_dir" || docker exec "$host" test -e "$tc_dir/.git"; then fail 'the folder is bound or changed before the last answer'; fi
+
+	step "yes binds the folder in the instance of $tc_engine and the stack runs in the rootless engine only"
+	tui_send y
+	tui_wait "The stack folder $tc_dir is added" 120
+	tui_send Enter
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	wait_for 'the deploy service to answer' 60 qd status
+	tc_listed=$(qd --output json source list | jq -r --arg p "$tc_dir" '[.sources[] | select(.path == $p) | .engine] | join(",")')
+	[ "$tc_listed" = "$tc_engine" ] || fail "source list does not show the folder once, with the engine $tc_engine, but as: $tc_listed"
+	docker exec "$host" grep -qx "ReadWritePaths=-$tc_dir" "$tc_dropin" || fail "the drop-in of the instance does not list $tc_dir"
+	if docker exec "$host" grep -qF "$tc_dir" /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf; then
+		fail 'the drop-in of the system service names the folder of the interface'
+	fi
+	wait_for 'the stack demo-tuiengine to run in the rootless engine' 180 tc_runs demo-tuiengine
+	[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=demo-tuiengine)" ] ||
+		fail 'the system engine runs the stack the interface took over into the instance'
+	log "scenario: the interface took $tc_dir over into $tc_engine; demo-tuiengine runs in the rootless engine only"
+
+	step "a proposal for $tc_engine is approved in the interface under sudo with the engine shown"
+	out=$(printf '{"path":"%s"}' "$tc_pdir" | as_admin "qhost --output json proposal submit --kind source-add --engine $tc_engine" 2>&1) ||
+		fail "qhost proposal submit --engine $tc_engine failed: $out"
+	tc_id=$(printf '%s' "$out" | sed -n 's/.*"id": *"\(p-[0-9a-f]*\)".*/\1/p' | head -n 1)
+	[ -n "$tc_id" ] || fail "qhost proposal submit printed no id: $out"
+	prop_tui
+	tui_send 6
+	tui_wait 'stack folder' 15
+	tui_send Enter
+	tui_wait 'Effect if applied now' 30
+	tui_wait "path: $tc_pdir" 10
+	tui_has "$tc_id" || fail "the view does not show $tc_id: $(tui_screen)"
+	tui_has "$tc_engine" || fail "the view does not show the engine $tc_engine: $(tui_screen)"
+	tui_send A
+	tui_wait "Approve proposal $tc_id and apply these changes to $tc_pdir?" 30
+	tui_has "engine: $tc_engine" || fail "the approval does not show the engine: $(tui_screen)"
+	[ "$(prop_state "$tc_id")" = open ] || fail 'the proposal left the state open before the last answer'
+	if list_has_path "$tc_pdir"; then fail 'the folder is bound before the last answer'; fi
+	tui_send y
+	tui_wait "The stack folder $tc_pdir is added" 120
+	tui_send Enter
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	wait_for 'the proposal to be applied' 30 prop_is "$tc_id" applied
+	tc_listed=$(qd --output json source list | jq -r --arg p "$tc_pdir" '[.sources[] | select(.path == $p) | .engine] | join(",")')
+	[ "$tc_listed" = "$tc_engine" ] || fail "source list does not show the proposed folder once, with the engine $tc_engine, but as: $tc_listed"
+	wait_for 'the stack demo-tuiprop to run in the rootless engine' 180 tc_runs demo-tuiprop
+	[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=demo-tuiprop)" ] ||
+		fail 'the system engine runs the stack of the proposal'
+	log "scenario: proposal $tc_id was approved in the interface and applied in $tc_engine; demo-tuiprop runs in the rootless engine only"
+
+	step 'the folders are released and their stacks removed again'
+	tc_release demo-tuiengine "$tc_dir"
+	tc_release demo-tuiprop "$tc_pdir"
+	wait_for 'the qhost service to answer' 30 qd status
+}
+
 # rl_docker runs the Docker client as $rootless_user against its rootless engine, without standard input.
 rl_docker() {
 	docker exec -i -u "$rootless_user" -e "XDG_RUNTIME_DIR=/run/user/$rootless_uid" \
@@ -3165,6 +3388,20 @@ bkr_backup_ids() {
 # bkr_healthy succeeds when a container of demo-rootless in the rootless engine is healthy.
 bkr_healthy() {
 	[ -n "$(rl_docker ps -q --filter label=com.docker.compose.project=demo-rootless --filter health=healthy)" ]
+}
+
+# bkr_dd_finding succeeds when the instance of $rootless_user shows the finding data-dir-missing for demo-rootless-dirs.
+bkr_dd_finding() {
+	qd --output json status | jq -r --arg k "instance.$rootless_user.stack.demo-rootless-dirs.findings" '.[$k] // ""' | grep -q data-dir-missing
+}
+
+bkr_dd_no_finding() {
+	! bkr_dd_finding
+}
+
+# bkr_dd_healthy succeeds when a container of demo-rootless-dirs in the rootless engine is healthy.
+bkr_dd_healthy() {
+	[ -n "$(rl_docker ps -q --filter label=com.docker.compose.project=demo-rootless-dirs --filter health=healthy)" ]
 }
 
 # bkr_containers prints the ids of the running containers of demo-rootless in the rootless engine.
@@ -3335,6 +3572,63 @@ check:
 	wait_for 'demo-rootless to run healthy again' 60 bkr_healthy
 	sr_stack_runs || fail 'demo-rootless does not run its previous image after the rollback'
 	log "scenario: run $run of demo-rootless rolled back; restored $run_backup; data identical to the backed-up state; revert $revert"
+
+	step 'a data directory for container user 1234 in the rootless engine gets the host owner the user ID mapping gives, with nested parents'
+	bk_sub_gid=$(docker exec "$host" awk -F: -v u="$rootless_user" '$1 == u { print $2 }' /etc/subgid)
+	[ -n "$bk_sub_gid" ] || fail "$rootless_user has no sub-GIDs"
+	bk_dd=demo-rootless-dirs
+	bk_ddir=$bk_base/$bk_dd
+	bk_dd_owner="$((bk_sub + 1233)):$((bk_sub_gid + 1233))"
+	docker exec "$host" install -d -o "$rootless_user" -g "$bk_group" -m 0775 "$bk_ddir" || fail "cannot create the folder of $bk_dd"
+	cat <<'EOF2' | docker exec -i "$host" sh -ec "cat >'$bk_ddir/compose.yaml'"
+name: demo-rootless-dirs
+
+services:
+  app:
+    image: demo/app:1.0.0
+    user: "1234"
+    restart: unless-stopped
+    volumes:
+      - ./data/db:/data
+EOF2
+	printf 'data/\n' | docker exec -i "$host" sh -ec "cat >'$bk_ddir/.gitignore'" || fail "cannot write the ignore file of $bk_dd"
+	docker exec "$host" sh -ec "chgrp '$bk_group' '$bk_ddir/compose.yaml' '$bk_ddir/.gitignore' && chmod 664 '$bk_ddir/compose.yaml' '$bk_ddir/.gitignore'" ||
+		fail "cannot give the group access to the files of $bk_dd"
+	as_rootless "cd '$bk_base' && git -c safe.directory='$bk_base' add -A &&
+		git -c safe.directory='$bk_base' -c user.name='E2E User' -c user.email=user.qhoste2e.test commit -q -m 'Add demo-rootless-dirs'" ||
+		fail "the user of the instance cannot commit $bk_dd"
+	bkr_restart
+	wait_for "the finding data-dir-missing of $bk_dd in the instance" 240 bkr_dd_finding
+	docker exec "$host" test ! -e "$bk_ddir/data" || fail "the data directory of $bk_dd exists before it was created"
+	out=$(qd_fails stack datadir "$bk_dd" --engine "$bk_engine") || fail "datadir without --yes did not stop: $out"
+	printf '%s' "$out" | grep -qF "data/db (container user 1234:1234, host owner $bk_dd_owner)" ||
+		fail "the command does not show the container user and the host owner $bk_dd_owner: $out"
+	docker exec "$host" test ! -e "$bk_ddir/data" || fail "the command without --yes created the directories of $bk_dd"
+	out=$(qd stack datadir "$bk_dd" --engine "$bk_engine" --yes) || fail "datadir of $bk_dd failed: $out"
+	[ "$(docker exec "$host" stat -c %u:%g "$bk_ddir/data/db")" = "$bk_dd_owner" ] ||
+		fail "data/db has the owner $(docker exec "$host" stat -c %u:%g "$bk_ddir/data/db"), want $bk_dd_owner"
+	[ "$(docker exec "$host" stat -c %u "$bk_ddir/data")" -eq "$rootless_uid" ] ||
+		fail "the parent data has the owner $(docker exec "$host" stat -c %u "$bk_ddir/data"), want $rootless_uid"
+	bk_dd_mode=$(docker exec "$host" stat -c %a "$bk_ddir/data")
+	[ $((0$bk_dd_mode & 0110)) -eq $((0110)) ] || fail "the parent data is not searchable for its owner and group: $bk_dd_mode"
+	wait_for "$bk_dd to run healthy in the rootless engine" 240 bkr_dd_healthy
+	rl_docker run --rm --network none --user 1234 -v "$bk_ddir/data/db:/data" "$backup_image" sh -ec 'echo written >/data/probe && cat /data/probe' |
+		grep -qx written || fail 'container user 1234 cannot write into the data directory'
+	[ "$(docker exec "$host" stat -c %u "$bk_ddir/data/db/probe")" -eq $((bk_sub + 1233)) ] ||
+		fail "the file of container user 1234 has the host owner $(docker exec "$host" stat -c %u "$bk_ddir/data/db/probe")"
+	wait_for "the finding of $bk_dd to clear" 120 bkr_dd_no_finding
+	log "scenario: $bk_dd got data/db for container user 1234 as host owner $bk_dd_owner, parent data owned by the instance user, and runs healthy"
+
+	step "$bk_dd leaves the instance again"
+	as_rootless "cd '$bk_base' && git -c safe.directory='$bk_base' rm -r -q '$bk_dd' &&
+		git -c safe.directory='$bk_base' -c user.name='E2E User' -c user.email=user.qhoste2e.test commit -q -m 'Remove demo-rootless-dirs'" ||
+		fail "the user of the instance cannot remove $bk_dd"
+	bkr_restart
+	as_rootless "docker ps -aq --filter label=com.docker.compose.project=$bk_dd | xargs -r docker rm -f" >/dev/null ||
+		fail "cannot remove the containers of $bk_dd"
+	docker exec "$host" rm -rf "$bk_ddir" || fail "cannot remove the folder of $bk_dd"
+	wait_for 'the instance to be idle' 180 sr_idle
+	sr_stack_runs || fail 'demo-rootless does not run after demo-rootless-dirs left'
 
 	step 'the drop-in of the helper image is removed again and the instance answers'
 	docker exec "$host" sh -ec "rm -f '$bk_dropin' && systemctl daemon-reload" || fail 'cannot remove the drop-in of the instance'
@@ -3571,6 +3865,44 @@ EOF2
 	docker exec "$host" grep -qx DEMO_APP_VERSION=1.1.0 "$base/demo-local/.env" || fail 'the revert did not restore the version file'
 	[ "$(docker exec "$host" cat "$base/demo-local/notes/info.txt")" = 'kept by a person' ] || fail 'the revert did not restore the folder of the person'
 	[ "$(stack_images demo-local)" = "$image:1.1.0" ] || fail "demo-local does not run the previous image 1.1.0: $(stack_images demo-local)"
+
+	step 'uncommitted changes of a stack folder are listed, shown and discarded, and the stack is deployed again'
+	prev=$(newest_run demo-local)
+	docker exec "$host" sh -ec "cd '$base/demo-local' && printf '# edited by hand\n' >>.env && printf 'scratch\n' >scratch.txt" ||
+		fail 'cannot edit the stack folder by hand'
+	i=0
+	until stack_field demo-local findings | grep -q local-changes; do
+		i=$((i + 1))
+		[ "$i" -lt 120 ] || fail "demo-local has no finding local-changes: $(qd --output json status | tr ',' '\n' | grep demo-local)"
+		sleep 1
+	done
+	out=$(qd --output json source changes "$base") || fail "source changes failed: $out"
+	printf '%s' "$out" | jq -e '.path == "/srv/qd-local" and (.changes | sort_by(.path) == [{"path": "demo-local/.env", "kind": "modified", "stack": "demo-local"}, {"path": "demo-local/scratch.txt", "kind": "new", "stack": "demo-local"}])' >/dev/null ||
+		fail "unexpected source changes: $out"
+	if printf '%s' "$out" | grep -q secrets.env; then fail "source changes lists the host's own secrets file: $out"; fi
+	out=$(qd_fails stack deploy demo-local) || fail "a stack with local changes was deployed: $out"
+	printf '%s' "$out" | grep -qi 'local.changes' || fail "the refused deploy does not name the local changes: $out"
+	out=$(qd --output json source diff "$base" demo-local/.env) || fail "source diff failed: $out"
+	printf '%s' "$out" | jq -e '.diff | contains("+# edited by hand")' >/dev/null || fail "unexpected source diff: $out"
+	out=$(qd_fails source discard "$base" demo-local/.env demo-local/secrets.env) || fail "source discard accepted the host's own secrets file: $out"
+	[ "$(docker exec "$host" tail -n 1 "$base/demo-local/.env")" = '# edited by hand' ] || fail 'a refused source discard changed .env'
+	out=$(qd_fails source discard "$base" demo-local/.env ../demo-live/compose.yaml) || fail "source discard accepted a path outside the stack folder: $out"
+	out=$(qd --output json source discard "$base" demo-local/.env demo-local/scratch.txt) || fail "source discard failed: $out"
+	printf '%s' "$out" | jq -e '.discarded == ["demo-local/.env", "demo-local/scratch.txt"]' >/dev/null || fail "unexpected source discard result: $out"
+	docker exec "$host" grep -qx DEMO_APP_VERSION=1.1.0 "$base/demo-local/.env" || fail 'source discard did not restore .env'
+	if docker exec "$host" test -e "$base/demo-local/scratch.txt"; then fail 'source discard did not remove the named new file'; fi
+	docker exec "$host" test -f "$base/demo-local/secrets.env" || fail 'source discard removed the secrets file of the host'
+	[ "$(qd --output json source changes "$base" | jq '.changes | length')" = 0 ] || fail 'the stack folder still has changes after the discard'
+	i=0
+	while stack_field demo-local findings | grep -q local-changes; do
+		i=$((i + 1))
+		[ "$i" -lt 120 ] || fail 'the finding local-changes stays after the discard'
+		sleep 1
+	done
+	out=$(qd --output json stack deploy demo-local) || fail "demo-local cannot be deployed after the discard: $out"
+	run=$(next_run demo-local "$prev") || fail 'no run of demo-local after the discard'
+	wait_for "the run $run" 240 run_finished demo-local "$run"
+	qd stack log "$run" | grep -q ' result succeeded' || fail "the run after the discard did not succeed: $(qd stack log "$run")"
 
 	step 'source remove asks first, then releases only the binding'
 	containers_before=$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=demo-local | sort)
@@ -4668,6 +5000,45 @@ scenario_stack_actions() {
 	log 'scenario: stack stop, start and restart passed'
 }
 
+# scenario_grants proves the standing grants of demo-stack: a plan without --confirm stores nothing, sudo qhost grant
+# add --confirm allows an administrator of the group qhost one action, the grant is listed by that user without sudo
+# and by a stack filter, adding it without sudo is refused, and sudo qhost grant remove --confirm takes it away.
+scenario_grants() {
+	step 'grant add without --confirm shows the plan and stores nothing'
+	ensure_user e2e-grantee
+	docker exec "$host" usermod -aG qhost,sudo e2e-grantee || fail 'cannot make e2e-grantee an administrator of the group qhost'
+	if out=$(as_admin 'sudo qhost grant add e2e-grantee stack.restart demo-stack 2>&1 </dev/null'); then fail "grant add without --confirm succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'e2e-grantee' || fail "the plan does not name the user: $out"
+	printf '%s' "$out" | grep -q 'stack.restart' || fail "the plan does not name the action: $out"
+	printf '%s' "$out" | grep -q 'demo-stack' || fail "the plan does not name the stack: $out"
+	printf '%s' "$out" | grep -q 'backup:' || fail "the plan does not show the backup state: $out"
+	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list without sudo failed: $out"
+	[ "$(printf '%s' "$out" | jq 'length')" = 0 ] || fail "a plan stored a grant: $out"
+
+	step 'a grant needs sudo to be added'
+	if out=$(as_user e2e-grantee 'qhost grant add e2e-grantee stack.restart demo-stack --confirm 2>&1'); then fail "grant add without sudo succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'must run as root' || fail "the refusal of grant add without sudo is unclear: $out"
+
+	step 'sudo qhost grant add --confirm stores the grant and the user lists it without sudo'
+	out=$(as_admin 'sudo qhost --output json grant add e2e-grantee stack.restart demo-stack --confirm 2>&1 </dev/null') || fail "grant add failed: $out"
+	grant_id=$(printf '%s' "$out" | jq -er '.id') || fail "grant add printed no id: $out"
+	printf '%s' "$grant_id" | grep -Eq '^g-[0-9a-f]{8}$' || fail "the grant id $grant_id has an unexpected form"
+	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list without sudo failed: $out"
+	printf '%s' "$out" | jq -e --arg id "$grant_id" '[.[] | select(.id == $id and .user == "e2e-grantee" and .action == "stack.restart" and .stack == "demo-stack" and .state == "valid")] | length == 1' >/dev/null ||
+		fail "qhost grant list does not show the grant $grant_id as valid: $out"
+	out=$(as_user e2e-grantee 'qhost --output json grant list --stack demo-cache 2>&1') || fail "qhost grant list --stack failed: $out"
+	[ "$(printf '%s' "$out" | jq 'length')" = 0 ] || fail "the stack filter shows a grant of another stack: $out"
+
+	step 'grant remove without --confirm keeps the grant and sudo qhost grant remove --confirm removes it'
+	if out=$(as_admin "sudo qhost grant remove $grant_id 2>&1 </dev/null"); then fail "grant remove without --confirm succeeded: $out"; fi
+	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list failed after the plan: $out"
+	printf '%s' "$out" | jq -e --arg id "$grant_id" 'any(.[]; .id == $id)' >/dev/null || fail "a remove without --confirm took the grant away: $out"
+	as_admin "sudo qhost grant remove $grant_id --confirm 2>&1 </dev/null" >/dev/null || fail "grant remove failed for $grant_id"
+	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list failed after the removal: $out"
+	printf '%s' "$out" | jq -e --arg id "$grant_id" 'any(.[]; .id == $id) | not' >/dev/null || fail "the grant $grant_id is still listed after the removal: $out"
+	log "scenario: grant $grant_id for e2e-grantee was planned, added, listed without sudo and removed"
+}
+
 # scenario_tui_sudo proves the actions of the interface started without sudo that need no secret: the interface asks
 # with the exact command and hands the terminal to the real sudo, which asks for the password itself. The rule of
 # $admin lets sudo run a command without the password, so for this scenario it is put aside, and sudo keeps no
@@ -5021,6 +5392,61 @@ EOF2
 	docker exec "$host" rm -rf "$ds_dir"
 	wait_for 'the deploy service to answer' 30 qd status
 	log 'scenario: demo-dirs is removed'
+}
+
+# scenario_datadir_nested proves a nested data directory in the system engine: the stack demo-nested mounts
+# ./data/db for the user 1000:1000, so qhost stack datadir has to create the parent data as well. The parent keeps
+# the owner of the stack folder and stays searchable for the deploy service, the directory itself gets 1000:1000, and
+# the run that follows finds the directory and deploys the stack. The stack is removed again.
+scenario_datadir_nested() {
+	dn_stack=demo-nested
+	dn_dir=/opt/stacks/$dn_stack
+
+	step 'the stack demo-nested mounts the nested directory data/db that does not exist'
+	as_admin 'cd ~/stacks && git pull -q --ff-only && mkdir demo-nested'
+	cat <<EOF2 | as_admin 'cat >"$HOME"/stacks/demo-nested/compose.yaml'
+services:
+  app:
+    image: registry.$domain/demo/app:1.0.0
+    user: "1000:1000"
+    restart: unless-stopped
+    environment:
+      DEMO_NAME: demo-nested
+    volumes:
+      - ./data/db:/data
+EOF2
+	as_admin 'cd ~/stacks && cp demo-stack/.gitignore demo-nested/.gitignore && git add -A &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Add the demo-nested stack" && git push -q origin main'
+	restart_service
+	wait_for 'the finding data-dir-missing of demo-nested' 240 has_finding "$dn_stack" data-dir-missing
+	docker exec "$host" test ! -e "$dn_dir/data" || fail 'the data directory of demo-nested exists before it was created'
+
+	step 'qhost stack datadir creates the nested directory and the stack finds it'
+	dn_prev=$(newest_run "$dn_stack")
+	out=$(qd stack datadir "$dn_stack" --yes) || fail "datadir of demo-nested failed: $out"
+	[ "$(docker exec "$host" stat -c %u:%g "$dn_dir/data/db")" = 1000:1000 ] ||
+		fail "data/db has the owner $(docker exec "$host" stat -c %u:%g "$dn_dir/data/db"), want 1000:1000"
+	[ "$(docker exec "$host" stat -c %u:%g "$dn_dir/data")" = "$(docker exec "$host" stat -c %u:%g "$dn_dir")" ] ||
+		fail "the parent data has the owner $(docker exec "$host" stat -c %u:%g "$dn_dir/data"), not the one of the stack folder"
+	dn_mode=$(docker exec "$host" stat -c %a "$dn_dir/data")
+	[ $((0$dn_mode & 0110)) -eq $((0110)) ] || fail "the parent data is not searchable for its owner and group: $dn_mode"
+	dn_run=$(next_run "$dn_stack" "$dn_prev") || fail 'no run of demo-nested started after the creation'
+	wait_for "the run $dn_run" 240 run_finished "$dn_stack" "$dn_run"
+	qd stack log "$dn_run" | grep -q ' result succeeded' || fail "the run $dn_run did not succeed: $(qd stack log "$dn_run")"
+	no_finding "$dn_stack" data-dir-missing || fail "demo-nested still shows the finding: $(qd --output json status)"
+	[ -n "$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=$dn_stack --filter status=running)" ] ||
+		fail 'demo-nested does not run after the creation'
+	log "scenario: the nested directory data/db of $dn_stack was created, the parent stays searchable, run $dn_run"
+
+	step 'demo-nested leaves the repository'
+	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q demo-nested &&
+		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the demo-nested stack" && git push -q origin main'
+	restart_service
+	docker exec "$host" sh -c "docker ps -aq --filter label=com.docker.compose.project=$dn_stack | xargs -r docker rm -f" >/dev/null ||
+		fail "cannot remove the containers of $dn_stack"
+	docker exec "$host" rm -rf "$dn_dir"
+	wait_for 'the deploy service to answer' 30 qd status
+	log 'scenario: demo-nested is removed'
 }
 
 # ts_watch_start starts two watchers on the host. The first records every process whose command line holds a line of
@@ -5740,6 +6166,7 @@ hook_listening() {
 # set up, and checks what the contract says: no change without --confirm, the user qhost-hook in no other group, the
 # process without the groups docker and qhost, the marker folder of the system engine, the status without sudo and
 # the answer 404 to an unknown secret. scenario_selfupdate and scenario_uninstall keep it in their checks.
+# scenario_hook follows it and proves hook add, list and remove from a POST to the printed path to the update.
 scenario_hook_setup() {
 	step 'the setup of the webhook receiver needs root and --confirm and changes nothing without them'
 	if out=$(as_admin 'qhost hook-service setup --confirm --yes 2>&1'); then fail "the receiver setup without root succeeded: $out"; fi
@@ -5780,6 +6207,103 @@ scenario_hook_setup() {
 	out=$(docker exec "$host" curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8480/hook/invented-unknown-secret) || fail 'the receiver does not answer a POST'
 	[ "$out" = 404 ] || fail "an unknown secret got the status $out, want 404"
 	log "scenario: webhook receiver set up on 127.0.0.1:8480, status shows it, an unknown secret gets 404"
+}
+
+# hook_accepts succeeds when the receiver answers 202 to a POST without content on the path $1. The receiver reads
+# its configuration every ten seconds, so a new hook is accepted only after the next reload.
+hook_accepts() {
+	[ "$(docker exec "$host" curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:8480$1")" = 202 ]
+}
+
+# hook_rejects succeeds when the receiver answers 404 to a POST without content on the path $1.
+hook_rejects() {
+	[ "$(docker exec "$host" curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:8480$1")" = 404 ]
+}
+
+# scenario_hook proves sudo qhost hook add, list and remove with the receiver of scenario_hook_setup. demo-stack is
+# reset to 1.0.1 in automatic mode with the update trigger window, which makes hook add warn. With the trigger webhook
+# a POST to the printed path makes the service update it to 1.1.0 within 30 seconds; a wrong secret gets 404 and starts
+# no run; after hook remove the old secret gets 404. The secret is shown once and never stored.
+scenario_hook() {
+	image=registry.$domain/demo/app
+	step 'demo-stack is at 1.0.1 in automatic mode with the update trigger window'
+	if [ "$(stack_images demo-stack)" != "$image:1.0.1" ]; then
+		prev=$(newest_run demo-stack)
+		admin_commit demo-stack/.env 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.0.1/' 'Reset demo-stack to 1.0.1 for the webhook'
+		restart_service
+		run=$(next_run demo-stack "$prev") || fail 'no run of demo-stack started for the reset to 1.0.1'
+		wait_for "the run $run" 240 run_finished demo-stack "$run"
+	fi
+	settings_set demo-stack "$(demo_stack_settings 'update:\n  mode: automatic\n')"
+	[ "$(stack_images demo-stack)" = "$image:1.0.1" ] || fail "demo-stack does not run 1.0.1: $(stack_images demo-stack)"
+
+	step 'hook add needs root, the receiver and a known stack, and a failed call changes nothing'
+	if out=$(as_admin 'qhost hook add demo-stack 2>&1'); then fail "hook add without root succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'needs root' || fail "the refusal of hook add without root is unclear: $out"
+	if out=$(qd hook add no-such-stack); then fail "hook add for an unknown stack succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'no such stack' || fail "the refusal for an unknown stack is unclear: $out"
+	as_admin 'qhost --output json status 2>&1' | grep -q '"hook_count": *0' || fail "the refusals added a hook: $(as_admin 'qhost --output json status 2>&1')"
+
+	step 'with the trigger window, hook add stores the hook, shows the path once and warns that it does not act yet'
+	out=$(qd --output json hook add demo-stack) || fail "hook add failed: $out"
+	printf '%s' "$out" | grep -q 'warning: .*trigger window' || fail "hook add does not warn about the trigger window: $out"
+	printf '%s' "$out" | grep -q 'shown only once' || fail "hook add does not say that the path is shown once: $out"
+	hook_id=$(printf '%s' "$out" | sed -n 's/.*"id": *"\(h-[0-9a-f]\{8\}\)".*/\1/p')
+	hook_path=$(printf '%s' "$out" | sed -n 's/.*"path": *"\(\/hook\/[A-Za-z0-9_-]\{43\}\)".*/\1/p')
+	[ -n "$hook_id" ] && [ -n "$hook_path" ] || fail "hook add printed no id or path: $out"
+	hook_secret=${hook_path#/hook/}
+	printf '%s' "$out" | grep -q '"listen": *"127.0.0.1:8480"' || fail "hook add does not print the address of the receiver: $out"
+	[ "$(docker exec "$host" stat -c %U:%G:%a /etc/qhost-hook/config.json)" = root:qhost-hook:644 ] ||
+		fail "config.json is $(docker exec "$host" stat -c %U:%G:%a /etc/qhost-hook/config.json) after hook add, want root:qhost-hook:644"
+	docker exec "$host" cat /etc/qhost-hook/config.json | grep -q "\"id\": *\"$hook_id\"" || fail 'the configuration does not hold the new hook'
+	if docker exec "$host" grep -rqF -- "$hook_secret" /etc/qhost-hook; then fail 'the secret is stored in the configuration'; fi
+	if docker exec "$host" journalctl --no-pager -u qhost -u qhost-deploy -u qhost-hook | grep -qF -- "$hook_secret"; then
+		fail 'the secret shows in the logs of the services'
+	fi
+
+	step 'hook list shows the hook without sudo and never a hash or a secret'
+	out=$(as_admin 'qhost hook list 2>&1') || fail "hook list without sudo failed: $out"
+	printf '%s' "$out" | grep -q "$hook_id *demo-stack *system" || fail "hook list does not show the hook: $out"
+	if printf '%s' "$out" | grep -qF -e "$hook_secret" -e sha256; then fail "hook list shows a hash or a secret: $out"; fi
+	out=$(as_admin 'qhost --output json hook list 2>&1') || fail "hook list as JSON failed: $out"
+	for want in "\"id\": *\"$hook_id\"" '"stack": *"demo-stack"' '"instance": *"system"' '"modified": *"'; do
+		printf '%s' "$out" | grep -q "$want" || fail "hook list as JSON lacks $want: $out"
+	done
+	if printf '%s' "$out" | grep -qF -e "$hook_secret" -e sha256; then fail "hook list as JSON shows a hash or a secret: $out"; fi
+
+	step 'with the trigger webhook, a POST to the printed path makes the service update demo-stack within 30 seconds'
+	settings_set demo-stack "$(demo_stack_settings 'update:\n  mode: automatic\n  trigger: webhook\n')"
+	runs_before=$(stack_run_count demo-stack)
+	# The wrong secret is tried first; the first accepted call then also waits for the receiver to read the new hook.
+	wrong=$(printf 'A%.0s' $(seq 43))
+	hook_rejects "/hook/$wrong" || fail 'a wrong secret was not answered with 404'
+	since=$(date +%s)
+	wait_for 'the receiver to accept the new hook' 30 hook_accepts "$hook_path"
+	wait_for 'the webhook to update demo-stack' 30 interval_updated 1.1.0
+	took=$(($(date +%s) - since))
+	[ "$(stack_run_count demo-stack)" = "$((runs_before + 1))" ] || fail 'the webhook did not make exactly one run of demo-stack'
+	stack_healthy demo-stack || fail 'demo-stack is not healthy after the webhook update'
+	log "scenario: a POST to the hook of demo-stack updated it to 1.1.0 in $took seconds"
+
+	step 'a wrong secret gets 404 and starts no run'
+	runs_before=$(stack_run_count demo-stack)
+	hook_rejects "/hook/$wrong" || fail 'a wrong secret was not answered with 404'
+	sleep 12
+	[ "$(stack_run_count demo-stack)" = "$runs_before" ] || fail 'a wrong secret started a run'
+	[ -z "$(stack_field demo-stack active_run)" ] || fail 'a wrong secret started a run in progress'
+
+	step 'hook remove needs root, refuses an unknown id and then the old secret gets 404'
+	if out=$(as_admin "qhost hook remove $hook_id 2>&1"); then fail "hook remove without root succeeded: $out"; fi
+	if out=$(qd hook remove h-00000000); then fail "hook remove of an unknown id succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'no such webhook' || fail "the refusal of an unknown id is unclear: $out"
+	out=$(qd hook remove "$hook_id") || fail "hook remove failed: $out"
+	qd hook list | grep -q "$hook_id" && fail 'the removed hook is still listed'
+	wait_for 'the removed secret to get 404' 30 hook_rejects "$hook_path"
+	as_admin 'qhost --output json status 2>&1' | grep -q '"hook_count": *0' || fail "the hook count is not 0 after the removal: $(as_admin 'qhost --output json status 2>&1')"
+	log 'scenario: hook add, list and remove proved; the removed secret gets 404'
+
+	step 'demo-stack waits for the window again'
+	settings_set demo-stack "$(demo_stack_settings)"
 }
 
 # selfupdate_field prints one top-level field of qhost update status, run without root.
@@ -5850,6 +6374,8 @@ scenario_selfupdate() {
 	[ "$(docker exec "$host" systemctl is-active "$su_unit")" = active ] || fail "the instance $su_unit does not run"
 
 	scenario_hook_setup
+
+	scenario_hook
 
 	step 'update status reports the newer test release without root'
 	release_publish v0.2.0

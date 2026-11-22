@@ -146,6 +146,12 @@ func TestArchitecture(t *testing.T) {
 			Hint:  "the proposal store is shared by both services and knows neither, nor any kind of proposal",
 		},
 		{
+			Name:  "grants-know-the-protocol-only",
+			Files: archtest.Files{Under: []string{"internal/grants"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports("internal/control", "internal/formatnum", "internal/formatnum/formatnumtest"),
+			Hint:  "the grant store sits below the service and decides validity from values handed in, so it knows neither the service nor the user database",
+		},
+		{
 			Name:  "admins-know-the-protocol-only",
 			Files: archtest.Files{Under: []string{"internal/admins"}, Tests: archtest.WithTests},
 			Check: archtest.AllowImports("internal/control"),

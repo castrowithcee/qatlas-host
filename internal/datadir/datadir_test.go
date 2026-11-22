@@ -203,11 +203,66 @@ func TestCreateOtherOwnerAsRoot(t *testing.T) {
 	if _, err := Create(Request{StackDir: dir, Paths: []string{"a/b"}, Owner: Owner{UID: 4242, GID: 4343}, Mode: 0o700}); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{"a", "a/b"} {
+	var parent syscall.Stat_t
+	if err := syscall.Stat(dir, &parent); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string][3]uint32{"a": {parent.Uid, parent.Gid, 0o750}, "a/b": {4242, 4343, 0o700}}
+	for p, w := range want {
 		fi, _ := os.Lstat(filepath.Join(dir, p))
 		st := fi.Sys().(*syscall.Stat_t)
-		if st.Uid != 4242 || st.Gid != 4343 || fi.Mode().Perm() != 0o700 {
+		if st.Uid != w[0] || st.Gid != w[1] || uint32(fi.Mode().Perm()) != w[2] {
 			t.Fatalf("%s: %d:%d %v", p, st.Uid, st.Gid, fi.Mode())
 		}
+	}
+}
+
+// recordChown replaces chownFd with a fake that records the owner each directory is given, so no test
+// changes the owner of a real file.
+func recordChown(t *testing.T) *[][2]int {
+	t.Helper()
+	var calls [][2]int
+	chownFd = func(_ int, uid, gid int) error { calls = append(calls, [2]int{uid, gid}); return nil }
+	t.Cleanup(func() { chownFd = restoreChown })
+	return &calls
+}
+
+func TestCreateParentsGetTheOwnerOfTheNearestExistingParent(t *testing.T) {
+	dir := stackDir(t)
+	if err := os.Mkdir(filepath.Join(dir, "keep"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	calls := recordChown(t)
+	req := Owner{UID: 101233, GID: 101233}
+	res, err := Create(Request{StackDir: dir, Paths: []string{"keep/a/b/db"}, Owner: req, Mode: 0o700})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(res.Parents, []string{"keep/a", "keep/a/b"}) || !slices.Equal(res.Created, []string{"keep/a/b/db"}) {
+		t.Fatalf("%+v", res)
+	}
+	me := self()
+	want := [][2]int{{int(me.UID), int(me.GID)}, {int(me.UID), int(me.GID)}, {101233, 101233}}
+	if !slices.Equal(*calls, want) {
+		t.Fatalf("chown calls %v, want %v", *calls, want)
+	}
+	for _, p := range []string{"keep/a", "keep/a/b"} {
+		if fi, _ := os.Stat(filepath.Join(dir, p)); fi.Mode().Perm() != 0o750 {
+			t.Fatalf("%s mode %v, want 0750: the service user must be able to search it", p, fi.Mode().Perm())
+		}
+	}
+	if fi, _ := os.Stat(filepath.Join(dir, "keep/a/b/db")); fi.Mode().Perm() != 0o700 {
+		t.Fatalf("requested directory mode %v", fi.Mode().Perm())
+	}
+}
+
+func TestCreateParentKeepsWiderModeOfTheRequest(t *testing.T) {
+	dir := stackDir(t)
+	recordChown(t)
+	if _, err := Create(Request{StackDir: dir, Paths: []string{"a/b"}, Owner: self(), Mode: 0o777}); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(filepath.Join(dir, "a")); fi.Mode().Perm() != 0o777 {
+		t.Fatalf("parent mode %v", fi.Mode().Perm())
 	}
 }

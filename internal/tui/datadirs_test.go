@@ -229,3 +229,14 @@ func TestDataDirsWithoutRootFailureStaysInTheForm(t *testing.T) {
 		t.Fatal("the form was closed after a failure")
 	}
 }
+
+func TestDataDirDetailShowsContainerUserAndHostOwner(t *testing.T) {
+	b := dataDirBackend()
+	b.status.Engine.Stacks[0].Findings[0].Dirs = []control.DirInfo{
+		{Path: "data/db", Owner: "101233:101233", Container: "1234:1234"},
+		{Path: "data/files", Container: "70000:70000", Warning: "container user 70000 is outside the user ID range of the engine"}}
+	m, _ := dataDirModel(t, b, 0)
+	send(m, "enter")
+	contains(t, m, "data/db  container user 1234:1234, host owner 101233:101233",
+		"data/files  container user 70000:70000, no host owner: container user 70000 is outside")
+}

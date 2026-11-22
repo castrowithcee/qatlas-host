@@ -48,3 +48,33 @@ func TestEmptyMapEqualsNothing(t *testing.T) {
 		t.Fatal("an empty map must never be equal")
 	}
 }
+
+func TestOutside(t *testing.T) {
+	m, err := Parse("0 1000 1\n1 100000 65536\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		id   uint64
+		want uint64
+		ok   bool
+	}{
+		{0, 1000, true},        // container root is the instance user
+		{1, 100000, true},      // first of the range
+		{1234, 101233, true},   // inside
+		{65536, 165535, true},  // last of the range
+		{65537, 0, false},      // one past the end
+		{4294967294, 0, false}, // far outside
+	}
+	for _, c := range cases {
+		if got, ok := m.Outside(c.id); got != c.want || ok != c.ok {
+			t.Fatalf("Outside(%d) = %d, %v; want %d, %v", c.id, got, ok, c.want, c.ok)
+		}
+	}
+	if got, ok := Default().Outside(4294967294); got != 4294967294 || !ok {
+		t.Fatalf("default maps %d, %v", got, ok)
+	}
+	if _, ok := Default().Outside(4294967295); ok {
+		t.Fatal("the all-ones ID is not mapped")
+	}
+}

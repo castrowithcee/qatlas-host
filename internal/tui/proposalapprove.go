@@ -37,6 +37,9 @@ type proposalCtx struct {
 	url string
 	// gen is the generation of the view the proposal was opened in.
 	gen int
+	// engine is the engine of the deploy service the proposal was submitted to, which applies it; empty on a host
+	// with one engine.
+	engine string
 }
 
 // proposalRefused is the answer when the proposal or its effect differs from what was shown: nothing was
@@ -86,8 +89,9 @@ func effectSignature(flow *addFlow) string {
 		NotChecked []string
 		Changed    int
 		Plan       []string
+		Engine     string
 	}{flow.res.Case, flow.res.Reason, flow.readOnly, flow.missing, sorted(flow.res.PlannedFiles), sorted(left), sorted(chosen),
-		sorted(conflicts), sorted(notChecked), flow.plan.Changed, flow.plan.Summary})
+		sorted(conflicts), sorted(notChecked), flow.plan.Changed, flow.plan.Summary, flow.engine})
 	return string(raw)
 }
 
@@ -173,11 +177,12 @@ func (m *Model) approveProposal() tea.Cmd {
 		return m.approveKind()
 	}
 	if m.euid() != 0 {
-		shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, url: v.content.URL, gen: v.gen}
-		return m.inspectSudoFor(v.content.Path, nil, shown, nil)
+		shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, url: v.content.URL, gen: v.gen, engine: v.engine}
+		return m.inspectSudoFor(v.content.Path, nil, shown, nil, v.engine)
 	}
-	shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, effect: effectSignature(v.flow), url: v.content.URL, gen: v.gen}
-	ctx, host, path := m.ctx, m.folders, v.content.Path
+	shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, effect: effectSignature(v.flow), url: v.content.URL, gen: v.gen,
+		engine: v.engine}
+	ctx, host, path := m.engineCtx(v.engine), m.folders, v.content.Path
 	return m.writeCall(opInspect, path, func(b Backend) (any, error) {
 		now := loadProposal(ctx, b, host, shown.gen, shown.id, true, nil)
 		if now.err != nil {
@@ -255,15 +260,16 @@ func (m *Model) submitProposalReject(f *settingsForm, reason string) tea.Cmd {
 		f.problems(m.bad("reason", textProblemPropReason))
 		return nil
 	}
-	id := m.pv.id
+	id, engine := m.pv.id, m.pv.engine
 	label := kittui.Escape(proposalShort(id))
 	if m.euid() != 0 {
-		m.askProposalRejectSudo(id, reason)
+		m.askProposalRejectSudo(id, reason, engine)
 		return nil
 	}
+	ctx := m.engineCtx(engine)
 	m.ask(textTitleProposalReject, m.text.Lookup(textAskProposalReject, label), m.text.Lookup(textWhatProposalReject), nil, true, func() tea.Cmd {
 		return m.writeCall(opProposalReject, id, func(b Backend) (any, error) {
-			return b.ProposalReject(m.ctx, control.ProposalRejectArgs{ID: id, Reason: reason})
+			return b.ProposalReject(ctx, control.ProposalRejectArgs{ID: id, Reason: reason})
 		})
 	})
 	return nil
@@ -282,6 +288,9 @@ func (m *Model) finalConsequence(flow *addFlow, folder kittui.TextID) string {
 	what := m.text.Lookup(folder)
 	if flow.proposal != nil {
 		what = m.text.Lookup(textWhatProposalApprove)
+	}
+	if flow.engine != "" {
+		what += " " + m.text.Lookup(textWhatEngine, flow.engine)
 	}
 	if hasConflicts(flow.res) {
 		what += " " + m.text.Lookup(textConflictConsequence)

@@ -389,12 +389,34 @@ func (tuiFolders) Missing(dir string) (bool, error) {
 	return folders.missing(dir)
 }
 
-func (tuiFolders) Grant(ctx context.Context, dir string, create bool) error {
+// engineCtx makes the engine the interface named for the call, with tui.WithEngine, the target of the steps on the
+// host: the service account, the drop-in and the unit are those of that engine's deploy service.
+func (tuiFolders) engineCtx(ctx context.Context) (context.Context, error) {
+	engine := tui.EngineOf(ctx)
+	if engine == "" {
+		return ctx, nil
+	}
+	t, err := folders.namedEngine(engine)
+	if err != nil {
+		return ctx, err
+	}
+	return withEngine(ctx, t), nil
+}
+
+func (h tuiFolders) Grant(ctx context.Context, dir string, create bool) error {
+	ctx, err := h.engineCtx(ctx)
+	if err != nil {
+		return err
+	}
 	return folders.grant(ctx, dir, create, io.Discard)
 }
 
-func (tuiFolders) PlanPermissions(ctx context.Context, res control.SourceInspectResult) (tui.PermPlan, error) {
+func (h tuiFolders) PlanPermissions(ctx context.Context, res control.SourceInspectResult) (tui.PermPlan, error) {
 	if err := folders.requireRoot(); err != nil {
+		return tui.PermPlan{}, err
+	}
+	ctx, err := h.engineCtx(ctx)
+	if err != nil {
 		return tui.PermPlan{}, err
 	}
 	plan, err := planAccess(ctx, res)
@@ -404,7 +426,7 @@ func (tuiFolders) PlanPermissions(ctx context.Context, res control.SourceInspect
 	return tui.NewPermPlan(plan.changed(), plan.summary(), plan), nil
 }
 
-func (tuiFolders) ApplyPermissions(ctx context.Context, p tui.PermPlan) error {
+func (h tuiFolders) ApplyPermissions(ctx context.Context, p tui.PermPlan) error {
 	plan, ok := p.Handle().(*permPlan)
 	if !ok {
 		return nil
@@ -412,10 +434,18 @@ func (tuiFolders) ApplyPermissions(ctx context.Context, p tui.PermPlan) error {
 	if err := folders.requireRoot(); err != nil {
 		return err
 	}
+	ctx, err := h.engineCtx(ctx)
+	if err != nil {
+		return err
+	}
 	return folders.applyPermissions(ctx, plan)
 }
 
-func (tuiFolders) Engines(ctx context.Context, res control.SourceInspectResult) control.SourceInspectResult {
+func (h tuiFolders) Engines(ctx context.Context, res control.SourceInspectResult) control.SourceInspectResult {
+	// An engine that cannot be resolved failed the call of the service before; the scan then stays as for the default.
+	if named, err := h.engineCtx(ctx); err == nil {
+		ctx = named
+	}
 	return addEngines(ctx, res)
 }
 

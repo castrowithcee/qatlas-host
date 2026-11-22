@@ -94,6 +94,8 @@ const (
 	CodeStackAction      = "stack-action-failed"
 	CodeNameCollision    = "name-collision"
 	CodeNoSettings       = "no-settings"
+	// CodeNotChanged answers a path that is none of the local changes of the stack.
+	CodeNotChanged = "not-a-change"
 	// CodeSecrets answers a push that would publish secret-like files; the message names the places, never a value.
 	CodeSecrets = "secrets-found"
 
@@ -356,11 +358,13 @@ type FindingInfo struct {
 	Dirs []DirInfo `json:"dirs,omitempty"`
 }
 
-// DirInfo is a missing data directory: Path relative to the stack folder, Owner the proposed "UID:GID",
-// empty when unknown.
+// DirInfo is a missing data directory: Path relative to the stack folder, Container the "UID:GID" of the
+// container's user, Owner the proposed host "UID:GID" (empty when unknown) and Warning why there is none.
 type DirInfo struct {
-	Path  string `json:"path"`
-	Owner string `json:"owner,omitempty"`
+	Path      string `json:"path"`
+	Owner     string `json:"owner,omitempty"`
+	Container string `json:"container,omitempty"`
+	Warning   string `json:"warning,omitempty"`
 }
 
 // The commands that control runs. ResumeCommand clears the pause of a stack and starts no run.
@@ -1086,6 +1090,84 @@ type SourceRemoteResult struct {
 	HistoryRef string `json:"history_ref,omitempty"`
 }
 
+// The kinds of a SourceChange.
+const (
+	ChangeModified = "modified"
+	ChangeNew      = "new"
+	ChangeDeleted  = "deleted"
+)
+
+// SourceChangesCommand lists the local changes of a bound stack folder that keep a stack out of a run, for all
+// its stacks in one list: the same paths as the finding local-changes, so secrets.env, data/ and untracked files
+// below a bind mount are not among them. It only reads. Root and administrators may run it. A folder no source
+// is bound to is refused with CodeNoSuchSource.
+const SourceChangesCommand = "source.changes"
+
+// SourceChangesArgs are the arguments of SourceChangesCommand. Path is the path of the bound stack folder.
+type SourceChangesArgs struct {
+	Path string `json:"path"`
+}
+
+// SourceChange is one local change. Path is relative to the stack folder; Stack names the stack it lies in,
+// empty for a folder that is no stack.
+type SourceChange struct {
+	Path  string `json:"path"`
+	Kind  string `json:"kind"`
+	Stack string `json:"stack,omitempty"`
+}
+
+// SourceChangesResult answers SourceChangesCommand, sorted by path. The list stops at a byte budget well below
+// MaxResponseBytes, and Truncated says changes were left out. A path with characters that cannot be shown is
+// listed with them replaced and is not one SourceDiscardCommand accepts.
+type SourceChangesResult struct {
+	Path      string         `json:"path"`
+	Changes   []SourceChange `json:"changes"`
+	Truncated bool           `json:"truncated,omitempty"`
+}
+
+// SourceDiffCommand returns the diff of one local change. It shows file contents that the administrator may not
+// be allowed to read, so only root may run it. A file that SourceChangesCommand does not list is refused with
+// CodeNotChanged.
+const SourceDiffCommand = "source.diff"
+
+// SourceDiffArgs are the arguments of SourceDiffCommand. Path is the bound stack folder and File a path
+// relative to it.
+type SourceDiffArgs struct {
+	Path string `json:"path"`
+	File string `json:"file"`
+}
+
+// SourceDiffResult answers SourceDiffCommand. Diff is cut at a fixed size, well below MaxResponseBytes, and
+// Truncated says so.
+type SourceDiffResult struct {
+	Path      string `json:"path"`
+	File      string `json:"file"`
+	Diff      string `json:"diff"`
+	Truncated bool   `json:"truncated,omitempty"`
+}
+
+// MaxDiscardPaths bounds the files of one SourceDiscardCommand.
+const MaxDiscardPaths = 200
+
+// SourceDiscardCommand takes local changes back, only for the files named: a modified or deleted versioned file
+// is restored from the head, a new file is removed because its path is named. Every file must be one
+// SourceChangesCommand lists, as an exact path below the stack folder: a folder, a pattern, a path outside the
+// folder or the host's own files are refused with CodeNotChanged and nothing is changed. Only root may run it.
+// A stack of the files with an active run refuses it with CodeRunActive.
+const SourceDiscardCommand = "source.discard"
+
+// SourceDiscardArgs are the arguments of SourceDiscardCommand.
+type SourceDiscardArgs struct {
+	Path  string   `json:"path"`
+	Files []string `json:"files"`
+}
+
+// SourceDiscardResult answers SourceDiscardCommand with the files that were taken back.
+type SourceDiscardResult struct {
+	Path      string   `json:"path"`
+	Discarded []string `json:"discarded"`
+}
+
 // SourceListCommand lists the bound stack folders.
 const SourceListCommand = "source.list"
 
@@ -1359,6 +1441,57 @@ type UpdateStepInfo struct {
 	Commit   string `json:"commit,omitempty"`
 	Result   string `json:"result,omitempty"`
 	Error    string `json:"error,omitempty"`
+}
+
+// The commands that set a stack back to the versions before an update run. ReturnCheckCommand changes
+// nothing: it refuses as ReturnRunCommand would and tells which versions the return sets. ReturnRunCommand
+// runs the return as a secured run and, after a success, pins the stack. Both need the right to change the
+// stack, so a caller who may not return it learns nothing about its runs.
+const (
+	ReturnCheckCommand = "return.check"
+	ReturnRunCommand   = "return.run"
+)
+
+// The data choices of ReturnArgs.
+const (
+	ReturnRestoreData = "restore"
+	ReturnKeepData    = "keep"
+)
+
+// ReturnArgs are the arguments of ReturnCheckCommand and ReturnRunCommand. Run is the id of a successful update
+// run of the stack; Data is ReturnRestoreData, which restores the backup that update made, or ReturnKeepData.
+type ReturnArgs struct {
+	Stack string `json:"stack"`
+	Run   string `json:"run"`
+	Data  string `json:"data"`
+}
+
+// ReturnStepInfo is one version variable a return sets, from the value the stack has to the one it gets.
+type ReturnStepInfo struct {
+	Variable string `json:"variable"`
+	From     string `json:"from"`
+	To       string `json:"to"`
+}
+
+// ReturnCheckResult answers ReturnCheckCommand. Backup is the backup a restore puts back, empty with
+// ReturnKeepData.
+type ReturnCheckResult struct {
+	Stack  string           `json:"stack"`
+	Run    string           `json:"run"`
+	Data   string           `json:"data"`
+	Backup string           `json:"backup,omitempty"`
+	Steps  []ReturnStepInfo `json:"steps"`
+}
+
+// ReturnRunResult answers ReturnRunCommand for a return that was started. ReturnRun is the id of the
+// return's own run; Result is a run result and Commit the pushed commit, or the deployed one when the return
+// failed before its push. A succeeded return leaves the stack pinned.
+type ReturnRunResult struct {
+	ReturnCheckResult
+	ReturnRun string `json:"return_run"`
+	Commit    string `json:"commit,omitempty"`
+	Result    string `json:"result"`
+	Error     string `json:"error,omitempty"`
 }
 
 // ChangelogShowCommand shows the release notes between the current and the available version of every
@@ -1971,6 +2104,9 @@ type ProposalInfo struct {
 	Expires       time.Time `json:"expires"`
 	// Message is the reason of a rejection or the failure of an approval; the service keeps it printable and at most 300 characters.
 	Message string `json:"message,omitempty"`
+	// Engine is the engine of the deploy service that stores the proposal; a deploy service leaves it empty, a
+	// client that merges several deploy services sets it, as StackStatus.Engine does.
+	Engine string `json:"engine,omitempty"`
 }
 
 // UnreadableInfo names a stored file that is left out of an answer because this version cannot read it.

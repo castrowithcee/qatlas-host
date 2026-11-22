@@ -28,7 +28,7 @@ import (
 )
 
 // DefaultImage is the helper image: busybox 1.37.0, pinned by the digest of its multi-platform index.
-const DefaultImage = "busybox@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec"
+const DefaultImage = compose.HelperImage
 
 // DefaultCallTimeout limits one helper container call.
 const DefaultCallTimeout = time.Hour
@@ -316,7 +316,7 @@ func (m *Manager) Restore(ctx context.Context, st stacks.Stack, id string, log L
 
 // namespaceScript prints the two mappings of the helper container's user namespace, separated by a line with
 // two dashes. It is constant.
-const namespaceScript = "cat /proc/self/uid_map; echo --; cat /proc/self/gid_map"
+const namespaceScript = compose.NamespaceScript
 
 // identity reads the user namespace of the engine through the helper container, which runs in the namespace
 // every container of the engine runs in.
