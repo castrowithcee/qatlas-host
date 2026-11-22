@@ -3233,7 +3233,9 @@ EOF2
 	[ -z "$(docker exec "$host" sh -c "cat '$base/.git/info/exclude' 2>/dev/null")" ] || fail 'source add wrote the left-out paths to .git/info/exclude'
 	# A fresh clone, as when a host is restored from the repository, ignores what the first commit left out.
 	clone=$(docker exec "$host" mktemp -d) || fail 'cannot create a temporary folder for the clone'
-	docker exec "$host" git -c safe.directory="$base" clone -q "$base" "$clone/web" || fail 'cannot clone the folder of files'
+	# The service owns .git, and git takes safe.directory for the upload-pack of a local clone only from a config file.
+	printf '[safe]\n\tdirectory = %s\n\tdirectory = %s/.git\n' "$base" "$base" | docker exec -i "$host" sh -ec "cat >'$clone/gitconfig'"
+	docker exec -e GIT_CONFIG_GLOBAL="$clone/gitconfig" "$host" git clone -q "$base" "$clone/web" || fail 'cannot clone the folder of files'
 	for left in big.bin compose.yaml.bak .env.bak.1 app.log notes.txt acme.json data; do
 		docker exec "$host" git -C "$clone/web" check-ignore -q -- "$left" || fail "a clone does not ignore $left: $(docker exec "$host" cat "$clone/web/.gitignore")"
 	done
