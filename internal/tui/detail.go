@@ -631,6 +631,9 @@ func (m *Model) runLines(engine, stack string, width int) []string {
 		}
 		out = append(out, m.line(detailIndent, tone, strings.Join(facts, "  "), width))
 		out = append(out, m.line(detailIndent+2, kittui.StyleHint, r.id, width))
+		if r.tag != "" {
+			out = append(out, m.line(detailIndent+2, kittui.StyleHint, r.tag, width))
+		}
 		if r.err != "" {
 			out = append(out, m.wrapped(detailIndent+2, kittui.StyleFail, r.err, width)...)
 		}

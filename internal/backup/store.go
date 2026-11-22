@@ -34,6 +34,7 @@ var (
 	idShape    = regexp.MustCompile(`^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$`)
 	stackShape = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,62}$`)
 	fileShape  = regexp.MustCompile(`^(?:(?:path|volume)-[0-9]{1,3}\.tar|command\.out)$`)
+	tagForm    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,511}$`)
 	commitForm = regexp.MustCompile(`^(?:[0-9a-f]{40}|[0-9a-f]{64})$`)
 )
 
@@ -69,13 +70,15 @@ type ImageVersion struct {
 // Meta describes one backup. Incomplete is set for a directory without valid metadata; only ID and Stack are
 // then known.
 type Meta struct {
-	Schema  int            `json:"schema"`
-	ID      string         `json:"id"`
-	Stack   string         `json:"stack"`
-	Created time.Time      `json:"created"`
-	Commit  string         `json:"commit,omitempty"`
-	Images  []ImageVersion `json:"images,omitempty"`
-	Items   []Item         `json:"items"`
+	Schema  int       `json:"schema"`
+	ID      string    `json:"id"`
+	Stack   string    `json:"stack"`
+	Created time.Time `json:"created"`
+	Commit  string    `json:"commit,omitempty"`
+	// Tag is the fixed Git tag that marks Commit in the stacks repository, empty when the commit has none.
+	Tag    string         `json:"tag,omitempty"`
+	Images []ImageVersion `json:"images,omitempty"`
+	Items  []Item         `json:"items"`
 	// Identity is the user namespace of the engine the backup was made in. A backup of schema 1 has none; it
 	// counts as made by a system engine, see Identity.
 	Identity   *Identity `json:"identity,omitempty"`

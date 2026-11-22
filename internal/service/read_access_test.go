@@ -182,6 +182,7 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		control.StacksListCommand:       {nil},
 		control.StacksCheckCommand:      {control.StacksCheckArgs{}},
 		control.SourceListCommand:       {nil},
+		control.SourceChangesCommand:    {control.SourceChangesArgs{Path: h.dir}},
 		control.KeyShowCommand:          {control.KeyShowArgs{}},
 		control.CredentialListCommand:   {nil},
 		control.SecretListCommand:       {control.SecretListArgs{Stack: "plain-stack"}, control.SecretListArgs{Stack: "demo-stack"}},
@@ -197,6 +198,7 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		control.HostLogVerifyCommand:    {nil},
 		control.ProposalListCommand:     {nil},
 		control.ProposalShowCommand:     {control.ProposalIDArgs{ID: prop.ID}},
+		control.GrantListCommand:        {nil, control.GrantListArgs{Stack: "plain-stack"}},
 		control.ContainerLogsCommand:    {control.ContainerLogsArgs{Stack: "plain-stack"}, control.ContainerLogsArgs{Name: app.Name}},
 	}
 	if got, want := slices.Sorted(maps.Keys(reads)), commandsOf(reg, control.ClassRead); !slices.Equal(got, want) {

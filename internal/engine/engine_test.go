@@ -39,6 +39,8 @@ type fakeCopy struct {
 	ffErr        error
 	revertErrs   []error
 	pushErrs     []error
+	tagErrs      []error // one per TagCommit call, nil once used up
+	tags         []tagCall
 	reverts      []revertCall
 	pushed       []string
 	commitErrs   []error
@@ -59,6 +61,8 @@ type fakeCopy struct {
 }
 
 type revertCall struct{ Stack, Deployed, Failed, Reason, Base string }
+
+type tagCall struct{ Name, Commit string }
 
 type commitCall struct {
 	Path, Message, Base string
@@ -124,6 +128,32 @@ func (f *fakeCopy) RevertStack(_ context.Context, stack, deployed, failed, reaso
 	return id, nil
 }
 
+// ParentOf is the base a commit was built on.
+func (f *fakeCopy) ParentOf(_ context.Context, c string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if p, ok := f.bases[c]; ok {
+		return p, nil
+	}
+	return "", errors.New("no parent known")
+}
+
+// FileAt is the file as the nearest commit at or below c that wrote it has it, nil when none did.
+func (f *fakeCopy) FileAt(_ context.Context, c, path string) ([]byte, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for {
+		if body, ok := f.files[c][path]; ok {
+			return body, nil
+		}
+		p, ok := f.bases[c]
+		if !ok {
+			return nil, nil
+		}
+		c = p
+	}
+}
+
 func (f *fakeCopy) IsAncestor(_ context.Context, a, b string) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -168,6 +198,17 @@ func (f *fakeCopy) base() string {
 	return f.remote
 }
 
+// TagCommit records the call and keeps no calls entry, so tests of the other steps stay unchanged.
+func (f *fakeCopy) TagCommit(_ context.Context, name, c string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := pop(&f.tagErrs); err != nil {
+		return err
+	}
+	f.tags = append(f.tags, tagCall{name, c})
+	return nil
+}
+
 func (f *fakeCopy) Push(_ context.Context, c string) error {
 	f.rec("push")
 	f.mu.Lock()
@@ -205,6 +246,25 @@ func (f *fakeCopy) Status(context.Context) ([]gitrepo.Change, error) {
 	}
 	return slices.Clone(f.changes), nil
 }
+
+// Diff answers a fixed text for a path of the status; Discard drops the entries of its paths from it.
+func (f *fakeCopy) Diff(_ context.Context, path string) (string, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !slices.ContainsFunc(f.changes, func(c gitrepo.Change) bool { return c.Path == path }) {
+		return "", false, gitrepo.ErrNotChanged
+	}
+	return "diff of " + path, false, nil
+}
+
+func (f *fakeCopy) Discard(_ context.Context, paths []string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, "discard:"+strings.Join(paths, ","))
+	f.changes = slices.DeleteFunc(f.changes, func(c gitrepo.Change) bool { return slices.Contains(paths, c.Path) })
+	return nil
+}
+
 func (f *fakeCopy) ChangedFolders(_ context.Context, from, to string) ([]string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -286,9 +346,12 @@ type fakeDeployer struct {
 	// trace, when set, gets every step as it starts.
 	trace func(string)
 	// backedUp lists the deployed commit of every backup.
-	backedUp []string
+	backedUp   []string
+	backupTags []string // the tag each backup got through its context
 	// gone are the backup ids HasBackup reports missing.
 	gone []string
+	// backupName, when set, names the backup of a deployed commit instead of the default.
+	backupName func(deployed string) string
 }
 
 func (d *fakeDeployer) do(ctx context.Context, step string, st stacks.Stack) error {
@@ -330,9 +393,13 @@ func (d *fakeDeployer) Backup(ctx context.Context, st stacks.Stack, deployed str
 	}
 	d.mu.Lock()
 	d.backedUp = append(d.backedUp, deployed)
+	d.backupTags = append(d.backupTags, stacks.DeployedTag(ctx, deployed))
 	d.mu.Unlock()
 	if d.noRules || d.lateNoRules {
 		return "", ErrNoBackup
+	}
+	if d.backupName != nil {
+		return d.backupName(deployed), nil
 	}
 	return "backup-of-" + deployed[:8], nil
 }

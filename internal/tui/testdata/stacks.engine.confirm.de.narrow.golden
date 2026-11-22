@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                            [?] Hilfe
+  [1 Stacks] 2 3 4 5 6 7                                                        
+────────────────────────────────────────────────────────────────────────────────
+  ⚠ In /srv/files-example ein Git-Repository anlegen und übernehmen?            
+                                                                                
+  Ja prüft den Ordner noch einmal und nimmt die unten aufgeführten Änderungen   
+  nur vor, wenn seine Liste unverändert ist. Der Ordner gehört zur Engine       
+  rootless:alice. Container dieser Stacks laufen bereits, ein Deploy würde daher
+  doppelte Container erzeugen und deren Ports doppelt belegen. qhost warnt nur. 
+                                                                                
+    Ordner: /srv/files-example                                                  
+    Fall: files (Dateien ohne Repository; ein erster Commit nimmt die           
+    aufgeführten Dateien)                                                       
+    Engine: rootless:alice                                                      
+    Eigentümer: root, Gruppe: root, Modus: 0755                                 
+    der Dienst kann ihn schreiben: nein                                         
+    Rechte werden gesetzt: ja                                                   
+                                                                                
+  Dateien des ersten Commits (2)                                                
+    demo/.env                                                                   
+    demo/compose.yaml                                                           
+                                                                                
+  Ausgelassen (2), von den Stacks nicht gebraucht, per .gitignore von Git ausge…
+y ja, ausführen  w mit Remote  n/esc/enter abbrechen         ↑/↓ Scrollen  20/44

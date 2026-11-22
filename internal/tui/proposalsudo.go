@@ -24,12 +24,12 @@ func proposalApproveArgs(p *proposalCtx) []string {
 
 // askProposalRejectSudo asks to reject the proposal with the reason, which may be empty; y runs the command
 // through sudo.
-func (m *Model) askProposalRejectSudo(id, reason string) {
+func (m *Model) askProposalRejectSudo(id, reason, engine string) {
 	args := []string{"proposal", "reject", id}
 	if reason != "" {
 		args = append(args, "--reason", reason)
 	}
-	args = append(args, "--output", "json")
+	args = m.engineArgs(engine, append(args, "--output", "json"))
 	var gen int
 	m.askSudo(sudoAsk{title: textTitleProposalReject,
 		question:    m.text.Lookup(textAskProposalReject, kittui.Escape(proposalShort(id))),
@@ -54,7 +54,7 @@ func (m *Model) askKindSudo(eff *kindEffect, shown *proposalCtx, question string
 	var gen int
 	a := sudoAsk{title: textTitleProposalApprove, question: question, consequence: m.text.Lookup(consequence),
 		body:  func(width int) []string { return m.kindEffectLines(eff, width) },
-		args:  proposalApproveArgs(shown),
+		args:  m.engineArgs(shown.engine, proposalApproveArgs(shown)),
 		begin: func() { gen = m.beginSetting() },
 		done: func(r sudoRun) tea.Cmd {
 			msg := settingMsg{gen: gen, op: opProposalApply, name: shown.id}

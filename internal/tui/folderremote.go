@@ -58,7 +58,7 @@ func (m *Model) compareFolder(flow *addFlow) tea.Cmd {
 		return nil
 	}
 	args := control.SourceCompareArgs{Path: flow.res.Path, URL: flow.url, Fingerprint: flow.probe.Fingerprint, Include: flow.include}
-	ctx, host, shown := m.engineCtx(m.folderEngineOf(args.Path)), m.folders, flow.res
+	ctx, host, shown := m.engineCtx(m.engineOfFlow(flow)), m.folders, flow.res
 	return m.writeCall(opCompare, args.Path, func(b Backend) (any, error) {
 		cmp, err := b.SourceCompare(ctx, args)
 		if err != nil || shown.Case != control.SourceCaseFiles || host == nil {

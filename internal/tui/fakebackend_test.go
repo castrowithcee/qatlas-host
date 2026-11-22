@@ -21,15 +21,19 @@ type fakeBackend struct {
 	// every changing call was addressed to, and credsBy and notifyBy answer the reads by that engine.
 	engines   []string
 	engineLog []string
-	credsBy   map[string][]control.CredentialInfo
-	notifyBy  map[string][]control.NotifyChannelInfo
-	status    control.StatusResult
-	stacks    control.StacksResult
-	check     control.StacksCheckResult
-	updates   control.UpdatesResult
-	runs      control.RunsResult
-	statusErr error
-	stacksErr error
+	// inspectEngines is the engine each inspection of a folder was addressed to, empty for none.
+	inspectEngines []string
+	// proposalEngines records each call about a proposal with the engine it was addressed to, as "<call>:<id>@<engine>".
+	proposalEngines []string
+	credsBy         map[string][]control.CredentialInfo
+	notifyBy        map[string][]control.NotifyChannelInfo
+	status          control.StatusResult
+	stacks          control.StacksResult
+	check           control.StacksCheckResult
+	updates         control.UpdatesResult
+	runs            control.RunsResult
+	statusErr       error
+	stacksErr       error
 	// logs, changelogs and backups answer by run ID or stack name; an error set for the key fails that call.
 	logs       map[string]string
 	changelogs map[string]control.ChangelogResult
@@ -435,11 +439,12 @@ func demoBackend() *fakeBackend {
 			{ID: "20261030T150000Z-0000000b", Stack: "web-shop", Started: at(30, 15, 0), Trigger: "manual"},
 			{ID: "20261030T140200Z-0000000c", Stack: "demo-stack", Started: at(30, 14, 2), Trigger: "update", DurationMS: 48000, Result: "succeeded"},
 			{ID: "20261030T120000Z-0000000d", Stack: "web-shop", Started: at(30, 12, 0), Trigger: "poll", DurationMS: 215000, Result: "rolled-back",
-				Error: "health check of shop failed"},
+				Error: "health check of shop failed", Tag: "qhost/example-host/web-shop/20261030T120000Z-0000000d"},
 			{ID: "20261029T031000Z-0000000a", Stack: "photo-album", Started: at(29, 3, 10), Trigger: "poll", DurationMS: 9000, Result: "rollback-failed"},
 			{ID: "20261029T020000Z-00000010", Stack: "demo-stack", Started: at(29, 2, 0), Trigger: "poll", DurationMS: 850, Result: "failed",
 				Error: "compose pull failed: registry unreachable"},
-			{ID: "20261028T031000Z-0000000e", Stack: "mail-relay", Started: at(28, 3, 10), Trigger: "poll", DurationMS: 31000, Result: "succeeded"},
+			{ID: "20261028T031000Z-0000000e", Stack: "mail-relay", Started: at(28, 3, 10), Trigger: "poll", DurationMS: 31000, Result: "succeeded",
+				Tag: "qhost/example-host/mail-relay/20261028T031000Z-0000000e"},
 			{ID: "20261027T031000Z-0000000f", Stack: "wiki", Started: at(27, 3, 10), Trigger: "manual", DurationMS: 12000, Result: "succeeded"},
 		}},
 		logs: map[string]string{
@@ -516,8 +521,11 @@ func (f *fakeBackend) RepoFetch(ctx context.Context, dir string) (control.RepoFe
 	return control.RepoFetchResult{Dir: stackDir, Head: commitA, RemoteHead: commitB, UpdatesAvailable: true}, nil
 }
 
-func (f *fakeBackend) SourceInspect(_ context.Context, path, url string, include []string) (control.SourceInspectResult, error) {
+func (f *fakeBackend) SourceInspect(ctx context.Context, path, url string, include []string) (control.SourceInspectResult, error) {
 	f.count("sourceinspect")
+	f.mu.Lock()
+	f.inspectEngines = append(f.inspectEngines, EngineOf(ctx))
+	f.mu.Unlock()
 	if err := f.fail("sourceinspect", path); err != nil {
 		return control.SourceInspectResult{}, err
 	}
@@ -984,10 +992,11 @@ func (f *fakeBackend) ProposalList(context.Context) (control.ProposalListResult,
 	return control.ProposalListResult{Proposals: slices.Clone(f.proposals)}, nil
 }
 
-func (f *fakeBackend) ProposalShow(_ context.Context, id string) (control.ProposalShowResult, error) {
+func (f *fakeBackend) ProposalShow(ctx context.Context, id string) (control.ProposalShowResult, error) {
 	f.count("proposal")
 	f.mu.Lock()
 	f.acts = append(f.acts, "proposalshow:"+id)
+	f.proposalEngines = append(f.proposalEngines, "show:"+id+"@"+EngineOf(ctx))
 	f.mu.Unlock()
 	if err := f.fail("proposal", id); err != nil {
 		return control.ProposalShowResult{}, err
@@ -1014,24 +1023,33 @@ func (f *fakeBackend) proposalAct(call string, id string) error {
 	return nil
 }
 
-func (f *fakeBackend) ProposalApprove(_ context.Context, args control.ProposalApproveArgs) (control.ProposalInfo, error) {
+func (f *fakeBackend) ProposalApprove(ctx context.Context, args control.ProposalApproveArgs) (control.ProposalInfo, error) {
 	err := f.proposalAct("proposalapprove", args.ID)
+	f.mu.Lock()
+	f.proposalEngines = append(f.proposalEngines, "approve:"+args.ID+"@"+EngineOf(ctx))
+	f.mu.Unlock()
 	f.mu.Lock()
 	f.proposalApproves = append(f.proposalApproves, args)
 	f.mu.Unlock()
 	return control.ProposalInfo{ID: args.ID}, err
 }
 
-func (f *fakeBackend) ProposalReject(_ context.Context, args control.ProposalRejectArgs) (control.ProposalInfo, error) {
+func (f *fakeBackend) ProposalReject(ctx context.Context, args control.ProposalRejectArgs) (control.ProposalInfo, error) {
 	err := f.proposalAct("proposalreject", args.ID)
+	f.mu.Lock()
+	f.proposalEngines = append(f.proposalEngines, "reject:"+args.ID+"@"+EngineOf(ctx))
+	f.mu.Unlock()
 	f.mu.Lock()
 	f.proposalRejects = append(f.proposalRejects, args)
 	f.mu.Unlock()
 	return control.ProposalInfo{ID: args.ID}, err
 }
 
-func (f *fakeBackend) ProposalResult(_ context.Context, args control.ProposalResultArgs) (control.ProposalInfo, error) {
+func (f *fakeBackend) ProposalResult(ctx context.Context, args control.ProposalResultArgs) (control.ProposalInfo, error) {
 	err := f.proposalAct("proposalresult", args.ID)
+	f.mu.Lock()
+	f.proposalEngines = append(f.proposalEngines, "result:"+args.ID+"@"+EngineOf(ctx))
+	f.mu.Unlock()
 	f.mu.Lock()
 	f.proposalResults = append(f.proposalResults, args)
 	f.mu.Unlock()

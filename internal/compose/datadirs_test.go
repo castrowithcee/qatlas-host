@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-host/internal/engine"
+	"github.com/castrowithcee/qatlas-host/internal/idmap"
 )
 
 const demoID = "0123456789abcdef0123456789abcdef"
@@ -89,6 +90,12 @@ func bindsOf(sources ...string) []map[string]any {
 
 func check(t *testing.T, r *imageRunner, dir string, versioned func(context.Context, string) (bool, error)) ([]engine.MissingDir, error) {
 	t.Helper()
+	return checkMapped(t, r, dir, versioned, idmap.Default(), idmap.Default(), nil)
+}
+
+func checkMapped(t *testing.T, r *imageRunner, dir string, versioned func(context.Context, string) (bool, error),
+	uid, gid idmap.Map, mapErr error) ([]engine.MissingDir, error) {
+	t.Helper()
 	st := newStack(t, true)
 	st.Dir = dir
 	if err := os.WriteFile(filepath.Join(dir, ".env"), nil, 0o600); err != nil {
@@ -97,7 +104,8 @@ func check(t *testing.T, r *imageRunner, dir string, versioned func(context.Cont
 	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	x := &Executor{Runner: r, Env: []string{"PATH=/bin"}}
+	x := &Executor{Runner: r, Env: []string{"PATH=/bin"},
+		IDMaps: func(context.Context, Logger) (idmap.Map, idmap.Map, error) { return uid, gid, mapErr }}
 	return x.MissingDataDirs(context.Background(), st, versioned, &fakeLog{})
 }
 
@@ -138,6 +146,12 @@ func TestMissingDataDirsImageUser(t *testing.T) {
 			got, err := check(t, r, dir, nil)
 			if err != nil {
 				t.Fatal(err)
+			}
+			for i := range got { // the default mapping keeps the owner, which equals the container user
+				if got[i].Container != got[i].Owner {
+					t.Fatalf("container user %q, owner %q", got[i].Container, got[i].Owner)
+				}
+				got[i].Container = ""
 			}
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("got %+v, want %+v", got, tc.want)
@@ -263,5 +277,67 @@ func TestMissingDataDirsNeverLogsTheConfig(t *testing.T) {
 	}
 	if strings.Contains(log.text(), "rendered-demo-value") {
 		t.Fatalf("the configuration was logged: %s", log.text())
+	}
+}
+
+func TestMissingDataDirsOwnerIsMappedToTheHost(t *testing.T) {
+	// Instance user 1000 is container root, 100000..165535 are container users 1..65536.
+	uid := idmap.Map{{Inside: 0, Outside: 1000, Count: 1}, {Inside: 1, Outside: 100000, Count: 65536}}
+	gid := idmap.Map{{Inside: 0, Outside: 1000, Count: 1}, {Inside: 1, Outside: 200000, Count: 100}, {Inside: 101, Outside: 300000, Count: 100}}
+	cases := []struct {
+		name, user, owner, container, warn string
+	}{
+		{"one range", "1234:50", "101233:200049", "1234:50", ""},
+		{"second gid range", "7:150", "100006:300049", "7:150", ""},
+		{"last uid of the range", "65536:1", "165535:200000", "65536:1", ""},
+		{"uid past the range", "65537:1", "", "65537:1", "container user 65537 is outside the user ID range of the engine"},
+		{"gid past the ranges", "5:201", "", "5:201", "container group 201 is outside the group ID range of the engine"},
+		{"gid 0 is the instance group", "5:0", "100004:1000", "5:0", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			svc := map[string]any{"image": "demo/app:1.0", "user": tc.user, "volumes": bindsOf(filepath.Join(dir, "data"))}
+			r := &imageRunner{config: configJSON(t, map[string]map[string]any{"app": svc})}
+			got, err := checkMapped(t, r, dir, nil, uid, gid, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := []engine.MissingDir{{Path: "data", Owner: tc.owner, Container: tc.container, Warning: tc.warn}}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("got %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+func TestMissingDataDirsUnreadableNamespaceProposesNothing(t *testing.T) {
+	dir := t.TempDir()
+	svc := map[string]any{"image": "demo/app:1.0", "user": "1234:1234", "volumes": bindsOf(filepath.Join(dir, "data"))}
+	r := &imageRunner{config: configJSON(t, map[string]map[string]any{"app": svc})}
+	got, err := checkMapped(t, r, dir, nil, nil, nil, errors.New("boom"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Owner != "" || !strings.Contains(got[0].Warning, "cannot be read: boom") {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestMissingDataDirsReportsAnAccessError(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory modes")
+	}
+	dir := t.TempDir()
+	locked := filepath.Join(dir, "locked")
+	if err := os.Mkdir(locked, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
+	svc := map[string]any{"image": "demo/app:1.0", "user": "1234:1234", "volumes": bindsOf(filepath.Join(locked, "data"))}
+	r := &imageRunner{config: configJSON(t, map[string]map[string]any{"app": svc})}
+	_, err := check(t, r, dir, nil)
+	if err == nil || !strings.Contains(err.Error(), "locked/data") || !strings.Contains(err.Error(), "permission denied") {
+		t.Fatalf("err = %v", err)
 	}
 }

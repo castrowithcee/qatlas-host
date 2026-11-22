@@ -90,7 +90,7 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 				res.Runs = append(res.Runs, control.RunInfo{
 					ID: printable(rec.ID), Stack: printable(rec.Stack), Commit: printable(rec.Commit),
 					Trigger: printable(rec.Trigger), Started: rec.Started, DurationMS: rec.Duration.Milliseconds(),
-					Result: printable(rec.Result), Error: printable(rec.Error), LogUnreadable: unreadable,
+					Result: printable(rec.Result), Error: printable(rec.Error), Tag: printable(rec.Tag), LogUnreadable: unreadable,
 				})
 			}
 			return res, nil
@@ -227,7 +227,7 @@ func stackStatuses(snap engine.Snapshot) []control.StackStatus {
 			for _, d := range f.Dirs {
 				// Validated paths pass unchanged: a client acts on them, so they are never shortened.
 				if engine.ValidDirPath(d.Path) {
-					info.Dirs = append(info.Dirs, control.DirInfo{Path: d.Path, Owner: d.Owner})
+					info.Dirs = append(info.Dirs, control.DirInfo{Path: d.Path, Owner: d.Owner, Container: printable(d.Container), Warning: printable(d.Warning)})
 				}
 			}
 			item.Findings = append(item.Findings, info)

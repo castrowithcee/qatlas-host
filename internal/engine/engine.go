@@ -89,7 +89,14 @@ type WorkingCopy interface {
 	RevertStack(ctx context.Context, stack, deployed, failed, reason string) (string, error)
 	CommitFile(ctx context.Context, path string, edit func(old []byte) ([]byte, error), message string) (string, error)
 	IsAncestor(ctx context.Context, a, b string) (bool, error)
+	// ParentOf is the first parent of a commit; FileAt is a file as a commit has it, nil when it has none.
+	ParentOf(ctx context.Context, commit string) (string, error)
+	FileAt(ctx context.Context, commit, path string) ([]byte, error)
 	Push(ctx context.Context, commit string) error
+	// TagCommit sets the fixed tag name on commit and pushes it; see gitrepo.Repo.TagCommit.
+	TagCommit(ctx context.Context, name, commit string) error
+	Diff(ctx context.Context, path string) (text string, truncated bool, err error)
+	Discard(ctx context.Context, paths []string) error
 }
 
 // Binding is the working copy to watch and the directory it lives in. Blocked, when set, maps the names of the
@@ -190,6 +197,9 @@ type Config struct {
 	// and, for a run and the last step of an update, after the stack's slot is free; it must return quickly:
 	// Close waits for it.
 	Events func(Event)
+	// Host is the host name that goes, shortened and made ref-safe, into the tags of finished runs; the
+	// system's host name when empty.
+	Host string
 	// Redact is applied to every text stored in the state and the run logs. Nil means none.
 	Redact func(string) string
 	// Interval between polls, DefaultInterval when zero, at least MinInterval.
@@ -247,6 +257,9 @@ func New(cfg Config) (*Engine, error) {
 	}
 	if cfg.LockWait <= 0 {
 		cfg.LockWait = DefaultLockWait
+	}
+	if cfg.Host == "" {
+		cfg.Host, _ = os.Hostname()
 	}
 	if cfg.Clock == nil {
 		cfg.Clock = realClock{}
@@ -511,7 +524,9 @@ func (e *Engine) poll(ctx context.Context, b Binding) (PollResult, error) {
 		s = normalize(s)
 		for name, v := range verdicts {
 			cur := s.Stacks[name]
+			tagFindings := slices.DeleteFunc(slices.Clone(cur.Findings), func(f Finding) bool { return f.Kind != FindingTagRejected })
 			cur.Findings, cur.Pending, cur.Removed, cur.Folder = v.findings, v.pending, false, v.folder
+			cur.Findings = append(cur.Findings, tagFindings...)
 			if v.clearWait {
 				cur.DataDirs = nil
 			}
@@ -625,8 +640,13 @@ func dataDirDetail(dirs []MissingDir) string {
 	parts := make([]string, len(dirs))
 	for i, d := range dirs {
 		parts[i] = d.Path
-		if d.Owner != "" {
+		switch {
+		case d.Owner != "" && d.Container != "" && d.Container != d.Owner:
+			parts[i] += " (owner " + d.Owner + " for container user " + d.Container + ")"
+		case d.Owner != "":
 			parts[i] += " (owner " + d.Owner + ")"
+		case d.Warning != "":
+			parts[i] += " (no owner proposed: " + d.Warning + ")"
 		}
 	}
 	return "data directories are missing and the image does not run as root: " + strings.Join(parts, ", ") +
@@ -668,13 +688,25 @@ func normalize(s State) State {
 // change exists, also outside every stack. A root stack in list holds every path but those below
 // stacks.SettingsTop.
 func classify(changes []gitrepo.Change, list []stacks.Stack) (byStack map[string][]string, dirty bool) {
+	counted, dirty := countedChanges(changes, list)
+	byStack = map[string][]string{}
+	for folder, cs := range counted {
+		for _, c := range cs {
+			byStack[folder] = append(byStack[folder], c.Path)
+		}
+	}
+	return byStack, dirty
+}
+
+// countedChanges is classify with the status entries kept, so that a caller can tell the kind of a change.
+func countedChanges(changes []gitrepo.Change, list []stacks.Stack) (byStack map[string][]gitrepo.Change, dirty bool) {
 	mounts := map[string][]string{}
 	root := false
 	for _, st := range list {
 		mounts[st.Folder] = st.BindMounts
 		root = root || st.Folder == stacks.RootFolder
 	}
-	byStack = map[string][]string{}
+	byStack = map[string][]gitrepo.Change{}
 	for _, c := range changes {
 		folder, rel, inStack := strings.Cut(c.Path, "/")
 		if root {
@@ -690,7 +722,7 @@ func classify(changes []gitrepo.Change, list []stacks.Stack) (byStack map[string
 		}
 		dirty = true
 		if inStack {
-			byStack[folder] = append(byStack[folder], c.Path)
+			byStack[folder] = append(byStack[folder], c)
 		}
 	}
 	return byStack, dirty
@@ -1108,7 +1140,7 @@ func (e *Engine) WithStack(ctx context.Context, name, label string,
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer context.AfterFunc(e.base, cancel)()
-	return fn(ctx, st, cur.Deployed)
+	return fn(stacks.WithDeployedTag(ctx, cur.Deployed, cur.DeployedTag), st, cur.Deployed)
 }
 
 // claim takes the run slot of a stack for work that is no deployment run.

@@ -158,6 +158,12 @@ func TestArchitecture(t *testing.T) {
 			Hint:  "the action log of a deploy service knows the wire protocol and nothing of the services that write it",
 		},
 		{
+			Name:  "grants-know-the-protocol-only",
+			Files: archtest.Files{Under: []string{"internal/grants"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports("internal/control", "internal/formatnum", "internal/formatnum/formatnumtest"),
+			Hint:  "the grant store sits below the service and decides validity from values handed in, so it knows neither the service nor the user database",
+		},
+		{
 			Name:  "admins-know-the-protocol-only",
 			Files: archtest.Files{Under: []string{"internal/admins"}, Tests: archtest.WithTests},
 			Check: archtest.AllowImports("internal/control"),
