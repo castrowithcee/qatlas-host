@@ -60,7 +60,8 @@
 # container stay throughout. The webhook receiver is set up with sudo qhost hook-service setup at the start of the update
 # section: it runs as qhost-hook without the groups docker and qhost, its marker folder has the owner and group of the
 # contract, status shows it with its address, an unknown secret gets 404, the update renews its stale unit and restarts it,
-# and both uninstalls remove its unit, rule, folders, user and group. Sourced by run.sh scenario.
+# and both uninstalls remove its unit, rule, folders, user and group. sudo qhost hook add gives demo-stack a secret
+# path that is shown once; a POST to it updates the stack within 30 seconds, a wrong or a removed secret gets 404. Sourced by run.sh scenario.
 
 # signature_asset is the name of the release file with the signature; it must match release.SignatureAsset.
 signature_asset=checksums.txt.sig
@@ -5866,6 +5867,7 @@ hook_listening() {
 # set up, and checks what the contract says: no change without --confirm, the user qhost-hook in no other group, the
 # process without the groups docker and qhost, the marker folder of the system engine, the status without sudo and
 # the answer 404 to an unknown secret. scenario_selfupdate and scenario_uninstall keep it in their checks.
+# scenario_hook follows it and proves hook add, list and remove from a POST to the printed path to the update.
 scenario_hook_setup() {
 	step 'the setup of the webhook receiver needs root and --confirm and changes nothing without them'
 	if out=$(as_admin 'qhost hook-service setup --confirm --yes 2>&1'); then fail "the receiver setup without root succeeded: $out"; fi
@@ -5906,6 +5908,103 @@ scenario_hook_setup() {
 	out=$(docker exec "$host" curl -sS -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8480/hook/invented-unknown-secret) || fail 'the receiver does not answer a POST'
 	[ "$out" = 404 ] || fail "an unknown secret got the status $out, want 404"
 	log "scenario: webhook receiver set up on 127.0.0.1:8480, status shows it, an unknown secret gets 404"
+}
+
+# hook_accepts succeeds when the receiver answers 202 to a POST without content on the path $1. The receiver reads
+# its configuration every ten seconds, so a new hook is accepted only after the next reload.
+hook_accepts() {
+	[ "$(docker exec "$host" curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:8480$1")" = 202 ]
+}
+
+# hook_rejects succeeds when the receiver answers 404 to a POST without content on the path $1.
+hook_rejects() {
+	[ "$(docker exec "$host" curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:8480$1")" = 404 ]
+}
+
+# scenario_hook proves sudo qhost hook add, list and remove with the receiver of scenario_hook_setup. demo-stack is
+# reset to 1.0.1 in automatic mode with the update trigger window, which makes hook add warn. With the trigger webhook
+# a POST to the printed path makes the service update it to 1.1.0 within 30 seconds; a wrong secret gets 404 and starts
+# no run; after hook remove the old secret gets 404. The secret is shown once and never stored.
+scenario_hook() {
+	image=registry.$domain/demo/app
+	step 'demo-stack is at 1.0.1 in automatic mode with the update trigger window'
+	if [ "$(stack_images demo-stack)" != "$image:1.0.1" ]; then
+		prev=$(newest_run demo-stack)
+		admin_commit demo-stack/.env 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.0.1/' 'Reset demo-stack to 1.0.1 for the webhook'
+		restart_service
+		run=$(next_run demo-stack "$prev") || fail 'no run of demo-stack started for the reset to 1.0.1'
+		wait_for "the run $run" 240 run_finished demo-stack "$run"
+	fi
+	settings_set demo-stack "$(demo_stack_settings 'update:\n  mode: automatic\n')"
+	[ "$(stack_images demo-stack)" = "$image:1.0.1" ] || fail "demo-stack does not run 1.0.1: $(stack_images demo-stack)"
+
+	step 'hook add needs root, the receiver and a known stack, and a failed call changes nothing'
+	if out=$(as_admin 'qhost hook add demo-stack 2>&1'); then fail "hook add without root succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'needs root' || fail "the refusal of hook add without root is unclear: $out"
+	if out=$(qd hook add no-such-stack); then fail "hook add for an unknown stack succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'no such stack' || fail "the refusal for an unknown stack is unclear: $out"
+	as_admin 'qhost --output json status 2>&1' | grep -q '"hook_count": *0' || fail "the refusals added a hook: $(as_admin 'qhost --output json status 2>&1')"
+
+	step 'with the trigger window, hook add stores the hook, shows the path once and warns that it does not act yet'
+	out=$(qd --output json hook add demo-stack) || fail "hook add failed: $out"
+	printf '%s' "$out" | grep -q 'warning: .*trigger window' || fail "hook add does not warn about the trigger window: $out"
+	printf '%s' "$out" | grep -q 'shown only once' || fail "hook add does not say that the path is shown once: $out"
+	hook_id=$(printf '%s' "$out" | sed -n 's/.*"id": *"\(h-[0-9a-f]\{8\}\)".*/\1/p')
+	hook_path=$(printf '%s' "$out" | sed -n 's/.*"path": *"\(\/hook\/[A-Za-z0-9_-]\{43\}\)".*/\1/p')
+	[ -n "$hook_id" ] && [ -n "$hook_path" ] || fail "hook add printed no id or path: $out"
+	hook_secret=${hook_path#/hook/}
+	printf '%s' "$out" | grep -q '"listen": *"127.0.0.1:8480"' || fail "hook add does not print the address of the receiver: $out"
+	[ "$(docker exec "$host" stat -c %U:%G:%a /etc/qhost-hook/config.json)" = root:qhost-hook:644 ] ||
+		fail "config.json is $(docker exec "$host" stat -c %U:%G:%a /etc/qhost-hook/config.json) after hook add, want root:qhost-hook:644"
+	docker exec "$host" cat /etc/qhost-hook/config.json | grep -q "\"id\": *\"$hook_id\"" || fail 'the configuration does not hold the new hook'
+	if docker exec "$host" grep -rqF -- "$hook_secret" /etc/qhost-hook; then fail 'the secret is stored in the configuration'; fi
+	if docker exec "$host" journalctl --no-pager -u qhost -u qhost-deploy -u qhost-hook | grep -qF -- "$hook_secret"; then
+		fail 'the secret shows in the logs of the services'
+	fi
+
+	step 'hook list shows the hook without sudo and never a hash or a secret'
+	out=$(as_admin 'qhost hook list 2>&1') || fail "hook list without sudo failed: $out"
+	printf '%s' "$out" | grep -q "$hook_id *demo-stack *system" || fail "hook list does not show the hook: $out"
+	if printf '%s' "$out" | grep -qF -e "$hook_secret" -e sha256; then fail "hook list shows a hash or a secret: $out"; fi
+	out=$(as_admin 'qhost --output json hook list 2>&1') || fail "hook list as JSON failed: $out"
+	for want in "\"id\": *\"$hook_id\"" '"stack": *"demo-stack"' '"instance": *"system"' '"modified": *"'; do
+		printf '%s' "$out" | grep -q "$want" || fail "hook list as JSON lacks $want: $out"
+	done
+	if printf '%s' "$out" | grep -qF -e "$hook_secret" -e sha256; then fail "hook list as JSON shows a hash or a secret: $out"; fi
+
+	step 'with the trigger webhook, a POST to the printed path makes the service update demo-stack within 30 seconds'
+	settings_set demo-stack "$(demo_stack_settings 'update:\n  mode: automatic\n  trigger: webhook\n')"
+	runs_before=$(stack_run_count demo-stack)
+	# The wrong secret is tried first; the first accepted call then also waits for the receiver to read the new hook.
+	wrong=$(printf 'A%.0s' $(seq 43))
+	hook_rejects "/hook/$wrong" || fail 'a wrong secret was not answered with 404'
+	since=$(date +%s)
+	wait_for 'the receiver to accept the new hook' 30 hook_accepts "$hook_path"
+	wait_for 'the webhook to update demo-stack' 30 interval_updated 1.1.0
+	took=$(($(date +%s) - since))
+	[ "$(stack_run_count demo-stack)" = "$((runs_before + 1))" ] || fail 'the webhook did not make exactly one run of demo-stack'
+	stack_healthy demo-stack || fail 'demo-stack is not healthy after the webhook update'
+	log "scenario: a POST to the hook of demo-stack updated it to 1.1.0 in $took seconds"
+
+	step 'a wrong secret gets 404 and starts no run'
+	runs_before=$(stack_run_count demo-stack)
+	hook_rejects "/hook/$wrong" || fail 'a wrong secret was not answered with 404'
+	sleep 12
+	[ "$(stack_run_count demo-stack)" = "$runs_before" ] || fail 'a wrong secret started a run'
+	[ -z "$(stack_field demo-stack active_run)" ] || fail 'a wrong secret started a run in progress'
+
+	step 'hook remove needs root, refuses an unknown id and then the old secret gets 404'
+	if out=$(as_admin "qhost hook remove $hook_id 2>&1"); then fail "hook remove without root succeeded: $out"; fi
+	if out=$(qd hook remove h-00000000); then fail "hook remove of an unknown id succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'no such webhook' || fail "the refusal of an unknown id is unclear: $out"
+	out=$(qd hook remove "$hook_id") || fail "hook remove failed: $out"
+	qd hook list | grep -q "$hook_id" && fail 'the removed hook is still listed'
+	wait_for 'the removed secret to get 404' 30 hook_rejects "$hook_path"
+	as_admin 'qhost --output json status 2>&1' | grep -q '"hook_count": *0' || fail "the hook count is not 0 after the removal: $(as_admin 'qhost --output json status 2>&1')"
+	log 'scenario: hook add, list and remove proved; the removed secret gets 404'
+
+	step 'demo-stack waits for the window again'
+	settings_set demo-stack "$(demo_stack_settings)"
 }
 
 # selfupdate_field prints one top-level field of qhost update status, run without root.
@@ -5976,6 +6075,8 @@ scenario_selfupdate() {
 	[ "$(docker exec "$host" systemctl is-active "$su_unit")" = active ] || fail "the instance $su_unit does not run"
 
 	scenario_hook_setup
+
+	scenario_hook
 
 	step 'update status reports the newer test release without root'
 	release_publish v0.2.0

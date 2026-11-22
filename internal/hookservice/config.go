@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"syscall"
 
@@ -136,6 +137,89 @@ func (h Hook) validate() error {
 		return errors.New("instance is neither system nor a user name")
 	case !hashPattern.MatchString(h.Hash):
 		return errors.New("hash does not match sha256:<64 hex>")
+	}
+	return nil
+}
+
+// UpdateConfig reads the file at path, lets edit change the configuration and writes the result back
+// atomically: a temporary file in the same folder, synced, then renamed over the file. prepare gives the
+// temporary file its owner before the rename. Nothing is written when the file is missing, does not
+// validate (a damaged or unknown file is never overwritten), edit fails or the result does not validate.
+// A lock on the folder serializes concurrent updates. The error for a missing file wraps fs.ErrNotExist.
+func UpdateConfig(path string, prepare func(tmp string) error, edit func(*Config) error) error {
+	dir := filepath.Dir(path)
+	d, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("hook configuration: %w", err)
+	}
+	defer d.Close()
+	if err := syscall.Flock(int(d.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("hook configuration: lock: %w", err)
+	}
+	defer func() { _ = syscall.Flock(int(d.Fd()), syscall.LOCK_UN) }()
+
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return fmt.Errorf("hook configuration: %w", err)
+	}
+	data, err := io.ReadAll(io.LimitReader(f, maxConfigBytes+1))
+	_ = f.Close()
+	if err != nil {
+		return fmt.Errorf("hook configuration: %w", err)
+	}
+	if len(data) > maxConfigBytes {
+		return errors.New("hook configuration: file too large")
+	}
+	cfg, err := parseConfig(path, data)
+	if err != nil {
+		return err
+	}
+	if err := edit(&cfg); err != nil {
+		return err
+	}
+	if cfg.Hooks == nil {
+		cfg.Hooks = []Hook{}
+	}
+	out, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("hook configuration: %w", err)
+	}
+	out = append(out, '\n')
+	if _, err := parseConfig(path, out); err != nil {
+		return err
+	}
+	return replaceFile(dir, path, out, prepare)
+}
+
+func replaceFile(dir, path string, content []byte, prepare func(tmp string) error) error {
+	tmp, err := os.CreateTemp(dir, ".config-*")
+	if err != nil {
+		return fmt.Errorf("hook configuration: %w", err)
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
+	steps := []func() error{
+		func() error { _, err := tmp.Write(content); return err },
+		func() error { return tmp.Chmod(0o644) },
+		func() error {
+			if prepare == nil {
+				return nil
+			}
+			return prepare(tmp.Name())
+		},
+		tmp.Sync,
+		tmp.Close,
+		func() error { return os.Rename(tmp.Name(), path) },
+	}
+	for _, step := range steps {
+		if err := step(); err != nil {
+			_ = tmp.Close()
+			return fmt.Errorf("hook configuration: %w", err)
+		}
+	}
+	// Make the rename durable; a failure here leaves the new file in place.
+	if d, err := os.Open(dir); err == nil {
+		_ = d.Sync()
+		_ = d.Close()
 	}
 	return nil
 }
