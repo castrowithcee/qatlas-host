@@ -93,6 +93,8 @@ type WorkingCopy interface {
 	ParentOf(ctx context.Context, commit string) (string, error)
 	FileAt(ctx context.Context, commit, path string) ([]byte, error)
 	Push(ctx context.Context, commit string) error
+	// TagCommit sets the fixed tag name on commit and pushes it; see gitrepo.Repo.TagCommit.
+	TagCommit(ctx context.Context, name, commit string) error
 	Diff(ctx context.Context, path string) (text string, truncated bool, err error)
 	Discard(ctx context.Context, paths []string) error
 }
@@ -195,6 +197,9 @@ type Config struct {
 	// and, for a run and the last step of an update, after the stack's slot is free; it must return quickly:
 	// Close waits for it.
 	Events func(Event)
+	// Host is the host name that goes, shortened and made ref-safe, into the tags of finished runs; the
+	// system's host name when empty.
+	Host string
 	// Redact is applied to every text stored in the state and the run logs. Nil means none.
 	Redact func(string) string
 	// Interval between polls, DefaultInterval when zero, at least MinInterval.
@@ -252,6 +257,9 @@ func New(cfg Config) (*Engine, error) {
 	}
 	if cfg.LockWait <= 0 {
 		cfg.LockWait = DefaultLockWait
+	}
+	if cfg.Host == "" {
+		cfg.Host, _ = os.Hostname()
 	}
 	if cfg.Clock == nil {
 		cfg.Clock = realClock{}
@@ -516,7 +524,9 @@ func (e *Engine) poll(ctx context.Context, b Binding) (PollResult, error) {
 		s = normalize(s)
 		for name, v := range verdicts {
 			cur := s.Stacks[name]
+			tagFindings := slices.DeleteFunc(slices.Clone(cur.Findings), func(f Finding) bool { return f.Kind != FindingTagRejected })
 			cur.Findings, cur.Pending, cur.Removed, cur.Folder = v.findings, v.pending, false, v.folder
+			cur.Findings = append(cur.Findings, tagFindings...)
 			if v.clearWait {
 				cur.DataDirs = nil
 			}
@@ -1130,7 +1140,7 @@ func (e *Engine) WithStack(ctx context.Context, name, label string,
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer context.AfterFunc(e.base, cancel)()
-	return fn(ctx, st, cur.Deployed)
+	return fn(stacks.WithDeployedTag(ctx, cur.Deployed, cur.DeployedTag), st, cur.Deployed)
 }
 
 // claim takes the run slot of a stack for work that is no deployment run.

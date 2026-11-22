@@ -1661,6 +1661,22 @@ slack_url_value=https://hooks.$domain/slack/T000/B000/demo-slack-path-e2e
 bot_credential=123456:demo-bot-credential-e2e
 mail_login_value=demo-mail-login-e2e
 
+# remote_run_tag prints the tag of the run $2 of the stack $1 and its commit as "<tag> <commit>" from the remote.
+remote_run_tag() {
+	as_admin "git ls-remote --tags $repo 'refs/tags/qhost/*'" | awk -v suffix="/$1/$2" '
+		substr($2, length($2) - length(suffix) + 1) == suffix { sub("^refs/tags/", "", $2); print $2, $1 }'
+}
+
+# tag_rejected_gone succeeds once no stack has that finding.
+tag_rejected_gone() {
+	! tag_rejected_seen
+}
+
+# tag_rejected_seen succeeds while some stack of the deploy service has the finding tag-rejected.
+tag_rejected_seen() {
+	qd --output json status | grep -q 'tag-rejected'
+}
+
 scenario_deploy() {
 	secret=not-a-real-secret-e2e
 
@@ -1703,6 +1719,14 @@ $hook_signing_value
 	docker exec "$host" docker inspect -f '{{.Config.Env}}' "$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=demo-stack)" |
 		grep -q "DEMO_SECRET=$secret" || fail 'the container did not get the value of secrets.env'
 	log "scenario: deploy succeeded, run $run, deployed commit $commit"
+	tag_line=$(remote_run_tag demo-stack "$run")
+	[ "$(printf '%s' "$tag_line" | cut -d ' ' -f 2)" = "$commit" ] || fail "the remote has no tag qhost/<host>/demo-stack/$run on $commit: $tag_line"
+	case "$(printf '%s' "$tag_line" | cut -d ' ' -f 1)" in qhost/*/demo-stack/"$run") ;; *) fail "the tag of run $run does not follow the scheme: $tag_line" ;; esac
+	qd --output json stack runs demo-stack | jq -e --arg r "$run" --arg t "$(printf '%s' "$tag_line" | cut -d ' ' -f 1)" 'any(.[]; .run == $r and .tag == $t)' >/dev/null ||
+		fail "qhost stack runs does not show the tag of run $run"
+	as_admin "rm -rf ~/stacks-tags && git clone -q $repo ~/stacks-tags"
+	[ "$(as_admin "cd ~/stacks-tags && git tag -l 'qhost/*/demo-stack/*' | tail -n 1")" = "$(printf '%s' "$tag_line" | cut -d ' ' -f 1)" ] ||
+		fail "a fresh clone does not list the tag of run $run as the latest of demo-stack: $(as_admin "cd ~/stacks-tags && git tag -l 'qhost/*'")"
 	wait_for 'the webhook for the deployed run' 60 hook_seen /notify succeeded demo-stack
 	log "scenario: the webhook receiver was told of the succeeded run"
 
@@ -1758,6 +1782,7 @@ $hook_signing_value
 	[ "$(stack_images demo-cache)" = "registry.$domain/demo/app:1.1.0" ] || fail "demo-cache does not run the previous image 1.1.0: $(stack_images demo-cache)"
 	stack_healthy demo-cache || fail 'demo-cache is not healthy after the rollback'
 	log "scenario: failing healthcheck: run $failed_run rolled back, bad commit $bad reverted by $revert"
+	[ "$(remote_run_tag demo-cache "$failed_run" | cut -d ' ' -f 2)" = "$revert" ] || fail "the tag of the rolled-back run $failed_run is not on the revert commit $revert: $(remote_run_tag demo-cache "$failed_run")"
 	wait_for 'the webhook for the rolled-back run' 60 hook_seen /notify rolled-back demo-cache
 	log "scenario: the webhook receiver was told of the rolled-back run"
 
@@ -1769,6 +1794,31 @@ $hook_signing_value
 	[ "$(stack_field demo-cache deployed)" = "$revert" ] || fail 'the poll changed the deployed commit of demo-cache'
 	[ -z "$(stack_field demo-cache pending)" ] || fail "demo-cache has a pending commit after the rollback: $(stack_field demo-cache pending)"
 	[ -z "$(stack_field demo-cache findings)" ] || fail "demo-cache has findings after the rollback: $(stack_field demo-cache findings)"
+
+	step 'a remote that refuses the run tag gives the stack the finding tag-rejected, the run still succeeds, and the next tag clears it'
+	docker exec -i "$prefix-git" sh -ec 'cat >/srv/git/stacks.git/hooks/update && chmod 755 /srv/git/stacks.git/hooks/update' <<'HOOK'
+#!/bin/sh
+case "$1" in refs/tags/qhost/*) echo 'tag refused by the test hook' >&2; exit 1 ;; esac
+HOOK
+	want=$(stack_field demo-stack deployed)
+	out=$(qd --output json stack deploy demo-stack) || fail "deploy failed: $out"
+	run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
+	[ -n "$run" ] || fail "deploy did not report a run: $out"
+	wait_for "the run $run" 240 run_finished demo-stack "$run"
+	qd stack log "$run" | grep -q ' result succeeded' || fail "a refused tag made the run fail: $(qd stack log "$run")"
+	wait_for 'the finding tag-rejected' 30 tag_rejected_seen
+	[ -z "$(remote_run_tag demo-stack "$run")" ] || fail "the remote holds the tag of run $run although the hook refuses it"
+	[ "$(stack_field demo-stack deployed)" = "$want" ] || fail 'a refused tag changed the deployed commit of demo-stack'
+	qd --output json stack runs demo-stack | jq -e --arg r "$run" 'any(.[]; .run == $r and .result == "succeeded" and (.tag // "") == "")' >/dev/null ||
+		fail "the run $run does not show as succeeded without a tag"
+	docker exec "$prefix-git" rm -f /srv/git/stacks.git/hooks/update || fail 'cannot remove the tag hook'
+	out=$(qd --output json stack deploy demo-stack) || fail "deploy failed: $out"
+	run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
+	[ -n "$run" ] || fail "deploy did not report a run: $out"
+	wait_for "the run $run" 240 run_finished demo-stack "$run"
+	wait_for 'the finding tag-rejected to go' 30 tag_rejected_gone
+	[ "$(remote_run_tag demo-stack "$run" | cut -d ' ' -f 2)" = "$want" ] || fail "the remote has no tag for run $run on $want after the hook was removed"
+	log "scenario: a refused tag raised tag-rejected and the next run cleared it"
 
 	step 'no run log holds a secret value'
 	ids=$(qd stack runs | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
@@ -2545,6 +2595,7 @@ scenario_stacks_repo() {
 	scenario_container_actions
 
 	scenario_stack_actions
+	scenario_deploy_audit
 
 	scenario_grants
 
@@ -4998,6 +5049,32 @@ scenario_stack_actions() {
 	out=$(qd stack stop nope --yes) && fail "stack stop of an unknown stack succeeded: $out"
 	printf '%s' "$out" | grep -q 'no such stack' || fail "the refusal of an unknown stack is unclear: $out"
 	log 'scenario: stack stop, start and restart passed'
+}
+
+# scenario_deploy_audit proves the action log of the deploy service: a listing by the administrator without sudo and
+# a restart by root appear in 'qhost audit --service deploy' with their two different users, the stack of the
+# restart and the origin of the command line, and the chain of the log checks out.
+scenario_deploy_audit() {
+	step 'the action log of the deploy service shows a request without sudo and one with sudo with their users'
+	admin_uid=$(as_admin 'id -u')
+	[ "$admin_uid" != 0 ] || fail 'the administrator is root'
+	out=$(as_admin 'qhost stack list 2>&1') || fail "qhost stack list without sudo failed: $out"
+	out=$(qd stack restart demo-stack --yes) || fail "stack restart failed: $out"
+	out=$(as_admin 'qhost --output json audit --service deploy --limit 200 2>&1') || fail "qhost audit --service deploy failed: $out"
+	flat=$(printf '%s' "$out" | tr -d '\n')
+	printf '%s' "$flat" | grep -q "\"command\": *\"stacks.list\"[^}]*\"client_uid\": *$admin_uid\b\|\"client_uid\": *$admin_uid\b[^}]*\"command\": *\"stacks.list\"" ||
+		fail "the audit log of the deploy service has no stacks.list request of user $admin_uid: $out"
+	printf '%s' "$flat" | grep -q '"command": *"stack.restart"' || fail "the audit log of the deploy service has no stack.restart request: $out"
+	printf '%s' "$flat" | grep -q '"stack": *"demo-stack"' || fail "the audit log of the deploy service does not name the stack of the restart: $out"
+	printf '%s' "$flat" | grep -q '"client_uid": *0\b' || fail "the audit log of the deploy service has no request of root: $out"
+	printf '%s' "$flat" | grep -q '"origin": *"cli"' || fail "the audit log of the deploy service does not show the origin cli: $out"
+	printf '%s' "$flat" | grep -q '"service": *"deploy"' || fail "the audit output does not name the service: $out"
+	printf '%s' "$flat" | grep -q '"engine": *"system"' || fail "the audit output does not name the engine: $out"
+	if printf '%s' "$out" | grep -qF -- not-a-real-secret-e2e; then fail "a secret value shows in the audit log of the deploy service: $out"; fi
+	out=$(as_admin 'qhost audit verify --service deploy 2>&1') || fail "qhost audit verify --service deploy failed: $out"
+	printf '%s' "$out" | grep -q 'intact' || fail "qhost audit verify --service deploy does not report the log as intact: $out"
+	[ "$(docker exec "$host" stat -c %U:%a /var/lib/qhost-deploy/audit)" = qhost-deploy:700 ] || fail 'the audit log of the deploy service has the wrong owner or mode'
+	log 'scenario: the audit log of the deploy service named both users, the stack and the origin, and its chain is intact'
 }
 
 # scenario_grants proves the standing grants of demo-stack: a plan without --confirm stores nothing, sudo qhost grant

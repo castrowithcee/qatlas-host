@@ -123,8 +123,8 @@ func TestArchitecture(t *testing.T) {
 			Name:  "host-service-imports-only-the-protocol-the-admin-check-the-action-log-and-the-proposals",
 			Files: archtest.Files{Under: []string{"internal/hostservice"}, Tests: archtest.WithTests},
 			Check: archtest.AllowImports("internal/control", "internal/client", "internal/channeltest", "internal/admins", "internal/host/auditlog",
-				"internal/proposals", "internal/host/hostproposal", "internal/tools"),
-			Hint: "the host service knows the wire protocol, the administrator check, the action log, the shared proposal store and the check of host proposals, " +
+				"internal/logview", "internal/proposals", "internal/host/hostproposal", "internal/tools"),
+			Hint: "the host service knows the wire protocol, the administrator check, the action log with its shared log views, the shared proposal store and the check of host proposals, " +
 				"and nothing of the deploy part or the command surface; it reaches the actions of the host only through that check, never the runner",
 		},
 		{
@@ -144,6 +144,18 @@ func TestArchitecture(t *testing.T) {
 			Files: archtest.Files{Under: []string{"internal/proposals"}, Tests: archtest.WithTests},
 			Check: archtest.AllowImports("internal/control", "internal/formatnum", "internal/formatnum/formatnumtest"),
 			Hint:  "the proposal store is shared by both services and knows neither, nor any kind of proposal",
+		},
+		{
+			Name:  "logview-knows-the-protocol-only",
+			Files: archtest.Files{Under: []string{"internal/logview"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports("internal/control"),
+			Hint:  "the log views are shared by both services and know neither",
+		},
+		{
+			Name:  "deploylog-knows-the-protocol-only",
+			Files: archtest.Files{Under: []string{"internal/deploylog"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports("internal/control"),
+			Hint:  "the action log of a deploy service knows the wire protocol and nothing of the services that write it",
 		},
 		{
 			Name:  "grants-know-the-protocol-only",

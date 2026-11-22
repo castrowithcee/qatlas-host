@@ -16,7 +16,16 @@ import (
 	"github.com/castrowithcee/qatlas-kit/localipc"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/deploylog"
 )
+
+// noUID stands in for the user of a peer whose credentials could not be read.
+const noUID = ^uint32(0)
+
+// auditSink is where the server records requests; *deploylog.Logger satisfies it. A nil sink records nothing.
+type auditSink interface {
+	Append(deploylog.Fields) error
+}
 
 // maxConns bounds the connections served at once; further ones are closed unanswered.
 const maxConns = 32
@@ -84,6 +93,7 @@ type server struct {
 	check     PeerCheck
 	authorize authorizer
 	log       *slog.Logger
+	audit     auditSink
 
 	mu    sync.Mutex
 	conns map[net.Conn]struct{}
@@ -92,8 +102,8 @@ type server struct {
 
 // serve accepts connections on l until ctx ends, then closes l and every open connection and waits for the
 // handlers. It owns l.
-func serve(ctx context.Context, l net.Listener, registry *control.Registry, check PeerCheck, authorize authorizer, log *slog.Logger) {
-	s := &server{registry: registry, check: check, authorize: authorize, log: log, conns: map[net.Conn]struct{}{}}
+func serve(ctx context.Context, l net.Listener, registry *control.Registry, check PeerCheck, authorize authorizer, log *slog.Logger, audit auditSink) {
+	s := &server{registry: registry, check: check, authorize: authorize, log: log, audit: audit, conns: map[net.Conn]struct{}{}}
 	stop := context.AfterFunc(ctx, func() {
 		_ = l.Close()
 		s.mu.Lock()
@@ -150,13 +160,19 @@ func (s *server) handle(ctx context.Context, conn net.Conn) {
 		s.mu.Unlock()
 		_ = conn.Close()
 	}()
+	start := time.Now()
 	uid, err := s.check(conn)
+	if err != nil {
+		uid = noUID
+	}
 	if err == nil {
 		// A peer without any access is refused before anything is read.
 		err = s.authorize(uid, control.Access{Class: control.ClassRead, Scope: control.ScopeDeploy})
 	}
 	if err != nil {
-		s.respond(conn, errorResponse(peerRefusal(err)))
+		ce := peerRefusal(err)
+		s.record(deploylog.Fields{ClientUID: uid}, start, ce.Code)
+		s.respond(conn, errorResponse(ce))
 		linger(conn)
 		return
 	}
@@ -168,17 +184,22 @@ func (s *server) handle(ctx context.Context, conn net.Conn) {
 		}
 		_ = conn.SetReadDeadline(time.Now().Add(wait))
 		raw, err := control.ReadFrame(br, control.MaxRequestBytes)
+		start := time.Now()
 		if err != nil {
+			var e *control.Error
 			if errors.Is(err, control.ErrTooLarge) {
-				s.respond(conn, errorResponse(control.NewError(control.CodeTooLarge, "request is too large")))
-				linger(conn)
+				e = control.NewError(control.CodeTooLarge, "request is too large")
 			} else if !errors.Is(err, io.EOF) && ctx.Err() == nil && !errors.Is(err, os.ErrDeadlineExceeded) {
-				s.respond(conn, errorResponse(control.NewError(control.CodeBadRequest, "request is incomplete")))
+				e = control.NewError(control.CodeBadRequest, "request is incomplete")
+			}
+			if e != nil {
+				s.record(deploylog.Fields{ClientUID: uid}, start, e.Code)
+				s.respond(conn, errorResponse(e))
 				linger(conn)
 			}
 			return
 		}
-		resp, keep := s.dispatch(ctx, uid, raw)
+		resp, keep := s.dispatch(ctx, uid, raw, start)
 		if !s.respond(conn, resp) {
 			return
 		}
@@ -198,13 +219,22 @@ func peerRefusal(err error) *control.Error {
 	return ce
 }
 
-// dispatch answers one request of the user uid. keep is false when the stream cannot be trusted any longer or
-// the user lost all access.
-func (s *server) dispatch(ctx context.Context, uid uint32, raw []byte) (resp control.Response, keep bool) {
+// dispatch answers one request of the user uid and records its entry. keep is false when the stream cannot be
+// trusted any longer or the user lost all access.
+func (s *server) dispatch(ctx context.Context, uid uint32, raw []byte, start time.Time) (resp control.Response, keep bool) {
+	fields := deploylog.Fields{ClientUID: uid}
+	defer func() {
+		code := ""
+		if resp.Error != nil {
+			code = resp.Error.Code
+		}
+		s.record(fields, start, code)
+	}()
 	var req control.Request
 	if err := json.Unmarshal(raw, &req); err != nil || req.Command == "" {
 		return errorResponse(control.NewError(control.CodeBadRequest, "request is not a valid command")), false
 	}
+	fields.Origin = req.Origin
 	if req.V != control.Version {
 		return errorResponse(control.NewError(control.CodeVersion,
 			fmt.Sprintf("protocol version %d is not supported; this service speaks version %d", req.V, control.Version))), false
@@ -215,6 +245,11 @@ func (s *server) dispatch(ctx context.Context, uid uint32, raw []byte) (resp con
 	access := control.Access{Class: control.ClassRead, Scope: control.ScopeDeploy}
 	if ok {
 		access = command.AccessFor(req.Args)
+		// The stack comes from the classification, not from the arguments, and only in the form of a stack name.
+		fields.Command, fields.Class, fields.Scope = req.Command, access.Class, access.Scope
+		if deploylog.ValidStack(access.Stack) {
+			fields.Stack = access.Stack
+		}
 	}
 	if err := s.authorize(uid, access); err != nil {
 		ce := peerRefusal(err)
@@ -224,6 +259,18 @@ func (s *server) dispatch(ctx context.Context, uid uint32, raw []byte) (resp con
 		return errorResponse(control.NewError(control.CodeUnknownCommand, "unknown command")), true
 	}
 	return s.run(control.WithPeer(ctx, uid), command.Handle, req.Args), true
+}
+
+// record appends the one entry a request leaves; code is empty for success. A failed write is reported and
+// changes nothing else.
+func (s *server) record(f deploylog.Fields, start time.Time, code string) {
+	if s.audit == nil {
+		return
+	}
+	f.ErrorCode, f.Duration = code, time.Since(start)
+	if err := s.audit.Append(f); err != nil {
+		s.log.Warn("cannot write the action log", "error", err.Error())
+	}
 }
 
 func (s *server) run(ctx context.Context, handler control.Handler, args json.RawMessage) (resp control.Response) {

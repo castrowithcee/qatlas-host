@@ -62,6 +62,9 @@ const (
 	// FindingNameCollision is a stack whose name a stack of another source already uses: the one deployed
 	// first, or else the one of the source bound first, keeps the name; this one is never deployed.
 	FindingNameCollision = "name-collision"
+	// FindingTagRejected means the tag of the last finished run could not be set or pushed. The run is not
+	// affected; the finding stays until a later run's tag is pushed.
+	FindingTagRejected = "tag-rejected"
 	// FindingContainerFailed is not stored with the findings of a poll; status derives it from StackState.Failure.
 	FindingContainerFailed = "container-failed"
 )
@@ -107,6 +110,8 @@ type StackState struct {
 	Folder string `json:"folder,omitempty"`
 	// Deployed is the commit of the last successful run; empty for a stack that was never deployed.
 	Deployed string `json:"deployed,omitempty"`
+	// DeployedTag is the tag that marks Deployed in the repository, empty when none was set or pushed.
+	DeployedTag string `json:"deployed_tag,omitempty"`
 	// Pending is the commit the stack waits to be deployed at; empty when it is up to date.
 	Pending string `json:"pending,omitempty"`
 	// FailedCommit is the commit the last run failed at, until a run succeeds.
@@ -292,6 +297,9 @@ type RunRecord struct {
 	Backup string `json:"backup,omitempty"`
 	// RolledBackTo is the commit a successful rollback left the stack at.
 	RolledBackTo string `json:"rolled_back_to,omitempty"`
+	// Tag is the tag the run set on the commit the stack runs at after it (Commit after a success,
+	// RolledBackTo after a rollback), empty when none was set or the remote refused it.
+	Tag string `json:"tag,omitempty"`
 }
 
 func validateState(s State) error {

@@ -128,6 +128,26 @@ type Request struct {
 	V       int             `json:"v"`
 	Command string          `json:"command"`
 	Args    json.RawMessage `json:"args,omitempty"`
+	// Origin names the client program that sends the request, for display in the action log only. It is an
+	// unverified claim and never decides anything; see NormalizeOrigin.
+	Origin string `json:"origin,omitempty"`
+}
+
+// The values of Request.Origin a service records; any other value, and none, is recorded as OriginUnknown.
+const (
+	OriginCLI     = "cli"
+	OriginTUI     = "tui"
+	OriginMCP     = "mcp"
+	OriginUnknown = "unknown"
+)
+
+// NormalizeOrigin returns origin when it is one of the fixed values and OriginUnknown otherwise.
+func NormalizeOrigin(origin string) string {
+	switch origin {
+	case OriginCLI, OriginTUI, OriginMCP:
+		return origin
+	}
+	return OriginUnknown
 }
 
 // Response is what the service answers: a result on success, an error otherwise.
@@ -576,6 +596,8 @@ type RunInfo struct {
 	DurationMS int64     `json:"duration_ms"`
 	Result     string    `json:"result"`
 	Error      string    `json:"error,omitempty"`
+	// Tag is the Git tag the run set on its resulting commit, empty when it set none or the remote refused it.
+	Tag string `json:"tag,omitempty"`
 	// LogUnreadable is the refusal of the run's log when this version does not read it; it names the file.
 	LogUnreadable string `json:"log_unreadable,omitempty"`
 	// Engine is the engine of the deploy service that recorded the run; empty as in StackStatus.Engine.
@@ -1322,10 +1344,12 @@ type BackupItemInfo struct {
 
 // BackupInfo describes one backup. Incomplete marks a directory of the store without valid metadata.
 type BackupInfo struct {
-	ID         string           `json:"id"`
-	Stack      string           `json:"stack"`
-	Created    time.Time        `json:"created,omitzero"`
-	Commit     string           `json:"commit,omitempty"`
+	ID      string    `json:"id"`
+	Stack   string    `json:"stack"`
+	Created time.Time `json:"created,omitzero"`
+	Commit  string    `json:"commit,omitempty"`
+	// Tag is the Git tag that marks Commit, empty when it has none.
+	Tag        string           `json:"tag,omitempty"`
 	Size       int64            `json:"size"`
 	Items      []BackupItemInfo `json:"items"`
 	Incomplete bool             `json:"incomplete,omitempty"`

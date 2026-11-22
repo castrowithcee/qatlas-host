@@ -5,13 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
-	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/host/auditlog"
+	"github.com/castrowithcee/qatlas-host/internal/logview"
 	"github.com/castrowithcee/qatlas-host/internal/proposals"
 )
 
@@ -86,44 +83,6 @@ func (s *server) status(*call) (any, error) {
 	return StatusResult{Version: s.version, StartedAt: s.started}, nil
 }
 
-// maxLogActionFilter is the longest action filter. The filter is only checked for its shape, not against the
-// known actions, so an action that older entries record and qhost no longer writes finds them.
-const maxLogActionFilter = 64
-
-// logQuery validates the arguments of log.list; anything unknown or malformed is a bad request.
-func logQuery(a control.HostLogListArgs) (auditlog.Query, error) {
-	q := auditlog.Query{Action: a.Action, Result: a.Result, After: a.After, Limit: a.Limit}
-	for _, t := range []struct {
-		text string
-		dst  *time.Time
-	}{{a.From, &q.From}, {a.To, &q.To}} {
-		if t.text == "" {
-			continue
-		}
-		v, err := time.Parse(time.RFC3339, t.text)
-		if err != nil {
-			return q, badRequest()
-		}
-		*t.dst = v
-	}
-	if !q.From.IsZero() && !q.To.IsZero() && q.From.After(q.To) {
-		return q, badRequest()
-	}
-	switch {
-	case q.Limit == 0:
-		q.Limit = control.HostLogDefaultLimit
-	case q.Limit < 0 || q.Limit > control.HostLogMaxLimit:
-		return q, badRequest()
-	}
-	if len(q.Action) > maxLogActionFilter || !utf8.ValidString(q.Action) || strings.IndexFunc(q.Action, unicode.IsControl) >= 0 {
-		return q, badRequest()
-	}
-	if q.Result != "" && q.Result != control.HostLogResultSuccess && q.Result != control.HostLogResultFailure {
-		return q, badRequest()
-	}
-	return q, nil
-}
-
 // logList returns the parsed fields of entries only, never a raw line, and at most control.HostLogMaxLimit of
 // them, which stays far below the size limit of an answer.
 func (s *server) logList(c *call) (any, error) {
@@ -133,10 +92,11 @@ func (s *server) logList(c *call) (any, error) {
 			return nil, badRequest()
 		}
 	}
-	q, err := logQuery(a)
+	f, err := logview.ParseFilter(a)
 	if err != nil {
 		return nil, err
 	}
+	q := auditlog.Query{From: f.From, To: f.To, Action: f.Action, Result: f.Result, Limit: f.Limit, After: f.After}
 	page, err := auditlog.Read(s.logDir, q)
 	if err != nil {
 		if errors.Is(err, auditlog.ErrBadCursor) {
@@ -164,19 +124,7 @@ func (s *server) logVerify(*call) (any, error) {
 	if err != nil {
 		return nil, fmt.Errorf("verify the action log: %w", err)
 	}
-	out := control.HostLogVerifyResult{Intact: !report.Broken, Days: make([]control.HostLogDay, 0, len(report.Days))}
-	for _, d := range report.Days {
-		out.Days = append(out.Days, control.HostLogDay{Date: d.Date, Entries: d.Entries, Intact: d.Problem == "", Damaged: d.Damaged})
-		if d.Problem == "" {
-			continue
-		}
-		if len(out.Problems) == control.HostLogVerifyMaxProblems {
-			out.MoreProblems = true
-			continue
-		}
-		out.Problems = append(out.Problems, control.HostLogProblem{Date: d.Date, Seq: d.ProblemSeq, Line: d.ProblemLine, Code: string(d.Problem)})
-	}
-	return out, nil
+	return logview.VerifyResult(report), nil
 }
 
 // The error codes the entry of a change of the host that did not stand carries.

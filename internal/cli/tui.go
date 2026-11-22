@@ -144,7 +144,7 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			// The interface refuses before it takes the terminal, so a missing service or root fails as every
 			// channel command does. No deploy service at all is no failure: the interface offers the setup. A host
 			// with only instances of rootless engines has a deploy service.
-			if _, err := backend.Status(c.Context()); err != nil && !(errors.Is(err, client.ErrNotRunning) && !deployPresent()) {
+			if _, err := backend.Status(client.WithOrigin(c.Context(), control.OriginTUI)); err != nil && !(errors.Is(err, client.ErrNotRunning) && !deployPresent()) {
 				if handled, failed := regroup(err, c.ErrOrStderr()); handled {
 					return failed
 				}

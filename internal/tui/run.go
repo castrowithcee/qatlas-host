@@ -10,6 +10,9 @@ import (
 
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 	"github.com/castrowithcee/qatlas-kit/uiprefs"
+
+	"github.com/castrowithcee/qatlas-host/internal/client"
+	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
 // Options is what Run needs to start the interface on a terminal.
@@ -50,7 +53,7 @@ func PrefsSchema() (uiprefs.Schema, error) {
 
 // Run shows the interface on the terminal of opts until the person quits.
 func Run(opts Options) error {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(client.WithOrigin(context.Background(), control.OriginTUI))
 	defer cancel()
 	env := os.Environ()
 	profile := kittui.DetectColorProfile(opts.Out, env)
