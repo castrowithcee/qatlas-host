@@ -194,6 +194,9 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 	if err := registerRunCommands(registry, eng, cfg.Version, started, win.status); err != nil {
 		return err
 	}
+	if err := registerChangeCommands(registry, eng); err != nil {
+		return err
+	}
 	if err := registerBackupCommands(registry, eng, cfg.Backups, secrets.Apply,
 		func(st stacks.Stack) { registerStackSecrets(secrets, st) }, log); err != nil {
 		return err

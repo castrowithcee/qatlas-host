@@ -3570,6 +3570,44 @@ EOF2
 	[ "$(docker exec "$host" cat "$base/demo-local/notes/info.txt")" = 'kept by a person' ] || fail 'the revert did not restore the folder of the person'
 	[ "$(stack_images demo-local)" = "$image:1.1.0" ] || fail "demo-local does not run the previous image 1.1.0: $(stack_images demo-local)"
 
+	step 'uncommitted changes of a stack folder are listed, shown and discarded, and the stack is deployed again'
+	prev=$(newest_run demo-local)
+	docker exec "$host" sh -ec "cd '$base/demo-local' && printf '# edited by hand\n' >>.env && printf 'scratch\n' >scratch.txt" ||
+		fail 'cannot edit the stack folder by hand'
+	i=0
+	until stack_field demo-local findings | grep -q local-changes; do
+		i=$((i + 1))
+		[ "$i" -lt 120 ] || fail "demo-local has no finding local-changes: $(qd --output json status | tr ',' '\n' | grep demo-local)"
+		sleep 1
+	done
+	out=$(qd --output json source changes "$base") || fail "source changes failed: $out"
+	printf '%s' "$out" | jq -e '.path == "/srv/qd-local" and (.changes | sort_by(.path) == [{"path": "demo-local/.env", "kind": "modified", "stack": "demo-local"}, {"path": "demo-local/scratch.txt", "kind": "new", "stack": "demo-local"}])' >/dev/null ||
+		fail "unexpected source changes: $out"
+	if printf '%s' "$out" | grep -q secrets.env; then fail "source changes lists the host's own secrets file: $out"; fi
+	out=$(qd_fails stack deploy demo-local) || fail "a stack with local changes was deployed: $out"
+	printf '%s' "$out" | grep -qi 'local.changes' || fail "the refused deploy does not name the local changes: $out"
+	out=$(qd --output json source diff "$base" demo-local/.env) || fail "source diff failed: $out"
+	printf '%s' "$out" | jq -e '.diff | contains("+# edited by hand")' >/dev/null || fail "unexpected source diff: $out"
+	out=$(qd_fails source discard "$base" demo-local/.env demo-local/secrets.env) || fail "source discard accepted the host's own secrets file: $out"
+	[ "$(docker exec "$host" tail -n 1 "$base/demo-local/.env")" = '# edited by hand' ] || fail 'a refused source discard changed .env'
+	out=$(qd_fails source discard "$base" demo-local/.env ../demo-live/compose.yaml) || fail "source discard accepted a path outside the stack folder: $out"
+	out=$(qd --output json source discard "$base" demo-local/.env demo-local/scratch.txt) || fail "source discard failed: $out"
+	printf '%s' "$out" | jq -e '.discarded == ["demo-local/.env", "demo-local/scratch.txt"]' >/dev/null || fail "unexpected source discard result: $out"
+	docker exec "$host" grep -qx DEMO_APP_VERSION=1.1.0 "$base/demo-local/.env" || fail 'source discard did not restore .env'
+	if docker exec "$host" test -e "$base/demo-local/scratch.txt"; then fail 'source discard did not remove the named new file'; fi
+	docker exec "$host" test -f "$base/demo-local/secrets.env" || fail 'source discard removed the secrets file of the host'
+	[ "$(qd --output json source changes "$base" | jq '.changes | length')" = 0 ] || fail 'the stack folder still has changes after the discard'
+	i=0
+	while stack_field demo-local findings | grep -q local-changes; do
+		i=$((i + 1))
+		[ "$i" -lt 120 ] || fail 'the finding local-changes stays after the discard'
+		sleep 1
+	done
+	out=$(qd --output json stack deploy demo-local) || fail "demo-local cannot be deployed after the discard: $out"
+	run=$(next_run demo-local "$prev") || fail 'no run of demo-local after the discard'
+	wait_for "the run $run" 240 run_finished demo-local "$run"
+	qd stack log "$run" | grep -q ' result succeeded' || fail "the run after the discard did not succeed: $(qd stack log "$run")"
+
 	step 'source remove asks first, then releases only the binding'
 	containers_before=$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=demo-local | sort)
 	[ -n "$containers_before" ] || fail 'demo-local has no running container'

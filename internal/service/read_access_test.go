@@ -182,6 +182,7 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		control.StacksListCommand:       {nil},
 		control.StacksCheckCommand:      {control.StacksCheckArgs{}},
 		control.SourceListCommand:       {nil},
+		control.SourceChangesCommand:    {control.SourceChangesArgs{Path: h.dir}},
 		control.KeyShowCommand:          {control.KeyShowArgs{}},
 		control.CredentialListCommand:   {nil},
 		control.SecretListCommand:       {control.SecretListArgs{Stack: "plain-stack"}, control.SecretListArgs{Stack: "demo-stack"}},

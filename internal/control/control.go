@@ -94,6 +94,8 @@ const (
 	CodeStackAction      = "stack-action-failed"
 	CodeNameCollision    = "name-collision"
 	CodeNoSettings       = "no-settings"
+	// CodeNotChanged answers a path that is none of the local changes of the stack.
+	CodeNotChanged = "not-a-change"
 	// CodeSecrets answers a push that would publish secret-like files; the message names the places, never a value.
 	CodeSecrets = "secrets-found"
 
@@ -1084,6 +1086,84 @@ type SourceRemoteResult struct {
 	Head       string `json:"head"`
 	Pushed     bool   `json:"pushed"`
 	HistoryRef string `json:"history_ref,omitempty"`
+}
+
+// The kinds of a SourceChange.
+const (
+	ChangeModified = "modified"
+	ChangeNew      = "new"
+	ChangeDeleted  = "deleted"
+)
+
+// SourceChangesCommand lists the local changes of a bound stack folder that keep a stack out of a run, for all
+// its stacks in one list: the same paths as the finding local-changes, so secrets.env, data/ and untracked files
+// below a bind mount are not among them. It only reads. Root and administrators may run it. A folder no source
+// is bound to is refused with CodeNoSuchSource.
+const SourceChangesCommand = "source.changes"
+
+// SourceChangesArgs are the arguments of SourceChangesCommand. Path is the path of the bound stack folder.
+type SourceChangesArgs struct {
+	Path string `json:"path"`
+}
+
+// SourceChange is one local change. Path is relative to the stack folder; Stack names the stack it lies in,
+// empty for a folder that is no stack.
+type SourceChange struct {
+	Path  string `json:"path"`
+	Kind  string `json:"kind"`
+	Stack string `json:"stack,omitempty"`
+}
+
+// SourceChangesResult answers SourceChangesCommand, sorted by path. The list stops at a byte budget well below
+// MaxResponseBytes, and Truncated says changes were left out. A path with characters that cannot be shown is
+// listed with them replaced and is not one SourceDiscardCommand accepts.
+type SourceChangesResult struct {
+	Path      string         `json:"path"`
+	Changes   []SourceChange `json:"changes"`
+	Truncated bool           `json:"truncated,omitempty"`
+}
+
+// SourceDiffCommand returns the diff of one local change. It shows file contents that the administrator may not
+// be allowed to read, so only root may run it. A file that SourceChangesCommand does not list is refused with
+// CodeNotChanged.
+const SourceDiffCommand = "source.diff"
+
+// SourceDiffArgs are the arguments of SourceDiffCommand. Path is the bound stack folder and File a path
+// relative to it.
+type SourceDiffArgs struct {
+	Path string `json:"path"`
+	File string `json:"file"`
+}
+
+// SourceDiffResult answers SourceDiffCommand. Diff is cut at a fixed size, well below MaxResponseBytes, and
+// Truncated says so.
+type SourceDiffResult struct {
+	Path      string `json:"path"`
+	File      string `json:"file"`
+	Diff      string `json:"diff"`
+	Truncated bool   `json:"truncated,omitempty"`
+}
+
+// MaxDiscardPaths bounds the files of one SourceDiscardCommand.
+const MaxDiscardPaths = 200
+
+// SourceDiscardCommand takes local changes back, only for the files named: a modified or deleted versioned file
+// is restored from the head, a new file is removed because its path is named. Every file must be one
+// SourceChangesCommand lists, as an exact path below the stack folder: a folder, a pattern, a path outside the
+// folder or the host's own files are refused with CodeNotChanged and nothing is changed. Only root may run it.
+// A stack of the files with an active run refuses it with CodeRunActive.
+const SourceDiscardCommand = "source.discard"
+
+// SourceDiscardArgs are the arguments of SourceDiscardCommand.
+type SourceDiscardArgs struct {
+	Path  string   `json:"path"`
+	Files []string `json:"files"`
+}
+
+// SourceDiscardResult answers SourceDiscardCommand with the files that were taken back.
+type SourceDiscardResult struct {
+	Path      string   `json:"path"`
+	Discarded []string `json:"discarded"`
 }
 
 // SourceListCommand lists the bound stack folders.

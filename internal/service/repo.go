@@ -44,6 +44,8 @@ type WorkingCopy interface {
 	CommitFile(ctx context.Context, path string, edit func(old []byte) ([]byte, error), message string) (string, error)
 	IsAncestor(ctx context.Context, a, b string) (bool, error)
 	Push(ctx context.Context, commit string) error
+	Diff(ctx context.Context, path string) (text string, truncated bool, err error)
+	Discard(ctx context.Context, paths []string) error
 	TrackedFiles(ctx context.Context, dir string) ([]string, error)
 	IsIgnored(ctx context.Context, path string) (bool, error)
 	// The steps that give a repository a remote, in the remote mode; see internal/gitrepo.
