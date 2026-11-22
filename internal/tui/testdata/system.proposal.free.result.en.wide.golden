@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
+   Users   Groups   Folders  [Proposals]  Changes   Log                                                                 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Proposal h-0005: command 2 of 3 did not succeed, 1 did not run.                                                       
+                                                                                                                        
+  Nothing was undone and the commands after the failed one did not run. Journal entry 20261102T090000-0007.             
+                                                                                                                        
+     1. systemctl restart demo-app.service                                                                              
+        exit code 0                                                                                                     
+        no output                                                                                                       
+                                                                                                                        
+     2. echo cleanup done                                                                                               
+        exit code 3                                                                                                     
+        cleanup failed: demo-cache busy                                                                                 
+                                                                                                                        
+     3. rm -f /var/tmp/demo-cache.tmp                                                                                   
+        did not run                                                                                                     
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+n/esc/enter close                                                                                             ↑/↓ scroll

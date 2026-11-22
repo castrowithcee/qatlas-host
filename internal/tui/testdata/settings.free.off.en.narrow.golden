@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs [4 Settings] 5 Containers 6 Proposals 7 System 
+  [General]  Credentials   Maintenance window   Notifications                   
+────────────────────────────────────────────────────────────────────────────────
+  …                                                                             
+                 ╭─────────────────────────────────────────────────────────────╮
+  Language       │ English                                                   ▾ │
+                 ╰─────────────────────────────────────────────────────────────╯
+                 ╭─────────────────────────────────────────────────────────────╮
+  Mouse          │ on                                                        ▾ │
+                 ╰─────────────────────────────────────────────────────────────╯
+                 ╭─────────────────────────────────────────────────────────────╮
+  Icons          │ Unicode                                                   ▾ │
+                 ╰─────────────────────────────────────────────────────────────╯
+                 ╔═════════════════════════════════════════════════════════════╗
+> Free proposals ║ off                                                       ▾ ║
+                 ╚═════════════════════════════════════════════════════════════╝
+                 agents may propose commands that qhost does not check and      
+                 cannot undo                                                    
+                                                                                
+                                                                                
+                                                                                
+[ F2 save ]  [ esc discard ]                                                    
+enter choose  F2 save  esc discard      tab next field  shift+tab previous field
