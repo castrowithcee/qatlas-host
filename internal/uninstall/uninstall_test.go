@@ -18,6 +18,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
 	"github.com/castrowithcee/qatlas-host/internal/hostservice"
 	"github.com/castrowithcee/qatlas-host/internal/service"
+	"github.com/castrowithcee/qatlas-host/internal/window"
 )
 
 var testPages = []string{"qhost.1", "qhost-stack.1", "qhost-stack-list.1"}
@@ -41,7 +42,7 @@ func TestTargetsAreTheFixedPaths(t *testing.T) {
 	if got := Targets(false, testPages); !slices.Equal(got, want) {
 		t.Errorf("targets = %q, want %q", got, want)
 	}
-	purge := append(slices.Clone(want), "/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host", "/etc/qhost-hook", "/etc/qhost/window.json", "/etc/qhost")
+	purge := append(slices.Clone(want), "/var/lib/qhost", "/var/lib/qhost-deploy", "/etc/qhost-deploy", "/var/lib/qhost-host", "/etc/qhost-hook")
 	if got := Targets(true, testPages); !slices.Equal(got, purge) {
 		t.Errorf("purge targets = %q, want %q", got, purge)
 	}
@@ -67,6 +68,8 @@ func TestConstantsMatchTheInstalledLayout(t *testing.T) {
 		"deploy state": {deployStateDir, deploy.State},
 		"host state 2": {hostStateDir, hostservice.DefaultStateDir},
 		"deploy st. 2": {deployStateDir, service.DefaultStateDir},
+		"deploy conf.": {deployConfigDir, deploy.Config},
+		"host window":  {deployConfigDir, filepath.Dir(window.HostFilePath)},
 		"channel":      {channelDir, control.DeployEndpoint().Dir},
 		"journal":      {journalDir, filepath.Dir(hostchange.DefaultJournalDir)},
 		"host name":    {hostService, "qhost"},
@@ -108,7 +111,7 @@ func newHost(t *testing.T) (*fakeHost, string, []string) {
 		}
 	}
 	for _, p := range Targets(true, testPages) {
-		if filepath.Ext(p) == ".d" || strings.HasPrefix(p, "/var/lib") || p == channelDir || p == deploysetup.HookRunDir || p == deploysetup.HookConfigDir || p == windowDir {
+		if filepath.Ext(p) == ".d" || strings.HasPrefix(p, "/var/lib") || p == channelDir || p == deploysetup.HookRunDir || p == deploysetup.HookConfigDir || p == deployConfigDir {
 			continue
 		}
 		write(p, "invented")
@@ -116,6 +119,7 @@ func newHost(t *testing.T) (*fakeHost, string, []string) {
 	write("/run/qhost-deploy/control.sock", "invented")
 	write("/run/qhost-hook/system/marker", "invented")
 	write("/etc/qhost-hook/config.json", "{}")
+	write("/etc/qhost-deploy/window.json", "{}")
 	write("/var/lib/qhost/state.json", "invented")
 	write("/var/lib/qhost-deploy/secrets", "invented")
 	write("/var/lib/qhost-host/journal/1.json", "invented")
@@ -170,7 +174,7 @@ func assertOnlyTargetsVanished(t *testing.T, before, after []string, purge bool)
 	targets := Targets(purge, testPages)
 	dirs := []string{channelDir, deploysetup.HookRunDir}
 	if purge {
-		dirs = append(dirs, hostStateDir, deployStateDir, journalDir, deploysetup.HookConfigDir)
+		dirs = append(dirs, hostStateDir, deployStateDir, deployConfigDir, journalDir, deploysetup.HookConfigDir)
 	}
 	kept := map[string]bool{}
 	for _, p := range after {
@@ -239,7 +243,7 @@ func TestPurgeRemovesStateJournalUsersAndGroup(t *testing.T) {
 	before := tree(t, f.root)
 	apply(t, f, true)
 	assertOnlyTargetsVanished(t, before, tree(t, f.root), true)
-	for _, p := range []string{"/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host", "/etc/qhost-hook", "/run/qhost-hook", "/etc/qhost/window.json"} {
+	for _, p := range []string{"/var/lib/qhost", "/var/lib/qhost-deploy", "/var/lib/qhost-host", "/etc/qhost-hook", "/run/qhost-hook", "/etc/qhost-deploy"} {
 		if exists(f.root, p) {
 			t.Errorf("%s was not removed", p)
 		}
@@ -428,21 +432,10 @@ func TestPurgeSkipsAReceiverUserAndGroupThatDoNotExist(t *testing.T) {
 	}
 }
 
-func TestPurgeRemovesTheHostWindowFileAndItsEmptyFolder(t *testing.T) {
-	f, _, _ := newHost(t)
-	if err := os.Remove(filepath.Join(f.root, "etc/qhost/keep")); err != nil {
-		t.Fatal(err)
-	}
-	apply(t, f, true)
-	if exists(f.root, "/etc/qhost/window.json") || exists(f.root, "/etc/qhost") {
-		t.Error("the host window file or its empty folder is still there")
-	}
-}
-
-func TestRemovalWithoutPurgeKeepsTheHostWindowFile(t *testing.T) {
+func TestRemovalWithoutPurgeKeepsTheConfigurationOfTheDeployServices(t *testing.T) {
 	f, _, _ := newHost(t)
 	apply(t, f, false)
-	if !exists(f.root, "/etc/qhost/window.json") {
+	if !exists(f.root, "/etc/qhost-deploy/window.json") {
 		t.Error("the host window file was removed without --purge")
 	}
 }

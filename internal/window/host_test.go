@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -208,6 +209,81 @@ func TestTheHostFileIsWorldReadableAndCarriesItsFormatNumber(t *testing.T) {
 	w, ok, err := ReadHost(path)
 	if err != nil || !ok || w.Start != 90 {
 		t.Fatalf("read back = %+v, %v, %v", w, ok, err)
+	}
+}
+
+func TestAMissingHostFolderIsCreatedOpenToEveryServiceUnderAStrictUmask(t *testing.T) {
+	old := syscall.Umask(0o027)
+	defer syscall.Umask(old)
+	path := filepath.Join(t.TempDir(), "etc", "qhost-deploy", "window.json")
+	if _, err := SetHost(path, "", Change{Start: ptr(90)}); err != nil {
+		t.Fatal(err)
+	}
+	if dir, err := os.Stat(filepath.Dir(path)); err != nil || dir.Mode().Perm() != 0o755 {
+		t.Fatalf("folder mode = %v, %v", dir, err)
+	}
+	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o644 {
+		t.Fatalf("mode = %v, %v", info, err)
+	}
+}
+
+// The deploy services run as users of their own, outside the group of the host service, so a folder like the
+// configuration folder of the host service (0750) would hide the file from them.
+func TestAFolderTheDeployServicesCannotReadOrOthersCanWriteIsRefused(t *testing.T) {
+	for _, mode := range []os.FileMode{0o750, 0o700, 0o751, 0o754, 0o775, 0o757, 0o777} {
+		t.Run(mode.String(), func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "etc")
+			if err := os.Mkdir(dir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(dir, mode); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(dir, "window.json")
+			if _, err := SetHost(path, "", Change{Start: ptr(90)}); err == nil || !strings.Contains(err.Error(), dir) {
+				t.Fatalf("err = %v", err)
+			}
+			if entries, _ := os.ReadDir(dir); len(entries) != 0 {
+				t.Fatalf("written into the folder: %v", entries)
+			}
+			if info, _ := os.Stat(dir); info.Mode().Perm() != mode {
+				t.Fatalf("folder mode changed to %v", info.Mode())
+			}
+		})
+	}
+}
+
+func TestAHostFolderThatIsNoPlainFolderIsRefused(t *testing.T) {
+	base := t.TempDir()
+	target := filepath.Join(base, "real")
+	if err := os.Mkdir(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(base, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(base, "file")
+	if err := os.WriteFile(file, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range []string{link, file} {
+		if _, err := SetHost(filepath.Join(dir, "window.json"), "", Change{Start: ptr(90)}); err == nil {
+			t.Fatalf("%s was taken as the folder", dir)
+		}
+	}
+	if entries, _ := os.ReadDir(target); len(entries) != 0 {
+		t.Fatalf("written through the link: %v", entries)
+	}
+}
+
+func TestAHostFolderOfAnotherUserIsRefused(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root owns the folder used here")
+	}
+	// the root folder belongs to root, not to the user running the test
+	if _, err := SetHost("/window.json", "", Change{Start: ptr(90)}); err == nil || !strings.Contains(err.Error(), "owned by root") {
+		t.Fatalf("err = %v", err)
 	}
 }
 

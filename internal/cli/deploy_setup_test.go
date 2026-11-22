@@ -64,7 +64,7 @@ func useHostRoot(t *testing.T, euid int) (string, *[]string) {
 // command of a test touches the real ones.
 func useWindowPaths(t *testing.T, root string) (hostFile, state string) {
 	t.Helper()
-	hostFile, state = filepath.Join(root, "etc", "qhost", "window.json"), filepath.Join(root, "var", "lib", "qhost-deploy")
+	hostFile, state = filepath.Join(root, "etc", "qhost-deploy", "window.json"), filepath.Join(root, "var", "lib", "qhost-deploy")
 	oldFile, oldState := windowHostFile, stateDir
 	windowHostFile, stateDir = func() string { return hostFile }, func() string { return state }
 	t.Cleanup(func() { windowHostFile, stateDir = oldFile, oldState })

@@ -6643,7 +6643,7 @@ scenario_uninstall() {
 	[ -n "$containers" ] || fail 'no container runs before the uninstall'
 	[ "$(docker exec "$host" systemctl is-active "$un_unit")" = active ] || fail "the instance $un_unit does not run before the uninstall"
 	for p in "$un_template" "$un_rule" "$un_channel" "$un_state" "$un_config" "$un_dropin" /usr/local/lib/systemd/system/qhost-hook.service \
-		/etc/tmpfiles.d/qhost-hook.conf /run/qhost-hook /etc/qhost-hook /etc/qhost/window.json; do
+		/etc/tmpfiles.d/qhost-hook.conf /run/qhost-hook /etc/qhost-hook /etc/qhost-deploy/window.json; do
 		docker exec "$host" test -e "$p" || fail "$p is missing before the uninstall"
 	done
 	as_rootless "docker rm -f $un_ct >/dev/null 2>&1; docker run -d --quiet --name $un_ct demo/app:1.0.0" >/dev/null ||
@@ -6704,14 +6704,14 @@ scenario_uninstall() {
 	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host /etc/qhost-hook; do
 		docker exec "$host" test -d "$p" || fail "uninstall without --purge removed $p"
 	done
-	docker exec "$host" test -f /etc/qhost/window.json || fail 'uninstall without --purge removed the host window file'
+	docker exec "$host" test -f /etc/qhost-deploy/window.json || fail 'uninstall without --purge removed the host window file'
 	docker exec "$host" sh -ec 'id qhost && id qhost-deploy && id qhost-hook && getent group qhost && getent group qhost-deploy && getent group qhost-hook' >/dev/null ||
 		fail 'uninstall without --purge removed a user or a group'
 	log "scenario: uninstalled both services, the containers and stack folders are unchanged: $out"
 
-	step 'sudo qhost uninstall --purge removes the three state folders, the configuration of the receiver, the state and configuration of the instance, the users and the group'
+	step 'sudo qhost uninstall --purge removes the three state folders, the configuration of the deploy services and of the receiver, the state and configuration of the instance, the users and the group'
 	out=$(as_admin 'sudo /root/qhost.copy uninstall --purge --yes --confirm 2>&1') || fail "uninstall --purge failed: $out"
-	for p in /var/lib/qhost /var/lib/qhost-deploy /var/lib/qhost-host /etc/qhost-hook /etc/qhost/window.json /etc/qhost "$un_state" "$un_config"; do
+	for p in /var/lib/qhost /var/lib/qhost-deploy /etc/qhost-deploy /var/lib/qhost-host /etc/qhost-hook "$un_state" "$un_config"; do
 		if docker exec "$host" test -e "$p"; then fail "uninstall --purge left $p: $out"; fi
 	done
 	for u in qhost qhost-deploy qhost-hook; do
@@ -7031,13 +7031,14 @@ tui_excerpt() {
 }
 
 # scenario_window_instances proves the host window and the own window of an instance: sudo qhost window set without
-# --engine writes /etc/qhost/window.json, which the system service and the rootless instance both follow; an own window
-# for the rootless instance changes only that one and survives a change of the host window; window reset lets it follow
-# the host again; a damaged file gives the default and a warning without stopping the services; without sudo the host
-# window stays as it is. It leaves the host window far away like scenario_window.
+# --engine writes /etc/qhost-deploy/window.json, which the system service and the rootless instance both read and
+# follow without a warning; an own window for the rootless instance changes only that one and survives a change of the
+# host window; window reset lets it follow the host again; a damaged file gives the default and a warning without
+# stopping the services; without sudo the host window stays as it is. It leaves the host window far away like
+# scenario_window.
 scenario_window_instances() {
 	wi_engine=rootless:$rootless_user
-	wi_file=/etc/qhost/window.json
+	wi_file=/etc/qhost-deploy/window.json
 	wi_start() { date -u -d "+$1 hours" +%H:%M; }
 	wi_a=$(wi_start 5) wi_b=$(wi_start 7) wi_c=$(wi_start 9)
 
@@ -7047,11 +7048,19 @@ scenario_window_instances() {
 		fail "window set does not print the host window: $out"
 	[ "$(docker exec "$host" stat -c %U:%G:%a "$wi_file")" = root:root:644 ] ||
 		fail "$wi_file is $(docker exec "$host" stat -c %U:%G:%a "$wi_file"), want root:root:644"
+	[ "$(docker exec "$host" stat -c %U:%G:%a "${wi_file%/*}")" = root:root:755 ] ||
+		fail "${wi_file%/*} is $(docker exec "$host" stat -c %U:%G:%a "${wi_file%/*}"), want root:root:755"
 	docker exec "$host" grep -q '"schema": 1' "$wi_file" || fail "$wi_file carries no format number: $(docker exec "$host" cat "$wi_file")"
+	for u in qhost-deploy "$rootless_user"; do
+		docker exec -u "$u" "$host" grep -q "\"start\": \"$wi_a\"" "$wi_file" || fail "the user $u of a deploy service cannot read $wi_file"
+	done
 	for e in system "$wi_engine"; do
 		[ "$(window_field origin "$e")" = host ] && [ "$(window_field start "$e")" = "$wi_a" ] && [ "$(window_field duration "$e")" = 7m ] ||
 			fail "the engine $e does not follow the host window: $(qd --output json window show)"
+		[ -z "$(window_field warning "$e")" ] || fail "the engine $e warns about the host window: $(window_field warning "$e")"
 	done
+	out=$(docker exec "$host" journalctl --no-pager -o cat -u qhost-deploy -u "qhost-deploy@$rootless_user.service" | grep -F 'the host window file cannot be used' || true)
+	[ -z "$out" ] || fail "a deploy service logged that it cannot use the host window file: $out"
 	[ "$(qd --output json window show | jq length)" = 2 ] || fail "window show does not list exactly the two instances: $(qd --output json window show)"
 	qd window show | grep -q "^$wi_engine .*host" || fail "the table does not show the origin of $wi_engine: $(qd window show)"
 
