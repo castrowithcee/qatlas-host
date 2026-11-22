@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+// EntryFormat is the format number every new entry carries as "format". Lines an earlier version wrote have no
+// number and read as format 1; the chain forbids numbering them afterwards.
+const EntryFormat = 1
+
 // The two results an entry records.
 const (
 	ResultSuccess = "success"
@@ -50,6 +54,8 @@ func (h Host) Validate() error {
 // Entry is the part of a log line that qhost owns, in the order it is written. No field ever holds an
 // argument, a result payload, or a secret.
 type Entry struct {
+	// Format is the format number of the line; see EntryFormat.
+	Format int `json:"format"`
 	// ClientUID is the Unix user ID of the client that triggered the action; a pointer because 0 is root.
 	ClientUID  *uint32 `json:"client_uid,omitempty"`
 	Action     string  `json:"action,omitempty"`
@@ -78,7 +84,7 @@ type Fields struct {
 func (f Fields) entry() Entry {
 	uid := f.ClientUID
 	return Entry{
-		ClientUID: &uid, Action: f.Action, Result: f.Result, ErrorCode: f.ErrorCode,
+		Format: EntryFormat, ClientUID: &uid, Action: f.Action, Result: f.Result, ErrorCode: f.ErrorCode,
 		DurationMS: f.Duration.Milliseconds(), Host: f.Host,
 	}
 }
@@ -101,6 +107,9 @@ func (f Fields) Validate() error {
 // code, a non-negative bounded duration and a host action that fits the action. The error names the field,
 // never its value.
 func (e Entry) Validate() error {
+	if e.Format != EntryFormat {
+		return errors.New("format number is not supported")
+	}
 	if !knownOperations[e.Action] {
 		return errors.New("action is not a known operation")
 	}

@@ -43,6 +43,8 @@ var stores = []store{
 	{"grants", "grants/grants.go", "grants.json", "schema", true},
 	{"hostchange", "host/hostchange/journal.go", "journal/<id>.json", "schema", true},
 	{"service", "service/logstore.go", "service-log/<id>.jsonl (first line)", "schema", true},
+	{"auditlog", "host/auditlog/log.go", "<state>/audit/<day>.jsonl (every line)", "format", true},
+	{"deploylog", "deploylog/deploylog.go", "<state>/audit/<day>.jsonl (every line)", "format", true},
 }
 
 // exceptions are source files that write below a state folder or to the host but hold no document of this
@@ -68,6 +70,9 @@ var fileWriters = map[string]map[string]bool{
 	"os":         {"WriteFile": true, "Create": true, "CreateTemp": true, "OpenFile": true, "Rename": true},
 	"configfile": {"NewStore": true, "WriteNewPrivateFile": true},
 }
+
+// kitWriters maps the import path of a kit package that writes files to the function that opens its store.
+var kitWriters = map[string]string{"github.com/castrowithcee/qatlas-kit/auditlog": "New"}
 
 var writeFlags = []string{"O_WRONLY", "O_RDWR", "O_CREATE", "O_APPEND", "O_TRUNC"}
 
@@ -96,6 +101,17 @@ func writerFiles(t *testing.T) []string {
 			return err
 		}
 		found := false
+		kitOpen := map[string]string{} // local package name to the function that opens its store
+		for _, imp := range f.Imports {
+			path := strings.Trim(imp.Path.Value, `"`)
+			if open, ok := kitWriters[path]; ok {
+				name := filepath.Base(path)
+				if imp.Name != nil {
+					name = imp.Name.Name
+				}
+				kitOpen[name] = open
+			}
+		}
 		ast.Inspect(f, func(n ast.Node) bool {
 			call, ok := n.(*ast.CallExpr)
 			if !ok {
@@ -106,6 +122,10 @@ func writerFiles(t *testing.T) []string {
 				return true
 			}
 			pkg, ok := sel.X.(*ast.Ident)
+			if ok && kitOpen[pkg.Name] == sel.Sel.Name {
+				found = true
+				return true
+			}
 			if !ok || !fileWriters[pkg.Name][sel.Sel.Name] {
 				return true
 			}
