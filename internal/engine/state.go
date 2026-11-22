@@ -254,11 +254,14 @@ type Finding struct {
 }
 
 // MissingDir is a bind-mount source directory below the stack folder that does not exist. Path is clean,
-// slash-separated and relative to the stack folder. Owner is the proposed "UID:GID" the image's user needs,
-// empty when it could not be determined.
+// slash-separated and relative to the stack folder. Container is the "UID:GID" the container's user has and
+// Owner the proposed host "UID:GID" that user stands for in the engine's user namespace; Owner is empty when
+// it could not be determined, and Warning then says why.
 type MissingDir struct {
-	Path  string `json:"path"`
-	Owner string `json:"owner,omitempty"`
+	Path      string `json:"path"`
+	Owner     string `json:"owner,omitempty"`
+	Container string `json:"container,omitempty"`
+	Warning   string `json:"warning,omitempty"`
 }
 
 // DataDirWait records the commit a run found missing data directories at and which ones. The stack gets no

@@ -356,11 +356,13 @@ type FindingInfo struct {
 	Dirs []DirInfo `json:"dirs,omitempty"`
 }
 
-// DirInfo is a missing data directory: Path relative to the stack folder, Owner the proposed "UID:GID",
-// empty when unknown.
+// DirInfo is a missing data directory: Path relative to the stack folder, Container the "UID:GID" of the
+// container's user, Owner the proposed host "UID:GID" (empty when unknown) and Warning why there is none.
 type DirInfo struct {
-	Path  string `json:"path"`
-	Owner string `json:"owner,omitempty"`
+	Path      string `json:"path"`
+	Owner     string `json:"owner,omitempty"`
+	Container string `json:"container,omitempty"`
+	Warning   string `json:"warning,omitempty"`
 }
 
 // The commands that control runs. ResumeCommand clears the pause of a stack and starts no run.

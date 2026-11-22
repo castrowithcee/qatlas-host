@@ -114,3 +114,26 @@ func TestAuthorizeDecidesByClass(t *testing.T) {
 		})
 	}
 }
+
+func TestDatabaseResolvesNamesAndIDs(t *testing.T) {
+	passwd := filepath.Join(t.TempDir(), "passwd")
+	if err := os.WriteFile(passwd, []byte(inventedUsers), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	db := Database{Passwd: passwd}
+	if uid, ok, err := db.UID("example-admin"); err != nil || !ok || uid != 4100 {
+		t.Fatalf("UID(example-admin) = %d, %v, %v; the first entry of a name decides", uid, ok, err)
+	}
+	if _, ok, err := db.UID("example-nobody"); err != nil || ok {
+		t.Fatalf("UID of an unknown name = %v, %v", ok, err)
+	}
+	if name, ok, err := db.Name(4102); err != nil || !ok || name != "example-reader" {
+		t.Fatalf("Name(4102) = %q, %v, %v", name, ok, err)
+	}
+	if _, ok, err := db.Name(4999); err != nil || ok {
+		t.Fatalf("Name of an unknown uid = %v, %v", ok, err)
+	}
+	if _, _, err := (Database{Passwd: filepath.Join(t.TempDir(), "missing")}).Name(0); err == nil {
+		t.Fatal("an unreadable database must be an error")
+	}
+}

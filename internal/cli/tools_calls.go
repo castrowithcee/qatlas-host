@@ -72,6 +72,13 @@ func init() {
 		r, err := fileResult(a.Path) // requires root
 		return encodeResult(r, err)
 	})
+	tools.Register("hook.list", func(_ context.Context, _ json.RawMessage) (json.RawMessage, error) {
+		if err := hostEnv.requireAdmin(); err != nil {
+			return nil, err
+		}
+		r, err := hookListResult()
+		return encodeResult(r, err)
+	})
 	tools.Register("host.diagnose", func(ctx context.Context, args json.RawMessage) (json.RawMessage, error) {
 		var a struct{ Out string }
 		if err := parseArgs(args, &a); err != nil {

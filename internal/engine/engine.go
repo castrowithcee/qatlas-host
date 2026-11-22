@@ -628,8 +628,13 @@ func dataDirDetail(dirs []MissingDir) string {
 	parts := make([]string, len(dirs))
 	for i, d := range dirs {
 		parts[i] = d.Path
-		if d.Owner != "" {
+		switch {
+		case d.Owner != "" && d.Container != "" && d.Container != d.Owner:
+			parts[i] += " (owner " + d.Owner + " for container user " + d.Container + ")"
+		case d.Owner != "":
 			parts[i] += " (owner " + d.Owner + ")"
+		case d.Warning != "":
+			parts[i] += " (no owner proposed: " + d.Warning + ")"
 		}
 	}
 	return "data directories are missing and the image does not run as root: " + strings.Join(parts, ", ") +

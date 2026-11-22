@@ -16,11 +16,13 @@ import (
 	"github.com/castrowithcee/qatlas-kit/notify"
 	"github.com/castrowithcee/qatlas-kit/redact"
 
+	"github.com/castrowithcee/qatlas-host/internal/admins"
 	"github.com/castrowithcee/qatlas-host/internal/changelog"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/credentials"
 	"github.com/castrowithcee/qatlas-host/internal/engine"
 	"github.com/castrowithcee/qatlas-host/internal/formatnum"
+	"github.com/castrowithcee/qatlas-host/internal/grants"
 	registryclient "github.com/castrowithcee/qatlas-host/internal/registry"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
@@ -211,6 +213,20 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 		return err
 	}
 	if err := registerSettingsCommands(registry, eng, secrets.Apply, log); err != nil {
+		return err
+	}
+	grantNow := proposalNow
+	if grantNow == nil {
+		grantNow = time.Now
+	}
+	grantStore, err := grants.Open(cfg.StateDir)
+	if err != nil {
+		return fmt.Errorf("prepare the grants: %w", err)
+	}
+	if err := registerGrantCommands(registry, &grantService{
+		store: grantStore, users: admins.Database{Group: db.group, Passwd: db.passwd}, now: grantNow,
+		stackKnown: eng.hasStack, stackSetup: eng.stackSetup, log: log,
+	}); err != nil {
 		return err
 	}
 	repo.stopped = func(name string) *control.HoldInfo {
