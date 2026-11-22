@@ -37,6 +37,8 @@ const (
 	textDetailDataDirs       kittui.TextID = "detail.datadirs"
 	textDataDirLine          kittui.TextID = "datadirs.line"
 	textDataDirLineNoOwner   kittui.TextID = "datadirs.linenoowner"
+	textDataDirLineMapped    kittui.TextID = "datadirs.linemapped"
+	textDataDirLineUnmapped  kittui.TextID = "datadirs.lineunmapped"
 	textDataDirsHint         kittui.TextID = "datadirs.hint"
 	textDataDirsIntro        kittui.TextID = "datadirs.intro"
 	textKeyDataDirs          kittui.TextID = "key.datadirs"
@@ -112,6 +114,8 @@ func detailEnglish() map[kittui.TextID]string {
 		textDetailDataDirs:       "Missing data directories",
 		textDataDirLine:          "%s  owner %s",
 		textDataDirLineNoOwner:   "%s  owner unknown",
+		textDataDirLineMapped:    "%s  container user %s, host owner %s",
+		textDataDirLineUnmapped:  "%s  container user %s, no host owner: %s",
 		textDataDirsHint:         "The stack waits until these directories exist. {datadirs} creates them with an owner and mode you confirm, then deploys the stack.",
 		textDetailStopped:        "Stopped",
 		textStoppedSince:         "Stopped since %s",
@@ -188,6 +192,8 @@ func detailGerman() map[kittui.TextID]string {
 		textDetailDataDirs:       "Fehlende Datenordner",
 		textDataDirLine:          "%s  Besitzer %s",
 		textDataDirLineNoOwner:   "%s  Besitzer unbekannt",
+		textDataDirLineMapped:    "%s  Container-Benutzer %s, Host-Besitzer %s",
+		textDataDirLineUnmapped:  "%s  Container-Benutzer %s, kein Host-Besitzer: %s",
 		textDataDirsHint:         "Der Stack wartet, bis diese Ordner existieren. {datadirs} legt sie mit dem bestätigten Besitzer und Modus an und rollt den Stack danach aus.",
 		textDetailStopped:        "Gestoppt",
 		textStoppedSince:         "Gestoppt seit %s",

@@ -57,6 +57,8 @@ func registerUpdateCommands(r *control.Registry, repo *repoService, eng *sourceS
 	for name, h := range map[string]control.Command{
 		control.UpdatesListCommand: list, control.UpdateRunCommand: inStack(changing(s.handleRun), stackList),
 		control.ChangelogShowCommand: inStack(changing(s.handleChangelog), stackField),
+		control.ReturnCheckCommand:   inStack(changing(s.handleReturnCheck), stackField),
+		control.ReturnRunCommand:     inStack(changing(s.handleReturn), stackField),
 	} {
 		if err := r.Register(name, h); err != nil {
 			return nil, err
@@ -243,6 +245,77 @@ func (s *updatesService) handleRun(ctx context.Context, raw json.RawMessage) (an
 	}
 	s.recheck(ctx, done)
 	return res, nil
+}
+
+func returnArgs(raw json.RawMessage) (control.ReturnArgs, engine.ReturnData, error) {
+	var a control.ReturnArgs
+	if err := decodeArgs(raw, &a); err != nil {
+		return a, "", err
+	}
+	if a.Stack == "" || a.Run == "" {
+		return a, "", control.NewError(control.CodeInvalid, "a stack and a run are required")
+	}
+	switch a.Data {
+	case control.ReturnRestoreData:
+		return a, engine.DataRestore, nil
+	case control.ReturnKeepData:
+		return a, engine.DataKeep, nil
+	}
+	return a, "", control.NewError(control.CodeInvalid, "the data choice must be restore or keep")
+}
+
+func returnCheckResult(a control.ReturnArgs, plan engine.ReturnPlan) control.ReturnCheckResult {
+	res := control.ReturnCheckResult{Stack: printable(a.Stack), Run: printable(plan.Run), Data: string(plan.Data),
+		Backup: printable(plan.Backup), Steps: make([]control.ReturnStepInfo, 0, len(plan.Steps))}
+	for _, st := range plan.Steps {
+		res.Steps = append(res.Steps, control.ReturnStepInfo{Variable: printable(st.Variable), From: printable(st.From), To: printable(st.To)})
+	}
+	return res
+}
+
+func (s *updatesService) handleReturnCheck(ctx context.Context, raw json.RawMessage) (any, error) {
+	a, data, err := returnArgs(raw)
+	if err != nil {
+		return nil, err
+	}
+	plan, err := s.eng.CheckReturn(ctx, a.Stack, a.Run, data)
+	if err != nil {
+		return nil, returnAnswer(err)
+	}
+	return returnCheckResult(a, plan), nil
+}
+
+func (s *updatesService) handleReturn(ctx context.Context, raw json.RawMessage) (any, error) {
+	a, data, err := returnArgs(raw)
+	if err != nil {
+		return nil, err
+	}
+	res, err := s.eng.Return(ctx, a.Stack, a.Run, data)
+	if err != nil {
+		return nil, returnAnswer(err)
+	}
+	if res.Result == engine.ResultSucceeded {
+		s.recheck(ctx, []string{a.Stack})
+	}
+	return control.ReturnRunResult{ReturnCheckResult: returnCheckResult(a, res.ReturnPlan), ReturnRun: printable(res.RunID),
+		Commit: printable(res.Commit), Result: printable(res.Result), Error: printable(res.Error)}, nil
+}
+
+// returnAnswer maps the refusals of a return to fixed answers: those of an update, and its own.
+func returnAnswer(err error) error {
+	switch {
+	case errors.Is(err, engine.ErrBackupMissing):
+		return control.NewError(control.CodeNoSuchBackup, "the backup of that update is missing; return with --keep-data instead")
+	case errors.Is(err, engine.ErrNoCurrentBackup):
+		return control.NewError(control.CodeNoBackupRules, "the stack has no backup rules, so its current data cannot be saved before the restore; return with --keep-data instead")
+	case errors.Is(err, engine.ErrNotReturnable):
+		return control.NewError(control.CodeNotUpdatable, "the run is not a successful update of the stack's versions")
+	case errors.Is(err, engine.ErrNothingToReturn):
+		return control.NewError(control.CodeNotUpdatable, "the stack already has the versions from before that update")
+	case errors.Is(err, engine.ErrReturnData):
+		return control.NewError(control.CodeInvalid, "the data choice must be restore or keep")
+	}
+	return updateAnswer(context.Background(), err)
 }
 
 // recheck replaces the stored detection of the updated stacks, so it shows their new versions. A failure

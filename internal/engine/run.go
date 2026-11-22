@@ -43,9 +43,12 @@ type run struct {
 	log      *Log
 	// held says the run holds the working copy where it is; it gives the hold up only to move it itself.
 	held bool
-	// change is set for a step of an update; pushed says its commit is on the branch.
+	// change is set for a step of an update and, as its first variable, for a return; pushed says its commit
+	// is on the branch.
 	change *VersionStep
 	pushed bool
+	// back is set for a return, see Engine.Return.
+	back *returnJob
 	// undo is set for the rollback of an update under observation; the run then only rolls back.
 	undo *undo
 	// tracked caches the files git tracks in the stack folder for the data directory check.
@@ -177,6 +180,9 @@ func (r *run) record(out outcome, freeSlot bool) RunRecord {
 			}
 		}
 		cur.Observe = nil
+		if rec.Result == ResultSucceeded && rec.Trigger == TriggerReturn && cur.Pin == nil {
+			cur.Pin = &Hold{Since: now}
+		}
 		if d := r.st.ObserveTime(); rec.Result == ResultSucceeded && rec.Trigger == TriggerUpdate && d > 0 {
 			cur.Observe = &Observation{Run: rec.ID, From: r.deployed, Commit: rec.Commit, Backup: rec.Backup, Since: now, Until: now.Add(d)}
 		}
@@ -230,7 +236,8 @@ func (r *run) step(name string, fn func() error) (err error) {
 
 // secured is the run itself: stop and backup when a backup is planned, pull, up, check, and the rollback when
 // a later step fails.
-// An update step commits and pushes its version change after the backup; see advance.
+// An update step commits and pushes its version change after the backup; see advance. A return does too and
+// then restores the target update's backup, see returnJob.
 func (r *run) secured(ctx context.Context) outcome {
 	d, st, log := r.e.cfg.Deployer, r.st, r.log
 	if out, stop := r.checkDataDirs(ctx); stop {
@@ -282,11 +289,23 @@ func (r *run) secured(ctx context.Context) outcome {
 	if err != nil {
 		failedAt = "backup"
 	}
+	if err == nil {
+		err = r.guardRestore(backupID, noData)
+		if err != nil {
+			failedAt = "backup"
+		}
+	}
 	if err == nil && r.change != nil {
 		if err = r.advance(ctx); err != nil {
 			failedAt = "commit"
 		}
 		st = r.st
+	}
+	if err == nil && r.back != nil {
+		started = true // a restore overwrites the data, so a rollback has to put the backup back
+		if err = r.restoreTarget(ctx, st); err != nil {
+			failedAt = "restore"
+		}
 	}
 	if err == nil {
 		if err = r.step("pull", func() error { return d.Pull(ctx, st, log) }); err != nil {

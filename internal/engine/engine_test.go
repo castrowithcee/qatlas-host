@@ -128,6 +128,32 @@ func (f *fakeCopy) RevertStack(_ context.Context, stack, deployed, failed, reaso
 	return id, nil
 }
 
+// ParentOf is the base a commit was built on.
+func (f *fakeCopy) ParentOf(_ context.Context, c string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if p, ok := f.bases[c]; ok {
+		return p, nil
+	}
+	return "", errors.New("no parent known")
+}
+
+// FileAt is the file as the nearest commit at or below c that wrote it has it, nil when none did.
+func (f *fakeCopy) FileAt(_ context.Context, c, path string) ([]byte, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for {
+		if body, ok := f.files[c][path]; ok {
+			return body, nil
+		}
+		p, ok := f.bases[c]
+		if !ok {
+			return nil, nil
+		}
+		c = p
+	}
+}
+
 func (f *fakeCopy) IsAncestor(_ context.Context, a, b string) (bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -220,6 +246,25 @@ func (f *fakeCopy) Status(context.Context) ([]gitrepo.Change, error) {
 	}
 	return slices.Clone(f.changes), nil
 }
+
+// Diff answers a fixed text for a path of the status; Discard drops the entries of its paths from it.
+func (f *fakeCopy) Diff(_ context.Context, path string) (string, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !slices.ContainsFunc(f.changes, func(c gitrepo.Change) bool { return c.Path == path }) {
+		return "", false, gitrepo.ErrNotChanged
+	}
+	return "diff of " + path, false, nil
+}
+
+func (f *fakeCopy) Discard(_ context.Context, paths []string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, "discard:"+strings.Join(paths, ","))
+	f.changes = slices.DeleteFunc(f.changes, func(c gitrepo.Change) bool { return slices.Contains(paths, c.Path) })
+	return nil
+}
+
 func (f *fakeCopy) ChangedFolders(_ context.Context, from, to string) ([]string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -305,6 +350,8 @@ type fakeDeployer struct {
 	backupTags []string // the tag each backup got through its context
 	// gone are the backup ids HasBackup reports missing.
 	gone []string
+	// backupName, when set, names the backup of a deployed commit instead of the default.
+	backupName func(deployed string) string
 }
 
 func (d *fakeDeployer) do(ctx context.Context, step string, st stacks.Stack) error {
@@ -350,6 +397,9 @@ func (d *fakeDeployer) Backup(ctx context.Context, st stacks.Stack, deployed str
 	d.mu.Unlock()
 	if d.noRules || d.lateNoRules {
 		return "", ErrNoBackup
+	}
+	if d.backupName != nil {
+		return d.backupName(deployed), nil
 	}
 	return "backup-of-" + deployed[:8], nil
 }

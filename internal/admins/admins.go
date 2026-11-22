@@ -50,6 +50,45 @@ func (db Database) Admin(uid uint32) (bool, error) {
 	return InDatabase(group, passwd, uid)
 }
 
+// UID returns the user ID of the user called name, per the passwd file as it is now; the first entry of a name
+// decides, as getpwnam does. ok is false for an unknown name or an entry without a number.
+func (db Database) UID(name string) (uid uint32, ok bool, err error) {
+	f, found, err := db.entry(func(f []string) bool { return f[0] == name })
+	if err != nil || !found {
+		return 0, false, err
+	}
+	n, perr := strconv.ParseUint(f[2], 10, 32)
+	return uint32(n), perr == nil, nil
+}
+
+// Name returns the name of the user uid, per the passwd file as it is now; the first entry of a uid decides,
+// as getpwuid does. ok is false for an unknown user.
+func (db Database) Name(uid uint32) (name string, ok bool, err error) {
+	want := strconv.FormatUint(uint64(uid), 10)
+	f, found, err := db.entry(func(f []string) bool { return f[2] == want })
+	if err != nil || !found {
+		return "", false, err
+	}
+	return f[0], true, nil
+}
+
+// entry returns the fields of the first passwd entry with a name that match accepts.
+func (db Database) entry(match func(f []string) bool) ([]string, bool, error) {
+	passwd, err := os.Open(cmp.Or(db.Passwd, DefaultPasswdFile))
+	if err != nil {
+		return nil, false, err
+	}
+	defer passwd.Close()
+	sc := scanner(passwd)
+	for sc.Scan() {
+		f := strings.Split(sc.Text(), ":")
+		if len(f) >= 4 && f[0] != "" && match(f) {
+			return f, true, nil
+		}
+	}
+	return nil, false, sc.Err()
+}
+
 type groupEntry struct {
 	gid     string
 	members []string
