@@ -10,7 +10,7 @@
 ╭─ Engine rootless:alice ──────────────────────────────────────────────────────────────────────────────────────────────╮
 │         STACK                             CURRENT  AVAILABLE  MODE       STATE     FINDINGS                          │
 │   ▾ [ ] ■ /home/alice/stacks-example (2)  local                                    polled 2026-10-30 14:25           │
-│ >   [ ] photo-album                       -        -          automatic  pending   none                              │
+│     [ ] photo-album                       -        -          automatic  pending   none                              │
 │     [ ] wiki                              -        -          none       deployed  none                              │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Engine rootless:bob ────────────────────────────────────────────────────────────────────────────────────────────────╮

@@ -10,7 +10,7 @@
 ╭─ Engine rootless:alice ──────────────────────────────╮
 │         STACK                             VERSION  V │
 │   ▾ [ ] ■ /home/alice/stacks-example (2)  lokal    … │
-│ >   [ ] photo-album                       -        … │
+│     [ ] photo-album                       -        … │
 │     [ ] wiki                              -        … │
 ╰──────────────────────────────────────────────────────╯
 ╭─ Engine rootless:bob ────────────────────────────────╮

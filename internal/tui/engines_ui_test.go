@@ -188,6 +188,28 @@ func TestCursorPassesFromSectionToSection(t *testing.T) {
 	}
 }
 
+// cursorCount counts the rows of the sections that carry the cursor mark.
+func cursorCount(screen string) int {
+	return strings.Count(screen, "│ > ") + strings.Count(screen, "║ > ")
+}
+
+func TestOnlyTheMarkedSectionShowsItsCursor(t *testing.T) {
+	m := newTestModel(t, i18n.English, twoEnginesBackend(), wideWidth, 26)
+	for _, keys := range [][]string{{"home"}, {"end"}} {
+		send(m, keys...)
+		for range 20 {
+			send(m, "down")
+		}
+		if n := cursorCount(m.render()); n != 1 {
+			t.Fatalf("%v: %d cursors on the screen, want 1:\n%s", keys, n, m.render())
+		}
+		send(m, "home")
+		if n := cursorCount(m.render()); n != 1 {
+			t.Fatalf("%v then home: %d cursors on the screen, want 1:\n%s", keys, n, m.render())
+		}
+	}
+}
+
 // A stack name two engines have is two rows, and an action goes to the engine of the marked row only.
 func TestActionsGoToTheEngineOfTheMarkedStack(t *testing.T) {
 	for _, engine := range []string{control.EngineSystem, "rootless:alice"} {

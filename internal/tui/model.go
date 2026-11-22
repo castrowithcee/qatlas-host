@@ -989,6 +989,12 @@ func (m *Model) setZone(z kittui.FocusZone) {
 			l.SetFocused(z != kittui.ZoneTabs && z != kittui.ZoneSubtabs)
 		}
 	}
+	// Of the engine sections only the marked one shows its cursor, so the screen never shows two.
+	for _, s := range m.secs {
+		if s.list != nil && s.list != m.list {
+			s.list.SetFocused(false)
+		}
+	}
 }
 
 // navKey handles the keys that switch the area or the focus zone, for every screen alike. The zone keys
