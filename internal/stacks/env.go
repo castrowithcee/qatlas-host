@@ -179,3 +179,6 @@ func SecretKeys(dir string) (keys []string, exists bool, err error) {
 	sort.Strings(keys)
 	return keys, true, nil
 }
+
+// ParseEnv reads the content of a stack's .env with the rules the stack itself is read with.
+func ParseEnv(content []byte) (map[string]string, error) { return parseEnv(string(content)) }

@@ -40,6 +40,8 @@ const (
 	// TriggerObserve is the rollback of an update whose stack failed in its observation time, see
 	// Engine.RollbackUpdate.
 	TriggerObserve = "observe"
+	// TriggerReturn is the return of a stack to the versions before an update, see Engine.Return.
+	TriggerReturn = "return"
 )
 
 // Kinds of findings. The poll replaces the findings of a stack as a whole in every cycle.

@@ -268,6 +268,15 @@ func (c *copyOf) IsAncestor(context.Context, string, string) (bool, error) {
 	return !c.g.NotAncestor, nil
 }
 
+// ParentOf and FileAt know no history: the fake's commits have no parents.
+func (c *copyOf) ParentOf(context.Context, string) (string, error) {
+	return "", errors.New("the fake working copy has no history")
+}
+
+func (c *copyOf) FileAt(context.Context, string, string) ([]byte, error) {
+	return nil, errors.New("the fake working copy has no history")
+}
+
 // FastForward follows a pushed commit of CommitFile and does nothing otherwise.
 func (c *copyOf) FastForward(_ context.Context, to string) error {
 	c.g.mu.Lock()
