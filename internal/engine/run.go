@@ -218,7 +218,8 @@ func (r *run) step(name string, fn func() error) (err error) {
 
 // secured is the run itself: stop and backup when a backup is planned, pull, up, check, and the rollback when
 // a later step fails.
-// An update step commits and pushes its version change after the backup; see advance.
+// An update step commits and pushes its version change after the backup; see advance. A return does too and
+// then restores the target update's backup, see returnJob.
 func (r *run) secured(ctx context.Context) outcome {
 	d, st, log := r.e.cfg.Deployer, r.st, r.log
 	if out, stop := r.checkDataDirs(ctx); stop {

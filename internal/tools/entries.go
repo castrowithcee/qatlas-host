@@ -27,6 +27,7 @@ var (
 	idArg       = object([]string{"id"}, props{"id": str()})
 	pathArg     = object([]string{"path"}, props{"path": str()})
 	proposalArg = idArg
+	returnArg   = object([]string{"stack", "run", "data"}, props{"stack": str(), "run": str(), "data": str()})
 )
 
 var entries = []Entry{
@@ -94,6 +95,8 @@ var entries = []Entry{
 		object(nil, props{"stack": str(), "refresh": boolean(), "changelog": boolean()}), "stack updates"),
 	deployCmd("update.run", ClassChange, ScopeStack, "Update the image versions of stacks.",
 		object([]string{"stacks"}, props{"stacks": strList(), "version": str(), "variable": str()}), "stack update"),
+	deployCmd("return.check", ClassChange, ScopeStack, "Show the versions a return to before an update would set.", returnArg, "stack rollback"),
+	deployCmd("return.run", ClassChange, ScopeStack, "Set a stack back to the image versions before an update run, then pin it.", returnArg, "stack rollback"),
 	deployCmd("changelog.show", ClassChange, ScopeStack, "Show the release notes of an available update.", stackArg, "stack changelog"),
 	deployCmd("window.show", ClassRead, ScopeDeploy, "Show the maintenance window.", none, "window show"),
 	deployCmd("window.set", ClassChange, ScopeDeploy, "Change the maintenance window.",
