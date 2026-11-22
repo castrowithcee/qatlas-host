@@ -18,7 +18,7 @@
     demo/.env                                                                                                           
     demo/compose.yaml                                                                                                   
                                                                                                                         
-  Ausgelassen (2), von den Stacks nicht gebraucht, nur in .git/info/exclude vermerkt                                    
+  Ausgelassen (2), von den Stacks nicht gebraucht, per .gitignore von Git ausgenommen                                   
     demo/data: bind-mount (Stack demo)                                                                                  
     demo/notes.txt: not-referenced                                                                                      
                                                                                                                         
@@ -31,10 +31,10 @@
       Konflikt: Der Container demo-app-1 des Projekts old-demo läuft im Ordner, in der Engine system                    
                                                                                                                         
   Änderungen nach Ja                                                                                                    
-    Ein Git-Repository wird mit Branch main und einem ersten Commit der aufgeführten Dateien als qhost angelegt; keine  
-    Datei im Ordner wird geschrieben. Es wird als lokaler Stack-Ordner übernommen.                                      
+    Ein Git-Repository wird mit Branch main und einem ersten Commit der aufgeführten Dateien als qhost angelegt. Es wird
+    als lokaler Stack-Ordner übernommen.                                                                                
+    Eine .gitignore wird mit den 2 ausgelassenen Pfaden in einem von qhost markierten Block angelegt, und der erste     
+    Commit enthält sie. Keine andere Datei im Ordner wird geschrieben.                                                  
     Keine Rechteänderung: Der Dienst kann bereits schreiben.                                                            
     Der Ordner wird in das systemd-Drop-in des Dienstes eingetragen, der einmal neu startet.                            
-                                                                                                                        
-    $ sudo qhost proposal approve p-0005 --fingerprint fp-p-0005 --confirm --expect-effect                              
-y ja, ausführen  w mit Remote  n/esc/enter abbrechen                                                 ↑/↓ Scrollen  36/37
+y ja, ausführen  w mit Remote  n/esc/enter abbrechen                                                 ↑/↓ Scrollen  36/39

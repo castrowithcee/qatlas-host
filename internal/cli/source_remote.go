@@ -70,9 +70,9 @@ func newSourceCompareCommand(program *cobracli.Program, state *notRunning) *cobr
 			"changed. Pass the state and the commit to --expect-state and --expect-commit of 'source remote' or\n" +
 			"'source add' to apply exactly this comparison. Run it with sudo.\n" +
 			"With --output json the fields are case, state, branch, commit, paths, path_count, secrets (total and\n" +
-			"findings) and, for a folder of files, planned_files, excluded and remote_files: the plan the folder\n" +
-			"joins the remote with, where remote_files are the planned files no stack refers to that the remote\n" +
-			"versions.",
+			"findings) and, for a folder of files, planned_files, excluded, remote_files and ignore: the plan the\n" +
+			"folder joins the remote with, where remote_files are the planned files no stack refers to that the\n" +
+			"remote versions and ignore is the change to the .gitignore (action and lines), absent when none.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return usageFailure("source compare takes two arguments, the path of the folder and the SSH address",
@@ -148,6 +148,9 @@ func compareFields(format output.Format, cmp control.SourceCompareResult) output
 		if len(cmp.RemoteFiles) > 0 {
 			add("remote_files", cmp.RemoteFiles)
 		}
+		if cmp.Ignore != nil {
+			add("ignore", structured(format, cmp.Ignore))
+		}
 		if cmp.Secrets != nil {
 			add("secrets", structured(format, cmp.Secrets))
 		}
@@ -181,6 +184,15 @@ func compareFields(format output.Format, cmp control.SourceCompareResult) output
 			value += " (stack " + e.Stack + ")"
 		}
 		add("excluded", value)
+	}
+	if ig := cmp.Ignore; ig != nil {
+		add("gitignore", ig.Action)
+		for i, l := range ig.Lines {
+			if i == listLimit {
+				break
+			}
+			add("gitignore_line", l)
+		}
 	}
 	if s := cmp.Secrets; s != nil {
 		add("secrets_total", s.Total)

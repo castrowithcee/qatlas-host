@@ -3555,11 +3555,12 @@ EOF2
 	docker exec "$host" rm -rf "$base" || fail "cannot remove $base"
 }
 
-# files_state prints the content hash of every file below /srv/qd-files/web except .git, and the type, owner and size
-# of every path; modes and groups are left out because source add changes them for the listed files.
+# files_state prints the content hash of every file below /srv/qd-files/web except .git and .gitignore, and the type,
+# owner and size of every other path; modes and groups are left out because source add changes them for the listed
+# files, and .gitignore is the one file it extends.
 files_state() {
-	docker exec "$host" sh -ec "cd /srv/qd-files/web && find . -path ./.git -prune -o -type f -exec sha256sum {} + | sort -k2 &&
-		find . -path ./.git -prune -o -printf '%p %y %u %s\n' | sort"
+	docker exec "$host" sh -ec "cd /srv/qd-files/web && find . -path ./.git -prune -o -path ./.gitignore -prune -o -type f -exec sha256sum {} + | sort -k2 &&
+		find . -path ./.git -prune -o -path ./.gitignore -prune -o -printf '%p %y %u %s\n' | sort"
 }
 
 # files_git runs git on /srv/qd-files/web as root; the folder is marked safe because the service owns .git; stderr is merged.
@@ -3568,15 +3569,16 @@ files_git() {
 }
 
 # scenario_source_files proves source add on a folder of files without a repository below /srv/qd-files, which no
-# stack folder uses: the answer lists the files and what is left out, nothing changes without the confirmation, the
-# confirmed add starts a repository with one commit of only the files the stack refers to and leaves every file as it
+# stack folder uses: the answer lists the files, what is left out and the lines for .gitignore, nothing changes without
+# the confirmation, the confirmed add starts a repository with one commit of only the files the stack refers to and the
+# .gitignore, which keeps its own lines and makes a clone ignore what is left out, and leaves every other file as it
 # was, a version committed by a person is deployed and a failing one is rolled back by a local revert commit. A second
-# folder holds a stack whose .env the service cannot read, which brings no file.
+# folder holds a stack whose .env the service cannot read, which brings no file, and gets a new .gitignore.
 scenario_source_files() {
 	base=/srv/qd-files/web
 	image=registry.$domain/demo/app
 
-	step 'a folder of files without a repository is prepared as root, with backup copies, a log, data and a writable file the first commit leaves out'
+	step 'a folder of files without a repository is prepared as root, with a .gitignore, backup copies, a log, data and a writable file the first commit leaves out'
 	docker exec "$host" sh -ec "rm -rf /srv/qd-files && mkdir -p '$base' && chmod 0755 /srv/qd-files '$base'" || fail 'cannot create the folder of files'
 	cat <<EOF2 | docker exec -i "$host" sh -ec "cat >'$base/compose.yaml'"
 name: demo-files
@@ -3594,16 +3596,20 @@ services:
       - ./acme.json:/srv/demo-acme.json
 EOF2
 	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/.env'"
+	files_ignore_own=$(printf '# kept by the operator\n*.swp')
+	printf '%s\n' "$files_ignore_own" | docker exec -i "$host" sh -ec "cat >'$base/.gitignore'"
 	docker exec "$host" sh -ec "head -c 2097152 /dev/zero >'$base/big.bin' && mkdir -p '$base/data' && echo x >'$base/data/db.bin' &&
 		echo '{}' >'$base/acme.json' && echo old >'$base/app.log' && echo notes >'$base/notes.txt' &&
 		cp '$base/compose.yaml' '$base/compose.yaml.bak' && cp '$base/.env' '$base/.env.bak.1' &&
-		chmod 0644 '$base/big.bin' '$base/compose.yaml' '$base/.env' '$base/compose.yaml.bak' '$base/.env.bak.1' '$base/app.log' '$base/notes.txt' '$base/acme.json' '$base/data/db.bin'" ||
+		chmod 0644 '$base/big.bin' '$base/compose.yaml' '$base/.env' '$base/.gitignore' '$base/compose.yaml.bak' '$base/.env.bak.1' '$base/app.log' '$base/notes.txt' '$base/acme.json' '$base/data/db.bin'" ||
 		fail 'cannot create the files of the folder'
 	[ -z "$(docker exec "$host" ls -A "$base" | grep -x .git)" ] || fail 'the folder of files has a .git'
 
-	step 'source inspect names the referenced files to take and everything else with its reason'
+	step 'source inspect names the referenced files to take, everything else with its reason and the lines for .gitignore'
 	out=$(qd --output json source inspect "$base") || fail "source inspect of the folder of files failed: $out"
-	printf '%s' "$out" | jq -e '.case == "files" and (.planned_files == [".env", "compose.yaml"]) and
+	printf '%s' "$out" | jq -e '.case == "files" and (.planned_files == [".env", ".gitignore", "compose.yaml"]) and
+		.ignore.action == "extend" and
+		.ignore.lines == ["/.env.bak.1", "/acme.json", "/app.log", "/big.bin", "/compose.yaml.bak", "/data", "/notes.txt"] and
 		([.excluded[] | select((.path == "big.bin" or .path == "compose.yaml.bak" or .path == ".env.bak.1" or .path == "app.log" or
 			.path == "notes.txt") and .reason == "not-referenced")] | length) == 5 and
 		([.excluded[] | select(.path == "acme.json" and .reason == "writable-file")] | length) == 1 and
@@ -3621,24 +3627,38 @@ EOF2
 	fi
 	if list_has_path "$base"; then fail 'a refused source add bound the folder'; fi
 
-	step 'source add --yes starts a repository with the listed files and changes no file content'
+	step 'source add --yes starts a repository with the listed files and the extended .gitignore and changes no other file content'
 	state_before=$(files_state)
+	ignore_owner_before=$(docker exec "$host" stat -c '%U' "$base/.gitignore")
 	big_before=$(docker exec "$host" stat -c '%a %U:%G' "$base/big.bin")
 	# qd merges stderr, where the preview and the notices go; the JSON answer is the last line.
 	out=$(qd --output json source add "$base" --yes) || fail "source add of the files failed: $out"
-	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local" and .path == "/srv/qd-files/web" and .files == 2' >/dev/null ||
+	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local" and .path == "/srv/qd-files/web" and .files == 3' >/dev/null ||
 		fail "unexpected source add result for the files: $out"
+	printf '%s' "$out" | grep -qF 'Add 7 lines to the block marked by qhost at the end of .gitignore' || fail "the preview does not show the lines for .gitignore: $out"
 	wait_for 'the deploy service to answer' 30 qd status
 	docker exec "$host" test -d "$base/.git" || fail 'source add made no repository'
-	if docker exec "$host" test -e "$base/.gitignore"; then fail 'source add wrote a .gitignore'; fi
-	for left in big.bin compose.yaml.bak .env.bak.1 app.log notes.txt acme.json data; do
-		docker exec "$host" grep -qx "/$left" "$base/.git/info/exclude" || fail "$left is not in .git/info/exclude: $(docker exec "$host" cat "$base/.git/info/exclude")"
-	done
+	ignore_now=$(docker exec "$host" cat "$base/.gitignore")
+	[ "$(printf '%s\n' "$ignore_now" | head -n 2)" = "$files_ignore_own" ] || fail ".gitignore lost its own lines: $ignore_now"
+	[ "$(printf '%s\n' "$ignore_now" | grep -c '^# BEGIN qhost')" = 1 ] || fail ".gitignore has not exactly one block of qhost: $ignore_now"
+	[ "$(docker exec "$host" stat -c '%U' "$base/.gitignore")" = "$ignore_owner_before" ] || fail 'source add changed the owner of .gitignore'
 	[ "$(files_git rev-list --count HEAD)" = 1 ] || fail "the repository does not have exactly one commit: $(files_git log --oneline)"
 	[ "$(files_git log -1 --format=%an)" = qhost ] || fail "the first commit has the wrong author: $(files_git log -1 --format=%an)"
 	[ "$(files_git symbolic-ref --short HEAD)" = main ] || fail "the branch is not main: $(files_git symbolic-ref --short HEAD)"
-	[ "$(files_git ls-files)" = "$(printf '.env\ncompose.yaml')" ] || fail "the first commit holds the wrong files: $(files_git ls-files)"
+	[ "$(files_git ls-files)" = "$(printf '.env\n.gitignore\ncompose.yaml')" ] || fail "the first commit holds the wrong files: $(files_git ls-files)"
+	[ "$(files_git show HEAD:.gitignore)" = "$ignore_now" ] || fail "the first commit does not hold the .gitignore of the folder: $(files_git show HEAD:.gitignore)"
 	[ -z "$(files_git status --porcelain)" ] || fail "the new repository sees a local change: $(files_git status --porcelain)"
+	[ -z "$(docker exec "$host" sh -c "cat '$base/.git/info/exclude' 2>/dev/null")" ] || fail 'source add wrote the left-out paths to .git/info/exclude'
+	# A fresh clone, as when a host is restored from the repository, ignores what the first commit left out.
+	clone=$(docker exec "$host" mktemp -d) || fail 'cannot create a temporary folder for the clone'
+	# The service owns .git, and git takes safe.directory for the upload-pack of a local clone only from a config file.
+	printf '[safe]\n\tdirectory = %s\n\tdirectory = %s/.git\n' "$base" "$base" | docker exec -i "$host" sh -ec "cat >'$clone/gitconfig'"
+	docker exec -e GIT_CONFIG_GLOBAL="$clone/gitconfig" "$host" git clone -q "$base" "$clone/web" || fail 'cannot clone the folder of files'
+	for left in big.bin compose.yaml.bak .env.bak.1 app.log notes.txt acme.json data; do
+		docker exec "$host" git -C "$clone/web" check-ignore -q -- "$left" || fail "a clone does not ignore $left: $(docker exec "$host" cat "$clone/web/.gitignore")"
+	done
+	if docker exec "$host" git -C "$clone/web" check-ignore -q -- compose.yaml; then fail 'a clone ignores compose.yaml'; fi
+	docker exec "$host" rm -rf "$clone"
 	[ "$(files_git config core.sharedRepository)" = group ] || fail 'core.sharedRepository is not group'
 	[ -z "$(files_git remote)" ] || fail 'the new repository has a remote'
 	[ "$(files_state)" = "$state_before" ] || fail 'source add changed the content, the owner or the size of a file'
@@ -3748,10 +3768,15 @@ EOF2
 
 	step 'source add --yes starts a repository without a file of the unreadable stack, and the source polls without an error'
 	out=$(qd --output json source add "$base" --yes) || fail "source add of the folder with two stacks failed: $out"
-	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local" and .files == 2' >/dev/null || fail "unexpected source add result for two stacks: $out"
+	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local" and .files == 3' >/dev/null || fail "unexpected source add result for two stacks: $out"
 	wait_for 'the deploy service to answer' 30 qd status
-	[ "$(folder_git "$base" ls-files)" = "$(printf 'qd-multi-ok/.env\nqd-multi-ok/compose.yaml')" ] ||
+	# The folder had no .gitignore; the one created holds the paths left out and is part of the first commit.
+	[ "$(folder_git "$base" ls-files)" = "$(printf '.gitignore\nqd-multi-ok/.env\nqd-multi-ok/compose.yaml')" ] ||
 		fail "the first commit holds the wrong files: $(folder_git "$base" ls-files)"
+	for left in qd-multi-locked qd-multi-ok/notes.txt; do
+		docker exec "$host" grep -qx "/$left" "$base/.gitignore" || fail "$left is not in the new .gitignore: $(docker exec "$host" cat "$base/.gitignore")"
+	done
+	[ -z "$(folder_git "$base" status --porcelain)" ] || fail "the folder with two stacks sees a local change: $(folder_git "$base" status --porcelain)"
 	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/qd-multi-locked/.env")" = 'root:root 600' ] || fail 'source add changed the unreadable .env'
 	wait_for 'the first poll of the folder with two stacks' 120 source_polled_clean "$base"
 	wait_for 'the readable stack to be deployed' 180 stack_settled qd-multi-ok succeeded
@@ -3888,6 +3913,8 @@ EOF2
 		fail "unexpected source add result for the equal folder: $out"
 	# extra/compose.yaml is no stack's file, but the repository versions it, so it is kept and named.
 	printf '%s' "$out" | grep -qF 'extra/compose.yaml (versioned in the remote)' || fail "the preview does not name extra/compose.yaml as versioned in the remote: $out"
+	# Nothing is left out, so the .gitignore stays as the repository has it and the trees are equal.
+	printf '%s' "$out" | grep -qF 'No file in the folder is written.' || fail "the preview of the equal folder announces a change to a file: $out"
 	wait_for 'the deploy service to answer' 30 qd status
 	[ "$(folder_git "$equal" rev-parse HEAD)" = "$repo_head3" ] || fail "the head of the folder is not the head of the repository: $(folder_git "$equal" rev-parse HEAD)"
 	folder_git "$equal" ls-files | grep -qx 'extra/compose.yaml' || fail "the folder does not track extra/compose.yaml: $(folder_git "$equal" ls-files)"

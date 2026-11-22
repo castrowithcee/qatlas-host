@@ -413,7 +413,7 @@ func (g *Git) CompareFolder(_ context.Context, cfg gitrepo.Config, dir, url stri
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.last, g.configs[dir] = cfg, cfg
-	files, err := plan(slices.Clone(g.RemoteFiles))
+	files, _, err := plan(slices.Clone(g.RemoteFiles))
 	g.record("compare-folder %s %d", url, len(files))
 	if err != nil {
 		return gitrepo.Comparison{}, err

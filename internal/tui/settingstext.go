@@ -243,6 +243,9 @@ const (
 	textChangeAdopt           kittui.TextID = "change.adopt"
 	textChangeLocal           kittui.TextID = "change.local"
 	textChangeFiles           kittui.TextID = "change.files"
+	textChangeIgnoreNone      kittui.TextID = "change.ignore.none"
+	textChangeIgnoreCreate    kittui.TextID = "change.ignore.create"
+	textChangeIgnoreExtend    kittui.TextID = "change.ignore.extend"
 	textChangeNoPerms         kittui.TextID = "change.noperms"
 	textChangeDropIn          kittui.TextID = "change.dropin"
 	textAskFolderRejected     kittui.TextID = "ask.folderrejected"
@@ -496,7 +499,7 @@ func settingsEnglish() map[kittui.TextID]string {
 		textDetailSetsPerms:       "permissions are set: %s",
 		textDetailGitWritable:     "the service can write .git: %s",
 		textHeadFiles:             "Files of the first commit (%d)",
-		textHeadExcluded:          "Left out (%d), not needed by the stacks, recorded only in .git/info/exclude",
+		textHeadExcluded:          "Left out (%d), not needed by the stacks, kept out of git by .gitignore",
 		textExcludedNone:          "Nothing is left out.",
 		textExcludedEntry:         "%s: %s",
 		textExcludedStack:         "%s: %s (stack %s)",
@@ -517,7 +520,10 @@ func settingsEnglish() map[kittui.TextID]string {
 		textChangeClone:           "The host key is stored and the repository is cloned into the folder.",
 		textChangeAdopt:           "The host key is stored and the clone is taken over with its address.",
 		textChangeLocal:           "The repository is taken over as a local stack folder.",
-		textChangeFiles:           "A git repository is started with branch main and a first commit of the listed files as qhost; no file in the folder is written. It is taken over as a local stack folder.",
+		textChangeFiles:           "A git repository is started with branch main and a first commit of the listed files as qhost. It is taken over as a local stack folder.",
+		textChangeIgnoreNone:      "No file in the folder is written.",
+		textChangeIgnoreCreate:    "A .gitignore is created with the %d paths left out in a block marked by qhost, and the first commit holds it. No other file in the folder is written.",
+		textChangeIgnoreExtend:    "The %d paths left out are added to the block marked by qhost at the end of .gitignore, whose other lines stay as they are, and the first commit holds it. No other file in the folder is written.",
 		textChangeNoPerms:         "No permission changes: the service can write already.",
 		textChangeDropIn:          "The folder is added to the systemd drop-in of the service, which restarts once.",
 		textAskFolderRejected:     "%s cannot be taken over.",
@@ -772,7 +778,7 @@ func settingsGerman() map[kittui.TextID]string {
 		textDetailSetsPerms:       "Rechte werden gesetzt: %s",
 		textDetailGitWritable:     "der Dienst kann .git schreiben: %s",
 		textHeadFiles:             "Dateien des ersten Commits (%d)",
-		textHeadExcluded:          "Ausgelassen (%d), von den Stacks nicht gebraucht, nur in .git/info/exclude vermerkt",
+		textHeadExcluded:          "Ausgelassen (%d), von den Stacks nicht gebraucht, per .gitignore von Git ausgenommen",
 		textExcludedNone:          "Nichts wird ausgelassen.",
 		textExcludedEntry:         "%s: %s",
 		textExcludedStack:         "%s: %s (Stack %s)",
@@ -793,7 +799,10 @@ func settingsGerman() map[kittui.TextID]string {
 		textChangeClone:           "Der Hostschlüssel wird gespeichert und das Repository in den Ordner geklont.",
 		textChangeAdopt:           "Der Hostschlüssel wird gespeichert und der Klon mit seiner Adresse übernommen.",
 		textChangeLocal:           "Das Repository wird als lokaler Stack-Ordner übernommen.",
-		textChangeFiles:           "Ein Git-Repository wird mit Branch main und einem ersten Commit der aufgeführten Dateien als qhost angelegt; keine Datei im Ordner wird geschrieben. Es wird als lokaler Stack-Ordner übernommen.",
+		textChangeFiles:           "Ein Git-Repository wird mit Branch main und einem ersten Commit der aufgeführten Dateien als qhost angelegt. Es wird als lokaler Stack-Ordner übernommen.",
+		textChangeIgnoreNone:      "Keine Datei im Ordner wird geschrieben.",
+		textChangeIgnoreCreate:    "Eine .gitignore wird mit den %d ausgelassenen Pfaden in einem von qhost markierten Block angelegt, und der erste Commit enthält sie. Keine andere Datei im Ordner wird geschrieben.",
+		textChangeIgnoreExtend:    "Die %d ausgelassenen Pfade werden dem von qhost markierten Block am Ende der .gitignore hinzugefügt, deren übrige Zeilen bleiben, wie sie sind, und der erste Commit enthält sie. Keine andere Datei im Ordner wird geschrieben.",
 		textChangeNoPerms:         "Keine Rechteänderung: Der Dienst kann bereits schreiben.",
 		textChangeDropIn:          "Der Ordner wird in das systemd-Drop-in des Dienstes eingetragen, der einmal neu startet.",
 		textAskFolderRejected:     "%s kann nicht übernommen werden.",

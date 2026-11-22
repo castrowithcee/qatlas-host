@@ -25,7 +25,7 @@
     demo/.env                                           
     demo/compose.yaml                                   
                                                         
-  Ausgelassen (2), von den Stacks nicht gebraucht, nur …
+  Ausgelassen (2), von den Stacks nicht gebraucht, per …
     demo/data: bind-mount (Stack demo)                  
     demo/notes.txt: not-referenced                      
                                                         
@@ -37,4 +37,4 @@
       not listed in .gitignore                          
       nicht auflösbar: env_file "${CONF_DIR}/app.env":  
 y ja, ausführen  w mit Remote  n/esc/enter abbrechen    
-                                     ↑/↓ Scrollen  35/53
+                                     ↑/↓ Scrollen  35/57

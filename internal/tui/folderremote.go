@@ -45,7 +45,7 @@ type compared struct {
 
 // withComparison is res with the plan of a comparison of a folder of files.
 func withComparison(res control.SourceInspectResult, cmp control.SourceCompareResult) control.SourceInspectResult {
-	res.PlannedFiles, res.Excluded = cmp.PlannedFiles, cmp.Excluded
+	res.PlannedFiles, res.Excluded, res.Ignore = cmp.PlannedFiles, cmp.Excluded, cmp.Ignore
 	return res
 }
 

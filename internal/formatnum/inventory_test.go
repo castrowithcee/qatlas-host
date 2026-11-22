@@ -52,6 +52,7 @@ var exceptions = []struct{ Source, Reason string }{
 	{"credentials/credentials.go", "deploy keys in OpenSSH format and raw secret values, which are no document"},
 	{"deploysetup/deploysetup.go", "unit files and rules for systemd, sudo and polkit; the hook configuration it writes is numbered"},
 	{"gitrepo/commit.go", "files of a stack's repository, in their own formats"},
+	{"gitrepo/ignore.go", "the .gitignore of a stack's repository, git's format"},
 	{"gitrepo/init.go", "git metadata in the working copy, git's format"},
 	{"gitrepo/preview.go", "git metadata in the working copy, git's format"},
 	{"gitrepo/remote.go", "git metadata in the working copy, git's format"},
