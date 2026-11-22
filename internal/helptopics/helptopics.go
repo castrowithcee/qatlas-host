@@ -20,6 +20,7 @@ func All() []helptopics.Topic {
 		{Name: "data-directories", Short: "Missing data directories of a stack: the data-dir-missing finding and how to resolve it", Text: dataDirectoriesTopic},
 		{Name: "notifications", Short: "Notification channels: events, types and secrets", Text: notificationsTopic},
 		{Name: "proposals", Short: "Proposals: asking for a change of the setup or the host without sudo, the kinds source-add, stack-settings, window, notify-channel, host-change and the switched command, limits and states", Text: proposalsTopic},
+		{Name: "grants", Short: "Standing grants: allowing a user one action for a stack without sudo, listing and removing them", Text: grantsTopic},
 		{Name: "containers", Short: "The containers of the host: kinds, states, metrics, start, stop, restart", Text: containersTopic},
 		{Name: "host-admin", Short: "Read and change the users, groups and folder permissions of the host", Text: hostAdminTopic},
 		{Name: "troubleshooting", Short: "A state file that qhost cannot read: what the message means and what to do", Text: troubleshootingTopic},
@@ -76,6 +77,7 @@ Commands:
 - qhost audit [--since T] [--until T] [--action A] [--result success|failure] [--limit N]: show the action log of the host service, newest first: one entry per request on its channel and per change of the host, never with an argument or a secret value. qhost audit verify: check the hash chain of the action log day by day; a broken chain ends with exit code 1 (both run without sudo for an administrator in the group qhost)
 - qhost host users|user <name>|groups|group <name>|folder <path>: read the local users, groups and folder permissions; changes nothing (run without sudo for an administrator in the group qhost; see qhost help host-admin). sudo qhost host file <path>: list a folder or show a file of the host as root
 - qhost host apply <action> [args...] --confirm, qhost host apply --proposal <id> --confirm, qhost host undo <journal-id> --confirm, qhost host journal: change the host with a registered action or a proposal of the host that keeps the previous state in a root-only journal, undo a change, and list the latest changes; every change appears in qhost audit; without --confirm apply and undo show the sentence and the commands and exit with code 2 (all need sudo; see qhost help host-admin)
+- qhost grant add <user> <action> <stack> [--expires YYYY-MM-DD] [--engine <engine>] [--confirm], qhost grant list [--stack <stack>] [--user <user>] [--engine <engine>], qhost grant remove <id> [--engine <engine>] [--confirm]: allow a user one action for one stack without sudo, list the grants with their state, and remove one; add and remove show the plan and exit with code 2 without --confirm and need sudo, list runs without sudo for an administrator in the group qhost (see qhost help grants)
 - qhost diagnose [--out <path>]: write a diagnostic package, an archive (tar.gz) with a text file and a JSON file per part, with the versions, the state of the service and the sources, the stacks and their check, the last 20 runs with the logs of the 5 newest and of every failed one, the service log of the last 24 hours and the list of the containers with their engine, but no container logs, env files or compose files; secret values are masked by the service, a part that cannot be collected is in the package with its reason. Without --out it goes to the folder qhost in your home; the file is new, mode 0600 and yours. It holds the host name and paths: check it before you pass it on (runs without sudo for an administrator in the group qhost)
 - qhost container start|stop|restart <name> [--engine <engine>] [--yes]: start, stop or restart one container of the host after a question (run with sudo; see qhost help containers)
 - qhost version: print the version
@@ -366,6 +368,27 @@ Channel types and settings:
 Secrets: the webhook URL and its signing key, the Slack URL, the Telegram bot token and the SMTP password. They are never an argument or a flag value. At a terminal they are asked for without echo; piped on standard input they are lines in that order (webhook: URL, then key; smtp: the password only with --user). The service stores them as credentials, shows them nowhere and removes them from its log output.
 
 Delivery runs in the background after the event; a failing channel is retried a few times and never delays or fails a run. A delivery that still fails is noted in the log of its run (qhost stack log <run>) and in the service log.`
+
+const grantsTopic = `A standing grant lets a person with root allow a user one action for one stack of a deploy service. The user can then take that action without sudo. This help covers giving, listing and removing grants; what a grant allows when the action runs is not part of these commands. The service must run.
+
+Commands:
+- sudo qhost grant add <user> <action> <stack> [--expires YYYY-MM-DD] [--engine <engine>] [--confirm]: allow the action for the stack
+- qhost grant list [--stack <stack>] [--user <user>] [--engine <engine>]: show the grants with their state; runs without sudo for an administrator in the group qhost
+- sudo qhost grant remove <id> [--engine <engine>] [--confirm]: withdraw the grant with that id
+
+Actions, and no others:
+- stack.restart: restart a stack
+- container.restart: restart a container of the stack
+- update.check: trigger the update check of the stack
+- update.run: start an update of the stack within its update rule
+
+Adding: the user must exist and be an administrator in the group qhost, so a grant is only for users with access to the service, and the stack must exist in the deploy service. An equal grant (user, action, stack) is not stored twice: a new --expires replaces the old one and the id stays. --expires is a date that holds until the end of that day in UTC and must not lie in the past; without it the grant does not expire. A grant has the id g- and eight hex digits, the user as name and user ID, the day it was made and the user ID of the person behind sudo. A deploy service keeps at most 200 grants, valid or not.
+
+Plan: add first shows, on standard error, the user, the action, the stack, the engine, the expiry and whether the stack has a backup and a check set up. For update.run it adds that an update started with the grant commits and pushes to the source of the stack. Without --confirm it stops there with exit code 2 and changes nothing; remove shows the grant the same way. A grant is made in the deploy service of one engine and belongs to it: add and list --stack reach the engine that has the stack, and list without a stack and remove reach the engine --engine names, else the system engine, else the only instance.
+
+State: list shows every stored grant. A grant is valid, or not applied for one reason: expired, stack-missing (the stack no longer exists) or user-changed (the user ID belongs to another name today). Such a grant stays listed until it is removed. If the grants file cannot be read, qhost never rewrites it: list shows no grant, reports the problem with exit code 1 and every grant counts as invalid until a person has dealt with the file.
+
+Never grantable: changes to the host, secrets and credentials, stack settings, sources, access and administrator rights, and the commands grant add and grant remove themselves.`
 
 const containersTopic = `qhost container list and qhost container show read the containers of the whole host from the container engine and change nothing. qhost container start, stop and restart act on one container. Listing, showing and logs run without sudo for an administrator in the group qhost; start, stop and restart need sudo. The service must run.
 
