@@ -188,6 +188,33 @@ func TestCursorPassesFromSectionToSection(t *testing.T) {
 	}
 }
 
+func TestHomeAndEndReachTheOuterSections(t *testing.T) {
+	m := newTestModel(t, i18n.English, twoEnginesBackend(), wideWidth, 26)
+	send(m, "end")
+	if m.listEngine != "rootless:alice" {
+		t.Fatalf("end stays in %q", m.listEngine)
+	}
+	last := m.cursorKey()
+	send(m, "down")
+	if m.cursorKey() != last {
+		t.Fatal("end did not reach the last row of the last section")
+	}
+	send(m, "home")
+	if m.listEngine != control.EngineSystem {
+		t.Fatalf("home stays in %q", m.listEngine)
+	}
+	want := m.secs[0].list
+	want.Act(m.firstKey())
+	wantKey := m.cursorKey()
+	send(m, "end", "home")
+	if m.cursorKey() != wantKey {
+		t.Fatal("home did not reach the first row of the first section")
+	}
+	if n := cursorCount(m.render()); n != 1 {
+		t.Fatalf("%d cursors on the screen, want 1", n)
+	}
+}
+
 // cursorCount counts the rows of the sections that carry the cursor mark.
 func cursorCount(screen string) int {
 	return strings.Count(screen, "│ > ") + strings.Count(screen, "║ > ")

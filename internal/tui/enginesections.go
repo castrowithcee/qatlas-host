@@ -209,6 +209,23 @@ func (m *Model) stackUpdate(msg tea.KeyPressMsg) (open kittui.ItemID, handled bo
 		return m.list.Update(msg)
 	}
 	id, ok := m.keys.Match(msg, kittui.InputNavigation)
+	if ok && (id == actFirst || id == actLast) {
+		// Home and End reach the first row of the first section and the last row of the last one.
+		at := slices.IndexFunc(m.secs, func(s *stackSection) bool { return s.navigable() })
+		if id == actLast {
+			for i := len(m.secs) - 1; i >= 0; i-- {
+				if m.secs[i].navigable() {
+					at = i
+					break
+				}
+			}
+		}
+		if at >= 0 {
+			m.list, m.listEngine = m.secs[at].list, m.secs[at].engine
+			m.setZone(m.zone)
+		}
+		return m.list.Update(msg)
+	}
 	before := m.cursorKey()
 	open, handled = m.list.Update(msg)
 	if !ok || (id != actUp && id != actDown) || m.cursorKey() != before {
