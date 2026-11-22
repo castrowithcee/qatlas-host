@@ -16,6 +16,7 @@ func All() []helptopics.Topic {
 		{Name: "sources", Short: "Several stack folders on one host: taking over a folder, ids, deploy keys and unique stack names", Text: sourcesTopic},
 		{Name: "stack-capabilities", Short: "What qhost can do with a stack's files, and what qhost stack check reports", Text: stackCapabilitiesTopic},
 		{Name: "stack-settings", Short: "Stack settings", Text: stackSettingsTopic},
+		{Name: "runs", Short: "Runs of a stack: the fixed Git tag after a successful run and rollback, and the tag-rejected finding", Text: runsTopic},
 		{Name: "backups", Short: "Backing up and restoring the data of a stack", Text: backupsTopic},
 		{Name: "data-directories", Short: "Missing data directories of a stack: the data-dir-missing finding and how to resolve it", Text: dataDirectoriesTopic},
 		{Name: "notifications", Short: "Notification channels: events, types and secrets", Text: notificationsTopic},
@@ -197,7 +198,8 @@ Earlier installations:
 const repositoryTopic = `The service clones the stacks repository of the host over SSH with its own deploy key and checks the server with its own known_hosts file; the system's SSH configuration and known hosts are not used. Host key checking is always strict.
 
 Binding:
-- qhost key generate (or qhost key set for a key you already have), then enter the public key as a deploy key with write access in the git platform; qhost pushes its version and revert commits with it
+- qhost key generate (or qhost key set for a key you already have), then enter the public key as a deploy key with write access in the git platform; qhost pushes its version and revert commits and the run tags with it
+- The deploy key must be allowed to push tags. Do not block tags under qhost/ with tag protection rules or hooks, or each run ends with the finding tag-rejected (see qhost help runs)
 - qhost repo set <ssh-url> --dir <path> [--engine <engine>]: the URL is user@host:path or ssh://[user@]host[:port]/path; --dir names the stack folder, is required and has no default
 - On first contact the host key and its SHA256 fingerprint are shown. At a terminal you confirm it by answering the question (default no). Without a terminal, pass the expected fingerprint: --fingerprint SHA256:...
 - Compare the fingerprint with the one the git platform publishes before you confirm it.

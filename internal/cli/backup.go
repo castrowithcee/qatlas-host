@@ -49,7 +49,7 @@ func newBackupCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
 				{Name: "backup", Value: b.ID}, {Name: "stack", Value: b.Stack},
 				{Name: "created", Value: b.Created.UTC().Format(time.RFC3339)},
-				{Name: "commit", Value: b.Commit}, {Name: "size", Value: b.Size},
+				{Name: "commit", Value: b.Commit}, {Name: "tag", Value: b.Tag}, {Name: "size", Value: b.Size},
 				{Name: "items", Value: int64(len(b.Items))},
 				{Name: "removed", Value: strings.Join(res.Removed, ",")},
 			}})
@@ -58,7 +58,7 @@ func newBackupCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 	list := &cobra.Command{
 		Use:   "list <stack>",
 		Short: "List the backups of a stack, newest first",
-		Long: "list shows the backups of a stack with creation time, deployed commit, size and number of parts. A\n" +
+		Long: "list shows the backups of a stack with creation time, deployed commit and its tag, size and number of parts. A\n" +
 			"directory of the store without valid metadata shows as incomplete.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
@@ -83,11 +83,11 @@ func newBackupCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 					status = "unreadable"
 					_, _ = fmt.Fprintf(c.ErrOrStderr(), "warning: backup %s cannot be read: %s\n", b.ID, b.Unreadable)
 				}
-				rows = append(rows, output.Row{"backup": b.ID, "created": created, "commit": commit,
+				rows = append(rows, output.Row{"backup": b.ID, "created": created, "commit": commit, "tag": b.Tag,
 					"size": b.Size, "items": int64(len(b.Items)), "status": status})
 			}
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Collection{
-				Columns: []string{"backup", "created", "commit", "size", "items", "status"}, Rows: rows})
+				Columns: []string{"backup", "created", "commit", "tag", "size", "items", "status"}, Rows: rows})
 		},
 	}
 	restore := &cobra.Command{
