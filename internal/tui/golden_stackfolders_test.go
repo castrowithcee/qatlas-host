@@ -99,3 +99,17 @@ func TestGoldenStacksKeyReplaceQuestion(t *testing.T) {
 		return b
 	}, seq(toKey, keys("e", "f2"), typed(hiddenA), keys("f2"))...)
 }
+
+func unclearBackend() *fakeBackend { return withUnclear(foldersBackend()) }
+
+func TestGoldenStacksAddUnclear(t *testing.T) {
+	goldenScreens(t, "stacks.add.unclear", settingsRows, unclearBackend, addKeys(filesDir)...)
+}
+
+func TestGoldenStacksAddUnclearChoice(t *testing.T) {
+	goldenScreens(t, "stacks.add.unclear.choice", settingsRows, unclearBackend, seq(addKeys(filesDir), keys("c", "space"))...)
+}
+
+func TestGoldenStacksAddUnclearChosen(t *testing.T) {
+	goldenScreens(t, "stacks.add.unclear.chosen", settingsRows, unclearBackend, seq(addKeys(filesDir), keys("c", "space", "f2"))...)
+}

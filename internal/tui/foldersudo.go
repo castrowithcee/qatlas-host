@@ -45,13 +45,15 @@ func (f *addFlow) noPermissions() bool {
 // inspectSudo inspects the folder with `sudo qhost source inspect` and goes on like the inspection as root. It only
 // reads, so it asks nothing first. foreign is the project the folder belongs to when it is adopted.
 func (m *Model) inspectSudo(path string, foreign *foreignSource) tea.Cmd {
-	return m.inspectSudoFor(path, foreign, nil)
+	return m.inspectSudoFor(path, foreign, nil, nil)
 }
 
 // inspectSudoFor is inspectSudo for a folder a proposal names: the flow then ends in approving the proposal.
-func (m *Model) inspectSudoFor(path string, foreign *foreignSource, proposal *proposalCtx) tea.Cmd {
+// include is the choice of unclear files; the command plans with it and its effect belongs to it.
+func (m *Model) inspectSudoFor(path string, foreign *foreignSource, proposal *proposalCtx, include []string) tea.Cmd {
 	gen := m.beginSetting()
-	args := []string{"source", "inspect", "--output", "json", "--", path}
+	args := append([]string{"source", "inspect"}, includeArgs(include)...)
+	args = append(args, "--output", "json", "--", path)
 	return m.runSudo(args, func(r sudoRun) tea.Cmd {
 		msg := settingMsg{gen: gen, op: opInspect, name: path}
 		var got sudoInspection
@@ -61,7 +63,7 @@ func (m *Model) inspectSudoFor(path string, foreign *foreignSource, proposal *pr
 			return m.applySetting(msg)
 		}
 		flow := &addFlow{res: got.SourceInspectResult, effect: got.Effect, foreign: foreign,
-			missing: got.Missing && got.Case == control.SourceCaseClone, proposal: proposal}
+			missing: got.Missing && got.Case == control.SourceCaseClone, proposal: proposal, include: include}
 		if proposal != nil {
 			flow.proposal.effect = got.Effect
 		}
@@ -86,13 +88,13 @@ func (m *Model) askProbeSudo(flow *addFlow) {
 // askCompareSudo asks to compare the folder with the repository at the address with `sudo qhost source compare`,
 // with the host key confirmed before.
 func (m *Model) askCompareSudo(flow *addFlow) {
-	t, path, url, fp := m.text, flow.res.Path, flow.url, flow.probe.Fingerprint
+	t, path, url, fp, include := m.text, flow.res.Path, flow.url, flow.probe.Fingerprint, flow.include
 	m.askSetting(settingChange{title: flow.title(), question: t.Lookup(textAskCompare, path, url), remote: t.Lookup(textSudoRemoteGit),
 		consequence: t.Lookup(textWhatCompare), op: opCompare, name: path,
 		direct: func(b Backend) (any, error) {
-			return b.SourceCompare(m.ctx, control.SourceCompareArgs{Path: path, URL: url, Fingerprint: fp})
+			return b.SourceCompare(m.ctx, control.SourceCompareArgs{Path: path, URL: url, Fingerprint: fp, Include: include})
 		},
-		args:   []string{"source", "compare", "--fingerprint", fp, "--output", "json", "--", path, url},
+		args:   append(append([]string{"source", "compare", "--fingerprint", fp}, includeArgs(flow.include)...), "--output", "json", "--", path, url),
 		decode: decodeSudo[control.SourceCompareResult](func(r control.SourceCompareResult) bool { return r.State != "" })})
 }
 
@@ -114,9 +116,10 @@ func (f *addFlow) sudoArgs() []string {
 		if f.url != "" {
 			args = append(args, "--url", f.url, "--fingerprint", f.probe.Fingerprint, "--expect-effect", f.effect)
 			args = append(args, f.expectArgs()...)
-			break
+		} else {
+			args = append(args, "--expect-effect", f.effect)
 		}
-		args = append(args, "--expect-effect", f.effect)
+		args = append(args, includeArgs(f.include)...)
 	default:
 		args = append(args, "--expect-effect", f.effect)
 	}
@@ -271,5 +274,6 @@ func (f *addFlow) proposalArgs() []string {
 	if f.url != "" && f.res.Case == control.SourceCaseFiles {
 		args = append(args, f.expectArgs()...)
 	}
+	args = append(args, includeArgs(f.include)...)
 	return append(args, "--output", "json")
 }

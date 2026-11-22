@@ -45,7 +45,7 @@ type compared struct {
 
 // withComparison is res with the plan of a comparison of a folder of files.
 func withComparison(res control.SourceInspectResult, cmp control.SourceCompareResult) control.SourceInspectResult {
-	res.PlannedFiles, res.Excluded, res.Ignore = cmp.PlannedFiles, cmp.Excluded, cmp.Ignore
+	res.PlannedFiles, res.Excluded, res.Included, res.Ignore = cmp.PlannedFiles, cmp.Excluded, cmp.Included, cmp.Ignore
 	return res
 }
 
@@ -57,7 +57,7 @@ func (m *Model) compareFolder(flow *addFlow) tea.Cmd {
 		m.askCompareSudo(flow)
 		return nil
 	}
-	args := control.SourceCompareArgs{Path: flow.res.Path, URL: flow.url, Fingerprint: flow.probe.Fingerprint}
+	args := control.SourceCompareArgs{Path: flow.res.Path, URL: flow.url, Fingerprint: flow.probe.Fingerprint, Include: flow.include}
 	ctx, host, shown := m.ctx, m.folders, flow.res
 	return m.writeCall(opCompare, args.Path, func(b Backend) (any, error) {
 		cmp, err := b.SourceCompare(ctx, args)

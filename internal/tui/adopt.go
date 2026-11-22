@@ -176,7 +176,7 @@ func (m *Model) beginAdopt(src foreignSource) tea.Cmd {
 	}
 	ctx, host := m.ctx, m.folders
 	return m.writeCall(opInspect, src.dir, func(b Backend) (any, error) {
-		got, err := inspectFolder(ctx, b, host, src.dir)
+		got, err := inspectFolder(ctx, b, host, src.dir, nil)
 		if err != nil {
 			return nil, err
 		}

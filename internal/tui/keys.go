@@ -135,6 +135,7 @@ func keyTable() []kittui.Action {
 		act(actTest, kittui.LevelLetter, textKeyTest, "s"),
 		act(actRemote, kittui.LevelLetter, textKeyRemote, "O"),
 		act(actWithRemote, kittui.LevelConfirm, textAnswerWithRemote, "w"),
+		act(actChoose, kittui.LevelConfirm, textAnswerChoose, "c"),
 		act(actRestore, kittui.LevelLetter, textKeyRestore, "R"),
 		act(actDataDirs, kittui.LevelLetter, textKeyDataDirs, "m"),
 		act(actContainerLogs, kittui.LevelLetter, textKeyLog, "o"),

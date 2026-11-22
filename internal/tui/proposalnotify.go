@@ -91,7 +91,7 @@ func (m *Model) askProposalChannel(eff *kindEffect, shown *proposalCtx, add cont
 // appeared; then the approval is taken, the channel is added with the secret parts the person entered, and the
 // result is kept on the proposal. Neither an error nor the message kept on the proposal contains a secret part.
 func approveChannelAndAdd(ctx context.Context, b Backend, p *proposalCtx, eff *kindEffect, add control.NotifyAddArgs) (any, error) {
-	now := loadProposal(ctx, b, nil, p.gen, p.id, true)
+	now := loadProposal(ctx, b, nil, p.gen, p.id, true, nil)
 	if now.err != nil {
 		return nil, now.err
 	}
