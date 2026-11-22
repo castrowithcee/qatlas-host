@@ -16,9 +16,9 @@
     demo/.env                                                                                                           
     demo/compose.yaml                                                                                                   
                                                                                                                         
-  Left out (1), recorded only in .git/info/exclude                                                                      
+  Left out (2), not needed by the stacks, kept out of git by .gitignore                                                 
     demo/data: bind-mount (stack demo)                                                                                  
+    demo/notes.txt: not-referenced                                                                                      
                                                                                                                         
   Stacks (1)                                                                                                            
-    demo (folder demo)                                                                                                  
-y yes, do it  w with a remote  n/esc/enter cancel                                                      ↑/↓ scroll  20/30
+y yes, do it  w with a remote  n/esc/enter cancel                                                      ↑/↓ scroll  20/34

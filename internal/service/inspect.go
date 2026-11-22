@@ -91,6 +91,7 @@ func (s *inspectService) handle(ctx context.Context, raw json.RawMessage) (any, 
 	if v.plan != nil {
 		res.PlannedFiles = v.plan.planned
 		res.Excluded = v.plan.excluded
+		res.Ignore = v.plan.ignoreResult()
 	}
 	if v.view != nil {
 		if !v.loaded {
@@ -266,9 +267,13 @@ func (s *inspectService) decideRepo(ctx context.Context, a control.SourceInspect
 }
 
 func (s *inspectService) decideFiles(ctx context.Context, a control.SourceInspectArgs) (verdict, error) {
-	// The plan needs the stacks for their bind mounts; a folder whose stacks cannot be read has none.
+	// The plan needs the stacks for what they refer to; a folder whose stacks cannot be read has none.
 	list, loadErr := stacks.Load(a.Path)
-	plan, err := planFiles(ctx, a.Path, list)
+	plan, err := planFiles(ctx, a.Path, list, loadErr != nil, nil)
+	var bad *gitrepo.IgnoreError
+	if errors.As(err, &bad) {
+		return rejected(printable(bad.Error()), ignoreFix), nil
+	}
 	if err != nil {
 		return verdict{}, err
 	}
@@ -280,13 +285,45 @@ func (s *inspectService) decideFiles(ctx context.Context, a control.SourceInspec
 type filePlan struct {
 	planned  []string
 	excluded []control.SourceExcluded
+	// remote are the planned files that are planned only because the remote versions them.
+	remote []string
 	// rawPlanned and rawExcluded are planned and the paths of excluded as they are on disk, in the same order;
 	// the lists above show them with unprintable characters replaced.
 	rawPlanned, rawExcluded []string
-	preview                 *gitrepo.Preview
+	// ignore is what the repository writes to the .gitignore of the folder for rawExcluded.
+	ignore  gitrepo.IgnorePlan
+	preview *gitrepo.Preview
 }
 
 func (p *filePlan) close() { _ = p.preview.Close() }
+
+// ignoreFix is the advice for a .gitignore that the first commit cannot extend.
+const ignoreFix = "Make .gitignore a regular file of at most 1 MiB that the service can read, or remove it; qhost adds the paths it leaves out to it."
+
+// ignoreResult is the change to the .gitignore of the folder, nil when there is none.
+func (p *filePlan) ignoreResult() *control.SourceIgnore {
+	if !p.ignore.Write {
+		return nil
+	}
+	out := &control.SourceIgnore{Action: control.SourceIgnoreCreate, Lines: []string{}}
+	if p.ignore.Exists {
+		out.Action = control.SourceIgnoreExtend
+	}
+	for _, l := range p.ignore.Added {
+		out.Lines = append(out.Lines, maskControl(l))
+	}
+	return out
+}
+
+// committedFiles is the number of files of the first commit: the planned files and a .gitignore that is written
+// and not among them.
+func (p *filePlan) committedFiles() int {
+	n := len(p.planned)
+	if p.ignore.Write && !slices.Contains(p.rawPlanned, gitrepo.IgnoreName) {
+		n++
+	}
+	return n
+}
 
 func (p *filePlan) TrackedFiles(_ context.Context, dir string) ([]string, error) {
 	if dir == stacks.RootFolder {
@@ -313,9 +350,83 @@ func (p *filePlan) IsIgnored(ctx context.Context, rel string) (bool, error) {
 // underPath reports whether rel is root or lies below it; both are clean paths relative to the folder.
 func underPath(root, rel string) bool { return rel == root || strings.HasPrefix(rel, root+"/") }
 
-func planFiles(ctx context.Context, root string, list []stacks.Stack) (*filePlan, error) {
+// referenced is what the stacks of a folder need, as paths from the folder's root.
+type referenced struct {
+	files, dirs      map[string]bool
+	writable, secret map[string]string
+	// rootBroken names the root stack when it cannot be read: it is the whole folder.
+	rootBroken string
+}
+
+// referencesOf gathers the references of the stacks that can be read. A stack that cannot be read brings none.
+func referencesOf(list []stacks.Stack) referenced {
+	r := referenced{files: map[string]bool{}, dirs: map[string]bool{}, writable: map[string]string{}, secret: map[string]string{}}
+	for _, st := range list {
+		if st.Err != nil {
+			if st.Folder == stacks.RootFolder {
+				r.rootBroken = printable(st.Name)
+			}
+			continue
+		}
+		for _, f := range st.Refs.Files {
+			r.files[f] = true
+		}
+		for _, d := range st.Refs.Dirs {
+			r.dirs[d] = true
+		}
+		for _, f := range st.Refs.Writable {
+			r.writable[f] = printable(st.Name)
+		}
+		for _, f := range st.Refs.Secrets {
+			r.secret[f] = printable(st.Name)
+		}
+	}
+	return r
+}
+
+// needed tells whether a stack refers to the file, directly or through a folder.
+func (r referenced) needed(f string) bool {
+	if r.files[f] {
+		return true
+	}
+	for d := range r.dirs {
+		if underPath(d, f) || d == stacks.RootFolder {
+			return true
+		}
+	}
+	return false
+}
+
+// alwaysPlanned are the files of the folder root that the first commit takes whatever the stacks refer to: the
+// ignore and attribute files and the settings of the stacks.
+func alwaysPlanned(f string) bool {
+	return f == ".gitignore" || f == ".gitattributes" ||
+		path.Dir(f) == stacks.SettingsDir && strings.HasSuffix(f, ".yaml")
+}
+
+// collapsible are the reasons a whole folder is left out as one entry when every file below it has the same one.
+var collapsible = []string{control.SourceExcludedNotReferenced, control.SourceExcludedUnreadableStack}
+
+// planFiles decides which files of a folder without a repository the first commit takes: the compose files, env
+// files and everything else the readable stacks refer to, and the always planned files. Everything else is left
+// out with the reason. stacksUnread says the stacks could not be read at all; the folder then brings no file.
+//
+// remote holds the files the commit of a remote versions when the folder joins it. Such a file is planned where
+// it would only be left out as not referenced, so joining removes nothing the remote versions; a file that is
+// left out for another reason, such as a writable mount, a secrets file, data of a bind mount or a stack that
+// cannot be read, stays out, and so does a file the service cannot read.
+//
+// The plan holds the .gitignore that keeps what is left out out of git; a .gitignore of the folder that cannot be
+// extended gives a *gitrepo.IgnoreError.
+func planFiles(ctx context.Context, root string, list []stacks.Stack, stacksUnread bool, remote map[string]bool) (*filePlan, error) {
+	ref := referencesOf(list)
 	var excluded []control.SourceExcluded
 	roots := bindRoots(root, list)
+	for _, st := range list {
+		if st.Err != nil && st.Folder != stacks.RootFolder && existsNoFollow(root, st.Folder) {
+			roots = append(roots, control.SourceExcluded{Path: st.Folder, Reason: control.SourceExcludedUnreadableStack, Stack: printable(st.Name)})
+		}
+	}
 	slices.SortFunc(roots, func(a, b control.SourceExcluded) int { return strings.Compare(a.Path, b.Path) })
 	for _, ex := range roots {
 		if !slices.ContainsFunc(excluded, func(o control.SourceExcluded) bool { return underPath(o.Path, ex.Path) }) {
@@ -345,12 +456,31 @@ func planFiles(ctx context.Context, root string, list []stacks.Stack) (*filePlan
 		return nil, gitFailure(err)
 	}
 	bind := slices.Clone(excluded)
+	var loose []control.SourceExcluded
 	for _, f := range listed {
 		if slices.ContainsFunc(bind, func(o control.SourceExcluded) bool { return underPath(o.Path, strings.TrimSuffix(f, "/")) }) {
 			continue
 		}
 		if nested, isDir := strings.CutSuffix(f, "/"); isDir {
 			excluded = append(excluded, control.SourceExcluded{Path: nested, Reason: control.SourceExcludedNestedRepo})
+			continue
+		}
+		byRemote := false
+		switch {
+		case ref.needed(f) || !stacksUnread && alwaysPlanned(f):
+		case ref.writable[f] != "":
+			excluded = append(excluded, control.SourceExcluded{Path: f, Reason: control.SourceExcludedWritableFile, Stack: ref.writable[f]})
+			continue
+		case ref.secret[f] != "":
+			excluded = append(excluded, control.SourceExcluded{Path: f, Reason: control.SourceExcludedSecretsFile, Stack: ref.secret[f]})
+			continue
+		case ref.rootBroken != "" && !alwaysPlanned(f):
+			loose = append(loose, control.SourceExcluded{Path: f, Reason: control.SourceExcludedUnreadableStack, Stack: ref.rootBroken})
+			continue
+		case remote[f] && !stacksUnread:
+			byRemote = true
+		default:
+			loose = append(loose, control.SourceExcluded{Path: f, Reason: control.SourceExcludedNotReferenced})
 			continue
 		}
 		full := filepath.Join(root, f)
@@ -369,8 +499,12 @@ func planFiles(ctx context.Context, root string, list []stacks.Stack) (*filePlan
 		default:
 			plan.planned = append(plan.planned, maskControl(f))
 			plan.rawPlanned = append(plan.rawPlanned, f)
+			if byRemote {
+				plan.remote = append(plan.remote, maskControl(f))
+			}
 		}
 	}
+	excluded = append(excluded, collapseLoose(loose, plan.rawPlanned, excluded)...)
 
 	// Git passes over a folder it cannot open and over a pipe, socket or device without a word, so they are
 	// looked for here.
@@ -393,16 +527,71 @@ func planFiles(ctx context.Context, root string, list []stacks.Stack) (*filePlan
 		excluded[i].Path = maskControl(excluded[i].Path)
 	}
 	plan.excluded = excluded
+	// A name with a line break cannot be a pattern; source add refuses it as unprintable, so the answer still
+	// shows the folder.
+	patterned := slices.DeleteFunc(slices.Clone(plan.rawExcluded), func(p string) bool { return strings.ContainsAny(p, "\n\r\x00") })
+	if plan.ignore, err = gitrepo.PlanIgnore(root, patterned); err != nil {
+		return nil, err
+	}
 	ok = true
 	return plan, nil
 }
 
-// bindRoots lists the sources of the stacks' bind mounts that exist in the folder, as paths below it.
+// collapseLoose turns files that are left out for a collapsible reason into entries: a folder in which every
+// file has that same reason and none is planned or left out otherwise is one entry, so a log folder does not
+// list thousands of files. planned and fixed are what else lies in the folder.
+func collapseLoose(loose []control.SourceExcluded, planned []string, fixed []control.SourceExcluded) []control.SourceExcluded {
+	// reasons maps a folder to the reasons of everything below it.
+	reasons := map[string]map[string]bool{}
+	note := func(p, reason string) {
+		for dir := path.Dir(p); dir != "." && dir != "/"; dir = path.Dir(dir) {
+			if reasons[dir] == nil {
+				reasons[dir] = map[string]bool{}
+			}
+			reasons[dir][reason] = true
+		}
+	}
+	for _, p := range planned {
+		note(p, "planned")
+	}
+	for _, e := range fixed {
+		note(e.Path, e.Reason+"/"+e.Stack)
+	}
+	for _, e := range loose {
+		note(e.Path, e.Reason+"/"+e.Stack)
+	}
+	var out []control.SourceExcluded
+	seen := map[string]bool{}
+	for _, e := range loose {
+		entry := e
+		if slices.Contains(collapsible, e.Reason) {
+			parts := strings.Split(e.Path, "/")
+			for i := 1; i < len(parts); i++ {
+				dir := strings.Join(parts[:i], "/")
+				if r := reasons[dir]; len(r) == 1 && r[e.Reason+"/"+e.Stack] {
+					entry.Path = dir
+					break
+				}
+			}
+		}
+		if !seen[entry.Path] {
+			seen[entry.Path] = true
+			out = append(out, entry)
+		}
+	}
+	return out
+}
+
+// bindRoots lists the sources of the stacks' bind mounts that exist in the folder and are data, as paths below
+// it. A mount the stack's references name, such as a read-only one, is no data.
 func bindRoots(root string, list []stacks.Stack) []control.SourceExcluded {
 	var out []control.SourceExcluded
 	for _, st := range list {
 		for _, bm := range st.BindMounts {
 			rel := st.RepoPath(bm)
+			if st.Err == nil && (slices.Contains(st.Refs.Files, rel) || slices.Contains(st.Refs.Dirs, rel) || slices.Contains(st.Refs.Writable, rel)) {
+				continue
+			}
 			if existsNoFollow(root, rel) && !slices.ContainsFunc(out, func(o control.SourceExcluded) bool { return o.Path == rel }) {
 				out = append(out, control.SourceExcluded{Path: rel, Reason: control.SourceExcludedBindMount, Stack: printable(st.Name)})
 			}
@@ -528,6 +717,9 @@ func (s *inspectService) addStacks(ctx context.Context, res *control.SourceInspe
 		}
 		for _, bm := range bindRoots(root, list[i:i+1]) {
 			out.BindMounts = append(out.BindMounts, maskControl(bm.Path))
+		}
+		if list[i].Err == nil {
+			out.Unresolved = mapAll(list[i].Refs.Unresolved, text)
 		}
 		if in, err := compose.InputsOf(list[i]); err == nil {
 			out.Project = text(in.Project)

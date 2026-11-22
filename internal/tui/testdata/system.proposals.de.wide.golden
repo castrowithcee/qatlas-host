@@ -2,11 +2,11 @@
    1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge  [7 ◎ System]        
    Benutzer   Gruppen   Ordner  [Vorschläge]  Änderungen   Protokoll                                                    
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  VORSCHLAG  VON  EINGEREICHT  LÄUFT AB     ZUSTAND                                                                     
-> h-0001     ben  10-30 16:00  11-13 16:00  offen                                                                       
-  h-0002     ada  10-30 09:00  11-13 09:00  offen                                                                       
-  h-0003     ada  10-29 12:00  11-12 12:00  angewendet                                                                  
-  h-0004     ben  10-28 08:00  11-11 08:00  abgelehnt                                                                   
+  VORSCHLAG  ART            VON  EINGEREICHT  LÄUFT AB     ZUSTAND                                                      
+> h-0001     Host-Änderung  ben  10-30 16:00  11-13 16:00  offen                                                        
+  h-0002     Host-Änderung  ada  10-30 09:00  11-13 09:00  offen                                                        
+  h-0003     Host-Änderung  ada  10-29 12:00  11-12 12:00  angewendet                                                   
+  h-0004     Host-Änderung  ben  10-28 08:00  11-11 08:00  abgelehnt                                                    
                                                                                                                         
                                                                                                                         
                                                                                                                         

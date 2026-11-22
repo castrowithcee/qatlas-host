@@ -46,7 +46,7 @@ func (m *Model) generalForm() *settingsForm {
 		return kittui.FormField{ID: kittui.FieldID(id), Kind: kittui.FieldChoice, Label: label, Hint: hint, Choices: choices,
 			Value: kittui.FormValue{Choice: kittui.ChoiceID(value)}}
 	}
-	return m.newSettingsForm(formGeneral, textPageGeneral, []kittui.FormField{
+	fields := []kittui.FormField{
 		pick("theme", textFieldTheme, textHintTheme, themes, p.Theme),
 		pick("start", textFieldStartArea, textHintStartArea, starts, p.Start),
 		pick("language", textFieldLanguage, textHintLanguage, []kittui.Choice{choice(uiprefs.LanguageEnglish, textLangEnglish),
@@ -55,7 +55,12 @@ func (m *Model) generalForm() *settingsForm {
 			choice(mouseChoiceOff, textMouseOff)}, mouse),
 		pick("icons", textFieldIcons, textHintIcons, []kittui.Choice{choice(uiprefs.IconsUnicode, textIconsUnicode),
 			choice(uiprefs.IconsNerdFont, textIconsNerdFont), choice(uiprefs.IconsNone, textIconsNone)}, p.Icons),
-	})
+	}
+	// The switch belongs to the host, not to the preferences; it shows once the host service has answered.
+	if m.free.known {
+		fields = append(fields, m.freeSwitchField())
+	}
+	return m.newSettingsForm(formGeneral, textPageGeneral, fields)
 }
 
 // submitGeneral writes the chosen values with the rest of the preferences unchanged. It reaches no service, so
@@ -76,7 +81,11 @@ func (m *Model) submitGeneral(f *settingsForm) tea.Cmd {
 		f.problem(t.Lookup(textGeneralSaveFailed, err.Error()), t.Lookup(textFormRetry))
 		return nil
 	}
-	return m.applyPrefs(next)
+	cmd := m.applyPrefs(next)
+	if c := string(v[fieldFreeCmds].Choice); c != "" && (c == freeChoiceOn) != m.free.enabled {
+		m.askFreeSwitch(c == freeChoiceOn)
+	}
+	return cmd
 }
 
 // applyPrefs makes saved preferences effective at once, except the start area, which only the next start reads.

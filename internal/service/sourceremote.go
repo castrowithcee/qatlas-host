@@ -244,12 +244,13 @@ func (s *inspectService) compareFiles(ctx context.Context, a control.SourceCompa
 	if err := r.confirmRemote(ctx, rc, a.URL, a.Fingerprint); err != nil {
 		return control.SourceCompareResult{}, err
 	}
-	cmp, err := r.set.git.CompareFolder(ctx, r.set.gitConfig(rc), a.Path, a.URL, v.plan.rawPlanned)
+	cmp, plan, err := s.comparePlanned(ctx, r.set.gitConfig(rc), a.Path, a.URL, v)
 	if err != nil {
-		return control.SourceCompareResult{}, gitFailure(err)
+		return control.SourceCompareResult{}, err
 	}
+	defer plan.close()
 	res := compareResult(control.SourceCaseFiles, cmp)
-	res.PlannedFiles = v.plan.planned
+	res.PlannedFiles, res.Excluded, res.RemoteFiles, res.Ignore = plan.planned, plan.excluded, plan.remote, plan.ignoreResult()
 	if cmp.State == gitrepo.RemoteDifferent {
 		res.Secrets = secretsOf(cmp.Scan)
 	}
@@ -515,11 +516,56 @@ func followDifferent(ctx context.Context, wc WorkingCopy, url string, cmp gitrep
 	return nil
 }
 
+// comparePlanned compares the folder of files of v with the repository at url. The files are planned again with
+// what the compared remote commit versions, so the plan and the comparison rest on the same commit. The plan is
+// the caller's to close.
+func (s *inspectService) comparePlanned(ctx context.Context, gc gitrepo.Config, dir, url string, v verdict) (gitrepo.Comparison, *filePlan, error) {
+	var plan *filePlan
+	cmp, err := s.repo.set.git.CompareFolder(ctx, gc, dir, url, func(remote []string) ([]string, []string, error) {
+		if plan != nil {
+			plan.close()
+			plan = nil
+		}
+		tracked := make(map[string]bool, len(remote))
+		for _, f := range remote {
+			tracked[f] = true
+		}
+		p, err := planFiles(ctx, dir, v.list, v.loadErr != nil, tracked)
+		var bad *gitrepo.IgnoreError
+		if errors.As(err, &bad) {
+			return nil, nil, control.NewError(control.CodeInvalid, fmt.Sprintf("%s. %s", printable(bad.Error()), ignoreFix))
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		plan = p
+		return p.rawPlanned, p.rawExcluded, nil
+	})
+	if err == nil && plan == nil {
+		err = errors.New("the files of the folder were not planned")
+	}
+	if err != nil {
+		if plan != nil {
+			plan.close()
+		}
+		var ce *control.Error
+		if errors.As(err, &ce) {
+			return gitrepo.Comparison{}, nil, err
+		}
+		return gitrepo.Comparison{}, nil, gitFailure(err)
+	}
+	return cmp, plan, nil
+}
+
 // addFilesRemote starts a repository in a folder of files on the history of the repository at the address and
-// binds it as a remote source. It compares again and refuses, creating nothing, unless the answer is the one the
-// operator saw. The caller holds setMu, closes plan and has checked the confirmed file list.
-func (s *inspectService) addFilesRemote(ctx context.Context, a control.SourceAddArgs, plan *filePlan) (any, error) {
+// binds it as a remote source. It compares again, planning the files with what the remote versions, and refuses,
+// creating nothing, unless the answer and the plan are the ones the operator saw. The caller holds setMu and
+// closes the plan of v.
+func (s *inspectService) addFilesRemote(ctx context.Context, a control.SourceAddArgs, v verdict, access *control.SourceAccess) (any, error) {
 	r := s.repo
+	if err := addableFiles(a.Files, access); err != nil {
+		return nil, err
+	}
 	if err := checkRemoteArgs(a.Path, a.URL, a.Fingerprint); err != nil {
 		return nil, err
 	}
@@ -538,12 +584,16 @@ func (s *inspectService) addFilesRemote(ctx context.Context, a control.SourceAdd
 		return nil, err
 	}
 	gc := r.set.gitConfig(rc)
-	cmp, err := r.set.git.CompareFolder(ctx, gc, a.Path, a.URL, plan.rawPlanned)
+	cmp, plan, err := s.comparePlanned(ctx, gc, a.Path, a.URL, v)
 	if err != nil {
-		return nil, gitFailure(err)
+		return nil, err
 	}
+	defer plan.close()
 	if string(cmp.State) != a.ExpectState || cmp.Commit != a.ExpectCommit {
 		return nil, errRemoteChanged
+	}
+	if err := confirmedFiles(a.Files, plan, access); err != nil {
+		return nil, err
 	}
 	switch cmp.State {
 	case gitrepo.RemoteEmpty:
@@ -554,11 +604,7 @@ func (s *inspectService) addFilesRemote(ctx context.Context, a control.SourceAdd
 			return nil, secretsRefusal(cmp.Scan, "nothing was created")
 		}
 	}
-	excluded := make([]string, len(plan.excluded))
-	for i, e := range plan.excluded {
-		excluded[i] = e.Path
-	}
-	commit, err := r.set.git.InitFromRemote(ctx, gc, a.Path, a.URL, cmp.Branch, cmp.Commit, plan.rawPlanned, excluded)
+	commit, err := r.set.git.InitFromRemote(ctx, gc, a.Path, a.URL, cmp.Branch, cmp.Commit, plan.rawPlanned, plan.rawExcluded)
 	if errors.Is(err, gitrepo.ErrRemoteMoved) {
 		return nil, errRemoteChanged
 	}
@@ -584,5 +630,5 @@ func (s *inspectService) addFilesRemote(ctx context.Context, a control.SourceAdd
 	if _, err := r.set.add(rc, conf, rev); err != nil {
 		return nil, err
 	}
-	return control.SourceAddResult{ID: rc.ID, Path: a.Path, Kind: control.SourceKindRemote, Head: commit, Files: len(plan.planned), Pushed: pushed}, nil
+	return control.SourceAddResult{ID: rc.ID, Path: a.Path, Kind: control.SourceKindRemote, Head: commit, Files: plan.committedFiles(), Pushed: pushed}, nil
 }

@@ -190,11 +190,11 @@ func TestCompareFolderOfFilesWithoutGit(t *testing.T) {
 		"web/secrets.env": "DEMO_TOKEN=not-a-real-secret\n", ".gitattributes": "* text eol=crlf\n"})
 	files := []string{"README.md", "db/compose.yaml", "web/compose.yaml"}
 	before := snapshot(t, dir)
-	got, err := CompareFolder(ctx, cfg, dir, remote.bare, files)
+	got, err := CompareFolder(ctx, cfg, dir, remote.bare, fixedPlan(files))
 	if err != nil || got.State != RemoteEqual || got.Branch != "main" || got.Commit != remoteHead {
 		t.Fatalf("equal: %+v, %v", got, err)
 	}
-	got, err = CompareFolder(ctx, cfg, dir, remote.bare, []string{"README.md", "web/compose.yaml", "web/secrets.env"})
+	got, err = CompareFolder(ctx, cfg, dir, remote.bare, fixedPlan([]string{"README.md", "web/compose.yaml", "web/secrets.env"}))
 	want := Comparison{State: RemoteDifferent, Branch: "main", Commit: remoteHead,
 		Paths: []string{"db/compose.yaml", "web/secrets.env"}, PathCount: 2}
 	// The secrets file is what a push would publish, and only that: the place, never the value.
@@ -211,13 +211,23 @@ func TestCompareFolderOfFilesWithoutGit(t *testing.T) {
 		t.Fatalf("the comparison left a .git: %v", err)
 	}
 
+	// The .gitignore that keeps what is left out out of git counts, and it is not written for the comparison.
+	got, err = CompareFolder(ctx, cfg, dir, remote.bare, excludingPlan(files, []string{"web/secrets.env"}))
+	if err != nil || got.State != RemoteDifferent || fmt.Sprint(got.Paths) != "[.gitignore]" {
+		t.Fatalf("with exclusions: %+v, %v", got, err)
+	}
+	wantSame(t, "folder", before, snapshot(t, dir))
+	if _, err := CompareFolder(ctx, cfg, dir, remote.bare, excludingPlan(files, []string{"web"})); err == nil {
+		t.Fatal("compared a listed file that is left out")
+	}
+
 	// The default branch of the remote counts, "main" only if it names none.
 	master := emptyBare(t, "master")
 	fixtureGit(t, remote.work, "push", "-q", master, "main:master")
-	if got, err := CompareFolder(ctx, cfg, dir, master, files); err != nil || got.State != RemoteEqual || got.Branch != "master" {
+	if got, err := CompareFolder(ctx, cfg, dir, master, fixedPlan(files)); err != nil || got.State != RemoteEqual || got.Branch != "master" {
 		t.Fatalf("master: %+v, %v", got, err)
 	}
-	if got, err := CompareFolder(ctx, cfg, dir, emptyBare(t, "trunk"), files); err != nil || got.State != RemoteEmpty || got.Branch != "main" {
+	if got, err := CompareFolder(ctx, cfg, dir, emptyBare(t, "trunk"), fixedPlan(files)); err != nil || got.State != RemoteEmpty || got.Branch != "main" {
 		t.Fatalf("empty: %+v, %v", got, err)
 	}
 	wantSame(t, "folder", before, snapshot(t, dir))
@@ -232,10 +242,59 @@ func TestCompareFolderOfFilesWithoutGit(t *testing.T) {
 		"outside":   {dir, []string{"../x"}},
 		"has a git": {func() string { d := folder(map[string]string{"a": "1"}); fixtureGit(t, d, "init", "-q"); return d }(), []string{"a"}},
 	} {
-		if _, err := CompareFolder(ctx, cfg, c.dir, remote.bare, c.files); err == nil {
+		if _, err := CompareFolder(ctx, cfg, c.dir, remote.bare, fixedPlan(c.files)); err == nil {
 			t.Errorf("%s: no error", name)
 		}
 	}
+}
+
+// fixedPlan chooses the same files whatever the remote versions and leaves nothing out.
+func fixedPlan(files []string) FolderPlan { return excludingPlan(files, nil) }
+
+func excludingPlan(files, excluded []string) FolderPlan {
+	return func([]string) ([]string, []string, error) { return files, excluded, nil }
+}
+
+func TestCompareFolderPlansWithTheFilesOfTheRemote(t *testing.T) {
+	ctx := context.Background()
+	remote := newRemote(t)
+	dir := filepath.Join(t.TempDir(), "stacks")
+	writeTree(t, dir, map[string]string{"README.md": "x\n", "web/compose.yaml": "a\n", "db/compose.yaml": "a\n", "notes.txt": "n\n"})
+	cfg := testConfig(t)
+
+	// The plan is given what the remote versions and takes those of the folder's candidates.
+	var seen [][]string
+	plan := func(remote []string) ([]string, []string, error) {
+		seen = append(seen, slices.Clone(remote))
+		var out []string
+		for _, f := range []string{"README.md", "db/compose.yaml", "notes.txt", "web/compose.yaml"} {
+			if f == "web/compose.yaml" || slices.Contains(remote, f) {
+				out = append(out, f)
+			}
+		}
+		return out, nil, nil
+	}
+	got, err := CompareFolder(ctx, cfg, dir, remote.bare, plan)
+	if err != nil || got.State != RemoteEqual {
+		t.Fatalf("equal with the files of the remote: %+v, %v", got, err)
+	}
+	if want := [][]string{{"README.md", "db/compose.yaml", "web/compose.yaml"}}; fmt.Sprint(seen) != fmt.Sprint(want) {
+		t.Fatalf("the plan was given %q; want %q", seen, want)
+	}
+
+	// A remote without commit versions nothing; the plan is still asked, and its error comes back as it is.
+	seen = nil
+	if got, err := CompareFolder(ctx, cfg, dir, emptyBare(t, "main"), plan); err != nil || got.State != RemoteEmpty || len(seen) != 1 || seen[0] != nil {
+		t.Fatalf("empty: %+v, %v, plan given %q", got, err, seen)
+	}
+	refused := errors.New("refused by the plan")
+	if _, err := CompareFolder(ctx, cfg, dir, remote.bare, func([]string) ([]string, []string, error) { return nil, nil, refused }); !errors.Is(err, refused) {
+		t.Fatalf("the error of the plan is not returned: %v", err)
+	}
+	if _, err := CompareFolder(ctx, cfg, dir, remote.bare, nil); err == nil {
+		t.Fatal("compared without a plan")
+	}
+	wantNoTempLeft(t)
 }
 
 func TestAddRemoteFetchBranchAndLocalHistory(t *testing.T) {
@@ -561,11 +620,11 @@ func TestInitFromRemoteStartsTheRepositoryOnTheRemoteHistory(t *testing.T) {
 		}
 	}
 
-	// Equal: the branch is the remote commit.
-	dir := folder(map[string]string{"README.md": "x\n", "web/compose.yaml": "a\n", "db/compose.yaml": "a\n", "web/secrets.env": "DEMO_TOKEN=not-a-real-secret\n"})
+	// Equal: the branch is the remote commit, and nothing left out means no .gitignore.
+	dir := folder(map[string]string{"README.md": "x\n", "web/compose.yaml": "a\n", "db/compose.yaml": "a\n"})
 	before := treeState(t, dir)
 	files := []string{"README.md", "db/compose.yaml", "web/compose.yaml"}
-	id, err := InitFromRemote(ctx, cfg, dir, remote.bare, "main", remoteHead, files, []string{"web/secrets.env"})
+	id, err := InitFromRemote(ctx, cfg, dir, remote.bare, "main", remoteHead, files, nil)
 	if err != nil || id != remoteHead {
 		t.Fatalf("equal: %s, %v", id, err)
 	}
@@ -573,8 +632,58 @@ func TestInitFromRemoteStartsTheRepositoryOnTheRemoteHistory(t *testing.T) {
 	if got := fixtureGit(t, dir, "rev-parse", "main"); got != remoteHead {
 		t.Fatalf("main = %s", got)
 	}
-	if got := readFile(t, filepath.Join(dir, ".git", "info", "exclude")); got != "/web/secrets.env\n" {
-		t.Fatalf("exclude = %q", got)
+	if _, err := os.Lstat(filepath.Join(dir, ".gitignore")); !os.IsNotExist(err) {
+		t.Fatalf(".gitignore: %v", err)
+	}
+
+	// Something left out: the .gitignore is created and committed on top of the remote commit, the work tree is
+	// clean, and the comparison saw the same tree.
+	secret := map[string]string{"README.md": "x\n", "web/compose.yaml": "a\n", "db/compose.yaml": "a\n", "web/secrets.env": "DEMO_TOKEN=not-a-real-secret\n"}
+	dir = folder(secret)
+	before = treeState(t, dir)
+	cmp, err := CompareFolder(ctx, cfg, dir, remote.bare, excludingPlan(files, []string{"web/secrets.env"}))
+	if err != nil || cmp.State != RemoteDifferent {
+		t.Fatalf("compare with exclusions: %+v, %v", cmp, err)
+	}
+	id, err = InitFromRemote(ctx, cfg, dir, remote.bare, "main", remoteHead, files, []string{"web/secrets.env"})
+	if err != nil || id == remoteHead {
+		t.Fatalf("with exclusions: %s, %v", id, err)
+	}
+	check(dir, before)
+	wantStatusEmpty(t, cfg, dir)
+	if got := readFile(t, filepath.Join(dir, ".gitignore")); got != block("/web/secrets.env") {
+		t.Fatalf(".gitignore = %q", got)
+	}
+	if got := fixtureGit(t, dir, "diff-tree", "-r", "--name-only", "--no-commit-id", remoteHead, id); got != ".gitignore" {
+		t.Fatalf("the commit differs from the remote in %q", got)
+	}
+
+	// A remote that holds that .gitignore already is equal, and the folder joins its commit as it is.
+	withBlock := newRemote(t)
+	withBlock.commit(map[string]string{".gitignore": block("/web/secrets.env")})
+	blockHead := fixtureGit(t, withBlock.work, "rev-parse", "HEAD")
+	dir = folder(secret)
+	cmp, err = CompareFolder(ctx, cfg, dir, withBlock.bare, excludingPlan(files, []string{"web/secrets.env"}))
+	if err != nil || cmp.State != RemoteEqual || cmp.Commit != blockHead {
+		t.Fatalf("compare with the block in the remote: %+v, %v", cmp, err)
+	}
+	if _, err := os.Lstat(filepath.Join(dir, ".gitignore")); !os.IsNotExist(err) {
+		t.Fatalf("the comparison wrote .gitignore: %v", err)
+	}
+	if id, err = InitFromRemote(ctx, cfg, dir, withBlock.bare, "main", blockHead, files, []string{"web/secrets.env"}); err != nil || id != blockHead {
+		t.Fatalf("equal with the block: %s, %v", id, err)
+	}
+	wantStatusEmpty(t, cfg, dir)
+
+	// The remote moved after .git was created: .git is removed and the .gitignore is not written.
+	dir = folder(secret)
+	before = treeState(t, dir)
+	if _, err := InitFromRemote(ctx, cfg, dir, remote.bare, "main", strings.Repeat("0", 40), files, []string{"web/secrets.env"}); !errors.Is(err, ErrRemoteMoved) {
+		t.Fatalf("moved: %v", err)
+	}
+	wantNoGit(t, dir)
+	if _, err := os.Lstat(filepath.Join(dir, ".gitignore")); !os.IsNotExist(err) {
+		t.Fatalf("a failed start wrote .gitignore: %v", err)
 	}
 
 	// Different: a new commit with the remote commit as its parent and exactly the given files.

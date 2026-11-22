@@ -467,7 +467,18 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 	case keyChecked:
 		return m.keyDone(res)
 	case control.SourceCompareResult:
+		// Through sudo the comparison comes alone: a folder of files still joins with its plan, which the command
+		// works out again under sudo.
+		if s.add != nil && s.add.res.Case == control.SourceCaseFiles && res.Case == control.SourceCaseFiles {
+			s.add.res = withComparison(s.add.res, res)
+		}
 		m.showComparison(res)
+		return nil
+	case compared:
+		if s.add != nil {
+			s.add.res, s.add.plan = res.res, res.plan
+		}
+		m.showComparison(res.cmp)
 		return nil
 	case control.SourceRemoteResult:
 		s.add = nil

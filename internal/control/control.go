@@ -857,6 +857,15 @@ const (
 	SourceExcludedNotRegular = "not-regular"
 	SourceExcludedUnreadable = "unreadable"
 	SourceExcludedNestedRepo = "nested-repo"
+	// SourceExcludedNotReferenced: no stack of the folder refers to it, so a deploy does not need it.
+	SourceExcludedNotReferenced = "not-referenced"
+	// SourceExcludedWritableFile: a file a stack mounts writable, which may hold data.
+	SourceExcludedWritableFile = "writable-file"
+	// SourceExcludedSecretsFile: a file a stack names as the file of a secret.
+	SourceExcludedSecretsFile = "secrets-file"
+	// SourceExcludedUnreadableStack: the stack the file belongs to cannot be read, so it brings no file; the
+	// finding of the stack says why and what to change.
+	SourceExcludedUnreadableStack = "unreadable-stack"
 )
 
 // SourceInspectArgs are the arguments of SourceInspectCommand. Path is the folder; URL is the SSH address of the
@@ -870,8 +879,8 @@ type SourceInspectArgs struct {
 //
 // Case is one of the SourceCase constants. URL is the repository address of the clone, of the adopted clone and
 // of a folder of files that is to be joined with it. NeedsURL is set for a clone without a URL. Reason and Fix are set for a rejection. Access says who owns the
-// folder and what the service may do there; it is empty for a rejection. PlannedFiles and Excluded are set
-// for SourceCaseFiles only. Stacks holds the stacks the folder would bring, none for a clone or a rejection;
+// folder and what the service may do there; it is empty for a rejection. PlannedFiles, Excluded and Ignore are
+// set for SourceCaseFiles only. Stacks holds the stacks the folder would bring, none for a clone or a rejection;
 // StacksError says they could not be read. ContainersChecked says the container engine was asked;
 // ContainersError says why it could not be, and then the rest of the answer still holds. EnginesNotChecked
 // lists the rootless engines that are set up but could not be asked, each with the reason; only the root
@@ -886,12 +895,29 @@ type SourceInspectResult struct {
 	Access            *SourceAccess    `json:"access,omitempty"`
 	PlannedFiles      []string         `json:"planned_files,omitempty"`
 	Excluded          []SourceExcluded `json:"excluded,omitempty"`
+	Ignore            *SourceIgnore    `json:"ignore,omitempty"`
 	Stacks            []SourceStack    `json:"stacks"`
 	StacksError       string           `json:"stacks_error,omitempty"`
 	ContainersChecked bool             `json:"containers_checked"`
 	ContainersError   string           `json:"containers_error,omitempty"`
 
 	EnginesNotChecked []EngineNotChecked `json:"engines_not_checked,omitempty"`
+}
+
+// The actions SourceIgnore.Action takes.
+const (
+	SourceIgnoreCreate = "create"
+	SourceIgnoreExtend = "extend"
+)
+
+// SourceIgnore is what the repository a folder of files gets writes to the .gitignore of the folder root, so that
+// every clone ignores what is left out: Action SourceIgnoreCreate makes the file, SourceIgnoreExtend adds to the
+// block of qhost at the end of an existing one, whose own lines stay as they are. Lines are the lines added, one
+// anchored path each; they are data of the folder. The first commit holds the file. Without a SourceIgnore
+// nothing is left out that the folder does not ignore already, and no file of the folder is written.
+type SourceIgnore struct {
+	Action string   `json:"action"`
+	Lines  []string `json:"lines"`
 }
 
 // EngineNotChecked is a container engine that was not asked, with the reason. Engine is named as in
@@ -909,7 +935,8 @@ const SourceAddCommand = "source.add"
 
 // SourceAddArgs are the arguments of SourceAddCommand. Files is the list of planned files the operator confirmed
 // for a folder without a repository (SourceCaseFiles); only then does the service start a repository with
-// exactly these files, and only if the list still matches what the folder holds.
+// exactly these files, and only if the list still matches what the folder holds. With URL it is the plan of
+// SourceCompareResult, which includes the files the remote versions.
 //
 // URL, Fingerprint, ExpectState and ExpectCommit connect that folder to a repository at URL: they are the
 // address, the confirmed host key and the SourceCompareResult (State and Commit) the operator was shown. The
@@ -930,7 +957,8 @@ type SourceAddResult struct {
 	Path string `json:"path"`
 	Kind string `json:"kind"`
 	Head string `json:"head"`
-	// Files is the number of files of the first commit when the service started the repository.
+	// Files is the number of files of the first commit when the service started the repository, a .gitignore it
+	// wrote included.
 	Files int `json:"files,omitempty"`
 	// Pushed says the commit with the files of the folder was pushed to the remote.
 	Pushed bool `json:"pushed,omitempty"`
@@ -962,19 +990,28 @@ const (
 
 // SourceCompareResult answers SourceCompareCommand. Case is SourceCaseLocal or SourceCaseFiles. Branch is the
 // compared remote branch and Commit its commit, empty for SourceRemoteEmpty. Paths are the paths that differ,
-// a limited number of the PathCount that differ; they are data of the remote and the folder. PlannedFiles is
-// the file list of SourceCaseFiles that was compared. Secrets is set when a push would follow (a remote
-// without commit for a local source, a different remote) and holds the secret check of what that push would
-// publish.
+// a limited number of the PathCount that differ; they are data of the remote and the folder. Secrets is set
+// when a push would follow (a remote without commit for a local source, a different remote) and holds the
+// secret check of what that push would publish.
+//
+// For SourceCaseFiles, PlannedFiles and Excluded are the plan that was compared, made as for
+// SourceInspectResult with the remote commit taken into account: a file of the folder that the remote commit
+// versions and that would only be left out as SourceExcludedNotReferenced is planned, so joining the remote
+// removes nothing it versions. RemoteFiles lists those planned files. Ignore is the change to the .gitignore
+// as for SourceInspectResult; the compared tree holds it. This plan is what SourceAddArgs.Files confirms when the
+// folder joins the remote.
 type SourceCompareResult struct {
-	Case         string         `json:"case"`
-	State        string         `json:"state"`
-	Branch       string         `json:"branch"`
-	Commit       string         `json:"commit,omitempty"`
-	Paths        []string       `json:"paths,omitempty"`
-	PathCount    int            `json:"path_count"`
-	PlannedFiles []string       `json:"planned_files,omitempty"`
-	Secrets      *SourceSecrets `json:"secrets,omitempty"`
+	Case         string           `json:"case"`
+	State        string           `json:"state"`
+	Branch       string           `json:"branch"`
+	Commit       string           `json:"commit,omitempty"`
+	Paths        []string         `json:"paths,omitempty"`
+	PathCount    int              `json:"path_count"`
+	PlannedFiles []string         `json:"planned_files,omitempty"`
+	Excluded     []SourceExcluded `json:"excluded,omitempty"`
+	RemoteFiles  []string         `json:"remote_files,omitempty"`
+	Ignore       *SourceIgnore    `json:"ignore,omitempty"`
+	Secrets      *SourceSecrets   `json:"secrets,omitempty"`
 }
 
 // The kinds SourceSecretFinding.Kind takes.
@@ -1073,7 +1110,8 @@ type SourceAccess struct {
 }
 
 // SourceExcluded is a file or folder, as a path below the folder, that the first commit would leave out. Reason is
-// one of the SourceExcluded constants; Stack names the stack whose bind mount it is.
+// one of the SourceExcluded constants; Stack names the stack the reason concerns: the one whose bind mount,
+// secret or unreadable files it is.
 type SourceExcluded struct {
 	Path   string `json:"path"`
 	Reason string `json:"reason"`
@@ -1097,6 +1135,9 @@ type SourceStack struct {
 	Project      string   `json:"project,omitempty"`
 	ComposeFiles []string `json:"compose_files,omitempty"`
 	EnvFiles     []string `json:"env_files,omitempty"`
+	// Unresolved lists the references of the compose files whose path uses a variable without a value in
+	// .env, so the first commit cannot tell whether it needs the file. It names the variable, never a value.
+	Unresolved []string `json:"unresolved_references,omitempty"`
 }
 
 // EngineSystem names the container engine of the deploy service in SourceConflict.Engine. A rootless engine

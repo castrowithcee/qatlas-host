@@ -28,6 +28,8 @@ import (
 type HostProposals interface {
 	ProposalList(ctx context.Context) (control.ProposalListResult, error)
 	ProposalShow(ctx context.Context, id string) (control.ProposalShowResult, error)
+	// CommandsStatus reads the switch for proposals of free commands.
+	CommandsStatus(ctx context.Context) (control.HostCommandsResult, error)
 }
 
 func (h *HostChannel) ProposalList(ctx context.Context) (res control.ProposalListResult, err error) {
@@ -37,6 +39,11 @@ func (h *HostChannel) ProposalList(ctx context.Context) (res control.ProposalLis
 
 func (h *HostChannel) ProposalShow(ctx context.Context, id string) (res control.ProposalShowResult, err error) {
 	err = client.Do(ctx, h.endpoint, client.CallTimeout, control.ProposalShowCommand, control.ProposalIDArgs{ID: id}, &res)
+	return res, err
+}
+
+func (h *HostChannel) CommandsStatus(ctx context.Context) (res control.HostCommandsResult, err error) {
+	err = client.Do(ctx, h.endpoint, client.CallTimeout, control.HostCommandsStatusCommand, nil, &res)
 	return res, err
 }
 
@@ -87,7 +94,7 @@ func newHostProposalList(keys *kittui.Keymap, text kittui.Translator, tones map[
 		return kittui.StyleText
 	}
 	l, err := kittui.NewList(kittui.ListSpec{Columns: []kittui.Column{
-		{Title: textColProposal}, {Title: textColSubmitter, Flex: true}, {Title: textColSubmitted},
+		{Title: textColProposal}, {Title: textColKindHost, Tone: tone}, {Title: textColSubmitter, Flex: true}, {Title: textColSubmitted},
 		{Title: textColExpires, Optional: true}, {Title: textColState, Tone: tone}},
 		Keys: listKeys(), Search: kittui.SearchByKey, Empty: textHostPropEmpty}, keys, text)
 	if err != nil {
@@ -107,10 +114,10 @@ func (m *Model) readHostProposals() tea.Cmd {
 	p.gen++
 	p.reading, p.stale = true, false
 	gen, h, ctx := p.gen, m.hostProps, m.ctx
-	return func() tea.Msg {
+	return tea.Batch(func() tea.Msg {
 		res, err := h.ProposalList(ctx)
 		return hostProposalsMsg{gen: gen, res: res, err: err}
-	}
+	}, m.readFreeSwitch())
 }
 
 // applyHostProposals takes a read of the list; a failed read keeps the list read before. The first answer also
@@ -143,7 +150,13 @@ func (m *Model) fillHostProposals() {
 		it := p.items[i]
 		word, tone := m.proposalStateWord(it.State)
 		p.tones[word] = tone
-		items[i] = kittui.ListItem{ID: id, Cells: []string{proposalShort(it.ID), proposalShort(it.SubmitterName),
+		kind := m.text.Lookup(textPropKindHostChange)
+		if it.Kind == control.ProposalKindCommand {
+			// Free commands carry their own mark in the warning colour, wherever the list is read.
+			kind = m.text.Lookup(textPropKindFree)
+			p.tones[kind] = kittui.StyleWarn
+		}
+		items[i] = kittui.ListItem{ID: id, Cells: []string{proposalShort(it.ID), kind, proposalShort(it.SubmitterName),
 			m.proposalTime(it.Submitted), m.proposalTime(it.Expires), word}}
 		p.byID[id] = it
 	}
@@ -205,8 +218,13 @@ func (m *Model) hostProposalFooter(own, common, nav []kittui.Hint) []kittui.Hint
 	own = append(own, kittui.Hint{Action: actEnter, Label: textKeyDetails},
 		kittui.Hint{Action: actSearch, Label: kittui.TextKeySearch, Priority: 1})
 	if info, ok := m.selectedHostProposal(); ok && info.State == control.ProposalOpen {
-		own = append(own, kittui.Hint{Action: actApprove, Label: textKeyApprove, Priority: 3},
-			kittui.Hint{Action: actReject, Label: textKeyReject, Priority: 3})
+		switch {
+		case info.Kind != control.ProposalKindCommand:
+			own = append(own, kittui.Hint{Action: actApprove, Label: textKeyApprove, Priority: 3})
+		case m.free.enabled:
+			own = append(own, kittui.Hint{Action: actApprove, Label: textFreeKeyRun, Priority: 3})
+		}
+		own = append(own, kittui.Hint{Action: actReject, Label: textKeyReject, Priority: 3})
 	}
 	if p.list.Query() != "" {
 		own = append(own, kittui.Hint{Action: actBack, Label: textFilterClear})
@@ -234,6 +252,10 @@ func (m *Model) askHostProposal(approve bool) tea.Cmd {
 	}
 	if approve && info.State != control.ProposalOpen {
 		m.warn(m.text.Lookup(textPropNotOpen))
+		return nil
+	}
+	if approve && info.Kind == control.ProposalKindCommand && !m.free.enabled {
+		m.warn(m.text.Lookup(textFreeSwitchOff))
 		return nil
 	}
 	return m.readHostProposal(info.ID, approve)
@@ -279,11 +301,21 @@ type hostProposalDetail struct {
 	// keys are the proposed keys in canonical form, parsed for the view.
 	keys []hostchange.Key
 	plan hostchange.Plan
-	err  error
+	// free is the content of a proposal of free commands, which has no plan and no keys.
+	free   control.ProposalCommand
+	isFree bool
+	err    error
 }
 
 func (m *Model) hostProposalDetail(res control.ProposalShowResult) hostProposalDetail {
 	d := hostProposalDetail{info: res.ProposalInfo}
+	if res.Kind == control.ProposalKindCommand {
+		d.isFree = true
+		if err := json.Unmarshal(res.Content, &d.free); err != nil || len(d.free.Commands) == 0 {
+			d.err = errors.New("the content cannot be read")
+		}
+		return d
+	}
 	if res.Kind != control.ProposalKindHostChange {
 		d.err = errors.New("this version cannot show a proposal of the kind " + res.Kind)
 		return d
@@ -327,11 +359,21 @@ func (m *Model) openHostProposalView(d hostProposalDetail) {
 	body := func(width int) []string { return m.hostProposalLines(d, width) }
 	var yes func() tea.Cmd
 	answers := []kittui.Answer{{Action: actYes, Label: textKeyApprove}, {Action: actNo, Label: textAnswerClose}}
-	if d.approvable() {
+	consequence := t.Lookup(textHostPropWhat)
+	if d.isFree {
+		answers[0].Label = textFreeAnswerRun
+		consequence = t.Lookup(textFreeWhat)
+		if m.canRunFree(d) {
+			yes = func() tea.Cmd { return m.approveHostProposal(d) }
+		} else if d.approvable() {
+			consequence = t.Lookup(textFreeSwitchOff)
+		} else {
+			consequence = t.Lookup(textHostPropNotApprovable)
+		}
+	} else if d.approvable() {
 		yes = func() tea.Cmd { return m.approveHostProposal(d) }
 	}
-	consequence := t.Lookup(textHostPropWhat)
-	if yes == nil {
+	if yes == nil && !d.isFree {
 		consequence = t.Lookup(textHostPropNotApprovable)
 	}
 	m.askSheet(textTitleHostProposal, question, consequence, body, answers, yes)
@@ -343,12 +385,16 @@ func (m *Model) openHostProposalView(d hostProposalDetail) {
 func (m *Model) hostProposalLines(d hostProposalDetail, width int) []string {
 	t, p := m.text, d.info
 	state, tone := m.proposalStateWord(p.State)
-	lines := m.fieldLines([]field{
+	var lines []string
+	if d.isFree {
+		lines = m.freeNotice(width)
+	}
+	lines = append(lines, m.fieldLines([]field{
 		{t.Lookup(textPropFieldSubmitter), proposalShort(p.SubmitterName) + " (" + strconv.Itoa(int(p.SubmitterUID)) + ")", kittui.StyleText},
 		{t.Lookup(textPropFieldSubmitted), m.proposalTime(p.Submitted), kittui.StyleText},
 		{t.Lookup(textPropFieldExpires), m.proposalTime(p.Expires), kittui.StyleText},
 		{t.Lookup(textPropFieldState), state, tone},
-	}, width)
+	}, width)...)
 	if p.Message != "" {
 		style, label := kittui.StyleText, textPropMessage
 		switch p.State {
@@ -358,6 +404,12 @@ func (m *Model) hostProposalLines(d hostProposalDetail, width int) []string {
 			label = textPropReason
 		}
 		lines = append(lines, m.wrapped(detailIndent, style, t.Lookup(label, proposalShort(p.Message)), width)...)
+	}
+	if d.isFree {
+		if d.err != nil {
+			return append(lines, m.wrapped(detailIndent, kittui.StyleFail, t.Lookup(textHostPropBad, d.err.Error()), width)...)
+		}
+		return append(lines, m.freeProposalLines(d, width)...)
 	}
 	lines = append(lines, "", m.heading(textHostPropHeadChange, width))
 	if d.err != nil {
@@ -463,6 +515,9 @@ func (m *Model) hostProposalRisk(action string, args []string) string {
 // approveHostProposal goes on to the approval of a proposal: the initial password of a new user is asked first,
 // then the confirmation of the change.
 func (m *Model) approveHostProposal(d hostProposalDetail) tea.Cmd {
+	if d.isFree {
+		return m.askFreeRun(d)
+	}
 	if !d.approvable() {
 		m.warn(m.text.Lookup(textPropNotOpen))
 		return nil

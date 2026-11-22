@@ -36,7 +36,9 @@ type Git struct {
 
 	// The remote steps. Compare is what CompareRemote and CompareFolder answer, Scan what ScanPush answers,
 	// HostCommit what CommitHostTree and InitFromRemote return; each error makes its step fail. NotAncestor
-	// makes IsAncestor answer no. Change them with Configure while a service runs.
+	// makes IsAncestor answer no. RemoteFiles is what CompareFolder hands its plan as the files of the remote.
+	// Change them with Configure while a service runs.
+	RemoteFiles                                                           []string
 	Compare                                                               gitrepo.Comparison
 	Scan                                                                  gitrepo.Scan
 	HostCommit                                                            string
@@ -406,12 +408,16 @@ func (c *copyOf) Remotes(context.Context) ([]string, error) {
 
 func (g *Git) record(format string, args ...any) { g.ops = append(g.ops, fmt.Sprintf(format, args...)) }
 
-// CompareFolder implements service.Git; it answers Compare.
-func (g *Git) CompareFolder(_ context.Context, cfg gitrepo.Config, dir, url string, files []string) (gitrepo.Comparison, error) {
+// CompareFolder implements service.Git; it asks plan with RemoteFiles and answers Compare.
+func (g *Git) CompareFolder(_ context.Context, cfg gitrepo.Config, dir, url string, plan gitrepo.FolderPlan) (gitrepo.Comparison, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.last, g.configs[dir] = cfg, cfg
+	files, _, err := plan(slices.Clone(g.RemoteFiles))
 	g.record("compare-folder %s %d", url, len(files))
+	if err != nil {
+		return gitrepo.Comparison{}, err
+	}
 	return g.Compare, g.CompareErr
 }
 

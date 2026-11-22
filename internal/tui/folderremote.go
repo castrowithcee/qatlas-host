@@ -35,16 +35,42 @@ func (m *Model) askFolderRemote() tea.Cmd {
 	return m.openForm(m.folderURLForm())
 }
 
+// compared is the comparison of a folder of files with the repository it joins: the folder with the plan of the
+// comparison, which keeps the files the remote versions, and the permissions that plan needs.
+type compared struct {
+	cmp  control.SourceCompareResult
+	res  control.SourceInspectResult
+	plan PermPlan
+}
+
+// withComparison is res with the plan of a comparison of a folder of files.
+func withComparison(res control.SourceInspectResult, cmp control.SourceCompareResult) control.SourceInspectResult {
+	res.PlannedFiles, res.Excluded, res.Ignore = cmp.PlannedFiles, cmp.Excluded, cmp.Ignore
+	return res
+}
+
 // compareFolder compares the folder with the repository at the address, with the host key and the deploy key
-// confirmed before. The service changes nothing but the pinned host key.
+// confirmed before. The service changes nothing but the pinned host key. A folder of files then joins with the
+// plan of the comparison, so the permissions are worked out again for it.
 func (m *Model) compareFolder(flow *addFlow) tea.Cmd {
 	if m.euid() != 0 {
 		m.askCompareSudo(flow)
 		return nil
 	}
 	args := control.SourceCompareArgs{Path: flow.res.Path, URL: flow.url, Fingerprint: flow.probe.Fingerprint}
-	ctx := m.engineCtx(m.folderEngineOf(args.Path))
-	return m.writeCall(opCompare, args.Path, func(b Backend) (any, error) { return b.SourceCompare(ctx, args) })
+	ctx, host, shown := m.engineCtx(m.folderEngineOf(args.Path)), m.folders, flow.res
+	return m.writeCall(opCompare, args.Path, func(b Backend) (any, error) {
+		cmp, err := b.SourceCompare(ctx, args)
+		if err != nil || shown.Case != control.SourceCaseFiles || host == nil {
+			return cmp, err
+		}
+		res := withComparison(shown, cmp)
+		plan, err := host.PlanPermissions(ctx, res)
+		if err != nil {
+			return nil, hostError{err}
+		}
+		return compared{cmp: cmp, res: res, plan: plan}, nil
+	})
 }
 
 // showComparison shows how the repository relates to the folder and asks for the step of that state. A secret
@@ -101,6 +127,10 @@ func (m *Model) comparisonLines(flow *addFlow, width int) []string {
 	lines = append(lines, text(kittui.StyleText, t.Lookup(textDetailBranch, cmp.Branch))...)
 	if cmp.Commit != "" {
 		lines = append(lines, text(kittui.StyleText, t.Lookup(textDetailHead, short(cmp.Commit)))...)
+	}
+	if len(cmp.RemoteFiles) > 0 {
+		lines = append(lines, "", m.line(detailMargin, kittui.StyleActive, t.Lookup(textHeadRemoteFiles, len(cmp.RemoteFiles)), width))
+		lines = append(lines, m.entryLines(cmp.RemoteFiles, width)...)
 	}
 	if cmp.PathCount > 0 {
 		lines = append(lines, "", m.line(detailMargin, kittui.StyleActive, t.Lookup(textHeadPaths, cmp.PathCount), width))

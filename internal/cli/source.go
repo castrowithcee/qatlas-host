@@ -46,9 +46,10 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"engine that is set up but cannot be asked is listed as not checked, with the reason. Deploying would\n" +
 			"create duplicate containers and take their ports twice; qhost warns and does not block. Without sudo\n" +
 			"no rootless engine is asked and all are listed as not checked.\n" +
-			"--url is the SSH address to clone or to expect as origin. A folder on a read-only file system is\n" +
-			"rejected. A rejection is a complete answer and exits 0; read the case. Nothing is created, changed\n" +
-			"or fetched, and no value of an env file is shown. Run it with sudo.\n" +
+			"--url is the SSH address to clone or to expect as origin; for a folder of files the list does not look\n" +
+			"at it, and the files the remote versions join the plan only when 'source add --url' compares. A\n" +
+			"folder on a read-only file system is rejected. A rejection is a complete answer and exits 0; read the\n" +
+			"case. Nothing is created, changed or fetched, and no value of an env file is shown. Run it with sudo.\n" +
 			"As root, inspect adds what 'source add' would do to the folder: missing (the folder does not exist yet,\n" +
 			"which matters for clone), permissions (changed paths and a summary, only when source add would change\n" +
 			"permissions) and effect, a fingerprint of the case, missing, the listed and the left-out files and the\n" +
@@ -173,6 +174,9 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 		add("access", structured(format, res.Access))
 		add("planned_files", res.PlannedFiles)
 		add("excluded", structured(format, res.Excluded))
+		if res.Ignore != nil {
+			add("ignore", structured(format, res.Ignore))
+		}
 		add("stacks", structured(format, res.Stacks))
 		addText("stacks_error", res.StacksError)
 		add("containers_checked", res.ContainersChecked)
@@ -220,6 +224,12 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 		}
 		add("excluded", value)
 	}
+	if ig := res.Ignore; ig != nil {
+		add("gitignore", ig.Action)
+		for _, l := range ig.Lines {
+			add("gitignore_line", l)
+		}
+	}
 	for _, st := range res.Stacks {
 		p := "stack." + st.Name + "."
 		add(p+"folder", st.Folder)
@@ -239,6 +249,9 @@ func sourceResult(format output.Format, res control.SourceInspectResult) output.
 		}
 		for _, fd := range st.Findings {
 			add(p+"finding."+fd.Rule, fd.Severity+": "+fd.Cause+" Fix: "+fd.Fix)
+		}
+		for _, u := range st.Unresolved {
+			add(p+"unresolved", u)
 		}
 		for _, cf := range st.Conflicts {
 			add(p+"conflict", conflictText(cf))

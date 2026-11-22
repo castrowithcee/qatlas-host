@@ -203,6 +203,8 @@ type Model struct {
 	hostLog HostLog
 	// hostProps reads the proposals of the host service; nil when the interface cannot reach it.
 	hostProps HostProposals
+	// free is the switch for proposals of free commands as last read from the host service.
+	free freeSwitch
 	// parts are the widgets the last workspace drawing registered, in workspace cells; mouseParts are those of
 	// the frame on the screen, in screen cells.
 	parts, mouseParts []mousePart
@@ -394,6 +396,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applyHostProposals(msg)
 	case hostProposalMsg:
 		return m, m.applyHostProposal(msg)
+	case freeSwitchMsg:
+		m.applyFreeSwitch(msg)
 	case sudoInputMsg:
 		return m, m.applySudoInput(msg)
 	case hostRanMsg:

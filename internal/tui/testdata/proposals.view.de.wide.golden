@@ -24,17 +24,17 @@
     demo/.env                                                                                                           
     demo/compose.yaml                                                                                                   
                                                                                                                         
-  Ausgelassen (1), nur in .git/info/exclude vermerkt                                                                    
+  Ausgelassen (2), von den Stacks nicht gebraucht, per .gitignore von Git ausgenommen                                   
     demo/data: bind-mount (Stack demo)                                                                                  
+    demo/notes.txt: not-referenced                                                                                      
                                                                                                                         
   Stacks (1)                                                                                                            
     demo (Ordner demo)                                                                                                  
       funktioniert: deploy                                                                                              
       funktioniert nicht: backup                                                                                        
       warning secrets-env-not-ignored: secrets.env is not listed in .gitignore                                          
+      nicht auflösbar: env_file "${CONF_DIR}/app.env": variable CONF_DIR has no value in .env                           
       Konflikt: Der Container demo-app-1 des Projekts old-demo läuft im Ordner, in der Engine system                    
                                                                                                                         
   Änderungen nach Ja                                                                                                    
-    Ein Git-Repository wird mit Branch main und einem ersten Commit der aufgeführten Dateien als qhost angelegt; keine  
-    Datei im Ordner wird geschrieben. Es wird als lokaler Stack-Ordner übernommen.                                      
-esc Zurück  A freigeben  N ablehnen  r Neu laden  1-7 Bereich  q Beenden                             ↑/↓ Scrollen  36/38
+esc Zurück  A freigeben  N ablehnen  r Neu laden  1-7 Bereich  q Beenden                             ↑/↓ Scrollen  36/42

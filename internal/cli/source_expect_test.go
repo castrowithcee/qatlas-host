@@ -454,7 +454,8 @@ func TestRepoProbeNeedsRootAndAValidAddress(t *testing.T) {
 func TestSourceCompareShowsTheComparisonAndChangesNothing(t *testing.T) {
 	useFolderHost(t)
 	cmp := secretCompare(control.SourceCaseFiles)
-	cmp.PlannedFiles = []string{"compose.yaml"}
+	cmp.PlannedFiles, cmp.RemoteFiles = []string{"README.md", "compose.yaml"}, []string{"README.md"}
+	cmp.Ignore = &control.SourceIgnore{Action: control.SourceIgnoreCreate, Lines: []string{"/notes.txt"}}
 	fake := &remoteFake{compare: cmp}
 	svc := startFakeService(t, fake.handlers(localInspect(false)))
 	useStdin(t, strings.NewReader(""))
@@ -473,7 +474,7 @@ func TestSourceCompareShowsTheComparisonAndChangesNothing(t *testing.T) {
 	}
 	var fields map[string]any
 	_ = json.Unmarshal([]byte(stdout), &fields)
-	for _, k := range []string{"case", "state", "branch", "commit", "paths", "path_count", "planned_files", "secrets"} {
+	for _, k := range []string{"case", "state", "branch", "commit", "paths", "path_count", "planned_files", "excluded", "remote_files", "ignore", "secrets"} {
 		if _, ok := fields[k]; !ok {
 			t.Errorf("no field %s in %s", k, stdout)
 		}

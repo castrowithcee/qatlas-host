@@ -25,6 +25,7 @@ const (
 	textWhatRemoteNoCommit  kittui.TextID = "what.remotenocommit"
 	textDetailBranch        kittui.TextID = "detail.branch"
 	textHeadPaths           kittui.TextID = "head.paths"
+	textHeadRemoteFiles     kittui.TextID = "head.remotefiles"
 	textMorePaths           kittui.TextID = "more.paths"
 	textHeadSecrets         kittui.TextID = "head.secrets"
 	textSecretEntry         kittui.TextID = "secret.entry"
@@ -56,6 +57,7 @@ func remoteEnglish() map[kittui.TextID]string {
 		textWhatRemoteNoCommit:  "Take the folder over without an address first, then add the remote on its row. Nothing was changed.",
 		textDetailBranch:        "branch: %s",
 		textHeadPaths:           "Paths that differ (%d)",
+		textHeadRemoteFiles:     "Versioned in the remote, taken although no stack refers to them (%d)",
 		textMorePaths:           "... and %d more",
 		textHeadSecrets:         "Secret-like files (%d)",
 		textSecretEntry:         "commit %s: %s (%s)",
@@ -88,6 +90,7 @@ func remoteGerman() map[kittui.TextID]string {
 		textWhatRemoteNoCommit:  "Übernimm den Ordner zuerst ohne Adresse und füge das Remote dann auf seiner Zeile hinzu. Es wurde nichts geändert.",
 		textDetailBranch:        "Branch: %s",
 		textHeadPaths:           "Abweichende Pfade (%d)",
+		textHeadRemoteFiles:     "Im Remote versioniert, übernommen, obwohl kein Stack sie referenziert (%d)",
 		textMorePaths:           "... und %d weitere",
 		textHeadSecrets:         "Geheimnisartige Dateien (%d)",
 		textSecretEntry:         "Commit %s: %s (%s)",

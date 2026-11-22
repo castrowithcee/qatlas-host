@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
+   Users   Groups   Folders  [Proposals]  Changes   Log                                                                 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Proposal h-0005 from ben                                                                                              
+                                                                                                                        
+  Running is off: turn on Free proposals under Settings, General.                                                       
+  ⚠ unchecked, no computed effect, no undo                                                                              
+                                                                                                                        
+  from       ben (1001)                                                                                                 
+  submitted  10-30 18:00                                                                                                
+  expires    11-13 18:00                                                                                                
+  state      open                                                                                                       
+                                                                                                                        
+  Reason of the submitter, as written                                                                                   
+    > Restart the demo app after the config change.                                                                     
+                                                                                                                        
+  Commands of the submitter, as written                                                                                 
+     1. systemctl restart demo-app.service                                                                              
+     2. echo cleanup done                                                                                               
+     3. rm -f /var/tmp/demo-cache.tmp                                                                                   
+                                                                                                                        
+  Running is off: turn on Free proposals under Settings, General.                                                       
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+n/esc/enter close                                                                                             ↑/↓ scroll
