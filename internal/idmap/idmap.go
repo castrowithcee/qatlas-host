@@ -92,6 +92,17 @@ func (a Map) Equal(b Map) bool {
 	return true
 }
 
+// Outside returns the ID in the parent namespace that the namespace ID id stands for, and false when no range
+// covers it.
+func (a Map) Outside(id uint64) (uint64, bool) {
+	for _, r := range a {
+		if id >= r.Inside && id-r.Inside < r.Count {
+			return r.Outside + (id - r.Inside), true
+		}
+	}
+	return 0, false
+}
+
 // String is the map as the kernel prints it, one range per line.
 func (a Map) String() string {
 	var b strings.Builder

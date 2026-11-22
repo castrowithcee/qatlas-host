@@ -155,3 +155,26 @@ func TestDatadirRefusesUntrustedPathFromService(t *testing.T) {
 		t.Fatal("escaped")
 	}
 }
+
+func TestDatadirShowsContainerUserAndHostOwner(t *testing.T) {
+	f := newFakeDatadir(t, selfOwner())
+	f.dirs = []control.DirInfo{{Path: "data/db", Owner: selfOwner(), Container: "1234:1234"}}
+	useDatadir(t, f, 0)
+	_, _, stderr := run(t, "stack", "datadir", "demo")
+	if !strings.Contains(stderr, "data/db (container user 1234:1234, host owner "+selfOwner()+")") {
+		t.Fatalf("stderr %q", stderr)
+	}
+}
+
+func TestDatadirOutsideTheRangeNamesTheReason(t *testing.T) {
+	f := newFakeDatadir(t, "")
+	f.dirs = []control.DirInfo{{Path: "data/db", Container: "70000:70000", Warning: "container user 70000 is outside the user ID range of the engine"}}
+	useDatadir(t, f, 0)
+	code, _, stderr := run(t, "stack", "datadir", "demo", "--yes")
+	if code == 0 || !strings.Contains(stderr, "--owner") || !strings.Contains(stderr, "container user 70000 is outside the user ID range") {
+		t.Fatalf("code %d %q", code, stderr)
+	}
+	if entries, _ := os.ReadDir(f.dir); len(entries) != 0 {
+		t.Fatalf("created %v", entries)
+	}
+}
