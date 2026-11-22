@@ -351,6 +351,9 @@ func (g *Git) Pushed() []string {
 	return out
 }
 
+// TagCommit accepts every tag; the fake keeps none.
+func (c *copyOf) TagCommit(context.Context, string, string) error { return nil }
+
 func (c *copyOf) TrackedFiles(_ context.Context, dir string) ([]string, error) {
 	c.g.mu.Lock()
 	defer c.g.mu.Unlock()

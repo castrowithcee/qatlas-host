@@ -113,6 +113,16 @@ func (r *run) record(out outcome, freeSlot bool) RunRecord {
 	if out.result == ResultRolledBack {
 		rec.RolledBackTo = out.at
 	}
+	var tagErr error
+	if rec.Result == ResultSucceeded || rec.Result == ResultRolledBack {
+		r.log.Step("tag")
+		rec.Tag, tagErr = r.tagRun(out.at)
+		if tagErr != nil {
+			r.log.Printf("not set: %s", tagErr)
+		} else if rec.Tag != "" {
+			r.log.Printf("%s", rec.Tag)
+		}
+	}
 	r.log.line("result", rec.Result+" "+rec.Error)
 	r.log.close()
 	// An update step that failed before its commit was pushed left nothing on the branch to mark as failed.
@@ -157,6 +167,14 @@ func (r *run) record(out outcome, freeSlot bool) RunRecord {
 			}
 			cur.Paused = &Pause{Time: now, Run: rec.ID, Reason: e.text(out.rollbackErr.Error())}
 			cur.Findings = append([]Finding{{Kind: FindingPaused, Detail: e.pauseDetail(cur.Paused)}}, cur.Findings...)
+		}
+		if rec.Result == ResultSucceeded || rec.Result == ResultRolledBack {
+			cur.DeployedTag = rec.Tag
+			cur.Findings = slices.DeleteFunc(cur.Findings, func(f Finding) bool { return f.Kind == FindingTagRejected })
+			if tagErr != nil {
+				cur.Findings = append(cur.Findings, Finding{Kind: FindingTagRejected,
+					Detail: e.text("the tag of run " + rec.ID + " was not set or pushed: " + tagErr.Error())})
+			}
 		}
 		cur.Observe = nil
 		if d := r.st.ObserveTime(); rec.Result == ResultSucceeded && rec.Trigger == TriggerUpdate && d > 0 {
@@ -247,7 +265,7 @@ func (r *run) secured(ctx context.Context) outcome {
 			log.Printf("none: %s", noData)
 			return nil
 		}
-		id, err := d.Backup(ctx, st, r.deployed, log)
+		id, err := d.Backup(r.backupContext(ctx), st, r.deployed, log)
 		switch {
 		case errors.Is(err, ErrNoBackup):
 			noData = "the stack has no backup rules"

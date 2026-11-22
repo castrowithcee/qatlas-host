@@ -1240,10 +1240,12 @@ type BackupItemInfo struct {
 
 // BackupInfo describes one backup. Incomplete marks a directory of the store without valid metadata.
 type BackupInfo struct {
-	ID         string           `json:"id"`
-	Stack      string           `json:"stack"`
-	Created    time.Time        `json:"created,omitzero"`
-	Commit     string           `json:"commit,omitempty"`
+	ID      string    `json:"id"`
+	Stack   string    `json:"stack"`
+	Created time.Time `json:"created,omitzero"`
+	Commit  string    `json:"commit,omitempty"`
+	// Tag is the Git tag that marks Commit, empty when it has none.
+	Tag        string           `json:"tag,omitempty"`
 	Size       int64            `json:"size"`
 	Items      []BackupItemInfo `json:"items"`
 	Incomplete bool             `json:"incomplete,omitempty"`
