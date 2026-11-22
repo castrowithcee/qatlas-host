@@ -56,6 +56,8 @@ type folderHost struct {
 	waitService func(ctx context.Context) error
 	// readOnly reports whether the file system of a path lies read-only.
 	readOnly func(path string) (bool, error)
+	// sameFS reports whether two existing paths lie on the same file system, as a rename between them needs.
+	sameFS func(a, b string) (bool, error)
 	// lchown and chmod change the group and the mode of the paths source add hands to the service.
 	lchown func(path string, uid, gid int) error
 	chmod  func(path string, mode fs.FileMode) error
@@ -78,6 +80,7 @@ var folders = folderHost{
 	},
 	waitService: waitForService,
 	readOnly:    pathOnReadOnlyFS,
+	sameFS:      pathsOnSameFS,
 	lchown:      os.Lchown,
 	chmod:       os.Chmod,
 }

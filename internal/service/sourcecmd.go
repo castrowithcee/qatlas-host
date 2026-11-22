@@ -22,6 +22,7 @@ func registerSourceCommands(r *control.Registry, s *inspectService) error {
 		control.SourceRemoteCommand:  changing(s.handleRemote),
 		control.SourceListCommand:    reading(s.handleList),
 		control.SourceRemoveCommand:  changing(s.handleRemove),
+		control.SourceMoveCommand:    changing(s.handleMove),
 	}
 	for name, h := range commands {
 		if err := r.Register(name, h); err != nil {
