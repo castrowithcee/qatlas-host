@@ -3342,6 +3342,12 @@ check:
 	sr_stack_runs || fail 'demo-rootless does not run after the drop-in is removed'
 }
 
+# te_new_run succeeds when the instance lists a run of demo-rootless that is not in $te_old, and sets te_run to it.
+te_new_run() {
+	te_run=$(qd --output json stack runs demo-rootless --engine "$te_engine" |
+		jq -r --argjson o "$te_old" '[.[].run | select(. as $r | $o | index($r) | not)][0] // empty') && [ -n "$te_run" ]
+}
+
 # scenario_tui_engine proves the Stacks area with two engines for the interface of $admin started without sudo: the
 # stack demo-rootless stands in the section of its engine, and a deploy from there asks for the command with
 # --engine, runs it through sudo and acts in the instance of $rootless_user: the run is recorded there and not in the
@@ -3382,8 +3388,8 @@ scenario_tui_engine() {
 	tui_wait 'deploy finished: 1 ok, 0 failed' 240
 	tui_send Escape
 	tui_tmux kill-server >/dev/null 2>&1 || true
-	te_run=$(qd --output json stack runs demo-rootless --engine "$te_engine" | jq -r --argjson o "$te_old" '[.[].run | select(. as $r | $o | index($r) | not)][0]')
-	[ -n "$te_run" ] && [ "$te_run" != null ] || fail 'the instance recorded no run of demo-rootless'
+	# A run is listed once it has ended.
+	wait_for 'the run of the deploy in the instance' 240 te_new_run
 	wait_for "the run $te_run of demo-rootless to succeed in the instance" 180 sr_run_done "$te_run"
 	[ "$(qd --output json stack runs --engine system | jq 'length')" = "$runs_before" ] || fail 'the deploy of the interface changed the runs of the system service'
 	sr_stack_runs || fail 'demo-rootless does not run in the rootless engine after the deploy of the interface'
