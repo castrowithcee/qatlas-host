@@ -13,6 +13,7 @@ import (
 	kit "github.com/castrowithcee/qatlas-kit/auditlog"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
 const (
@@ -198,7 +199,20 @@ func Read(dir string, q Query) (Page, error) {
 			return (q.Command == "" || r.Entry.Command == q.Command) && (q.Result == "" || r.Entry.Result == q.Result)
 		},
 	})
-	return Page{Records: page.Records, Next: page.Next}, err
+	if err != nil {
+		return Page{}, err
+	}
+	for _, r := range page.Records {
+		if err := checkFormat(r.Entry); err != nil {
+			return Page{}, err
+		}
+	}
+	return Page{Records: page.Records, Next: page.Next}, nil
+}
+
+// checkFormat refuses a line whose number this version does not read, a missing one included.
+func checkFormat(e Entry) error {
+	return formatnum.Check("deploy action log", "format", e.Format, EntryFormat)
 }
 
 // Verify checks the hash chain of the day files of dir. No key is held, so the day counts as unchecked for
@@ -208,5 +222,23 @@ func Verify(dir string) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	return log.Verify(nil)
+	report, err := log.Verify(nil)
+	if err != nil {
+		return Report{}, err
+	}
+	// The kit validates only on append, so the numbers of the lines on disk are checked here.
+	days, err := log.VerifyLines(nil, "", "")
+	if err != nil {
+		return Report{}, err
+	}
+	for _, d := range days {
+		for _, l := range d.Lines {
+			if l.Parsed && l.Record.Kind == "" {
+				if err := checkFormat(l.Record.Entry); err != nil {
+					return Report{}, err
+				}
+			}
+		}
+	}
+	return report, nil
 }
