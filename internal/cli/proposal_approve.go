@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -75,6 +76,9 @@ func newProposalApprove(program *cobracli.Program, state *notRunning, secrets *r
 			return runProposalApprove(c, program, state, secrets, args[0], o)
 		},
 	}
+	addEngineFlag(c, &o.engine, proposalEngineUsage, proposalEngineNote+" The approval is applied only in that engine, "+
+		"and the command shows it; the proposal of a rootless engine is applied by the way 'qhost source add --engine' takes a "+
+		"folder over, and an engine never changes silently: to use another one, reject the proposal and submit it again.")
 	c.Flags().StringVar(&o.url, "url", "", "SSH address of the repository, replacing the proposed one")
 	c.Flags().StringVar(&o.reviewed, "fingerprint", "", "fingerprint of the proposal as you reviewed it; approves without a question")
 	c.Flags().StringVar(&o.hostKey, "host-key-fingerprint", "",
@@ -88,12 +92,12 @@ func newProposalApprove(program *cobracli.Program, state *notRunning, secrets *r
 }
 
 func newProposalReject(program *cobracli.Program, state *notRunning) *cobra.Command {
-	var reason string
+	var reason, engine string
 	c := &cobra.Command{
-		Use:   "reject <id> [--reason <text>]",
+		Use:   "reject <id> [--reason <text>] [--engine <id>]",
 		Short: "Reject an open proposal, with an optional reason the submitter can read",
 		Long: "reject closes an open proposal as rejected, at the host service for a proposal of the host and at the deploy\n" +
-			"service otherwise. The reason is kept at most 300 characters long and shows in 'qhost proposal show' for the\n" +
+			"service that stores it otherwise. The reason is kept at most 300 characters long and shows in 'qhost proposal show' for the\n" +
 			"submitter. Nothing on the host changes. Only a person at a terminal may reject: --agent and a process\n" +
 			"without a terminal are refused; a terminal of the process itself is enough, so the terminal interface may\n" +
 			"run it with standard input that is no terminal. Run it with sudo. The result is the proposal as\n" +
@@ -103,15 +107,19 @@ func newProposalReject(program *cobracli.Program, state *notRunning) *cobra.Comm
 			if err := requirePerson(program, "rejecting a proposal", true); err != nil {
 				return err
 			}
+			if err := routeProposal(c, state, engine, args[0]); err != nil {
+				return err
+			}
 			var res control.ProposalInfo
 			if err := proposalCallTo(c, state, hostProposalID(args[0]), control.ProposalRejectCommand,
 				control.ProposalRejectArgs{ID: args[0], Reason: reason}, &res); err != nil {
 				return err
 			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: proposalFields(program.Format(), res)})
+			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: withProposalEngine(c, res.ID, proposalFields(program.Format(), res))})
 		},
 	}
 	c.Flags().StringVar(&reason, "reason", "", "why the proposal is rejected")
+	addEngineFlag(c, &engine, proposalEngineUsage, proposalEngineNote)
 	return c
 }
 
@@ -159,6 +167,10 @@ func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notR
 		return usageFailure("a proposal of the host is applied with 'sudo qhost host apply --proposal "+plainText(id)+"'",
 			"Review it with 'qhost proposal show "+plainText(id)+"', then run 'sudo qhost host apply --proposal "+plainText(id)+" --confirm'.")
 	}
+	if err := routeProposal(c, state, o.engine, id); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(c.ErrOrStderr(), "Engine: %s\n", targetOf(c.Context()).id())
 	shown, err := loadOpenProposal(c, state, id)
 	if err != nil {
 		return err
@@ -206,10 +218,12 @@ func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 	}
 
 	var seen bytes.Buffer
-	sa, err := prepareSourceAdd(c, program, state, io.MultiWriter(notice, &seen), content.Path, url, "", rerun, nil, o.include, true)
+	both := io.MultiWriter(notice, &seen)
+	sa, err := prepareSourceAdd(c, program, state, both, content.Path, url, "", rerun, nil, o.include, true)
 	if err != nil {
 		return err
 	}
+	warnOtherEngine(c.Context(), both, sa.res)
 	effect, err := effectOf(sa, seen.String())
 	if err != nil {
 		return err
@@ -251,6 +265,7 @@ func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 	var fresh bytes.Buffer
 	sa, err = prepareSourceAdd(c, program, state, &fresh, content.Path, url, fingerprint, rerun, nil, sa.include, false)
 	if err == nil {
+		warnOtherEngine(c.Context(), &fresh, sa.res)
 		var again string
 		if again, err = effectOf(sa, fresh.String()); err == nil && again != effect {
 			_, _ = fmt.Fprint(notice, "\nThe effect changed since it was shown. It is now:\n", fresh.String())
@@ -263,6 +278,19 @@ func approveSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 	}
 
 	return applySourceProposal(c, program, state, id, shown.Fingerprint, sa, fingerprint)
+}
+
+// warnOtherEngine warns when containers of the folder run in an engine other than the one whose deploy service
+// stores the proposal. It names the consequence and the way to another engine, and blocks nothing.
+func warnOtherEngine(ctx context.Context, w io.Writer, res control.SourceInspectResult) {
+	others := suggestedEngines(res)
+	if len(others) == 0 {
+		return
+	}
+	_, _ = fmt.Fprintf(w, "warning: containers of this folder run in the engine %s, but this proposal belongs to the %s engine; "+
+		"deploying would create duplicate containers and take their ports twice. To use the engine %s instead, reject the "+
+		"proposal and submit it again with --engine %s, or take the folder over by hand with 'sudo qhost source add %s --engine %s'.\n",
+		strings.Join(others, ", "), targetOf(ctx).id(), others[0], others[0], shortText(res.Path), others[0])
 }
 
 // applySourceProposal takes the approval at the service, only for the fingerprint that was shown, adds the

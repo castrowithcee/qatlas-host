@@ -26,6 +26,7 @@ func withStdin(t *testing.T, r io.Reader) {
 }
 
 func TestProposalSubmitFromStdin(t *testing.T) {
+	useFolderHost(t)
 	var got control.ProposalSubmitArgs
 	svc := startFakeService(t, fakeHandlers{control.ProposalSubmitCommand: func(raw json.RawMessage) any {
 		_ = json.Unmarshal(raw, &got)
@@ -45,6 +46,7 @@ func TestProposalSubmitFromStdin(t *testing.T) {
 }
 
 func TestProposalSubmitFromFileAndDash(t *testing.T) {
+	useFolderHost(t)
 	startFakeService(t, fakeHandlers{control.ProposalSubmitCommand: func(json.RawMessage) any {
 		return proposalInfo("p-0123456789abcdef", control.ProposalOpen)
 	}})
@@ -62,6 +64,7 @@ func TestProposalSubmitFromFileAndDash(t *testing.T) {
 }
 
 func TestProposalSubmitRefusesBadInputLocally(t *testing.T) {
+	useFolderHost(t)
 	svc := startFakeService(t, fakeHandlers{control.ProposalSubmitCommand: func(json.RawMessage) any {
 		return proposalInfo("p-0123456789abcdef", control.ProposalOpen)
 	}})
@@ -85,6 +88,7 @@ func TestProposalSubmitRefusesBadInputLocally(t *testing.T) {
 }
 
 func TestProposalSubmitReadsBoundedAndReportsOversize(t *testing.T) {
+	useFolderHost(t)
 	startFakeService(t, fakeHandlers{control.ProposalSubmitCommand: func(json.RawMessage) any { return &control.Error{Code: control.CodeTooLarge, Message: "x"} }})
 	r := &countingReader{}
 	withStdin(t, r)
@@ -115,6 +119,7 @@ func (r *countingReader) Read(p []byte) (int, error) {
 }
 
 func TestProposalRefusalsOfTheService(t *testing.T) {
+	useFolderHost(t)
 	for name, tc := range map[string]struct {
 		code string
 		want string
@@ -140,6 +145,7 @@ func TestProposalRefusalsOfTheService(t *testing.T) {
 }
 
 func TestProposalWithdrawAndList(t *testing.T) {
+	useFolderHost(t)
 	var sent control.ProposalIDArgs
 	startFakeService(t, fakeHandlers{
 		control.ProposalWithdrawCommand: func(raw json.RawMessage) any {
@@ -166,6 +172,7 @@ func TestProposalWithdrawAndList(t *testing.T) {
 }
 
 func TestProposalListEmptyIsJSON(t *testing.T) {
+	useFolderHost(t)
 	startFakeService(t, fakeHandlers{control.ProposalListCommand: func(json.RawMessage) any { return control.ProposalListResult{} }})
 	code, stdout, _ := run(t, "proposal", "list", "--output", "json")
 	var rows []map[string]any
@@ -184,6 +191,7 @@ func hostileShow(json.RawMessage) any {
 }
 
 func TestProposalTextOutputReplacesControlCharacters(t *testing.T) {
+	useFolderHost(t)
 	startFakeService(t, fakeHandlers{
 		control.ProposalShowCommand: hostileShow,
 		control.ProposalListCommand: func(json.RawMessage) any {
@@ -211,6 +219,7 @@ func TestProposalTextOutputReplacesControlCharacters(t *testing.T) {
 }
 
 func TestProposalShowJSONKeepsContent(t *testing.T) {
+	useFolderHost(t)
 	startFakeService(t, fakeHandlers{control.ProposalShowCommand: hostileShow})
 	code, stdout, stderr := run(t, "proposal", "show", "p-0123456789abcdef", "--output", "json")
 	var got struct {

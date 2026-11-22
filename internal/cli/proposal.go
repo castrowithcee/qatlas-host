@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -29,7 +31,9 @@ func newProposalCommand(program *cobracli.Program, state *notRunning, secrets *r
 		Short: "Submit, list, show, withdraw, approve and reject proposals of changes to the setup and the host",
 		Long: "A proposal asks for a change of the setup, for example a stack folder, or of the host, for example a user.\n" +
 			"The service that owns its kind checks and stores it and changes nothing: the host service keeps the kind\n" +
-			"host-change, the deploy service every other kind. list shows the proposals of both. Every command runs\n" +
+			"host-change, a deploy service every other kind. A host has one deploy service for the system engine and\n" +
+			"one for each rootless engine, and a proposal belongs to the one it was submitted to; list shows the\n" +
+			"proposals of all services with their engine. Every command runs\n" +
 			"without sudo for an administrator in the group qhost; a proposal can be withdrawn by its submitter or by\n" +
 			"root. approve and reject are for root at a terminal; a proposal of the host is approved with\n" +
 			"'sudo qhost host apply --proposal <id>'. See 'qhost help proposals'.",
@@ -42,9 +46,9 @@ func newProposalCommand(program *cobracli.Program, state *notRunning, secrets *r
 }
 
 func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Command {
-	var kind, file string
+	var kind, file, engine string
 	c := &cobra.Command{
-		Use:   "submit --kind source-add|stack-settings|window|notify-channel|host-change|command [--file <path>|-]",
+		Use:   "submit --kind source-add|stack-settings|window|notify-channel|host-change|command [--engine <id>] [--file <path>|-]",
 		Short: "Submit a proposal read as JSON from a file or standard input",
 		Long: "submit sends the content of a proposal to the service of its kind, which checks and stores it, and prints its id. The\n" +
 			"content is a JSON object in the schema of the kind, read from --file or, without it or with '-', from\n" +
@@ -70,26 +74,40 @@ func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Comm
 			if err != nil {
 				return err
 			}
+			host := hostKind(kind)
+			if host && engine != "" {
+				return usageFailure("--engine does not apply to the kind "+kind+", which the host service keeps",
+					"Run the command without --engine.")
+			}
+			if !host {
+				if err := routeInstance(c, engine); err != nil {
+					return err
+				}
+			}
 			var res control.ProposalInfo
-			if err := proposalCallTo(c, state, hostKind(kind), control.ProposalSubmitCommand,
+			if err := proposalCallTo(c, state, host, control.ProposalSubmitCommand,
 				control.ProposalSubmitArgs{Kind: kind, Content: content}, &res); err != nil {
 				return err
 			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: proposalFields(program.Format(), res)})
+			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: withProposalEngine(c, res.ID, proposalFields(program.Format(), res))})
 		},
 	}
 	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add, stack-settings, window, notify-channel, host-change or command")
 	c.Flags().StringVar(&file, "file", "", "file with the content as JSON, or - for standard input (default)")
+	addEngineFlag(c, &engine, "Docker engine whose deploy service stores the proposal: "+engineIDs+" "+instanceDefault,
+		"The proposal goes to "+instanceRule+" The proposal itself carries no engine: the deploy service that stored it is "+
+			"the one that applies it. The kinds host-change and command go to the host service and take no --engine.")
 	return c
 }
 
 func newProposalList(program *cobracli.Program, state *notRunning) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List the proposals of both services, newest first",
-		Long: "list shows every proposal of the host service and the deploy service with its id, kind, service, state,\n" +
-			"submitter and times. An open proposal past its time shows as expired. A service that is not running or not\n" +
-			"set up is named on standard error and the proposals of the other are listed; it fails only when neither answers.",
+		Short: "List the proposals of all services, newest first",
+		Long: "list shows every proposal of the host service and of every deploy service with its id, kind, service, engine,\n" +
+			"state, submitter and times. The engine is that of the deploy service that stores the proposal; a proposal of\n" +
+			"the host has none. An open proposal past its time shows as expired. A service that is not running or not\n" +
+			"set up is named on standard error and the proposals of the others are listed; it fails only when none answers.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			listed, err := listProposals(c, state)
@@ -100,11 +118,11 @@ func newProposalList(program *cobracli.Program, state *notRunning) *cobra.Comman
 			rows := make([]output.Row, 0, len(listed))
 			for _, p := range listed {
 				rows = append(rows, output.Row{"id": text(format, p.ID), "kind": text(format, p.Kind), "service": p.service,
-					"state": text(format, p.State), "submitter": text(format, p.SubmitterName),
+					"engine": p.engine, "state": text(format, p.State), "submitter": text(format, p.SubmitterName),
 					"submitted": proposalTime(p.Submitted), "expires": proposalTime(p.Expires)})
 			}
 			return output.Encode(c.OutOrStdout(), format, output.Collection{
-				Columns: []string{"id", "kind", "service", "state", "submitter", "submitted", "expires"}, Rows: rows})
+				Columns: []string{"id", "kind", "service", "engine", "state", "submitter", "submitted", "expires"}, Rows: rows})
 		},
 	}
 }
@@ -115,30 +133,51 @@ const (
 	serviceDeploy = "deploy"
 )
 
-// listedProposal is one proposal of list with the service that keeps it.
+// listedProposal is one proposal of list with the service that keeps it and, for a deploy service, its engine.
 type listedProposal struct {
 	control.ProposalInfo
 	service string
+	engine  string
 }
 
-// listProposals asks both services for their proposals and merges them, the newest first. A service that is not
-// running or not set up is named on standard error; only when neither answers is it an error.
+// listProposals asks the host service and every deploy service for their proposals and merges them, the newest
+// first. A service that is not running or not set up is named on standard error; only when none answers is it
+// an error.
 func listProposals(c *cobra.Command, state *notRunning) ([]listedProposal, error) {
+	targets, err := folders.engineTargets()
+	if err != nil {
+		return nil, err
+	}
+	type source struct {
+		svc    string
+		target engineTarget
+		unset  bool
+	}
+	var sources []source
+	for _, t := range targets {
+		sources = append(sources, source{svc: serviceDeploy, target: t})
+	}
+	if len(targets) == 0 {
+		sources = append(sources, source{svc: serviceDeploy, unset: true})
+	}
+	sources = append(sources, source{svc: serviceHost})
 	var all []listedProposal
 	var missing []error
-	for _, svc := range []string{serviceDeploy, serviceHost} {
+	for _, src := range sources {
 		var res control.ProposalListResult
 		var err error
+		engine := ""
 		switch {
-		case svc == serviceDeploy && !deployInstalled():
-			err = notSetUp(client.ErrNotRunning)
-		case svc == serviceDeploy:
-			if err = call(c.Context(), serviceEndpoint(), control.ProposalListCommand, nil, &res); err != nil {
-				err = failureOf(err)
-			}
-		default:
+		case src.svc == serviceHost:
 			if err = call(c.Context(), hostEndpoint(), control.ProposalListCommand, nil, &res); err != nil {
 				err = hostFailure(err)
+			}
+		case src.unset:
+			err = notSetUp(client.ErrNotRunning)
+		default:
+			engine = src.target.id()
+			if err = call(c.Context(), src.target.endpoint(), control.ProposalListCommand, nil, &res); err != nil {
+				err = targetFailure(withEngine(c.Context(), src.target), err)
 			}
 		}
 		if err != nil {
@@ -149,15 +188,23 @@ func listProposals(c *cobra.Command, state *notRunning) ([]listedProposal, error
 			continue
 		}
 		for _, p := range res.Proposals {
-			all = append(all, listedProposal{ProposalInfo: p, service: svc})
+			all = append(all, listedProposal{ProposalInfo: p, service: src.svc, engine: engine})
+		}
+		who := "the " + src.svc + " service"
+		if engine != "" {
+			who = "the deploy service of the " + engine + " engine"
 		}
 		for _, u := range res.Unreadable {
-			_, _ = fmt.Fprintf(c.ErrOrStderr(), "warning: the %s service has a proposal that cannot be read: %s\n", svc, u.Error)
+			_, _ = fmt.Fprintf(c.ErrOrStderr(), "warning: %s has a proposal that cannot be read: %s\n", who, u.Error)
 		}
 	}
-	if len(missing) == 2 {
+	if len(missing) == len(sources) {
 		state.seen = true
-		return nil, &cli.Failure{Code: output.CodeUnreachable, Message: "neither the host service nor the deploy service answers",
+		who := "the deploy service"
+		if len(targets) > 1 {
+			who = "any deploy service"
+		}
+		return nil, &cli.Failure{Code: output.CodeUnreachable, Message: "neither the host service nor " + who + " answers",
 			NextStep: "Start the host service with 'sudo systemctl start qhost', then run the command again.", Cause: missing[0]}
 	}
 	for _, err := range missing {
@@ -171,6 +218,102 @@ func listProposals(c *cobra.Command, state *notRunning) ([]listedProposal, error
 	return all, nil
 }
 
+// withProposalEngine adds the engine the proposal belongs to, which is that of the deploy service the command
+// reached; a proposal of the host has none.
+func withProposalEngine(c *cobra.Command, id string, fields []output.Field) []output.Field {
+	if hostProposalID(id) {
+		return fields
+	}
+	return append(fields, output.Field{Name: "engine", Value: targetOf(c.Context()).id()})
+}
+
+// locateProposal finds the deploy service that stores the proposal. A named engine is taken as it is. On a host
+// with one deploy service nothing is asked. Otherwise every service is asked for the proposal: one that holds it
+// is the target, two stop the command, and a service that could not be asked is a warning, or an error when the
+// proposal is in none of the others, so that a proposal is never applied by another service than its own.
+func (h folderHost) locateProposal(ctx context.Context, warn io.Writer, engine, id string) (engineTarget, error) {
+	if engine != "" {
+		return h.namedEngine(engine)
+	}
+	targets, err := h.engineTargets()
+	if err != nil {
+		return engineTarget{}, err
+	}
+	if len(targets) <= 1 {
+		return firstTarget(targets), nil
+	}
+	errs := make([]error, len(targets))
+	held := make([]bool, len(targets))
+	var wg sync.WaitGroup
+	for i, t := range targets {
+		wg.Go(func() {
+			var res control.ProposalShowResult
+			err := callFor(ctx, peerLimit, t.endpoint(), control.ProposalShowCommand, control.ProposalIDArgs{ID: id}, &res)
+			var remote *control.Error
+			switch {
+			case err == nil:
+				held[i] = true
+			case errors.As(err, &remote) && remote.Code == control.CodeNotFound:
+			default:
+				errs[i] = err
+			}
+		})
+	}
+	wg.Wait()
+	var found []engineTarget
+	var unchecked, answers []engineAnswer
+	for i, t := range targets {
+		answers = append(answers, engineAnswer{target: t, err: errs[i]})
+		switch {
+		case errs[i] != nil:
+			unchecked = append(unchecked, engineAnswer{target: t, err: errs[i]})
+		case held[i]:
+			found = append(found, t)
+		}
+	}
+	name := shortText(id)
+	switch {
+	case len(found) > 1:
+		return engineTarget{}, usageFailure(fmt.Sprintf("the proposal %s exists in the engines %s", name, targetIDs(found)),
+			"Choose one with --engine, for example --engine "+found[0].id()+".")
+	case len(found) == 0 && len(unchecked) == len(answers):
+		return engineTarget{}, targetFailure(withEngine(ctx, unchecked[0].target), unchecked[0].err)
+	case len(found) == 0 && len(unchecked) > 0:
+		return engineTarget{}, &cli.Failure{Code: output.CodeUnreachable,
+			Message: fmt.Sprintf("the proposal %s is in none of the engines that answered; %s", name, uncheckedList(unchecked)),
+			NextStep: "Start that deploy service and run the command again, or name its engine with --engine " +
+				unchecked[0].engine() + ".", Cause: unchecked[0].err}
+	case len(found) == 0:
+		return engineTarget{}, &cli.Failure{Code: output.CodeNotFound,
+			Message:  fmt.Sprintf("no such proposal: %s is in none of the engines %s", name, answerIDs(answers)),
+			NextStep: "List the proposals with 'qhost proposal list'."}
+	}
+	for _, u := range unchecked {
+		_, _ = fmt.Fprintln(warn, "warning: "+uncheckedText(u))
+	}
+	return found[0], nil
+}
+
+// routeProposal makes the deploy service that stores the proposal the target of every later call of the
+// command. A proposal of the host needs no routing.
+func routeProposal(c *cobra.Command, state *notRunning, engine, id string) error {
+	if hostProposalID(id) {
+		if engine != "" {
+			return usageFailure("--engine does not apply to a proposal of the host", "Run the command without --engine.")
+		}
+		return nil
+	}
+	t, err := folders.locateProposal(c.Context(), c.ErrOrStderr(), engine, id)
+	if err != nil {
+		if errors.Is(err, client.ErrNotRunning) {
+			state.seen = true
+		}
+		return err
+	}
+	c.SetContext(withEngine(c.Context(), t))
+	return nil
+}
+
 // hostProposalID reports whether id names a proposal of the host service.
 func hostProposalID(id string) bool { return strings.HasPrefix(id, control.HostProposalIDPrefix) }
 
@@ -180,7 +323,8 @@ func hostKind(kind string) bool {
 }
 
 func newProposalShow(program *cobracli.Program, state *notRunning) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	c := &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show one proposal with its content",
 		Long: "show prints a proposal with its fingerprint, the submitter and the content as it was submitted. For a proposal\n" +
@@ -190,12 +334,15 @@ func newProposalShow(program *cobracli.Program, state *notRunning) *cobra.Comman
 			"characters replaced, and the notice: unchecked, no computed effect, no undo.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeProposal(c, state, engine, args[0]); err != nil {
+				return err
+			}
 			var res control.ProposalShowResult
 			if err := proposalCallTo(c, state, hostProposalID(args[0]), control.ProposalShowCommand, control.ProposalIDArgs{ID: args[0]}, &res); err != nil {
 				return err
 			}
 			format := program.Format()
-			fields := proposalFields(format, res.ProposalInfo)
+			fields := withProposalEngine(c, res.ID, proposalFields(format, res.ProposalInfo))
 			if res.Kind == control.ProposalKindHostChange {
 				fields = append(fields, hostChangeFields(program, res)...)
 			}
@@ -226,22 +373,38 @@ func newProposalShow(program *cobracli.Program, state *notRunning) *cobra.Comman
 			return output.Encode(c.OutOrStdout(), format, output.Object{Fields: fields})
 		},
 	}
+	addEngineFlag(c, &engine, proposalEngineUsage, proposalEngineNote)
+	return c
 }
 
+// The usage of --engine of the commands that name a proposal, and the note in their help.
+const (
+	proposalEngineUsage = "Docker engine whose deploy service stores the proposal: " + engineIDs + "; needed only when several engines have a proposal of that id"
+	proposalEngineNote  = "The command looks for the proposal in the deploy services of all engines and reaches the one that stores it. " +
+		"When several do, it stops and names them; " + engineChoice + " chooses one. A deploy service that cannot be " +
+		"asked is named in a warning, or in the error when none holds the proposal. A proposal of the host needs no --engine."
+)
+
 func newProposalWithdraw(program *cobracli.Program, state *notRunning) *cobra.Command {
-	return &cobra.Command{
+	var engine string
+	c := &cobra.Command{
 		Use:   "withdraw <id>",
 		Short: "Withdraw an open proposal",
 		Long:  "withdraw closes an open proposal of your own as withdrawn; root may withdraw any. It changes nothing else.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if err := routeProposal(c, state, engine, args[0]); err != nil {
+				return err
+			}
 			var res control.ProposalInfo
 			if err := proposalCallTo(c, state, hostProposalID(args[0]), control.ProposalWithdrawCommand, control.ProposalIDArgs{ID: args[0]}, &res); err != nil {
 				return err
 			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: proposalFields(program.Format(), res)})
+			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: withProposalEngine(c, res.ID, proposalFields(program.Format(), res))})
 		},
 	}
+	addEngineFlag(c, &engine, proposalEngineUsage, proposalEngineNote)
+	return c
 }
 
 // readProposalContent reads the content as the calling user from a file or standard input. It reads a little

@@ -22,6 +22,8 @@ import (
 // the run is bound to the proposal as it was reviewed and asks nothing.
 type approveOptions struct {
 	url string
+	// engine names the deploy service that stores the proposal, when several do.
+	engine string
 	// reviewed is the fingerprint of the proposal as the person reviewed it.
 	reviewed string
 	// unconfirmed is the error of the missing --confirm; nil when it was given.
@@ -95,10 +97,12 @@ func approveSourceAddReviewed(c *cobra.Command, program *cobracli.Program, state
 	}
 	c.SetContext(withoutHostKeyQuestion(c.Context(), "--host-key-fingerprint"))
 	var seen bytes.Buffer
-	sa, err := prepareSourceAdd(c, program, state, io.MultiWriter(notice, &seen), content.Path, url, o.hostKey, rerun, expect, o.include, false)
+	both := io.MultiWriter(notice, &seen)
+	sa, err := prepareSourceAdd(c, program, state, both, content.Path, url, o.hostKey, rerun, expect, o.include, false)
 	if err != nil {
 		return err
 	}
+	warnOtherEngine(c.Context(), both, sa.res)
 	if err := checkExpectedEffect(c.Context(), o.expectEffect, sa); err != nil {
 		return err
 	}
@@ -149,6 +153,7 @@ func approveSourceAddReviewed(c *cobra.Command, program *cobracli.Program, state
 	if err != nil {
 		return err
 	}
+	warnOtherEngine(c.Context(), &fresh, sa.res)
 	again, err := effectOf(sa, fresh.String())
 	if err != nil {
 		return err
