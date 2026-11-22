@@ -152,6 +152,12 @@ func TestArchitecture(t *testing.T) {
 			Hint:  "the log views are shared by both services and know neither",
 		},
 		{
+			Name:  "deploylog-knows-the-protocol-only",
+			Files: archtest.Files{Under: []string{"internal/deploylog"}, Tests: archtest.WithTests},
+			Check: archtest.AllowImports("internal/control"),
+			Hint:  "the action log of a deploy service knows the wire protocol and nothing of the services that write it",
+		},
+		{
 			Name:  "admins-know-the-protocol-only",
 			Files: archtest.Files{Under: []string{"internal/admins"}, Tests: archtest.WithTests},
 			Check: archtest.AllowImports("internal/control"),

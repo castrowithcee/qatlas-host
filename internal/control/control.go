@@ -126,6 +126,26 @@ type Request struct {
 	V       int             `json:"v"`
 	Command string          `json:"command"`
 	Args    json.RawMessage `json:"args,omitempty"`
+	// Origin names the client program that sends the request, for display in the action log only. It is an
+	// unverified claim and never decides anything; see NormalizeOrigin.
+	Origin string `json:"origin,omitempty"`
+}
+
+// The values of Request.Origin a service records; any other value, and none, is recorded as OriginUnknown.
+const (
+	OriginCLI     = "cli"
+	OriginTUI     = "tui"
+	OriginMCP     = "mcp"
+	OriginUnknown = "unknown"
+)
+
+// NormalizeOrigin returns origin when it is one of the fixed values and OriginUnknown otherwise.
+func NormalizeOrigin(origin string) string {
+	switch origin {
+	case OriginCLI, OriginTUI, OriginMCP:
+		return origin
+	}
+	return OriginUnknown
 }
 
 // Response is what the service answers: a result on success, an error otherwise.

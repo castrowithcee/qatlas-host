@@ -304,7 +304,7 @@ func call(ctx context.Context, ep localipc.ServiceEndpoint, command string, args
 
 // callFor is call with its own time limit, for commands that wait on a remote server.
 func callFor(ctx context.Context, limit time.Duration, ep localipc.ServiceEndpoint, command string, args, result any) error {
-	return client.Do(ctx, ep, limit, command, args, result)
+	return client.Do(client.WithOrigin(ctx, control.OriginCLI), ep, limit, command, args, result)
 }
 
 // failureOf turns a channel error into a diagnostic with a next step.

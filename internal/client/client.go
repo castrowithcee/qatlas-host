@@ -26,6 +26,18 @@ var ErrNotRunning = errors.New("the service is not running")
 // ErrNoAccess means the operating system denies this user the service channel.
 var ErrNoAccess = errors.New("this user may not use the service channel")
 
+type originKey struct{}
+
+// WithOrigin returns ctx whose requests name origin, one of the control.Origin values, so a service can show
+// where a request came from. It is a claim for display and decides nothing; a request without one is logged
+// as unknown. An origin already in ctx stays.
+func WithOrigin(ctx context.Context, origin string) context.Context {
+	if o, _ := ctx.Value(originKey{}).(string); o != "" {
+		return ctx
+	}
+	return context.WithValue(ctx, originKey{}, origin)
+}
+
 // Client is one connection to the service. It is not safe for concurrent calls.
 type Client struct {
 	conn net.Conn
@@ -66,6 +78,7 @@ func (c *Client) Close() error { return c.conn.Close() }
 // a *control.Error.
 func (c *Client) Call(ctx context.Context, command string, args, result any) error {
 	req := control.Request{V: control.Version, Command: command}
+	req.Origin, _ = ctx.Value(originKey{}).(string)
 	if args != nil {
 		raw, err := json.Marshal(args)
 		if err != nil {

@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"net"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -114,5 +115,45 @@ func TestAuditWithoutTheHostService(t *testing.T) {
 	code, _, stderr := run(t, "audit")
 	if code != ExitServiceNotRunning || !strings.Contains(stderr, "the host service is not running") || !strings.Contains(stderr, "systemctl start qhost") {
 		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+}
+
+func TestAuditShowsTheActionLogOfTheDeployService(t *testing.T) {
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
+	if code, _, stderr := run(t, "credential", "list"); code != 0 {
+		t.Fatalf("credential list: code %d, stderr %q", code, stderr)
+	}
+	code, stdout, stderr := run(t, "audit", "--service", "deploy", "--output", "json")
+	if code != 0 || stderr != "" {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &rows); err != nil {
+		t.Fatalf("invalid JSON %q: %v", stdout, err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows = %v", rows)
+	}
+	r := rows[0]
+	if r["service"] != "deploy" || r["engine"] != "system" || r["command"] != "credential.list" || r["class"] != "read" ||
+		r["result"] != "success" || r["origin"] != "cli" || r["client_uid"] != 0.0 {
+		t.Fatalf("row = %v", r)
+	}
+	code, stdout, stderr = run(t, "audit", "verify", "--service", "deploy", "--output", "json")
+	if code != 0 || !strings.Contains(stdout, `"service":"deploy"`) || !strings.Contains(stdout, `"chain":"intact"`) {
+		t.Fatalf("verify: code %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+	if code, stdout, _ := run(t, "audit", "--service", "deploy", "--action", "status", "--result", "failure", "--output", "json"); code != 0 || strings.TrimSpace(stdout) != "[]" {
+		t.Fatalf("filtered: code %d, stdout %q", code, stdout)
+	}
+}
+
+func TestAuditChecksServiceAndEngine(t *testing.T) {
+	for _, args := range [][]string{
+		{"audit", "--service", "other"}, {"audit", "--engine", "system"}, {"audit", "verify", "--engine", "system"},
+	} {
+		if code, _, stderr := run(t, args...); code != 2 || !strings.Contains(stderr, "usage:") {
+			t.Errorf("%v: code %d, stderr %q", args, code, stderr)
+		}
 	}
 }
