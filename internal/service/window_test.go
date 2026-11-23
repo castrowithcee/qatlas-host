@@ -77,6 +77,30 @@ func (c *svcClock) awaitTimer(t *testing.T, at time.Time) {
 	}
 }
 
+// advanceUntil moves the clock by d until the status satisfies ok. A single advance is lost when it comes
+// before the poll loop has asked for its next wait, because that wait then starts from the advanced time.
+// It advances again only every half second, so a slow poll does not push the clock towards the window.
+func (h *harness) advanceUntil(clock *svcClock, d time.Duration, what string, ok func(control.StatusResult) bool) control.StatusResult {
+	h.t.Helper()
+	var again time.Time
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(again) {
+			clock.Advance(d)
+			again = time.Now().Add(500 * time.Millisecond)
+		}
+		var st control.StatusResult
+		if err := h.call(control.StatusCommand, nil, &st); err != nil {
+			h.t.Fatal(err)
+		}
+		if ok(st) {
+			return st
+		}
+		if time.Now().After(deadline) {
+			h.t.Fatalf("%s: %+v", what, st.Engine)
+		}
+	}
+}
+
 // noon is a Monday at noon on the host's own clock, far from the default window at 03:00 in any zone, and far
 // from any DST change.
 var noon = time.Date(2026, 6, 15, 12, 0, 0, 0, time.Local)
