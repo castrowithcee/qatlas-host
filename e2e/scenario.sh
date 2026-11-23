@@ -7295,8 +7295,26 @@ tui_screen() {
 	tui_tmux capture-pane -p -t qdtui | tee -a "${tui_log:-/dev/null}" 2>/dev/null
 }
 
+# tui_send sends Escape as its CSI u sequence: a lone ESC byte waits for a following key and merges with it into
+# Alt+key, which the interface ignores, while the full sequence reads as Escape at once.
 tui_send() {
-	tui_tmux send-keys -t qdtui "$@"
+	tui_send_esc=
+	case "${1-}" in -*) ;; *)
+		for tui_send_key in "$@"; do
+			[ "$tui_send_key" != Escape ] || tui_send_esc=1
+		done
+	esac
+	if [ -z "$tui_send_esc" ]; then
+		tui_tmux send-keys -t qdtui "$@"
+		return
+	fi
+	for tui_send_key in "$@"; do
+		if [ "$tui_send_key" = Escape ]; then
+			tui_tmux send-keys -t qdtui -l "$(printf '\033[27u')"
+		else
+			tui_tmux send-keys -t qdtui "$tui_send_key"
+		fi
+	done
 }
 
 tui_has() {
