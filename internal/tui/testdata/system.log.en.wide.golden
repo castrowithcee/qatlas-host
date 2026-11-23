@@ -2,6 +2,7 @@
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
    Users   Groups   Folders   Proposals   Changes  [Log]                                                                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Service: host                                                                                                         
   Chain of hashes intact: 2 days with 42 entries checked.                                                               
                                                                                                                         
   TIME                 USER  ACTION          RESULT              CHANGE                                                 
@@ -36,5 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-/ search  r reload  1-7 area  q quit                                                                     ↑/↓ choose  1/3
+H service  / search  W save log  r reload  1-7 area  q quit                                              ↑/↓ choose  1/3

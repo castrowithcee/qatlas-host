@@ -57,9 +57,15 @@ type hostLogPage struct {
 	verifying bool
 	stale     bool
 	entries   []control.HostLogEntry
-	err       error
-	chain     *control.HostLogVerifyResult
-	chainErr  error
+	rows      [][]string
+	// svc is the engine whose deploy service the page shows, empty for the host service. dlist is the list of
+	// the deploy services, dep what was read from each.
+	svc      string
+	dlist    *kittui.List
+	dep      map[string]*deployLog
+	err      error
+	chain    *control.HostLogVerifyResult
+	chainErr error
 }
 
 // hostLogMsg carries a read of the action log, hostVerifyMsg a check of its chain.
@@ -146,6 +152,7 @@ func (m *Model) applyHostVerify(msg hostVerifyMsg) {
 func (m *Model) fillHostLog() {
 	p, t := &m.sys.hlog, m.text
 	items := make([]kittui.ListItem, 0, len(p.entries))
+	p.rows = p.rows[:0]
 	for _, e := range p.entries {
 		user := t.Lookup(textNoValue)
 		if e.ClientUID != nil {
@@ -166,8 +173,9 @@ func (m *Model) fillHostLog() {
 				change = t.Lookup(textLogUndoOf, change, c.UndoOf)
 			}
 		}
-		items = append(items, kittui.ListItem{ID: kittui.ItemID(strconv.FormatUint(e.Seq, 10) + "@" + e.Time.UTC().Format(time.RFC3339Nano)),
-			Cells: []string{e.Time.In(m.loc).Format("2006-01-02 15:04:05"), user, e.Action, result, change}})
+		cells := []string{e.Time.In(m.loc).Format("2006-01-02 15:04:05"), user, e.Action, result, change}
+		p.rows = append(p.rows, cells)
+		items = append(items, kittui.ListItem{ID: kittui.ItemID(strconv.FormatUint(e.Seq, 10) + "@" + e.Time.UTC().Format(time.RFC3339Nano)), Cells: cells})
 	}
 	if err := p.list.SetItems(items); err != nil {
 		m.failure = t.Lookup(kittui.TextError, err.Error())
@@ -249,9 +257,12 @@ func (m *Model) chainProblem(code string) string {
 // log is older than the host, and the entries.
 func (m *Model) hostLogView(width, height int) string {
 	p, t := &m.sys.hlog, m.text
-	var head []string
+	if p.svc != "" {
+		return m.deployLogView(width, height)
+	}
+	head := m.logServiceLine(width)
 	if text, style := m.chainLine(); text != "" {
-		head = m.wrapped(detailMargin, style, text, width)
+		head = append(head, m.wrapped(detailMargin, style, text, width)...)
 	}
 	switch {
 	case p.err != nil && len(p.entries) == 0:
@@ -275,12 +286,15 @@ func (m *Model) hostLogView(width, height int) string {
 
 // hostLogFooter are the own keys of the log page.
 func (m *Model) hostLogFooter(own, common, nav []kittui.Hint) []kittui.Hint {
-	l := m.sys.hlog.list
+	l := m.sys.hlog.shownList()
 	if l.Searching() {
 		return []kittui.Hint{{Action: actEnter, Label: textFilterKeep}, {Action: actBack, Label: textFilterClear}}
 	}
-	if len(m.sys.hlog.entries) > 0 {
-		own = append(own, kittui.Hint{Action: actSearch, Label: kittui.TextKeySearch, Priority: 1})
+	if len(m.logServices()) > 1 {
+		own = append(own, kittui.Hint{Action: actInstance, Label: textKeyLogService, Priority: 1})
+	}
+	if len(m.sys.hlog.shownRows()) > 0 {
+		own = append(own, kittui.Hint{Action: actSearch, Label: kittui.TextKeySearch, Priority: 1}, saveLogHint())
 		if l.Query() != "" {
 			own = append(own, kittui.Hint{Action: actBack, Label: textFilterClear})
 		}

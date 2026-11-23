@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
+   Users   Groups   Folders   Proposals   Changes  [Log]                                                                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Service: deploy, engine system                                                                                        
+                                                                                                                        
+  TIME                 USER  FUNCTION       STACK  RESULT         ORIGIN                                                
+> 2026-11-02 09:05:00  ada   stacks.deploy  web    success        tui                                                   
+  2026-11-02 09:04:00  4242  stacks.update  db     failure: busy  mcp                                                   
+  2026-11-02 09:03:00  root  log.list       -      success        cli                                                   
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+H service  / search  W save log  r reload  1-7 area  q quit                                              ↑/↓ choose  1/3
