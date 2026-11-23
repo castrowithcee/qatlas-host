@@ -4119,7 +4119,7 @@ EOF2
 	meta=$(folder_git "$stack2" log -1 --format='%an|%P' "$commit2")
 	[ "$meta" = "qhost|$head2" ] || fail "the commit has the wrong author or parent: $meta"
 	folder_git "$stack2" show --name-only --format=%B "$commit2" | grep -q 'demo-second/compose.yaml' || fail 'the commit message does not name the files'
-	[ "$(folder_git "$stack2" show --name-only --format= "$commit2" | sort | tr '\n' ' ')" = 'demo-second/.env demo-second/compose.yaml ' ] ||
+	[ "$(folder_git "$stack2" show --name-only --format= "$commit2" | LC_ALL=C sort | tr '\n' ' ')" = 'demo-second/.env demo-second/compose.yaml ' ] ||
 		fail "the commit holds more than the named files: $(folder_git "$stack2" show --name-only --format= "$commit2")"
 	run=$(next_run demo-second "$prev") || fail 'no run of demo-second after the commit'
 	wait_for "the run $run" 240 run_finished demo-second "$run"
