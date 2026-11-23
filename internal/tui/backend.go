@@ -57,6 +57,9 @@ type Backend interface {
 	ContainerLogs(ctx context.Context, args control.ContainerLogsArgs) (control.ContainerLogsResult, error)
 	// ServiceLog reads a page of the log of the service itself.
 	ServiceLog(ctx context.Context, args control.ServiceLogArgs) (control.ServiceLogResult, error)
+	// DeployLog reads a page of the action log of one deploy service, newest first: the one WithEngine names,
+	// else the one a call about a whole engine reaches.
+	DeployLog(ctx context.Context, args control.HostLogListArgs) (control.DeployLogListResult, error)
 	// Diagnose collects the diagnostic package from read-only calls; it never fails, a part that could not be
 	// collected carries its reason.
 	Diagnose(ctx context.Context) *diagnose.Package
@@ -463,6 +466,11 @@ func (b *ChannelBackend) ContainerLogs(ctx context.Context, args control.Contain
 
 func (b *ChannelBackend) ServiceLog(ctx context.Context, args control.ServiceLogArgs) (res control.ServiceLogResult, err error) {
 	err = b.call(ctx, control.ServiceLogCommand, args, &res)
+	return res, err
+}
+
+func (b *ChannelBackend) DeployLog(ctx context.Context, args control.HostLogListArgs) (res control.DeployLogListResult, err error) {
+	err = b.call(ctx, control.HostLogListCommand, args, &res)
 	return res, err
 }
 

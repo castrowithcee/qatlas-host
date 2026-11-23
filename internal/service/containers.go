@@ -86,7 +86,7 @@ func labelList(v string) []string {
 	return out
 }
 
-func registerContainerCommands(r *control.Registry, repo *repoService, eng *sourceSet, secrets *redact.Redactor, d Docker, engine string, wait time.Duration, log *slog.Logger) error {
+func registerContainerCommands(r *control.Registry, repo *repoService, eng *sourceSet, secrets *redact.Redactor, d Docker, engine string, wait time.Duration, log *slog.Logger) (*containerService, error) {
 	if wait <= 0 {
 		wait = containerReadyWait
 	}
@@ -105,10 +105,10 @@ func registerContainerCommands(r *control.Registry, repo *repoService, eng *sour
 		control.ContainerRestartCommand: changing(s.action("restart")),
 	} {
 		if err := r.Register(name, h); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return s, nil
 }
 
 // stackDirs maps the names of the stacks that own their name to their folders; onStack sees every stack of

@@ -95,6 +95,8 @@ type WorkingCopy interface {
 	Push(ctx context.Context, commit string) error
 	// TagCommit sets the fixed tag name on commit and pushes it; see gitrepo.Repo.TagCommit.
 	TagCommit(ctx context.Context, name, commit string) error
+	// PruneTags deletes the old run tags of one host and stack that pick chooses; see gitrepo.Repo.PruneTags.
+	PruneTags(ctx context.Context, hostname, stack string, pick func(ids []string) []string) ([]string, error)
 	Diff(ctx context.Context, path string) (text string, truncated bool, err error)
 	Discard(ctx context.Context, paths []string) error
 }

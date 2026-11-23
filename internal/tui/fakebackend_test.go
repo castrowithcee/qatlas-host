@@ -26,14 +26,17 @@ type fakeBackend struct {
 	// proposalEngines records each call about a proposal with the engine it was addressed to, as "<call>:<id>@<engine>".
 	proposalEngines []string
 	credsBy         map[string][]control.CredentialInfo
-	notifyBy        map[string][]control.NotifyChannelInfo
-	status          control.StatusResult
-	stacks          control.StacksResult
-	check           control.StacksCheckResult
-	updates         control.UpdatesResult
-	runs            control.RunsResult
-	statusErr       error
-	stacksErr       error
+	// deployLogs answer DeployLog by engine; deployLogArgs records the engine of each call.
+	deployLogs    map[string][]control.DeployLogEntry
+	deployLogArgs []string
+	notifyBy      map[string][]control.NotifyChannelInfo
+	status        control.StatusResult
+	stacks        control.StacksResult
+	check         control.StacksCheckResult
+	updates       control.UpdatesResult
+	runs          control.RunsResult
+	statusErr     error
+	stacksErr     error
 	// logs, changelogs and backups answer by run ID or stack name; an error set for the key fails that call.
 	logs       map[string]string
 	changelogs map[string]control.ChangelogResult
@@ -1046,6 +1049,20 @@ func (f *fakeBackend) actCtx(ctx context.Context, call, arg string) error {
 	f.engineLog = append(f.engineLog, call+":"+arg+"@"+EngineOf(ctx))
 	f.mu.Unlock()
 	return f.act(call, arg)
+}
+
+// DeployLog answers from deployLogs by engine and records the engine of the call; an error under "deploylog:<engine>"
+// fails it.
+func (f *fakeBackend) DeployLog(ctx context.Context, a control.HostLogListArgs) (control.DeployLogListResult, error) {
+	f.count("deploylog")
+	engine := EngineOf(ctx)
+	if err := f.fail("deploylog", engine); err != nil {
+		return control.DeployLogListResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deployLogArgs = append(f.deployLogArgs, engine)
+	return control.DeployLogListResult{Entries: f.deployLogs[engine]}, nil
 }
 
 func (f *fakeBackend) ServiceLog(_ context.Context, a control.ServiceLogArgs) (control.ServiceLogResult, error) {

@@ -68,7 +68,8 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"this device, on four sub-tabs below the tab line: General (the preferences of this device),\n" +
 			"Credentials, Maintenance window and Notifications; Containers lists every container of the\n" +
 			"host; Proposals lists the proposals of agents; System lists the users and groups of the host, its\n" +
-			"latest changes and the action log of the host service.\n" +
+			"latest changes and the action log of the host service and of each deploy service (H chooses the\n" +
+			"service, W saves its entries).\n" +
 			"? opens the help, r reads the service again, q quits.\n\n" +
 			"The sub-tabs of Settings are a second line under the tab line. From the tab line, down leads to it, and\n" +
 			"there left and right choose the sub-tab with wrap-around and show its content at once; down, enter or\n" +

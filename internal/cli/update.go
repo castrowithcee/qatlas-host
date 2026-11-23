@@ -46,7 +46,8 @@ func newUpdateCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"one after another. Every stack is checked first: one that has no settings, was never deployed, has\n" +
 			"local changes or undeployed commits, is paused or has a run in progress refuses the whole call before\n" +
 			"anything changes. The deploy key needs write access to the branch. The command waits until the last\n" +
-			"step is done and exits with 1 when a stack was not updated.",
+			"step is done and exits with 1 when a stack was not updated. One stack without --version and --var also\n" +
+			"runs without sudo when a grant for update.run covers it (see qhost help grants).",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return usageFailure("update needs at least one stack", "Run 'qhost stack update <stack>... [--version <v> [--var <NAME>]]'.")
