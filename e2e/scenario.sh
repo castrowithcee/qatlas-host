@@ -88,8 +88,13 @@ ensure_user() {
 		fail "cannot create the test user $1"
 }
 
+# The clock starts when the file is sourced, which is before the first step of the scenario and of the acceptance run.
+scenario_t0=$(date +%s)
+
+# step logs the elapsed time as [+MM:SS] before the step name, so the name follows the first "] ".
 step() {
-	log "scenario: $*"
+	scenario_elapsed=$(($(date +%s) - scenario_t0))
+	log "scenario: [+$(printf '%02d:%02d' $((scenario_elapsed / 60)) $((scenario_elapsed % 60)))] $*"
 }
 
 run_scenario() {
@@ -6450,9 +6455,6 @@ scenario_repair_end() {
 	log "scenario: repair-demo halted after $(($(date +%s) - repair_demo_broken)) seconds: $(repair_text repair-demo)"
 	repair_text repair-demo | grep -q 'after 3 of 3 attempts' || fail "status does not name the attempts: $(repair_text repair-demo)"
 	wait_for 'the webhook for the failed recovery' 60 hook_has /notify recovery-failed '\"stack\":\"repair-demo\"' '\"attempts\":3'
-	sleep 35
-	[ "$(docker exec "$prefix-hooks" cat /data/requests.jsonl | grep -F '"path":"/notify"' | grep -F '"X-Qhost-Event":"recovery-failed"' | grep -cF '\"stack\":\"repair-demo\"')" = 1 ] ||
-		fail 'recovery-failed was not sent exactly once'
 	tui_tmux kill-server >/dev/null 2>&1 || true
 	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
@@ -6471,6 +6473,11 @@ scenario_repair_end() {
 	step 'repair-demo is healthy again and leaves the repository'
 	wait_for 'repair-demo healthy' 120 stack_healthy repair-demo
 	wait_for 'the finding of repair-demo to end' 120 no_finding repair-demo container-failed
+	# A repeated recovery-failed could only come from a monitor cycle (every 30 seconds) after the halt. The finding
+	# ended and recovered was sent by such cycles, so the count is final here.
+	wait_for 'the webhook for the recovery of repair-demo' 60 hook_has /notify recovered '\"stack\":\"repair-demo\"'
+	[ "$(docker exec "$prefix-hooks" cat /data/requests.jsonl | grep -F '"path":"/notify"' | grep -F '"X-Qhost-Event":"recovery-failed"' | grep -cF '\"stack\":\"repair-demo\"')" = 1 ] ||
+		fail 'recovery-failed was not sent exactly once'
 	out=$(qd notify remove rep) || fail "notify remove rep failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q repair-demo &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the repair-demo stack" && git push -q origin main'
@@ -6714,7 +6721,10 @@ scenario_hook() {
 	step 'a wrong secret gets 404 and starts no run'
 	runs_before=$(stack_run_count demo-stack)
 	hook_rejects "/hook/$wrong" || fail 'a wrong secret was not answered with 404'
-	sleep 12
+	# The receiver leaves a marker only after the 404 branch, and the deploy service takes markers on every pass over
+	# its folder (every two seconds), which also removes a foreign entry: once the probe is gone, a pass has run.
+	docker exec "$host" touch /run/qhost-hook/system/Probe || fail 'cannot lay a probe in the marker folder'
+	wait_for 'the service to pass over the marker folder' 30 docker exec "$host" test ! -e /run/qhost-hook/system/Probe
 	[ "$(stack_run_count demo-stack)" = "$runs_before" ] || fail 'a wrong secret started a run'
 	[ -z "$(stack_field demo-stack active_run)" ] || fail 'a wrong secret started a run in progress'
 
@@ -7099,6 +7109,19 @@ window_open() {
 	[ "$(window_field open)" = true ]
 }
 
+# window_start_soon prints a window start (HH:MM, UTC) for a window that opens soon. --start has minute granularity,
+# so the window opens at that minute's start: in 60 - S seconds when the clock reads S seconds, after "+1 minute".
+# That leaves the checks between window set and the opening (several qhost calls) enough time only while S is
+# at most 30; later in the minute the start is one minute further out.
+window_start_soon() {
+	t=$(date -u -d '+1 minute' +%H:%M:%S)
+	if [ "${t##*:}" -le 30 ]; then
+		printf '%s\n' "${t%:*}"
+	else
+		date -u -d '+2 minutes' +%H:%M
+	fi
+}
+
 # window_far_away opens the window daily at the time twelve hours from now, for one minute, and prints the answer.
 window_far_away() {
 	qd --output json window set --days daily --zone UTC --start "$(date -u -d '+12 hours' +%H:%M)" --duration 1m
@@ -7174,8 +7197,7 @@ scenario_window() {
 	step 'window set takes effect in the running service without a restart'
 	started=$(status_field started_at)
 	[ -n "$started" ] || fail 'status shows no start time of the service'
-	# --start has minute granularity: two minutes ahead opens the window between one and two minutes from now.
-	start=$(date -u -d '+2 minutes' +%H:%M)
+	start=$(window_start_soon)
 	out=$(qd --output json window set --days daily --zone UTC --start "$start" --duration 5m) || fail "window set failed: $out"
 	log "scenario: window set: $out"
 	[ "$(window_field start)" = "$start" ] && [ "$(window_field duration)" = 5m ] && [ "$(window_field zone)" = UTC ] ||
@@ -8929,8 +8951,7 @@ EOF2
 		eval "runs_$(printf '%s' "$stack" | tr - _)=$(stack_run_count "$stack")"
 		eval "images_$(printf '%s' "$stack" | tr - _)=$(stack_images "$stack")"
 	done
-	# --start has minute granularity: two minutes ahead opens the window between one and two minutes from now.
-	start=$(date -u -d '+2 minutes' +%H:%M)
+	start=$(window_start_soon)
 	out=$(qd --output json window set --days daily --zone UTC --start "$start" --duration 5m) || fail "window set failed: $out"
 	[ "$(window_field open)" = false ] || fail "the window is open before its start: $(qd --output json window show)"
 	window_last_before=$(window_field last_run)
