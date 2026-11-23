@@ -203,6 +203,28 @@ func TestAdoptShowsTheFormAndAddsTheFolderAfterYes(t *testing.T) {
 	}
 }
 
+// With a second engine the takeover asks for the engine in the Containers area, where it was started, and goes on
+// to the question once the preselected engine is kept.
+func TestAdoptWithTwoEnginesAsksForTheEngineInTheContainersArea(t *testing.T) {
+	b := adoptBackend(localResult(foreignStack()))
+	b.engines = []string{control.EngineSystem, aliceEngine}
+	m := newTestModel(t, i18n.English, b, wideWidth, 40)
+	send(m, "5", "a")
+	if got := engineChoiceOf(t, m); got != control.EngineSystem {
+		t.Fatalf("preselected %q", got)
+	}
+	contains(t, m, "Engine", "whose deploy service runs the stacks")
+	send(m, "f2")
+	if m.set.form != nil || m.modal == nil {
+		t.Fatalf("form %v, question %v\n%s", m.set.form, m.modal, m.render())
+	}
+	contains(t, m, "Foreign project", "engine: system")
+	send(m, "y")
+	if len(b.sourceAdds) != 1 || b.sourceAdds[0].Path != foreignDir {
+		t.Fatalf("adds = %+v", b.sourceAdds)
+	}
+}
+
 func containsText(screen, want string) bool { return contains2(screen, want) }
 
 func TestAdoptWarnsAboutAnotherProjectAndFilesWithoutBlocking(t *testing.T) {
