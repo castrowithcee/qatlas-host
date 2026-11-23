@@ -121,3 +121,19 @@ func TestCommitChangesPassesAMovedHeadOn(t *testing.T) {
 		t.Fatalf("calls = %+v", r.copy.pathsCalls)
 	}
 }
+
+func TestCommitChangesLeavesTheNextPollFreeToFastForwardACommitFromOutside(t *testing.T) {
+	r := commitRig(t)
+	c, err := r.eng.CommitChanges(t.Context(), commit(1), []string{"db/.env", "web/.env", "web/old.txt"}, "x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.copy.set(func(f *fakeCopy) { f.remote = commit(4) })
+	res := r.poll()
+	if !res.FastForwarded || res.Head != commit(4) || !slices.Equal(r.copy.ffTo, []string{commit(4)}) {
+		t.Fatalf("poll after the commit %s = %+v, fast-forwards = %v", c, res, r.copy.ffTo)
+	}
+	if snap, _ := r.eng.Snapshot(); snap.State.Note != "" || snap.State.PollError != "" {
+		t.Fatalf("note = %q, poll error = %q", snap.State.Note, snap.State.PollError)
+	}
+}
