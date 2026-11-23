@@ -382,6 +382,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applySecrets(msg)
 	case hooksMsg:
 		m.applyHooks(msg)
+	case grantCoverMsg:
+		return m, m.applyGrantCover(msg)
 	case grantsMsg:
 		m.applyGrants(msg)
 	case settingsLoadMsg:
