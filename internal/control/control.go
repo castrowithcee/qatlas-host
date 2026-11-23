@@ -598,6 +598,8 @@ type RunInfo struct {
 	Error      string    `json:"error,omitempty"`
 	// Tag is the Git tag the run set on its resulting commit, empty when it set none or the remote refused it.
 	Tag string `json:"tag,omitempty"`
+	// Backup is the id of the backup the run made before it changed anything, empty when it made none.
+	Backup string `json:"backup,omitempty"`
 	// LogUnreadable is the refusal of the run's log when this version does not read it; it names the file.
 	LogUnreadable string `json:"log_unreadable,omitempty"`
 	// Engine is the engine of the deploy service that recorded the run; empty as in StackStatus.Engine.

@@ -43,5 +43,5 @@
 │ Update  geht, automatisch                            │
 │   the maintenance window updates APP_VERSION by      │
 │   itself                                             │
-e Update-Regeln  b Backup  C Compose  o Log             
-a Geheimnis setzen  r Neu laden  q Beenden              
+B zurück auf Stand davor  e Update-Regeln  b Backup     
+C Compose  o Log  r Neu laden  q Beenden                

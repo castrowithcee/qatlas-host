@@ -67,6 +67,8 @@ func (m *Model) detailAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 		return m.openSecretPick(), true
 	case actRestore:
 		return m.openBackupPick(), true
+	case actRollback:
+		return m.rollbackFromDetail(), true
 	case actDataDirs:
 		return m.openDataDirForm(), true
 	case actEdit:
@@ -272,6 +274,11 @@ func (m *Model) detailHints() []kittui.Hint {
 	if stack, ok := m.detailStack(); ok {
 		if _, found := m.dataDirFinding(stack); found {
 			hints = append(hints, kittui.Hint{Action: actDataDirs, Label: textKeyDataDirs, Priority: 2})
+		}
+	}
+	if stack, ok := m.detailStack(); ok {
+		if _, found := m.lastUpdateRun(stack, m.stackEngineOf(stack)); found {
+			hints = append(hints, kittui.Hint{Action: actRollback, Label: textKeyRollback, Priority: 3})
 		}
 	}
 	hints = append(hints, kittui.Hint{Action: actEdit, Label: textKeyUpdateRules, Priority: 3},

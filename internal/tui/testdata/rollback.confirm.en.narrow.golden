@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed  [esc] back  [?] help
+  1 2 [3 Runs] 4 5 6 7                                  
+────────────────────────────────────────────────────────
+  STACK        STARTED      RESULT           TRIGGER    
+  web-shop     10-30 15:00  running          manual     
+> demo-stack   10-30 14:02  succeeded        update     
+  web-shop     10-30 12:00  rolled back      poll       
+  ╔═ Back to the state before ═══════════════════════╗  
+  ║ ⚠ Return demo-stack to the versions before the   ║  
+  ║   update run 20261030T140200Z-0000000c?          ║  
+  ║                                                  ║  
+  ║ The stack is stopped, its current data is backed ║  
+  ║ up if it has backup rules, the backup of that    ║  
+  ║ update is restored and the stack starts on the   ║  
+  ║ old versions. The stack is pinned afterwards.    ║  
+  ║                                                  ║  
+  ║ [ yes, do it ]  > cancel <                       ║  
+  ║ y yes, do it  n/esc/enter cancel                 ║  
+  ╚══════════════════════════════════════════════════╝  
+                                                        
+                                                        
+                                                        
+                                                        
+                                                     2/7

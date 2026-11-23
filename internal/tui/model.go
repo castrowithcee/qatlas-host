@@ -176,11 +176,11 @@ type Model struct {
 	propByID  map[kittui.ItemID]control.ProposalInfo
 	// modal is the question or result that takes every key; run the sequence of calls under way. stale is set
 	// when a refresh must follow the one under way.
-	set              *settingsState
-	modal            *modal
-	run              *running
-	modalGen, runGen int
-	stale            bool
+	set                           *settingsState
+	modal                         *modal
+	run                           *running
+	modalGen, runGen, rollbackGen int
+	stale                         bool
 	// after starts a timer; tests replace it.
 	after func(time.Duration, func(time.Time) tea.Msg) tea.Cmd
 	// euid and makeDirs are the user the interface runs as and the creation of data directories; tests replace them.
@@ -372,6 +372,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.applyStep(msg)
 	case previewMsg:
 		return m, m.applyPreview(msg)
+	case rollbackCheckMsg:
+		m.applyRollbackCheck(msg)
 	case changelogMsg:
 		m.applyChangelog(msg)
 	case backupsMsg:
@@ -704,7 +706,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			if m.saveOpenLog() {
 				return nil
 			}
-		case actFetch, actAdd, actRemove, actEdit, actRename, actTest, actEnter, actRestore, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actRemote, actApprove, actReject:
+		case actFetch, actAdd, actRemove, actEdit, actRename, actTest, actEnter, actRestore, actRollback, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actRemote, actApprove, actReject:
 			switch m.area {
 			case areaSystem:
 				if cmd, handled := m.systemAction(id); handled {
@@ -723,6 +725,10 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			case areaDetail:
 				if cmd, handled := m.detailAction(id); handled {
 					return cmd
+				}
+			case areaRuns:
+				if id == actRollback && !m.log.open {
+					return m.rollbackFromRuns()
 				}
 			case areaContainers:
 				if id == actAdd {
@@ -1139,7 +1145,7 @@ func (m *Model) footer() []kittui.Hint {
 		return append(m.log.view.Hints(), append([]kittui.Hint{saveLogHint()}, common...)...)
 	case m.area == areaRuns:
 		return m.listFooter(m.runsList, len(m.runByID), textKeyLog, append(
-			[]kittui.Hint{m.stackOnlyHint(), {Action: actServiceLog, Label: textKeySvcLog, Priority: 2}}, common...), nav)
+			append([]kittui.Hint{m.stackOnlyHint(), {Action: actServiceLog, Label: textKeySvcLog, Priority: 2}}, m.rollbackRunHints()...), common...), nav)
 	case m.area == areaStacks:
 		return m.stacksFooter(common, nav)
 	case m.area == areaSystem:

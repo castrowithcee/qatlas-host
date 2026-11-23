@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks  [2 ▣ Stack detail]  3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  demo-stack                                                                                                            
+                                                                                                                        
+  mode      automatic       ╔═ Back to the state before ═══════════════════════════════════╗                            
+  state     deployed        ║ ⚠ Set demo-stack back to the state before the update run     ║                            
+  findings  1 warning       ║   20261030T140200Z-0000000c?                                 ║                            
+                            ║                                                              ║                            
+╭─ Image versions ──────────║ The stack is pinned afterwards, so no update or window moves ║───────────────────────────╮
+│ APP_VERSION  example/app  ║ it on. Choose what happens to its data.                      ║                           │
+│   1.4.2 -> 1.5.0  update a║ APP_VERSION: 2.0.0 -> 1.9.0                                  ║                           │
+╰───────────────────────────║ DB_VERSION: 16.2 -> 16.1                                     ║───────────────────────────╯
+╭─ Containers ──────────────║ With data: Everything written since this update is lost.     ║───────────────────────────╮
+│ No containers of this stac║ Version only: The data stays, the old version may not        ║                           │
+╰───────────────────────────║ understand migrated data.                                    ║───────────────────────────╯
+╭─ Changelog ───────────────║ This run made no backup, so only the version can go back.    ║───────────────────────────╮
+│ APP_VERSION  1.4.2 -> 1.5.║                                                              ║                           │
+│   source example/app      ║ [ version only ]  > cancel <                                 ║                           │
+│   1.5.0  Spring release  2║ v version only  n/esc/enter cancel                           ║                           │
+│     Adds a dark theme.    ╚══════════════════════════════════════════════════════════════╝                           │
+│                                                                                                                      │
+│     - faster start                                                                                                   │
+                                                                                                                   20/59

@@ -43,5 +43,5 @@
 │   20261030T140200Z-0000000c                          │
 │ fehlgeschlagen  10-29 02:00  poll  850ms             │
 │   20261029T020000Z-00000010                          │
-e Update-Regeln  b Backup  C Compose  o Log             
-a Geheimnis setzen  r Neu laden  q Beenden              
+B zurück auf Stand davor  e Update-Regeln  b Backup     
+C Compose  o Log  r Neu laden  q Beenden                

@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                    [?] Hilfe
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+      STACK        VERSION  VERFÜGBAR  ZUSTAND  BEFUNDE 
+> [ ] demo-stack   1.4.2    1.5.0      gepinnt  1 Warnu…
+  [ ] mail-relay   3.1      aktuell    offen    keine   
+  [ ] old-tool     -        ungeprüft  entfer…  keine   
+  [ ] photo-album  2.0.1    Fehler     Rollba…  1 Fehler
+  [ ] web-shop     5.2.0,…  6.0.0 (M…  läuft    keine   
+  [ ] wiki         1.41.0   ungeprüft  gepinnt  2 Warnu…
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+enter Details  / Suchen  space markieren  u update      
+d deploy  a hinzufügen  r Neu laden  q Beenden          
