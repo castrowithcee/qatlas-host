@@ -7,6 +7,12 @@ hook_signing_value=demo-signing-value-e2e
 
 tui_registry_host=quay.other.example.test
 
+rolled_back_steps=stop,backup,pull,up,check,rollback,stop,restore,revert,push,fast-forward,up,check
+# A stack without backup rules is not stopped for a backup, so its run starts at the backup step.
+rolled_back_plain_steps=backup,pull,up,check,rollback,stop,restore,revert,push,fast-forward,up,check
+# The rollback-failed run is one of demo-cache, which has no backup rules either.
+rollback_failed_steps=backup,pull,up,check,rollback,stop,restore,revert,push,stop
+
 # stack_field prints one flat field of a stack from qhost status (empty when it is absent).
 stack_field() {
 	qd --output json status | sed -n "s/.*\"stack\\.$1\\.$2\": *\"\\([^\"]*\\)\".*/\\1/p"

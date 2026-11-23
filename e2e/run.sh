@@ -10,9 +10,11 @@
 #   e2e/run.sh env                print the path of the file with the generated test values (source it)
 #   e2e/run.sh requests           print the requests the webhook receiver recorded (JSON lines)
 #   e2e/run.sh messages           print the e-mails the mail server recorded (JSON lines)
-#   e2e/run.sh scenario           run the scenario once after up (see e2e/scenario.sh)
+#   e2e/run.sh scenario [section...]   run the scenario once after up; with names only those sections and the
+#                                 sections they need (register and names in e2e/sections.sh)
 #   e2e/run.sh acceptance         run the acceptance scenario once after up, on a fresh host (see e2e/acceptance.sh)
-#   e2e/run.sh check <scenario|acceptance>   up, run it, down, also when interrupted
+#   e2e/run.sh check <scenario [section...]|acceptance>   up, run it, down, also when interrupted; an unknown
+#                                 section stops it before up
 #
 # On the host, e2e-admin reaches the stacks repo with: git clone git.qhoste2e.test:stacks.git
 # The test user e2e-rootless runs a rootless Docker engine of its own, without a login session, on the socket
@@ -599,13 +601,23 @@ status() {
 	printf 'test values: %s\n' "$work/testenv"
 }
 
-# check runs up, the scenario $1 and down in one go; down also runs when the run is interrupted or times out.
+# check runs up, the scenario $1 with the sections after it and down in one go; down also runs when the run is
+# interrupted or times out.
 check() {
-	case ${1:-} in scenario | acceptance) ;; *) fail 'check needs scenario or acceptance' ;; esac
+	kind=${1:-}
+	[ $# -eq 0 ] || shift
+	case $kind in
+	scenario)
+		. "$here/sections.sh"
+		scenario_select "$@"
+		;;
+	acceptance) [ $# -eq 0 ] || fail 'check acceptance takes no sections' ;;
+	*) fail 'check needs scenario or acceptance' ;;
+	esac
 	"$0" up || exit 1
 	trap '"$0" down; exit 143' HUP INT TERM
 	rc=0
-	"$0" "$1" || rc=$?
+	"$0" "$kind" "$@" || rc=$?
 	trap - HUP INT TERM
 	"$0" down || [ "$rc" -ne 0 ] || rc=1
 	exit "$rc"
@@ -649,8 +661,9 @@ main() {
 	scenario)
 		require_up
 		source_lib
-		. "$here/scenario.sh"
-		run_scenario
+		. "$here/sections.sh"
+		for section in "$here"/sections/*.sh; do . "$section"; done
+		run_scenario "$@"
 		;;
 	acceptance)
 		require_up
@@ -674,7 +687,7 @@ main() {
 		exec docker exec -i -u "$user" "$host" "$@"
 		;;
 	*)
-		sed -n '2,39p' "$0" | sed 's/^# \{0,1\}//'
+		sed -n '2,44p' "$0" | sed 's/^# \{0,1\}//'
 		[ -z "$cmd" ] || exit 2
 		;;
 	esac
