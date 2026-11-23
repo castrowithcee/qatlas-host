@@ -4,12 +4,13 @@
 // commit that puts the stack folder back to its deployed state is pushed, and that state is started again.
 //
 // The working copy is shared with the repository commands of the service and belongs to the operator: the
-// engine fetches, fast-forwards only a copy without local changes, and otherwise only reads. Its only own
-// changes are a rollback's revert commit and an update's version commit, each built outside the working copy,
-// pushed as a plain fast-forward and then followed by a fast-forward. A working copy without a remote (local
-// mode of gitrepo) fetches nothing and lands such a commit on its branch in place of the push. It never
-// resets, stashes, checks out or writes into the working copy. Its content is data; stack names from it never
-// become file names.
+// engine fetches, fast-forwards only a copy without local changes, and otherwise only reads. The one exception
+// is the repeat of CommitChanges after a rejected push, which catches up with the remote first. Its own commits
+// are a rollback's revert commit and an update's version commit, each built outside the working copy, pushed
+// as a plain fast-forward and then followed by a fast-forward, and the commit of the changes the operator
+// confirmed, which gitrepo builds and lands itself. A working copy without a remote (local mode of gitrepo)
+// fetches nothing and lands such a commit on its branch in place of the push. It never resets, stashes, checks
+// out or writes into the working copy. Its content is data; stack names from it never become file names.
 package engine
 
 import (
@@ -99,6 +100,7 @@ type WorkingCopy interface {
 	PruneTags(ctx context.Context, hostname, stack string, pick func(ids []string) []string) ([]string, error)
 	Diff(ctx context.Context, path string) (text string, truncated bool, err error)
 	Discard(ctx context.Context, paths []string) error
+	CommitPaths(ctx context.Context, expectHead string, paths []string, list []stacks.Stack, message string) (string, error)
 }
 
 // Binding is the working copy to watch and the directory it lives in. Blocked, when set, maps the names of the
@@ -702,24 +704,10 @@ func classify(changes []gitrepo.Change, list []stacks.Stack) (byStack map[string
 
 // countedChanges is classify with the status entries kept, so that a caller can tell the kind of a change.
 func countedChanges(changes []gitrepo.Change, list []stacks.Stack) (byStack map[string][]gitrepo.Change, dirty bool) {
-	mounts := map[string][]string{}
-	root := false
-	for _, st := range list {
-		mounts[st.Folder] = st.BindMounts
-		root = root || st.Folder == stacks.RootFolder
-	}
 	byStack = map[string][]gitrepo.Change{}
 	for _, c := range changes {
-		folder, rel, inStack := strings.Cut(c.Path, "/")
-		if root {
-			folder, rel, inStack = stacks.RootFolder, c.Path, folder != stacks.SettingsTop
-		}
-		if inStack && (rel == "secrets.env" || strings.HasPrefix(rel, "data/")) {
-			continue
-		}
-		if inStack && c.Code == "??" && slices.ContainsFunc(mounts[folder], func(m string) bool {
-			return rel == m || strings.HasPrefix(rel, m+"/")
-		}) {
+		folder, inStack, own := gitrepo.ChangeOwner(c, list)
+		if own {
 			continue
 		}
 		dirty = true

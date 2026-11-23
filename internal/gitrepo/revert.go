@@ -246,6 +246,9 @@ func (r *Repo) Push(ctx context.Context, commit string) error {
 		if isNonFastForward(failure.stdout) {
 			return ErrPushRejected
 		}
+		if reason, ok := remoteRejection(failure.stdout); ok {
+			return &RemoteRejectedError{Reason: reason}
+		}
 	}
 	if err != nil {
 		return fmt.Errorf("push failed: %w", err)
@@ -254,6 +257,24 @@ func (r *Repo) Push(ctx context.Context, commit string) error {
 		return fmt.Errorf("update tracking ref failed: %w", err)
 	}
 	return nil
+}
+
+// RemoteRejectedError means the remote took the connection but refused the update itself, for example a hook
+// or a branch protection ("[remote rejected]"). Retrying the same commit does not help. Reason is text of the
+// remote, one bounded line.
+type RemoteRejectedError struct{ Reason string }
+
+func (e *RemoteRejectedError) Error() string { return "the remote refused the push: " + e.Reason }
+
+// remoteRejection returns the reason of the first "[remote rejected]" line of git's --porcelain output.
+func remoteRejection(porcelain string) (string, bool) {
+	for _, line := range strings.Split(porcelain, "\n") {
+		f := strings.Split(line, "\t")
+		if len(f) >= 3 && f[0] == "!" && strings.HasPrefix(f[2], "[remote rejected]") {
+			return sanitizeLine(strings.TrimSpace(strings.TrimPrefix(f[2], "[remote rejected]")), maxReasonRunes), true
+		}
+	}
+	return "", false
 }
 
 // land fast-forwards the checked-out branch to commit. A failed fast-forward is a rejection when the branch is

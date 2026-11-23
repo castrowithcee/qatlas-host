@@ -4023,6 +4023,65 @@ EOF2
 	[ "$(stack_images demo-second)" = "$image:1.0.0" ] || fail 'demo-second does not run after /opt/stacks2 is taken over again'
 	[ "$(stack_field demo-second source)" = opt-stacks2 ] || fail "demo-second is not listed with its source: $(qd --output json status)"
 	log 'scenario: /opt/stacks2 was released and taken over again with its origin, head and deploy key'
+
+	step 'source commit pushes exactly the named changes of a clone, the stack runs, and a failing commit is rolled back'
+	stack2=/opt/stacks2
+	prev=$(newest_run demo-second)
+	head2=$(qd --output json source list | jq -r '.sources[] | select(.path == "/opt/stacks2") | .head')
+	[ "$head2" = "$(remote_head "$url2")" ] || fail "the head of /opt/stacks2 is not the head of the remote: $head2"
+	docker exec "$host" sh -ec "cd '$stack2/demo-second' && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.1.0/' .env &&
+		sed -i 's/^      DEMO_NAME: demo-second\$/      DEMO_NAME: demo-second\n      DEMO_NOTE: committed by qhost/' compose.yaml" ||
+		fail 'cannot edit /opt/stacks2 by hand'
+	restart_service
+	i=0
+	until stack_field demo-second findings | grep -q local-changes; do
+		i=$((i + 1))
+		[ "$i" -lt 120 ] || fail 'demo-second has no finding local-changes'
+		sleep 1
+	done
+	out=$(qd_fails source commit "$stack2" demo-second/.env demo-second/compose.yaml) || fail "source commit without --head succeeded: $out"
+	out=$(qd_fails source commit "$stack2" demo-second/.env demo-second/compose.yaml --head "$(printf '%040d' 0)") || fail "source commit with a wrong head succeeded: $out"
+	printf '%s' "$out" | grep -q 'head-moved' || fail "a wrong head is no head-moved error: $out"
+	out=$(qd_fails source commit "$stack2" demo-second/.env demo-second/secrets.env --head "$head2") || fail "source commit took the host's own secrets file: $out"
+	[ "$(remote_head "$url2")" = "$head2" ] || fail 'a refused source commit changed the remote'
+	out=$(qd --output json source commit "$stack2" demo-second/.env demo-second/compose.yaml --head "$head2") || fail "source commit failed: $out"
+	commit2=$(printf '%s' "$out" | jq -r '.commit')
+	printf '%s' "$out" | jq -e '.committed == ["demo-second/.env", "demo-second/compose.yaml"]' >/dev/null || fail "unexpected source commit result: $out"
+	[ "$(remote_head "$url2")" = "$commit2" ] || fail "the commit $commit2 is not the head of the remote: $(remote_head "$url2")"
+	[ "$(folder_git "$stack2" rev-parse HEAD)" = "$commit2" ] || fail 'the branch of /opt/stacks2 is not at the new commit'
+	meta=$(folder_git "$stack2" log -1 --format='%an|%P' "$commit2")
+	[ "$meta" = "qhost|$head2" ] || fail "the commit has the wrong author or parent: $meta"
+	folder_git "$stack2" show --name-only --format=%B "$commit2" | grep -q 'demo-second/compose.yaml' || fail 'the commit message does not name the files'
+	[ "$(folder_git "$stack2" show --name-only --format= "$commit2" | sort | tr '\n' ' ')" = 'demo-second/.env demo-second/compose.yaml ' ] ||
+		fail "the commit holds more than the named files: $(folder_git "$stack2" show --name-only --format= "$commit2")"
+	run=$(next_run demo-second "$prev") || fail 'no run of demo-second after the commit'
+	wait_for "the run $run" 240 run_finished demo-second "$run"
+	qd stack log "$run" | grep -q ' result succeeded' || fail "the run after the commit did not succeed: $(qd stack log "$run")"
+	[ "$(stack_images demo-second)" = "$image:1.1.0" ] || fail "demo-second does not run 1.1.0: $(stack_images demo-second)"
+	[ "$(stack_field demo-second deployed)" = "$commit2" ] || fail "demo-second is not recorded as deployed at $commit2"
+	[ "$(qd --output json source changes "$stack2" | jq '.changes | length')" = 0 ] || fail "changes are left after the commit: $(qd --output json source changes "$stack2")"
+	i=0
+	while stack_field demo-second findings | grep -q local-changes; do
+		i=$((i + 1))
+		[ "$i" -lt 120 ] || fail 'the finding local-changes stays after the commit'
+		sleep 1
+	done
+
+	prev=$run
+	head2=$commit2
+	docker exec "$host" sed -i 's/^DEMO_HEALTH=.*/DEMO_HEALTH=fail/' "$stack2/demo-second/.env" || fail 'cannot break the healthcheck of demo-second'
+	out=$(qd --output json source commit "$stack2" demo-second/.env --head "$head2") || fail "source commit of the failing version failed: $out"
+	bad2=$(printf '%s' "$out" | jq -r '.commit')
+	run=$(next_run demo-second "$prev") || fail 'no run of demo-second for the failing commit'
+	wait_for "the run $run" 240 run_finished demo-second "$run"
+	printf '%s' "$(qd stack log "$run")" | grep -q ' result rolled-back' || fail "the failing commit was not rolled back: $(qd stack log "$run")"
+	revert2=$(folder_git "$stack2" rev-parse HEAD)
+	[ "$revert2" != "$bad2" ] || fail 'no revert commit followed the failing commit'
+	[ "$(remote_head "$url2")" = "$revert2" ] || fail 'the revert commit is not the head of the remote'
+	[ "$(folder_git "$stack2" log -1 --format='%an|%P' "$revert2")" = "qhost|$bad2" ] || fail 'the revert commit has the wrong author or parent'
+	docker exec "$host" grep -qx DEMO_HEALTH=ok "$stack2/demo-second/.env" || fail 'the revert did not restore the healthcheck setting'
+	[ "$(stack_images demo-second)" = "$image:1.1.0" ] || fail "demo-second does not run the previous image after the rollback: $(stack_images demo-second)"
+	log "scenario: source commit pushed $commit2 and the failing commit $bad2 was rolled back by $revert2"
 }
 
 # scenario_private_registry proves that the deploy service pulls from a registry with a login only with the login
