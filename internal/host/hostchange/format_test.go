@@ -26,8 +26,32 @@ func TestJournalWritesItsFormatNumber(t *testing.T) {
 	}
 }
 
+func TestJournalEntryWithoutFormatNumberIsReadAsFormat1AndKept(t *testing.T) {
+	j, err := OpenJournal(filepath.Join(t.TempDir(), "host", "journal"), os.Getuid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const id = "20260102T030405.000000Z-0a1b2c"
+	doc := formatnumtest.Cases("schema", journalSchema, `"id":"`+id+`","action":"example"`)["missing"]
+	path := j.path(id)
+	formatnumtest.Seed(t, path, doc)
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if e, err := j.Get(id); err != nil || e.ID != id || e.Action != "example" {
+		t.Fatalf("entry = %+v, %v", e, err)
+	}
+	if list, err := j.List(); err != nil || len(list) != 1 {
+		t.Fatalf("list = %v, %v", list, err)
+	}
+	formatnumtest.Unchanged(t, path, doc)
+}
+
 func TestUnknownJournalFormatNumberIsRefusedAndKept(t *testing.T) {
 	for name, doc := range formatnumtest.Cases("schema", journalSchema, `"id":"20260102T030405.000000Z-0a1b2c"`) {
+		if name == "missing" {
+			continue
+		}
 		t.Run(name, func(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "host", "journal")
 			j, err := OpenJournal(dir, os.Getuid())

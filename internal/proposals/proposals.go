@@ -451,7 +451,7 @@ func readRecord(path string) (record, error) {
 	if err != nil {
 		return record{}, err
 	}
-	if err := formatnum.CheckJSON(path, "schema", data, recordSchema); err != nil {
+	if err := formatnum.CheckJSONMissing(path, "schema", data, 1, recordSchema); err != nil {
 		return record{}, err
 	}
 	var r record
@@ -524,7 +524,7 @@ func (s *Store) save(r record) error {
 		return err
 	}
 	if old, err := os.ReadFile(s.path(r.ID)); err == nil {
-		if err := formatnum.CheckJSON(s.path(r.ID), "schema", old, recordSchema); err != nil {
+		if err := formatnum.CheckJSONMissing(s.path(r.ID), "schema", old, 1, recordSchema); err != nil {
 			return err
 		}
 	}

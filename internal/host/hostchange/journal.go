@@ -209,13 +209,14 @@ func (j *Journal) Write(e Entry) error {
 }
 
 // checkExisting refuses a file of the journal whose format number this version does not read, so it is
-// neither replaced nor removed. A missing or otherwise unreadable file passes.
+// neither replaced nor removed. A file without a number was written before the number existed and is format
+// 1. A missing or otherwise unreadable file passes.
 func (j *Journal) checkExisting(path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil
 	}
-	return formatnum.CheckJSON(path, "schema", data, journalSchema)
+	return formatnum.CheckJSONMissing(path, "schema", data, 1, journalSchema)
 }
 
 // ErrNoEntry marks an id the journal does not hold.
@@ -247,7 +248,7 @@ func (j *Journal) Get(id string) (Entry, error) {
 	if err != nil {
 		return Entry{}, err
 	}
-	if err := formatnum.CheckJSON(path, "schema", data, journalSchema); err != nil {
+	if err := formatnum.CheckJSONMissing(path, "schema", data, 1, journalSchema); err != nil {
 		return Entry{}, err
 	}
 	var e Entry

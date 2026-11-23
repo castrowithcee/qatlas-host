@@ -298,6 +298,8 @@ func TestNameCollisionKeepsTheDeployedStack(t *testing.T) {
 // An installation with the single binding of earlier versions keeps its state, key and history.
 func TestLegacyBindingBecomesTheFirstSource(t *testing.T) {
 	const runID = "20260101T000000Z-0a1b2c3d"
+	// A log written before run logs carried a format number.
+	const bareID = "20251231T000000Z-0a1b2c3d"
 	h := newHarness(t)
 	store, err := credentials.Open(h.state, nil)
 	if err != nil {
@@ -316,8 +318,11 @@ func TestLegacyBindingBecomesTheFirstSource(t *testing.T) {
 	writeFile(t, filepath.Join(h.state, "stacks-repo.json"), string(legacy))
 	writeFile(t, filepath.Join(h.state, "deploy", "state.json"), `{"schema":1,"head":"`+head+
 		`","stacks":{"demo-stack":{"deployed":"`+head+`"}},"runs":[{"id":"`+runID+`","stack":"demo-stack","commit":"`+head+
-		`","trigger":"poll","started":"2026-01-01T00:00:00Z","duration":0,"result":"succeeded"}]}`)
+		`","trigger":"poll","started":"2026-01-01T00:00:00Z","duration":0,"result":"succeeded"},{"id":"`+bareID+`","stack":"demo-stack","commit":"`+head+
+		`","trigger":"poll","started":"2025-12-31T00:00:00Z","duration":0,"result":"succeeded"}]}`)
 	writeFile(t, filepath.Join(h.state, "deploy", "runs", runID+".log"), "schema 1\nearlier run\n")
+	bare := "2025-12-31T00:00:00Z step earlier version\n"
+	writeFile(t, filepath.Join(h.state, "deploy", "runs", bareID+".log"), bare)
 	h.run(nil)
 
 	for _, gone := range []string{"stacks-repo.json", "deploy"} {
@@ -348,6 +353,18 @@ func TestLegacyBindingBecomesTheFirstSource(t *testing.T) {
 	var log control.LogResult
 	if err := h.call(control.LogCommand, control.LogArgs{ID: runID}, &log); err != nil || log.Text != "earlier run\n" {
 		t.Fatalf("log: %q, %v", log.Text, err)
+	}
+	var runs control.RunsResult
+	if err := h.call(control.RunsCommand, control.RunsArgs{}, &runs); err != nil || len(runs.Runs) != 2 {
+		t.Fatalf("runs: %+v, %v", runs, err)
+	}
+	for _, r := range runs.Runs {
+		if r.LogUnreadable != "" {
+			t.Fatalf("run %s: log unreadable: %s", r.ID, r.LogUnreadable)
+		}
+	}
+	if err := h.call(control.LogCommand, control.LogArgs{ID: bareID}, &log); err != nil || log.Text != bare {
+		t.Fatalf("log without a number: %q, %v", log.Text, err)
 	}
 	if got := h.git.ConfigFor(h.dir).KeyFile; got != filepath.Join(h.state, "deploy-key") {
 		t.Fatalf("the migrated source uses key %s", got)

@@ -139,16 +139,23 @@ func (s logStore) create(id string) (io.WriteCloser, error) {
 	return f, nil
 }
 
-// checkHeader refuses a log that does not start with the format number this version reads.
-func checkHeader(p string, data []byte) error {
+// checkHeader refuses a log that starts with a format number this version does not read, and returns the
+// length of the header line to skip. A log without the header line was written before the number existed:
+// it is format 1 in full and is never rewritten to add the line.
+func checkHeader(p string, data []byte) (skip int, err error) {
 	line, _, _ := strings.Cut(string(data), "\n")
-	n := 0
-	if v, ok := strings.CutPrefix(line, "schema "); ok {
-		if i, err := strconv.Atoi(v); err == nil && i > 0 {
-			n = i
-		}
+	v, ok := strings.CutPrefix(line, "schema ")
+	if !ok {
+		return 0, nil
 	}
-	return formatnum.Check(p, "schema", n, runLogSchema)
+	n := 0
+	if i, err := strconv.Atoi(v); err == nil && i > 0 {
+		n = i
+	}
+	if err := formatnum.Check(p, "schema", n, runLogSchema); err != nil {
+		return 0, err
+	}
+	return min(len(line)+1, len(data)), nil
 }
 
 // headerOf reads the start of the log at p, without following a link, and checks its format number.
@@ -163,7 +170,8 @@ func headerOf(p string) error {
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return err
 	}
-	return checkHeader(p, buf[:n])
+	_, err = checkHeader(p, buf[:n])
+	return err
 }
 
 func (s logStore) read(id string) (string, error) {
@@ -187,10 +195,11 @@ func (s logStore) read(id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := checkHeader(p, data); err != nil {
+	skip, err := checkHeader(p, data)
+	if err != nil {
 		return "", err
 	}
-	return string(data[len(runLogHeader):]), nil
+	return string(data[skip:]), nil
 }
 
 // remove deletes the logs of the ids. A log whose format number this version does not read stays.
