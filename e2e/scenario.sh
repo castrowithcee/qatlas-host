@@ -3497,7 +3497,8 @@ bkr_containers() {
 # scenario_backup_rootless proves backup, restore and rollback with data in the rootless engine of $rootless_user, for
 # the stack demo-rootless that scenario_source_rootless bound to the instance. The instance gets the local helper image
 # in its own image store and a drop-in that names it; the drop-in is removed at the end, because the uninstall
-# removes the folder of the drop-ins only when it is empty. The stack keeps its rules and runs at the end.
+# removes the folder of the drop-ins only when it is empty. At the end the stack runs with the settings it had before,
+# without backup rules.
 scenario_backup_rootless() {
 	bk_base=/srv/qd-rootless
 	bk_dir=$bk_base/demo-rootless
@@ -3716,11 +3717,18 @@ EOF2
 	sr_stack_runs || fail 'demo-rootless does not run after demo-rootless-dirs left'
 
 	step 'the drop-in of the helper image is removed again and the instance answers'
+	bkr_settings 'version: 1
+check:
+  containers: false
+'
+	printf '%s' "$bkr_out" | jq -e '.changed == true' >/dev/null || fail "settings set reports no change: $bkr_out"
 	docker exec "$host" sh -ec "rm -f '$bk_dropin' && systemctl daemon-reload" || fail 'cannot remove the drop-in of the instance'
 	docker exec "$host" test -f "/etc/systemd/system/$bk_unit.d/10-stack-folders.conf" || fail 'the drop-in of the stack folders is gone'
 	bkr_restart
 	wait_for 'the instance to be idle' 180 sr_idle
 	sr_stack_runs || fail 'demo-rootless does not run after the drop-in is removed'
+	qd --output json stack settings demo-rootless | jq -e '.configured == true and .settings.backup == null' >/dev/null ||
+		fail "demo-rootless still has backup rules: $(qd --output json stack settings demo-rootless)"
 }
 
 # te_new_run succeeds when the instance lists a run of demo-rootless that is not in $te_old, and sets te_run to it.
@@ -6332,6 +6340,23 @@ no_finding() {
 	! has_finding "$1" "$2"
 }
 
+# stack_removed succeeds when qhost status marks the stack as removed from the repository.
+stack_removed() {
+	qd --output json status | jq -e --arg k "stack.$1.removed" '.[$k] == true' >/dev/null
+}
+
+# stack_leftovers_clean makes the service poll at once and waits until it has noticed that the stack $1 left the
+# repository, which it only records: it stops no container and deletes no folder. Then it removes the containers
+# and the unversioned folder $2 (data and the like) and proves that nothing of the stack is left on the host.
+stack_leftovers_clean() {
+	restart_service
+	wait_for "the service to report $1 as removed" 120 stack_removed "$1"
+	docker exec "$host" sh -c "docker ps -aq --filter label=com.docker.compose.project=$1 | xargs -r docker rm -f" >/dev/null ||
+		fail "cannot remove the containers of $1"
+	docker exec "$host" rm -rf "$2" || fail "cannot remove $2"
+	if docker exec "$host" test -e "$2"; then fail "$2 is left on the host"; fi
+}
+
 # scenario_container_monitor proves that the failure monitor reports a container of demo-stack that dies outside
 # qhost and then repairs it: the webhook hears container-failed and qhost status shows the finding; qhost
 # restarts the container after a minute, and the webhook hears recovered with restarted. The same for a container
@@ -6456,6 +6481,7 @@ scenario_repair_end() {
 	out=$(qd notify remove rep) || fail "notify remove rep failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q repair-demo &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the repair-demo stack" && git push -q origin main'
+	stack_leftovers_clean repair-demo /opt/stacks/repair-demo
 	log 'scenario: resume released the repair; repair-demo is fixed and removed'
 }
 
@@ -6556,6 +6582,8 @@ scenario_observe_end() {
 	out=$(qd notify remove obs) || fail "notify remove obs failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q observe-demo .qatlas/qhost/observe-demo.yaml &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the observe-demo stack" && git push -q origin main'
+	stack_leftovers_clean observe-demo /opt/stacks/observe-demo
+	if docker exec "$host" test -e /opt/stacks/.qatlas/qhost/observe-demo.yaml; then fail 'the settings of observe-demo are left on the host'; fi
 	log 'scenario: the update of observe-demo was rolled back by qhost; observe-demo is removed'
 }
 
