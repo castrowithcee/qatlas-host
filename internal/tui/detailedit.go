@@ -72,6 +72,8 @@ func (m *Model) detailAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 		return m.askHookAdd(), true
 	case actHookRemove:
 		return m.openHookPick(), true
+	case actRollback:
+		return m.rollbackFromDetail(), true
 	case actDataDirs:
 		return m.openDataDirForm(), true
 	case actEdit:
@@ -281,15 +283,26 @@ func (m *Model) detailHints() []kittui.Hint {
 			hints = append(hints, kittui.Hint{Action: actDataDirs, Label: textKeyDataDirs, Priority: 2})
 		}
 	}
+	if stack, ok := m.detailStack(); ok {
+		if _, found := m.lastUpdateRun(stack, m.stackEngineOf(stack)); found {
+			hints = append(hints, kittui.Hint{Action: actRollback, Label: textKeyRollback, Priority: 3})
+		}
+	}
 	hints = append(hints, kittui.Hint{Action: actEdit, Label: textKeyUpdateRules, Priority: 3},
 		kittui.Hint{Action: actBackup, Label: textKeyBackupForm, Priority: 3},
 		kittui.Hint{Action: actCompose, Label: textKeyComposeForm, Priority: 3},
 		kittui.Hint{Action: actCheckForm, Label: textKeyCheckForm, Priority: 4},
 		kittui.Hint{Action: actRemoveSettings, Label: textKeyRemoveSettings, Priority: 4})
-	return append(hints, containerLogsHint(),
+	hints = append(hints, containerLogsHint(),
 		kittui.Hint{Action: actAdd, Label: textKeySecretSet, Priority: 3},
 		kittui.Hint{Action: actRemove, Label: textKeySecretDelete, Priority: 3},
-		kittui.Hint{Action: actRestore, Label: textKeyRestore, Priority: 3},
-		kittui.Hint{Action: actHookAdd, Label: textKeyHookAdd, Priority: 4},
-		kittui.Hint{Action: actHookRemove, Label: textKeyHookRemove, Priority: 4})
+		kittui.Hint{Action: actRestore, Label: textKeyRestore, Priority: 3})
+	// The webhook keys show only where they can act, so the footer keeps room on a stack without a receiver.
+	if d := &m.detail; d.hk.loaded && d.hooks.SetUp {
+		hints = append(hints, kittui.Hint{Action: actHookAdd, Label: textKeyHookAdd, Priority: 4})
+		if len(d.hooks.Hooks) > 0 {
+			hints = append(hints, kittui.Hint{Action: actHookRemove, Label: textKeyHookRemove, Priority: 4})
+		}
+	}
+	return hints
 }

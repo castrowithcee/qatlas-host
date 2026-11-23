@@ -36,5 +36,5 @@
 ╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                                                                                            │
 Warnung: Der Stack demo-stack hat keine Einstellungen. Er ist schon nur Deploy; es wurde nichts entfernt.               
-e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log  a Geheimnis setzen                   
-x Geheimnis löschen  R Backup einspielen  h Hook anlegen  U Hook entfernen  r Neu laden  1-7 Bereich  q Beenden    34/62
+B zurück auf Stand davor  e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log             
+a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  r Neu laden  1-7 Bereich  q Beenden    ↑/↓ Scrollen  34/62

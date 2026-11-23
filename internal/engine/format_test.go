@@ -3,6 +3,8 @@ package engine
 import (
 	"context"
 	"errors"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -49,11 +51,37 @@ func TestRunLogsCarryAFormatNumber(t *testing.T) {
 	formatnumtest.Unchanged(t, p, "schema 1\nline\n")
 }
 
+func TestRunLogWithoutHeaderIsFormat1AndKept(t *testing.T) {
+	id := "20260102T030405Z-0a1b2c3d"
+	doc := "2026-01-02T03:04:05Z step an earlier log\n2026-01-02T03:04:06Z info second line\n"
+	e := &Engine{logs: logStore{dir: t.TempDir()}}
+	p, _ := e.logs.path(id)
+	formatnumtest.Seed(t, p, doc)
+
+	if got, err := e.Log(id); err != nil || got != doc {
+		t.Fatalf("log = %q, %v", got, err)
+	}
+	if err := e.LogFormat(id); err != nil {
+		t.Fatal(err)
+	}
+	formatnumtest.Unchanged(t, p, doc)
+
+	if err := e.logs.appendLine(id, "2026-01-02T03:04:07Z", "info", "more"); err != nil {
+		t.Fatal(err)
+	}
+	formatnumtest.Unchanged(t, p, doc+"2026-01-02T03:04:07Z info more\n")
+
+	e.logs.remove(id)
+	if _, err := os.Lstat(p); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("retention kept a readable log: %v", err)
+	}
+}
+
 func TestUnknownRunLogFormatNumberIsRefusedAndKept(t *testing.T) {
 	id := "20260102T030405Z-0a1b2c3d"
 	for name, doc := range map[string]string{
-		"higher":  "schema 2\n2026-01-02T03:04:05Z info something new\n",
-		"missing": "2026-01-02T03:04:05Z info an earlier log\n",
+		"higher":     "schema 2\n2026-01-02T03:04:05Z info something new\n",
+		"unreadable": "schema x\n2026-01-02T03:04:05Z info damaged\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			s := logStore{dir: t.TempDir()}

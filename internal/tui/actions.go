@@ -141,6 +141,8 @@ type modal struct {
 	alt func() tea.Cmd
 	// choose is what the answer actChoose does, for a question that offers it.
 	choose func() tea.Cmd
+	// on is what an answer outside the fixed ones does, for a question that offers more of them.
+	on map[kittui.ActionID]func() tea.Cmd
 	// drop runs on every answer but yes, so a question that holds a secret overwrites it.
 	drop func()
 	// full draws the dialog over the whole workspace instead of a box, so a long line stays whole and can be copied.
@@ -457,6 +459,9 @@ func (m *Model) answer(answer kittui.ActionID) tea.Cmd {
 	m.modal = nil
 	if answer != actYes && md.drop != nil {
 		md.drop()
+	}
+	if f := md.on[answer]; f != nil {
+		return f()
 	}
 	switch answer {
 	case actYes:

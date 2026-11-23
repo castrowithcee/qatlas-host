@@ -19,10 +19,12 @@ import (
 //
 // A host can have several deploy services, one per Docker engine: the one of the system engine and an instance
 // for each rootless engine. A Backend over all of them (the one the qhost command builds) routes each call:
-//   - The reads of the lists (Status, Stacks, Runs, SourceList, Check and Updates without a stack) merge every
-//     deploy service, mark each stack, stack folder and run with its engine (control.EngineSystem or
-//     "rootless:<user>") and name a deploy service that could not be asked in the field NotChecked of the
-//     result, with its engine, instead of failing. Only when none answers is that an error.
+//   - The reads of the lists (Status, Stacks, Runs, SourceList, Containers, Check and Updates without a stack)
+//     merge every deploy service, mark each stack, stack folder, run and container group with its engine
+//     (control.EngineSystem or "rootless:<user>") and name a deploy service that could not be asked in the field
+//     NotChecked of the result, with its engine, instead of failing. Only when none answers is that an error.
+//     As root, Containers adds the Docker engines that have no deploy service as groups marked ReadOnly; without
+//     root it sets EnginesUnread.
 //   - A call about one stack or one stack folder goes to the deploy service that has it. A name several engines
 //     have is an error that names them; WithEngine chooses one. Nothing falls back to another engine.
 //   - A call about a whole engine (credentials, notification channels, the window and every call that names
@@ -50,13 +52,16 @@ type Backend interface {
 	// Secrets lists the key names of the secrets of one stack; never a value.
 	Secrets(ctx context.Context, stack string) (control.SecretListResult, error)
 	// Containers lists the containers of the host in groups, without readings of CPU and memory.
-	Containers(ctx context.Context) (control.ContainerListResult, error)
+	Containers(ctx context.Context) (ContainerList, error)
 	// Container reads one container by name; the result holds the names of its environment variables, never values.
 	Container(ctx context.Context, name string) (control.ContainerDetail, error)
 	// ContainerLogs reads a page of the output of one container or of all containers of an own stack.
 	ContainerLogs(ctx context.Context, args control.ContainerLogsArgs) (control.ContainerLogsResult, error)
 	// ServiceLog reads a page of the log of the service itself.
 	ServiceLog(ctx context.Context, args control.ServiceLogArgs) (control.ServiceLogResult, error)
+	// DeployLog reads a page of the action log of one deploy service, newest first: the one WithEngine names,
+	// else the one a call about a whole engine reaches.
+	DeployLog(ctx context.Context, args control.HostLogListArgs) (control.DeployLogListResult, error)
 	// Diagnose collects the diagnostic package from read-only calls; it never fails, a part that could not be
 	// collected carries its reason.
 	Diagnose(ctx context.Context) *diagnose.Package
@@ -142,6 +147,12 @@ type Backend interface {
 	SourceList(ctx context.Context) (control.SourceListResult, error)
 	// SourceRemove releases a stack folder; no file of it is touched.
 	SourceRemove(ctx context.Context, path string) (control.SourceRemoveResult, error)
+
+	// ReturnCheck changes nothing: it refuses as Return would and names the versions the return sets.
+	ReturnCheck(ctx context.Context, args control.ReturnArgs) (control.ReturnCheckResult, error)
+	// Return sets a stack back to the versions before a successful update run and returns when the return's run
+	// has ended; it pins the stack after a success.
+	Return(ctx context.Context, args control.ReturnArgs) (control.ReturnRunResult, error)
 
 	// BackupRestore replaces the data of a stack with a backup and starts the stack again.
 	BackupRestore(ctx context.Context, stack, id string) (control.BackupRestoreResult, error)
@@ -485,9 +496,18 @@ func (b *ChannelBackend) Secrets(ctx context.Context, stack string) (res control
 	return res, err
 }
 
-func (b *ChannelBackend) Containers(ctx context.Context) (res control.ContainerListResult, err error) {
-	err = client.Do(ctx, b.endpoint, containerCallLimit, control.ContainerListCommand, control.ContainerListArgs{}, &res)
+func (b *ChannelBackend) Containers(ctx context.Context) (res ContainerList, err error) {
+	err = client.Do(ctx, b.endpoint, containerCallLimit, control.ContainerListCommand, control.ContainerListArgs{}, &res.ContainerListResult)
 	return res, err
+}
+
+// ContainerList is the answer of Backend.Containers: the groups, and what only a Backend over several deploy
+// services knows. NotChecked names the engines whose service could not be asked; EnginesUnread is set when the
+// reader is not root, so it cannot tell whether engines without a deploy service exist.
+type ContainerList struct {
+	control.ContainerListResult
+	NotChecked    []control.EngineNotChecked
+	EnginesUnread bool
 }
 
 func (b *ChannelBackend) Container(ctx context.Context, name string) (res control.ContainerDetail, err error) {
@@ -505,6 +525,11 @@ func (b *ChannelBackend) ServiceLog(ctx context.Context, args control.ServiceLog
 	return res, err
 }
 
+func (b *ChannelBackend) DeployLog(ctx context.Context, args control.HostLogListArgs) (res control.DeployLogListResult, err error) {
+	err = b.call(ctx, control.HostLogListCommand, args, &res)
+	return res, err
+}
+
 func (b *ChannelBackend) SecretSet(ctx context.Context, stack, key, value string) (res control.SecretResult, err error) {
 	err = b.call(ctx, control.SecretSetCommand, control.SecretSetArgs{Stack: stack, Key: key, Value: value}, &res)
 	return res, err
@@ -518,6 +543,16 @@ func (b *ChannelBackend) SecretDelete(ctx context.Context, stack, key string) (r
 func (b *ChannelBackend) BackupRestore(ctx context.Context, stack, id string) (res control.BackupRestoreResult, err error) {
 	err = client.Do(ctx, b.endpoint, restoreCallLimit, control.BackupRestoreCommand,
 		control.BackupRestoreArgs{Stack: stack, ID: id, Confirm: true}, &res)
+	return res, err
+}
+
+func (b *ChannelBackend) ReturnCheck(ctx context.Context, args control.ReturnArgs) (res control.ReturnCheckResult, err error) {
+	err = client.Do(ctx, b.endpoint, updateCallLimit, control.ReturnCheckCommand, args, &res)
+	return res, err
+}
+
+func (b *ChannelBackend) Return(ctx context.Context, args control.ReturnArgs) (res control.ReturnRunResult, err error) {
+	err = client.Do(ctx, b.endpoint, updateCallLimit, control.ReturnRunCommand, args, &res)
 	return res, err
 }
 

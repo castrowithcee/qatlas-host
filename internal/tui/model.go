@@ -167,7 +167,7 @@ type Model struct {
 	ctv     containerView
 	ctList  *kittui.List
 	ctTones map[string]kittui.TextStyle
-	ctNames map[kittui.ItemID]string
+	ctRows  map[kittui.ItemID]ctRef
 	// The Proposals area: the list read, its rows and the proposal that is open.
 	prop      proposalState
 	pv        proposalView
@@ -176,11 +176,11 @@ type Model struct {
 	propByID  map[kittui.ItemID]control.ProposalInfo
 	// modal is the question or result that takes every key; run the sequence of calls under way. stale is set
 	// when a refresh must follow the one under way.
-	set              *settingsState
-	modal            *modal
-	run              *running
-	modalGen, runGen int
-	stale            bool
+	set                           *settingsState
+	modal                         *modal
+	run                           *running
+	modalGen, runGen, rollbackGen int
+	stale                         bool
 	// after starts a timer; tests replace it.
 	after func(time.Duration, func(time.Time) tea.Msg) tea.Cmd
 	// euid and makeDirs are the user the interface runs as and the creation of data directories; tests replace them.
@@ -228,7 +228,7 @@ func newModel(c config) (*Model, error) {
 		loc: c.loc, themes: themes, theme: c.theme, profile: c.profile, charset: c.charset, area: areaStacks,
 		tones: map[string]kittui.TextStyle{}, rows: map[kittui.ItemID]stackRow{},
 		runTones: map[string]kittui.TextStyle{}, runByID: map[kittui.ItemID]runRow{}, after: tea.Tick,
-		ctTones: map[string]kittui.TextStyle{}, ctNames: map[kittui.ItemID]string{},
+		ctTones: map[string]kittui.TextStyle{}, ctRows: map[kittui.ItemID]ctRef{},
 		propTones: map[string]kittui.TextStyle{}, propByID: map[kittui.ItemID]control.ProposalInfo{},
 		euid: defaultEuid, makeDirs: defaultMakeDirs, mouseOn: c.mouse, root: c.root, accounts: c.accounts, hostLog: c.hostLog, hostProps: c.hostProps}
 	if m.ctx == nil {
@@ -372,6 +372,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.applyStep(msg)
 	case previewMsg:
 		return m, m.applyPreview(msg)
+	case rollbackCheckMsg:
+		m.applyRollbackCheck(msg)
 	case changelogMsg:
 		m.applyChangelog(msg)
 	case backupsMsg:
@@ -390,6 +392,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applySystem(msg)
 	case folderMsg:
 		m.applyFolder(msg)
+	case deployLogMsg:
+		m.applyDeployLog(msg)
 	case hostLogMsg:
 		m.applyHostLog(msg)
 	case hostVerifyMsg:
@@ -607,7 +611,7 @@ func (m *Model) typed(msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool) {
 	case m.area == areaSystem:
 		return m.systemTyped(msg)
 	case m.area == areaContainers && !m.ctv.open:
-		open, handled := m.ctList.Update(msg)
+		open, handled := m.ctUpdate(msg)
 		return m.openContainer(open), handled
 	case m.area == areaDetail && m.pick != nil:
 		open, handled := m.pick.list.Update(msg)
@@ -684,6 +688,9 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 				return m.beginSetup()
 			}
 		case actInstance:
+			if m.area == areaSystem && m.sys.page == pageLog && m.sys.changes == nil {
+				return m.nextLogService()
+			}
 			if m.area == areaSettings {
 				if cmd, handled := m.settingsAction(id); handled {
 					return cmd
@@ -706,7 +713,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			if m.saveOpenLog() {
 				return nil
 			}
-		case actFetch, actAdd, actRemove, actEdit, actRename, actTest, actEnter, actRestore, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actRemote, actApprove, actReject:
+		case actFetch, actAdd, actRemove, actEdit, actRename, actTest, actEnter, actRestore, actRollback, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actRemote, actApprove, actReject:
 			switch m.area {
 			case areaSystem:
 				if cmd, handled := m.systemAction(id); handled {
@@ -725,6 +732,10 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			case areaDetail:
 				if cmd, handled := m.detailAction(id); handled {
 					return cmd
+				}
+			case areaRuns:
+				if id == actRollback && !m.log.open {
+					return m.rollbackFromRuns()
 				}
 			case areaContainers:
 				if id == actAdd {
@@ -837,7 +848,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 		m.topEdge(handled, msg)
 		return m.open(open)
 	case m.area == areaContainers && !m.ctv.open:
-		open, handled := m.ctList.Update(msg)
+		open, handled := m.ctUpdate(msg)
 		m.topEdge(handled, msg)
 		return m.openContainer(open)
 	case m.area == areaRuns && m.log.open:
@@ -988,7 +999,7 @@ func (m *Model) setZone(z kittui.FocusZone) {
 		lists = append(lists, m.set.credList, m.set.notifyList)
 	}
 	if m.sys != nil {
-		lists = append(lists, m.sys.userList, m.sys.groupList, m.sys.changes, m.sys.jrnl.list, m.sys.hlog.list)
+		lists = append(lists, m.sys.userList, m.sys.groupList, m.sys.changes, m.sys.jrnl.list, m.sys.hlog.list, m.sys.hlog.dlist)
 	}
 	if m.pick != nil {
 		lists = append(lists, m.pick.list)
@@ -1001,6 +1012,11 @@ func (m *Model) setZone(z kittui.FocusZone) {
 	// Of the engine sections only the marked one shows its cursor, so the screen never shows two.
 	for _, s := range m.secs {
 		if s.list != nil && s.list != m.list {
+			s.list.SetFocused(false)
+		}
+	}
+	for _, s := range m.ct.secs {
+		if s.list != nil && s.list != m.ctList {
 			s.list.SetFocused(false)
 		}
 	}
@@ -1126,10 +1142,10 @@ func (m *Model) footer() []kittui.Hint {
 		return append(append(append([]kittui.Hint{{Action: actBack, Label: kittui.TextKeyBack, Priority: 1}, containerLogsHint()},
 			append(containerActionHints(), m.adoptHints()...)...), common...), scrollHints()...)
 	case m.area == areaContainers:
-		if len(m.ctNames) > 0 {
+		if len(m.ctRows) > 0 {
 			common = append(append([]kittui.Hint{containerLogsHint()}, append(containerActionHints(), m.adoptHints()...)...), common...)
 		}
-		return m.listFooter(m.ctList, len(m.ctNames), textKeyDetails, common, nav)
+		return m.listFooter(m.ctList, len(m.ctRows), textKeyDetails, common, nav)
 	case m.area == areaProposals && m.pv.open:
 		return append(append(append([]kittui.Hint{{Action: actBack, Label: kittui.TextKeyBack, Priority: 1}}, m.proposalHints()...), common...), scrollHints()...)
 	case m.area == areaProposals:
@@ -1141,7 +1157,7 @@ func (m *Model) footer() []kittui.Hint {
 		return append(m.log.view.Hints(), append([]kittui.Hint{saveLogHint()}, common...)...)
 	case m.area == areaRuns:
 		return m.listFooter(m.runsList, len(m.runByID), textKeyLog, append(
-			[]kittui.Hint{m.stackOnlyHint(), {Action: actServiceLog, Label: textKeySvcLog, Priority: 2}}, common...), nav)
+			append([]kittui.Hint{m.stackOnlyHint(), {Action: actServiceLog, Label: textKeySvcLog, Priority: 2}}, m.rollbackRunHints()...), common...), nav)
 	case m.area == areaStacks:
 		return m.stacksFooter(common, nav)
 	case m.area == areaSystem:

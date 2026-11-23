@@ -55,7 +55,7 @@ func shown(s string, keepLayout bool) string {
 }
 
 // The change commands name the bound stack folder, so they have the scope deploy like the other folder commands.
-// The list is a read. The diff shows file contents, and the discard changes files, so both are root's alone.
+// The list is a read. The diff shows file contents, and discard and commit change files, so all three are root's alone.
 func registerChangeCommands(r *control.Registry, eng *sourceSet) error {
 	commands := map[string]control.Command{
 		control.SourceChangesCommand: reading(func(ctx context.Context, raw json.RawMessage) (any, error) {
@@ -119,6 +119,7 @@ func registerChangeCommands(r *control.Registry, eng *sourceSet) error {
 			}
 			return res, nil
 		}),
+		control.SourceCommitCommand: commitHandler(eng),
 	}
 	for name, h := range commands {
 		if err := r.Register(name, h); err != nil {

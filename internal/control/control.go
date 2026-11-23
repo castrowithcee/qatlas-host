@@ -98,6 +98,10 @@ const (
 	CodeNotChanged = "not-a-change"
 	// CodeSecrets answers a push that would publish secret-like files; the message names the places, never a value.
 	CodeSecrets = "secrets-found"
+	// CodeHeadMoved answers a commit whose expected head is not the head of the working copy any more.
+	CodeHeadMoved = "head-moved"
+	// CodePushRejected answers a commit the remote did not take; the message gives its reason.
+	CodePushRejected = "push-rejected"
 
 	CodeNoBackups     = "no-backups"
 	CodeNoBackupRules = "no-backup-rules"
@@ -598,6 +602,8 @@ type RunInfo struct {
 	Error      string    `json:"error,omitempty"`
 	// Tag is the Git tag the run set on its resulting commit, empty when it set none or the remote refused it.
 	Tag string `json:"tag,omitempty"`
+	// Backup is the id of the backup the run made before it changed anything, empty when it made none.
+	Backup string `json:"backup,omitempty"`
 	// LogUnreadable is the refusal of the run's log when this version does not read it; it names the file.
 	LogUnreadable string `json:"log_unreadable,omitempty"`
 	// Engine is the engine of the deploy service that recorded the run; empty as in StackStatus.Engine.
@@ -1188,6 +1194,32 @@ type SourceDiscardArgs struct {
 type SourceDiscardResult struct {
 	Path      string   `json:"path"`
 	Discarded []string `json:"discarded"`
+}
+
+// SourceCommitCommand commits the named local changes of a bound stack folder, with a push when the source has a
+// remote, and starts the normal run for the stacks the commit changed. Head is the full commit id the changes
+// were read at; the list must be exactly paths that SourceChangesCommand lists now, deletions included, and
+// every stack the paths lie in must still load. A moved head is refused with CodeHeadMoved, a path that is no
+// change with CodeNotChanged, a stack that does not load with CodeUnreadable, secret-like files with CodeSecrets
+// and a push the remote did not take with CodePushRejected. A push that fails because the remote branch moved
+// is tried once more when the paths are still the same changes. Only root may run it. A stack of the paths with
+// an active run refuses it with CodeRunActive.
+const SourceCommitCommand = "source.commit"
+
+// SourceCommitArgs are the arguments of SourceCommitCommand. SudoUID is the person behind the sudo call, named in
+// the commit message; only root reaches the command, so the field is as trustworthy as the caller.
+type SourceCommitArgs struct {
+	Path    string   `json:"path"`
+	Files   []string `json:"files"`
+	Head    string   `json:"head"`
+	SudoUID uint32   `json:"sudo_uid,omitempty"`
+}
+
+// SourceCommitResult answers SourceCommitCommand with the new commit and the committed files.
+type SourceCommitResult struct {
+	Path      string   `json:"path"`
+	Commit    string   `json:"commit"`
+	Committed []string `json:"committed"`
 }
 
 // SourceListCommand lists the bound stack folders.

@@ -59,13 +59,23 @@ func Check(file, field string, found, current int, older ...int) error {
 // this version does not know is still named by its number. A document that is no JSON object is left to its
 // decoder.
 func CheckJSON(file, field string, data []byte, current int, older ...int) error {
+	return CheckJSONMissing(file, field, data, 0, current, older...)
+}
+
+// CheckJSONMissing is CheckJSON for a store that was written without a number before the number was
+// introduced: a document without the field counts as number missing, which is 1 for such a store. A field that
+// is present but unreadable is still refused.
+func CheckJSONMissing(file, field string, data []byte, missing, current int, older ...int) error {
 	var top map[string]json.RawMessage
 	if json.Unmarshal(bytes.TrimSpace(data), &top) != nil || top == nil {
 		return nil
 	}
+	raw, ok := top[field]
+	if !ok {
+		return Check(file, field, missing, current, older...)
+	}
 	var n int
-	dec := json.NewDecoder(bytes.NewReader(top[field]))
-	if top[field] == nil || dec.Decode(&n) != nil {
+	if json.NewDecoder(bytes.NewReader(raw)).Decode(&n) != nil {
 		n = 0
 	}
 	return Check(file, field, n, current, older...)

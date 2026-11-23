@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks  [2 ▣ Stack-Details]  3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  demo-stack                ╔═ Zurück auf den Stand davor ═════════════════════════════════╗                            
+                            ║ ⚠ demo-stack auf den Stand vor dem Update-Lauf               ║                            
+  Modus    automatisch      ║   20261030T140200Z-0000000c zurücksetzen?                    ║                            
+  Zustand  deployt          ║                                                              ║                            
+  Befunde  1 Warnung        ║ Danach ist der Stack festgehalten, kein Update und kein      ║                            
+                            ║ Fenster bewegt ihn weiter. Wähle, was mit seinen Daten       ║                            
+╭─ Image-Versionen ─────────║ geschieht.                                                   ║───────────────────────────╮
+│ APP_VERSION  example/app  ║ APP_VERSION: 2.0.0 -> 1.9.0                                  ║                           │
+│   1.4.2 -> 1.5.0  Update v║ DB_VERSION: 16.2 -> 16.1                                     ║                           │
+╰───────────────────────────║ Mit Daten: Alles seit diesem Update Geschriebene geht        ║───────────────────────────╯
+╭─ Container ───────────────║ verloren.                                                    ║───────────────────────────╮
+│ Keine Container dieses Sta║ Nur Version: Die Daten bleiben, die alte Version versteht    ║                           │
+╰───────────────────────────║ migrierte Daten womöglich nicht.                             ║───────────────────────────╯
+╭─ Changelog ───────────────║ Dieser Lauf hat kein Backup gemacht, daher kann nur die      ║───────────────────────────╮
+│ APP_VERSION  1.4.2 -> 1.5.║ Version zurück.                                              ║                           │
+│   Quelle example/app      ║                                                              ║                           │
+│   1.5.0  Spring release  2║ [ nur Version ]  > abbrechen <                               ║                           │
+│     Adds a dark theme.    ║ v nur Version  n/esc/enter abbrechen                         ║                           │
+│                           ╚══════════════════════════════════════════════════════════════╝                           │
+│     - faster start                                                                                                   │
+                                                                                                                   20/62

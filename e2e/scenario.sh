@@ -1823,6 +1823,30 @@ HOOK
 	[ "$(remote_run_tag demo-stack "$run" | cut -d ' ' -f 2)" = "$want" ] || fail "the remote has no tag for run $run on $want after the hook was removed"
 	log "scenario: a refused tag raised tag-rejected and the next run cleared it"
 
+	step 'with a retention of 1 only the newest own run tag of demo-stack stays in the remote; foreign tags stay'
+	settings_set demo-stack "$(demo_stack_settings | sed 's/keep: 2/keep: 1/')"
+	own_host=$(printf '%s' "$(remote_run_tag demo-stack "$run" | cut -d ' ' -f 1)" | cut -d / -f 2)
+	foreign_tags="qhost/other-host/demo-stack/20200101T000000Z-00000000 manual-e2e-tag"
+	as_admin "rm -rf ~/stacks-tags && git clone -q $repo ~/stacks-tags"
+	for tag in $foreign_tags; do
+		as_admin "cd ~/stacks-tags && git tag $tag HEAD && git push -q origin refs/tags/$tag" || fail "cannot set the foreign tag $tag"
+	done
+	for i in 1 2; do
+		out=$(qd --output json stack deploy demo-stack) || fail "deploy failed: $out"
+		run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
+		[ -n "$run" ] || fail "deploy did not report a run: $out"
+		wait_for "the run $run" 240 run_finished demo-stack "$run"
+		qd stack log "$run" | grep -q ' result succeeded' || fail "the run $run did not succeed: $(qd stack log "$run")"
+	done
+	own=$(as_admin "git ls-remote --tags $repo 'refs/tags/qhost/$own_host/demo-stack/*'" | awk '{ print $2 }')
+	[ "$own" = "refs/tags/qhost/$own_host/demo-stack/$run" ] || fail "the remote does not hold only the tag of run $run for demo-stack: $own"
+	for tag in $foreign_tags; do
+		[ -n "$(as_admin "git ls-remote --tags $repo refs/tags/$tag")" ] || fail "the foreign tag $tag was deleted"
+	done
+	tag_rejected_gone || fail 'tag pruning raised tag-rejected'
+	settings_set demo-stack "$(demo_stack_settings)"
+	log "scenario: retention 1 left $own and the foreign tags in the remote"
+
 	step 'no run log holds a secret value'
 	ids=$(qd stack runs | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
 	n=0
@@ -2685,6 +2709,8 @@ scenario_stacks_repo() {
 	scenario_source_engine
 
 	scenario_tui_engine
+
+	scenario_tui_containers_engine
 
 	scenario_backup_rootless
 
@@ -3748,6 +3774,66 @@ scenario_tui_engine() {
 	log "scenario: the interface deployed demo-rootless from its engine section, run $te_run in the instance"
 }
 
+# tc_cursor_engine prints the engine of the section whose marked row is $1, or nothing.
+tc_cursor_engine() {
+	tui_screen | awk -v name="$1" '
+		/ Engine / { match($0, /Engine [^ ]+/); eng = substr($0, RSTART + 7, RLENGTH - 7) }
+		/^(│ |║ )?> / { if (index($0, " " name " ")) print eng }'
+}
+
+# scenario_tui_containers_engine proves the Containers area with two engines for the interface of $admin started
+# without sudo: the container of demo-rootless stands in the section of the rootless engine, a container of the same
+# name in the system engine in the other, and a restart of the marked row goes through sudo with --engine and
+# restarts the container of the rootless engine only.
+scenario_tui_containers_engine() {
+	tc_engine=rootless:$rootless_user
+	tc_ct=$(as_rootless "docker ps --filter label=com.docker.compose.project=demo-rootless --format '{{.Names}}'" | head -n 1)
+	[ -n "$tc_ct" ] || fail 'no container of demo-rootless runs in the rootless engine'
+
+	step 'the Containers area shows the container of the rootless engine in its section, beside a container of the same name in the system engine'
+	docker exec "$host" docker rm -f "$tc_ct" >/dev/null 2>&1 || true
+	docker exec "$host" docker run -d --name "$tc_ct" "registry.$domain/demo/app:1.0.0" >/dev/null ||
+		fail "cannot start a container called $tc_ct in the system engine"
+	tc_started=$(as_rootless "docker inspect -f '{{.State.StartedAt}}' $tc_ct")
+	tc_sys_started=$(docker exec "$host" docker inspect -f '{{.State.StartedAt}}' "$tc_ct")
+	tui_log=$work/tui-containers-engine-screens.log
+	: >"$tui_log"
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 5
+	tui_wait "5 $tui_icon_containers Containers" 10
+	tui_wait "Engine $tc_engine" 30
+	tui_wait 'Engine system' 30
+	tui_send Home
+	i=0
+	until [ "$(tc_cursor_engine "$tc_ct")" = "$tc_engine" ]; do
+		i=$((i + 1))
+		[ "$i" -lt 60 ] || fail "the cursor of the Containers area does not reach $tc_ct in $tc_engine: $(tui_screen)"
+		tui_send Down
+		sleep 0.2
+	done
+	tui_excerpt "Engine $tc_engine" 12
+
+	step 'a restart from the section runs through sudo with --engine and restarts the container of that engine only'
+	tui_send Z
+	tui_wait "Restart container $tc_ct" 15
+	# The dialog may break the command after --engine.
+	tui_has 'sudo qhost container restart --yes --output json --engine' && tui_has "$tc_engine --" ||
+		fail "the question does not show the command with the engine: $(tui_screen)"
+	tui_send y
+	tui_wait 'restart finished: 1 ok, 0 failed' 120
+	tui_send Escape
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	[ "$(as_rootless "docker inspect -f '{{.State.StartedAt}}' $tc_ct")" != "$tc_started" ] ||
+		fail "the restart of the interface did not restart $tc_ct in $tc_engine"
+	[ "$(docker exec "$host" docker inspect -f '{{.State.StartedAt}}' "$tc_ct")" = "$tc_sys_started" ] ||
+		fail "the restart of the interface restarted the container $tc_ct of the system engine"
+	docker exec "$host" docker rm -f "$tc_ct" >/dev/null || fail "cannot remove $tc_ct from the system engine"
+	log "scenario: the interface restarted $tc_ct in $tc_engine from its section and left the container of that name in the system engine alone"
+}
+
 # local_tree prints mode, owner, group and size of every path below /srv/qd-local except .git, which the service
 # may touch while it polls.
 local_tree() {
@@ -3999,6 +4085,65 @@ EOF2
 	[ "$(stack_images demo-second)" = "$image:1.0.0" ] || fail 'demo-second does not run after /opt/stacks2 is taken over again'
 	[ "$(stack_field demo-second source)" = opt-stacks2 ] || fail "demo-second is not listed with its source: $(qd --output json status)"
 	log 'scenario: /opt/stacks2 was released and taken over again with its origin, head and deploy key'
+
+	step 'source commit pushes exactly the named changes of a clone, the stack runs, and a failing commit is rolled back'
+	stack2=/opt/stacks2
+	prev=$(newest_run demo-second)
+	head2=$(qd --output json source list | jq -r '.sources[] | select(.path == "/opt/stacks2") | .head')
+	[ "$head2" = "$(remote_head "$url2")" ] || fail "the head of /opt/stacks2 is not the head of the remote: $head2"
+	docker exec "$host" sh -ec "cd '$stack2/demo-second' && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.1.0/' .env &&
+		sed -i 's/^      DEMO_NAME: demo-second\$/      DEMO_NAME: demo-second\n      DEMO_NOTE: committed by qhost/' compose.yaml" ||
+		fail 'cannot edit /opt/stacks2 by hand'
+	restart_service
+	i=0
+	until stack_field demo-second findings | grep -q local-changes; do
+		i=$((i + 1))
+		[ "$i" -lt 120 ] || fail 'demo-second has no finding local-changes'
+		sleep 1
+	done
+	out=$(qd_fails source commit "$stack2" demo-second/.env demo-second/compose.yaml) || fail "source commit without --head succeeded: $out"
+	out=$(qd_fails source commit "$stack2" demo-second/.env demo-second/compose.yaml --head "$(printf '%040d' 0)") || fail "source commit with a wrong head succeeded: $out"
+	printf '%s' "$out" | grep -q 'head-moved' || fail "a wrong head is no head-moved error: $out"
+	out=$(qd_fails source commit "$stack2" demo-second/.env demo-second/secrets.env --head "$head2") || fail "source commit took the host's own secrets file: $out"
+	[ "$(remote_head "$url2")" = "$head2" ] || fail 'a refused source commit changed the remote'
+	out=$(qd --output json source commit "$stack2" demo-second/.env demo-second/compose.yaml --head "$head2") || fail "source commit failed: $out"
+	commit2=$(printf '%s' "$out" | jq -r '.commit')
+	printf '%s' "$out" | jq -e '.committed == ["demo-second/.env", "demo-second/compose.yaml"]' >/dev/null || fail "unexpected source commit result: $out"
+	[ "$(remote_head "$url2")" = "$commit2" ] || fail "the commit $commit2 is not the head of the remote: $(remote_head "$url2")"
+	[ "$(folder_git "$stack2" rev-parse HEAD)" = "$commit2" ] || fail 'the branch of /opt/stacks2 is not at the new commit'
+	meta=$(folder_git "$stack2" log -1 --format='%an|%P' "$commit2")
+	[ "$meta" = "qhost|$head2" ] || fail "the commit has the wrong author or parent: $meta"
+	folder_git "$stack2" show --name-only --format=%B "$commit2" | grep -q 'demo-second/compose.yaml' || fail 'the commit message does not name the files'
+	[ "$(folder_git "$stack2" show --name-only --format= "$commit2" | sort | tr '\n' ' ')" = 'demo-second/.env demo-second/compose.yaml ' ] ||
+		fail "the commit holds more than the named files: $(folder_git "$stack2" show --name-only --format= "$commit2")"
+	run=$(next_run demo-second "$prev") || fail 'no run of demo-second after the commit'
+	wait_for "the run $run" 240 run_finished demo-second "$run"
+	qd stack log "$run" | grep -q ' result succeeded' || fail "the run after the commit did not succeed: $(qd stack log "$run")"
+	[ "$(stack_images demo-second)" = "$image:1.1.0" ] || fail "demo-second does not run 1.1.0: $(stack_images demo-second)"
+	[ "$(stack_field demo-second deployed)" = "$commit2" ] || fail "demo-second is not recorded as deployed at $commit2"
+	[ "$(qd --output json source changes "$stack2" | jq '.changes | length')" = 0 ] || fail "changes are left after the commit: $(qd --output json source changes "$stack2")"
+	i=0
+	while stack_field demo-second findings | grep -q local-changes; do
+		i=$((i + 1))
+		[ "$i" -lt 120 ] || fail 'the finding local-changes stays after the commit'
+		sleep 1
+	done
+
+	prev=$run
+	head2=$commit2
+	docker exec "$host" sed -i 's/^DEMO_HEALTH=.*/DEMO_HEALTH=fail/' "$stack2/demo-second/.env" || fail 'cannot break the healthcheck of demo-second'
+	out=$(qd --output json source commit "$stack2" demo-second/.env --head "$head2") || fail "source commit of the failing version failed: $out"
+	bad2=$(printf '%s' "$out" | jq -r '.commit')
+	run=$(next_run demo-second "$prev") || fail 'no run of demo-second for the failing commit'
+	wait_for "the run $run" 240 run_finished demo-second "$run"
+	printf '%s' "$(qd stack log "$run")" | grep -q ' result rolled-back' || fail "the failing commit was not rolled back: $(qd stack log "$run")"
+	revert2=$(folder_git "$stack2" rev-parse HEAD)
+	[ "$revert2" != "$bad2" ] || fail 'no revert commit followed the failing commit'
+	[ "$(remote_head "$url2")" = "$revert2" ] || fail 'the revert commit is not the head of the remote'
+	[ "$(folder_git "$stack2" log -1 --format='%an|%P' "$revert2")" = "qhost|$bad2" ] || fail 'the revert commit has the wrong author or parent'
+	docker exec "$host" grep -qx DEMO_HEALTH=ok "$stack2/demo-second/.env" || fail 'the revert did not restore the healthcheck setting'
+	[ "$(stack_images demo-second)" = "$image:1.1.0" ] || fail "demo-second does not run the previous image after the rollback: $(stack_images demo-second)"
+	log "scenario: source commit pushed $commit2 and the failing commit $bad2 was rolled back by $revert2"
 }
 
 # scenario_private_registry proves that the deploy service pulls from a registry with a login only with the login
@@ -5084,7 +5229,9 @@ scenario_deploy_audit() {
 
 # scenario_grants proves the standing grants of demo-stack: a plan without --confirm stores nothing, sudo qhost grant
 # add --confirm allows an administrator of the group qhost one action, the grant is listed by that user without sudo
-# and by a stack filter, adding it without sudo is refused, and sudo qhost grant remove --confirm takes it away.
+# and by a stack filter, adding it without sudo is refused, the user restarts demo-stack without sudo (named in the audit
+# log) while stop and a restart of demo-cache are refused, and sudo qhost grant remove --confirm takes it away, after
+# which the restart is refused too.
 scenario_grants() {
 	step 'grant add without --confirm shows the plan and stores nothing'
 	ensure_user e2e-grantee
@@ -5111,6 +5258,23 @@ scenario_grants() {
 	out=$(as_user e2e-grantee 'qhost --output json grant list --stack demo-cache 2>&1') || fail "qhost grant list --stack failed: $out"
 	[ "$(printf '%s' "$out" | jq 'length')" = 0 ] || fail "the stack filter shows a grant of another stack: $out"
 
+	step 'the grant lets e2e-grantee restart demo-stack without sudo and nothing else'
+	ids=$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=demo-stack)
+	started_before=$(docker exec "$host" docker inspect -f '{{.State.StartedAt}}' $ids)
+	out=$(as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1') || fail "stack restart under a grant failed: $out"
+	started_after=$(docker exec "$host" docker inspect -f '{{.State.StartedAt}}' $ids)
+	[ "$started_before" != "$started_after" ] || fail 'stack restart under a grant did not restart demo-stack'
+	stack_healthy demo-stack || fail 'demo-stack is not healthy after the restart under a grant'
+	if out=$(as_user e2e-grantee 'qhost stack stop demo-stack --yes 2>&1'); then fail "stack stop under a restart grant succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'only root may use the service' || fail "the refusal of stack stop is unclear: $out"
+	if out=$(as_user e2e-grantee 'qhost stack restart demo-cache --yes 2>&1'); then fail "stack restart of another stack under the grant succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'only root may use the service' || fail "the refusal of stack restart of another stack is unclear: $out"
+	[ "$(running_containers demo-stack)" -gt 0 ] || fail 'the refused stack stop stopped demo-stack'
+	[ -z "$(stack_field demo-stack stopped)" ] || fail 'the refused stack stop marked demo-stack as stopped'
+	out=$(as_admin 'qhost --output json audit --service deploy --limit 200 2>&1') || fail "qhost audit --service deploy failed: $out"
+	printf '%s' "$out" | jq -e --arg id "$grant_id" 'any(.[]; .command == "stack.restart" and .stack == "demo-stack" and .grant == $id)' >/dev/null ||
+		fail "the audit log of the deploy service does not name the grant $grant_id on the restart: $out"
+
 	step 'grant remove without --confirm keeps the grant and sudo qhost grant remove --confirm removes it'
 	if out=$(as_admin "sudo qhost grant remove $grant_id 2>&1 </dev/null"); then fail "grant remove without --confirm succeeded: $out"; fi
 	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list failed after the plan: $out"
@@ -5118,6 +5282,8 @@ scenario_grants() {
 	as_admin "sudo qhost grant remove $grant_id --confirm 2>&1 </dev/null" >/dev/null || fail "grant remove failed for $grant_id"
 	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list failed after the removal: $out"
 	printf '%s' "$out" | jq -e --arg id "$grant_id" 'any(.[]; .id == $id) | not' >/dev/null || fail "the grant $grant_id is still listed after the removal: $out"
+	if out=$(as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1'); then fail "stack restart after the removal of the grant succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'only root may use the service' || fail "the refusal of stack restart after the removal is unclear: $out"
 	log "scenario: grant $grant_id for e2e-grantee was planned, added, listed without sudo and removed"
 }
 

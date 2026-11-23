@@ -53,14 +53,18 @@ func (x *Executor) Ps(ctx context.Context, st stacks.Stack, log Logger) ([]Conta
 	if err != nil {
 		return nil, err
 	}
+	// Only standard output is the listing; a warning of Compose on standard error would break the JSON.
+	buf := &limitBuffer{limit: maxPSOutput}
+	c.Stdout = buf
 	res, err := x.run(ctx, log, c, orDefault(x.PSTimeout, DefaultPSTimeout), "ps")
+	logOutput(log, res)
 	if err != nil {
 		return nil, err
 	}
-	if res.Omitted > 0 {
+	if buf.over {
 		return nil, errors.New("docker compose ps: the container listing is too large")
 	}
-	return parsePS(res.Output)
+	return parsePS(buf.b.Bytes())
 }
 
 // parsePS reads both shapes Compose emits: one JSON object per line, or one array.

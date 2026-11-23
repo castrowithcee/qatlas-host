@@ -19,6 +19,8 @@ const rootStackFolder = "."
 // foreignSource is what the Compose labels of a foreign project say about where it lives.
 type foreignSource struct {
 	project, dir string
+	// engine is the engine the project runs in, empty while one engine is shown; the flow preselects it.
+	engine       string
 	composeFiles []string
 	envFiles     []string
 }
@@ -102,9 +104,12 @@ func samePaths(a, b []string) bool {
 	return slices.Equal(clean(a), clean(b))
 }
 
-// groupOf is the group of the container called name.
-func (m *Model) groupOf(name string) (control.ContainerGroup, bool) {
+// groupOf is the group of the container called name in engine; an empty engine matches every group.
+func (m *Model) groupOf(name, engine string) (control.ContainerGroup, bool) {
 	for _, g := range m.ct.groups {
+		if engine != "" && ctGroupEngine(g) != engine {
+			continue
+		}
 		if slices.ContainsFunc(g.Containers, func(c control.ContainerSummary) bool { return c.Name == name }) {
 			return g, true
 		}
@@ -118,23 +123,29 @@ func (m *Model) foreignTarget() (foreignSource, bool) {
 	var g control.ContainerGroup
 	found := false
 	if m.ctv.open {
-		if g, found = m.groupOf(m.ctv.name); !found && m.ctv.loaded && m.ctv.detail.Kind == control.ContainerKindForeign {
+		if g, found = m.groupOf(m.ctv.name, m.ctv.engine); !found && m.ctv.loaded && m.ctv.detail.Kind == control.ContainerKindForeign {
 			d := m.ctv.detail
-			return foreignSource{project: d.Project, dir: d.WorkingDir, composeFiles: d.ConfigFiles, envFiles: d.EnvFiles}, true
+			return foreignSource{project: d.Project, engine: m.ctv.engine, dir: d.WorkingDir, composeFiles: d.ConfigFiles, envFiles: d.EnvFiles}, true
 		}
 	} else if id, ok := m.ctList.Selected(); ok {
-		g, found = m.groupOf(m.ctNames[id])
+		ref := m.ctRows[id]
+		g, found = m.groupOf(ref.name, ref.engine)
 	} else if key, ok := m.ctList.SelectedGroup(); ok {
 		for _, c := range m.ct.groups {
-			if m.groupTitle(c) == key {
+			if m.groupTitle(c) == key && m.ctInMarked(c) {
 				g, found = c, true
 			}
 		}
 	}
-	if !found || g.Kind != control.ContainerKindForeign {
+	// A project of an engine without a deploy service cannot be taken over: no service can reach it.
+	if !found || g.Kind != control.ContainerKindForeign || g.ReadOnly {
 		return foreignSource{}, false
 	}
-	return foreignSource{project: g.Name, dir: g.WorkingDir, composeFiles: g.ConfigFiles, envFiles: g.EnvFiles}, true
+	src := foreignSource{project: g.Name, dir: g.WorkingDir, composeFiles: g.ConfigFiles, envFiles: g.EnvFiles}
+	if len(m.ct.secs) > 0 {
+		src.engine = ctGroupEngine(g)
+	}
+	return src, true
 }
 
 // adoptAction takes the key to add in the Containers area; ok is false when it points at no foreign project.

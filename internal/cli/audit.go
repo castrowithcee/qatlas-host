@@ -267,7 +267,7 @@ func auditDeployList(c *cobra.Command, program *cobracli.Program, state *notRunn
 			"seq": int64(e.Seq), "time": e.Time.UTC().Format(time.RFC3339Nano), "result": e.Result,
 			"duration_ms": e.DurationMS, "origin": e.Origin,
 		}
-		for k, v := range map[string]string{"command": e.Command, "class": e.Class, "scope": e.Scope, "stack": e.Stack, "error_code": e.ErrorCode} {
+		for k, v := range map[string]string{"command": e.Command, "class": e.Class, "scope": e.Scope, "stack": e.Stack, "error_code": e.ErrorCode, "grant": e.Grant} {
 			if v != "" {
 				row[k] = v
 			}
@@ -279,6 +279,6 @@ func auditDeployList(c *cobra.Command, program *cobracli.Program, state *notRunn
 		rows = append(rows, row)
 	}
 	return output.Encode(c.OutOrStdout(), program.Format(), output.Collection{
-		Columns: target.columns("seq", "time", "client_uid", "command", "class", "scope", "stack", "result", "error_code", "duration_ms", "origin"),
+		Columns: target.columns("seq", "time", "client_uid", "command", "class", "scope", "stack", "result", "error_code", "duration_ms", "origin", "grant"),
 		Rows:    rows})
 }

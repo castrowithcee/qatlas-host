@@ -136,6 +136,7 @@ const (
 	opHookSetup
 	opHookAdd
 	opHookRemove
+	opReturn
 )
 
 // settingMsg carries the answer of a write. A write answers with the name it concerned, never with a value.
@@ -618,6 +619,8 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 			done(t.Lookup(textDoneSetupUser, res.user))
 		}
 		cmds = append(cmds, m.reloadNow())
+	case control.ReturnRunResult:
+		cmds = append(cmds, m.returnDone(res, done))
 	case control.BackupRestoreResult:
 		done(t.Lookup(textDoneRestored, res.Backup.ID, res.Backup.Stack))
 		cmds = append(cmds, m.reloadNow(), m.readBackups())

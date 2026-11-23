@@ -264,7 +264,7 @@ func (m *Model) detailLines(r stackRow, width int) []string {
 		lines = append(lines, m.framed(m.text.Lookup(key), "", width, 0, build)...)
 	}
 	section(textDetailVersions, func(w int) []string { return m.versionLines(r.engine, r.name, w) })
-	section(textDetailContainers, func(w int) []string { return m.stackContainerLines(r.name, w) })
+	section(textDetailContainers, func(w int) []string { return m.stackContainerLines(r.engine, r.name, w) })
 	section(textDetailChangelog, m.changelogLines)
 	section(textDetailSecrets, m.secretLines)
 	section(textDetailHooks, func(w int) []string { return m.hookSectionLines(r, w) })

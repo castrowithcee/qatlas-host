@@ -88,10 +88,15 @@ func stackList(raw json.RawMessage) []string {
 // *control.Error.
 type authorizer func(uid uint32, access control.Access) error
 
+// grantCheck returns the standing grant that lets the administrator uid run this change without root; false
+// when none does. Any doubt means none.
+type grantCheck func(ctx context.Context, uid uint32, command string, args json.RawMessage) (control.Grant, bool)
+
 type server struct {
 	registry  *control.Registry
 	check     PeerCheck
 	authorize authorizer
+	grant     grantCheck
 	log       *slog.Logger
 	audit     auditSink
 
@@ -102,8 +107,9 @@ type server struct {
 
 // serve accepts connections on l until ctx ends, then closes l and every open connection and waits for the
 // handlers. It owns l.
-func serve(ctx context.Context, l net.Listener, registry *control.Registry, check PeerCheck, authorize authorizer, log *slog.Logger, audit auditSink) {
-	s := &server{registry: registry, check: check, authorize: authorize, log: log, audit: audit, conns: map[net.Conn]struct{}{}}
+// grant may be nil: then no change runs without root.
+func serve(ctx context.Context, l net.Listener, registry *control.Registry, check PeerCheck, authorize authorizer, grant grantCheck, log *slog.Logger, audit auditSink) {
+	s := &server{registry: registry, check: check, authorize: authorize, grant: grant, log: log, audit: audit, conns: map[net.Conn]struct{}{}}
 	stop := context.AfterFunc(ctx, func() {
 		_ = l.Close()
 		s.mu.Lock()
@@ -253,7 +259,16 @@ func (s *server) dispatch(ctx context.Context, uid uint32, raw []byte, start tim
 	}
 	if err := s.authorize(uid, access); err != nil {
 		ce := peerRefusal(err)
-		return errorResponse(ce), ce.Code != control.CodeNoAccess
+		// Only an administrator is refused as not root; a grant can lift that refusal and no other.
+		g, granted := control.Grant{}, false
+		if ok && ce.Code == control.CodeNotRoot && access.Class == control.ClassChange && s.grant != nil {
+			g, granted = s.grant(ctx, uid, req.Command, req.Args)
+		}
+		if !granted {
+			return errorResponse(ce), ce.Code != control.CodeNoAccess
+		}
+		fields.Grant = g.ID
+		ctx = withGrant(ctx, g)
 	}
 	if !ok {
 		return errorResponse(control.NewError(control.CodeUnknownCommand, "unknown command")), true

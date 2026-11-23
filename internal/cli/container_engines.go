@@ -66,6 +66,10 @@ type unattended struct {
 	engines []rootless.Engine
 	// notes say what the reader could not do or must know.
 	notes []string
+	// failed are the engines without a deploy service that could not be read, by engine.
+	failed []control.EngineNotChecked
+	// unread is set without root: such engines were not looked for.
+	unread bool
 }
 
 // readUnattended reads the rootless engines that have no deploy service, as root only. Without root it reads
@@ -73,7 +77,7 @@ type unattended struct {
 // the deploy services; an engine one of them serves is never read here.
 func readUnattended(ctx context.Context, covered []engineTarget) unattended {
 	if folders.euid() != 0 {
-		return unattended{notes: []string{noSudoEngineNote}}
+		return unattended{notes: []string{noSudoEngineNote}, unread: true}
 	}
 	scan := folders.detector.Scan(ctx)
 	has := map[string]bool{}
@@ -91,6 +95,7 @@ func readUnattended(ctx context.Context, covered []engineTarget) unattended {
 	}
 	for _, nc := range scan.NotChecked {
 		if !has[nc.Engine] {
+			out.failed = append(out.failed, control.EngineNotChecked{Engine: nc.Engine, Reason: nc.Reason})
 			out.notes = append(out.notes, fmt.Sprintf("the Docker engine %s has no deploy service and could not be read: %s", nc.Engine, nc.Reason))
 		}
 	}

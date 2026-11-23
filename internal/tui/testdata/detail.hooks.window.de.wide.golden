@@ -60,5 +60,5 @@
 │   a backup saves the data directories data/db                                                                        │
 │ Geheimnisse schwärzen  geht                                                                                          │
 │   the values of secrets.env (2 key(s)) are redacted in logs and messages                                             │
-e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log  a Geheimnis setzen                   
-x Geheimnis löschen  R Backup einspielen  h Hook anlegen  U Hook entfernen  r Neu laden  1-7 Bereich  q Beenden    59/63
+B zurück auf Stand davor  e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log             
+a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  h Hook anlegen  r Neu laden  1-7 Bereich  q Beenden       

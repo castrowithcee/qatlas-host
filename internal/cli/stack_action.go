@@ -35,7 +35,8 @@ func newStackActionCommand(program *cobracli.Program, state *notRunning, verb st
 		Short: map[string]string{"start": "Start a stopped stack", "stop": "Stop a stack and keep it stopped", "restart": "Restart a stack"}[verb],
 		Long: long + "\n\nThe command is refused while a run of the stack is active. At a terminal it asks first (default no);\n" +
 			"without a terminal it refuses unless --yes is given (with --agent, --yes is always needed). Run it with\n" +
-			"sudo. See 'qhost help containers'.",
+			"sudo; a restart also runs without sudo when a grant for stack.restart covers the stack. See 'qhost help\n" +
+			"containers' and 'qhost help grants'.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := routeStacks(c, state, engine, args[0]); err != nil {

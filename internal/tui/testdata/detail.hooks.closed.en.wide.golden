@@ -60,5 +60,5 @@
 │ Redact secrets  works                                                                                                │
 │   the values of secrets.env (2 key(s)) are redacted in logs and messages                                             │
 │ secrets-env-not-ignored  warning                                                                                     │
-e update rules  b backup  C compose  k checks  E clear settings  o log  a set secret  x delete secret  R restore backup 
-h add hook  U remove hook  r reload  1-7 area  q quit                                                  ↑/↓ scroll  59/62
+B back to before update  e update rules  b backup  C compose  k checks  E clear settings  o log  a set secret           
+x delete secret  R restore backup  h add hook  U remove hook  r reload  1-7 area  q quit               ↑/↓ scroll  59/62

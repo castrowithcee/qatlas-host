@@ -43,5 +43,5 @@
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Last runs ──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ succeeded  10-30 14:02  update  48s                                                                                  │
-e update rules  b backup  C compose  k checks  E clear settings  o log  a set secret  x delete secret  R restore backup 
-h add hook  U remove hook  r reload  1-7 area  q quit                                                  ↑/↓ scroll  42/62
+B back to before update  e update rules  b backup  C compose  k checks  E clear settings  o log  a set secret           
+x delete secret  R restore backup  r reload  1-7 area  q quit                                          ↑/↓ scroll  42/62

@@ -60,5 +60,5 @@
 │   restores the backup it made before the change      │
 │ Backup  geht                                         │
 │   a backup saves the data directories data/db        │
-e Update-Regeln  b Backup  C Compose  o Log             
-a Geheimnis setzen  r Neu laden  q Beenden              
+B zurück auf Stand davor  e Update-Regeln  b Backup     
+C Compose  o Log  r Neu laden  q Beenden                

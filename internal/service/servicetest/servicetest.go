@@ -259,12 +259,16 @@ func (c *copyOf) RemoteHead(context.Context) (string, error) {
 // Status and ChangedFolders report an unchanged, clean working copy.
 func (c *copyOf) Status(context.Context) ([]gitrepo.Change, error) { return nil, nil }
 
-// Diff and Discard find no local change in a clean working copy.
+// Diff, Discard and CommitPaths find no local change in a clean working copy.
 func (c *copyOf) Diff(context.Context, string) (string, bool, error) {
 	return "", false, gitrepo.ErrNotChanged
 }
 
 func (c *copyOf) Discard(context.Context, []string) error { return gitrepo.ErrNotChanged }
+
+func (c *copyOf) CommitPaths(context.Context, string, []string, []stacks.Stack, string) (string, error) {
+	return "", gitrepo.ErrNotChanged
+}
 
 func (c *copyOf) ChangedFolders(context.Context, string, string) ([]string, error) { return nil, nil }
 
@@ -395,6 +399,11 @@ func (g *Git) Pushed() []string {
 
 // TagCommit accepts every tag; the fake keeps none.
 func (c *copyOf) TagCommit(context.Context, string, string) error { return nil }
+
+// PruneTags deletes nothing; the fake keeps no tags.
+func (c *copyOf) PruneTags(context.Context, string, string, func([]string) []string) ([]string, error) {
+	return nil, nil
+}
 
 func (c *copyOf) TrackedFiles(_ context.Context, dir string) ([]string, error) {
 	c.g.mu.Lock()

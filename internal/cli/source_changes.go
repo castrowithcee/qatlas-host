@@ -171,3 +171,57 @@ func newSourceDiscardCommand(program *cobracli.Program, state *notRunning) *cobr
 	addEngineFlag(cmd, &engine, folderEngineUsage, folderEngineNote)
 	return cmd
 }
+
+func newSourceCommitCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
+	var engine, head string
+	cmd := &cobra.Command{
+		Use:   "commit <path> <file>... --head <commit>",
+		Short: "Commit the named uncommitted changes of a stack folder",
+		Long: "commit makes one commit of exactly the named files, deletions included, as the stack folder has them now, and\n" +
+			"pushes it when the source has a remote. Nothing else of the folder is committed. --head is the full commit id\n" +
+			"that 'qhost source changes' was read at (the head field of 'qhost source list'); when the branch moved since,\n" +
+			"nothing is committed. Each file must be one 'qhost source changes' lists, and every stack of the files must\n" +
+			"still load. Secret-like files in the commit stop it, and a remote that refuses the push, such as a protected\n" +
+			"branch, is reported with its reason. The commit names the files and the person behind sudo. A stack of the\n" +
+			"files with an active run is refused. Afterwards the normal run starts at once, and a stack that fails is\n" +
+			"rolled back as always. Run it with sudo; --output json gives the commit and the files as data.\n\n" + wrapHelp(changesNote),
+		Args: func(_ *cobra.Command, args []string) error {
+			if len(args) < 2 || len(args) > control.MaxDiscardPaths+1 {
+				return usageFailure("source commit takes the stack folder and between one and 200 files",
+					"Run 'qhost source commit <path> <file>... --head <commit>'.")
+			}
+			return nil
+		},
+		RunE: func(c *cobra.Command, args []string) error {
+			if err := folderArg(args[0]); err != nil {
+				return err
+			}
+			if head == "" {
+				return usageFailure("--head is required", "Pass the commit id the changes were read at.")
+			}
+			if err := routeFolder(c, state, engine, args[0]); err != nil {
+				return err
+			}
+			var res control.SourceCommitResult
+			a := control.SourceCommitArgs{Path: args[0], Files: args[1:], Head: head, SudoUID: uint32(changeEnv.sudoUID())}
+			if err := credentialCall(c, state, control.SourceCommitCommand, a, &res); err != nil {
+				return err
+			}
+			if res.Committed == nil {
+				res.Committed = []string{}
+			}
+			fields := []output.Field{{Name: "path", Value: res.Path}, {Name: "commit", Value: res.Commit}}
+			if structuredFormat(program.Format()) {
+				fields = append(fields, output.Field{Name: "committed", Value: structured(program.Format(), res.Committed)})
+			} else {
+				for i, p := range res.Committed {
+					fields = append(fields, output.Field{Name: fmt.Sprintf("committed.%d", i+1), Value: p})
+				}
+			}
+			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: fields})
+		},
+	}
+	cmd.Flags().StringVar(&head, "head", "", "the full commit id the changes were read at (required)")
+	addEngineFlag(cmd, &engine, folderEngineUsage, folderEngineNote)
+	return cmd
+}

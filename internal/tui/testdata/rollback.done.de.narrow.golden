@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  1 2 [3 Läufe] 4 5 6 7                                 
+────────────────────────────────────────────────────────
+  STACK        START        ERGEBNIS                    
+  web-shop     10-30 15:00  läuft                       
+> demo-stack   10-30 14:02  erfolgreich                 
+  ╔═ Erledigt ═══════════════════════════════════════╗  
+  ║ Stack demo-stack läuft wieder auf den Versionen  ║  
+  ║ vor dem Update-Lauf 20261030T140200Z-0000000c.   ║  
+  ║                                                  ║  
+  ║ Versionen: APP_VERSION 2.0.0 -> 1.9.0            ║  
+  ║ Der Stack ist auf diesen Versionen festgehalten: ║  
+  ║ Wartungsfenster, Update-Prüfung und Webhooks     ║  
+  ║ lassen ihn in Ruhe. Gib ihn mit unpin in Stacks  ║  
+  ║ wieder frei.                                     ║  
+  ║                                                  ║  
+  ║ > schließen <                                    ║  
+  ║ n/esc/enter schließen                            ║  
+  ╚══════════════════════════════════════════════════╝  
+                                                        
+                                                        
+                                                        
+                                                        
+                                                     2/7

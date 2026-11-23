@@ -60,5 +60,5 @@
 │ Geheimnisse schwärzen  geht                                                                                          │
 │   the values of secrets.env (2 key(s)) are redacted in logs and messages                                             │
 │ secrets-env-not-ignored  Warnung                                                                                     │
-e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log  a Geheimnis setzen                   
-x Geheimnis löschen  R Backup einspielen  h Hook anlegen  U Hook entfernen  r Neu laden  1-7 Bereich  q Beenden    59/62
+B zurück auf Stand davor  e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log             
+a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  h Hook anlegen  r Neu laden  1-7 Bereich  q Beenden  59/62
