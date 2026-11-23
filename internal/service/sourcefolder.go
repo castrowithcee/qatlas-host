@@ -163,7 +163,7 @@ func revertAnswer(err error) error {
 	case errors.Is(err, gitrepo.ErrPushRejected):
 		return control.NewError(control.CodePushRejected, "the remote branch moved twice and the revert could not be pushed; nothing was reverted")
 	case errors.As(err, &refused):
-		return control.NewError(control.CodePushRejected, fmt.Sprintf("the remote refused the push: %s; nothing was reverted", printable(refused.Reason)))
+		return control.NewError(control.CodePushRejected, refusedText(refused)+"; nothing was reverted")
 	case strings.HasPrefix(err.Error(), "push failed"):
 		return pushFailure(err, "nothing was reverted")
 	case errors.Is(err, engine.ErrBusy), errors.Is(err, engine.ErrStopped), errors.Is(err, engine.ErrNoRepo):

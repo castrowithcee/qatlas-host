@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -247,7 +248,7 @@ func (r *Repo) Push(ctx context.Context, commit string) error {
 			return ErrPushRejected
 		}
 		if reason, ok := remoteRejection(failure.stdout); ok {
-			return &RemoteRejectedError{Reason: reason}
+			return &RemoteRejectedError{Reason: reason, Output: remoteOutput(failure.stderr)}
 		}
 	}
 	if err != nil {
@@ -260,11 +261,37 @@ func (r *Repo) Push(ctx context.Context, commit string) error {
 }
 
 // RemoteRejectedError means the remote took the connection but refused the update itself, for example a hook
-// or a branch protection ("[remote rejected]"). Retrying the same commit does not help. Reason is text of the
-// remote, one bounded line.
-type RemoteRejectedError struct{ Reason string }
+// or a branch protection ("[remote rejected]"). Retrying the same commit does not help. Reason and Output are
+// text of the remote, each one bounded line; Output is what a hook printed ("remote:" lines) and may be empty.
+type RemoteRejectedError struct{ Reason, Output string }
 
-func (e *RemoteRejectedError) Error() string { return "the remote refused the push: " + e.Reason }
+func (e *RemoteRejectedError) Error() string {
+	if e.Output == "" {
+		return "the remote refused the push: " + e.Reason
+	}
+	return "the remote refused the push: " + e.Reason + "; remote output: " + e.Output
+}
+
+var progressRe = regexp.MustCompile(`\d+% \(\d+/\d+\)`)
+
+// remoteOutput joins the "remote: " lines of git's stderr, without the prefix, progress lines, URL userinfo and
+// control characters, as one line of at most maxErrorText runes. Remote text is data only.
+func remoteOutput(stderr string) string {
+	var lines []string
+	for _, line := range strings.FieldsFunc(stderr, func(r rune) bool { return r == '\n' || r == '\r' }) {
+		line, ok := strings.CutPrefix(line, "remote: ")
+		if !ok || progressRe.MatchString(line) {
+			continue
+		}
+		if line = strings.TrimSpace(line); line != "" {
+			lines = append(lines, line)
+		}
+	}
+	// Userinfo goes before and after cleaning: a control character inside it or in front of it would hide it
+	// from one of the two passes.
+	out := sanitizeLine(userinfoRe.ReplaceAllString(strings.Join(lines, "; "), "${1}"), math.MaxInt)
+	return sanitizeLine(userinfoRe.ReplaceAllString(out, "${1}"), maxErrorText)
+}
 
 // remoteRejection returns the reason of the first "[remote rejected]" line of git's --porcelain output.
 func remoteRejection(porcelain string) (string, bool) {

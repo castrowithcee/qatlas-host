@@ -291,3 +291,30 @@ func TestNoForcePushInCode(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRemoteOutputKeepsOnlyCleanBoundedRemoteLines(t *testing.T) {
+	userinfo := "user:example-not-a-secret"
+	stderr := "remote: Counting objects: 50% (1/2)\n" +
+		"remote: denied \x1b[31mred\x07 for https://" + userinfo + "@example.invalid/r.git\r\n" +
+		"remote: \n" +
+		"remote:\n" +
+		"not a remote line\n" +
+		"remote: second\n" +
+		"To example.invalid\n"
+	got := remoteOutput(stderr)
+	if want := "denied [31mred for https://example.invalid/r.git; second"; got != want {
+		t.Fatalf("output = %q, want %q", got, want)
+	}
+	if strings.Contains(got, userinfo) {
+		t.Fatalf("userinfo kept: %q", got)
+	}
+	if got := remoteOutput("remote: https://user\x07" + userinfo + "@example.invalid/r.git"); strings.Contains(got, userinfo) {
+		t.Fatalf("userinfo with a control character kept: %q", got)
+	}
+	if got := remoteOutput("remote: " + strings.Repeat("x", 2000)); len(got) != maxErrorText {
+		t.Fatalf("length = %d, want %d", len(got), maxErrorText)
+	}
+	if got := remoteOutput("error: failed to push some refs\n"); got != "" {
+		t.Fatalf("output without remote lines = %q", got)
+	}
+}
