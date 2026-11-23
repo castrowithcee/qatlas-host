@@ -95,6 +95,10 @@ const (
 
 	actHookAdd    kittui.ActionID = "hookadd"
 	actHookRemove kittui.ActionID = "hookremove"
+
+	// actGrantAdd and actGrantRemove grant an action of the stack detail to a user and withdraw a grant.
+	actGrantAdd    kittui.ActionID = "grantadd"
+	actGrantRemove kittui.ActionID = "grantremove"
 )
 
 // areaKeys are the keys of actArea, one per area in the order of the tab line.
@@ -168,6 +172,8 @@ func keyTable() []kittui.Action {
 		act(actInstance, kittui.LevelLetter, textKeyInstance, "H"),
 		act(actHookAdd, kittui.LevelLetter, textKeyHookAdd, "h"),
 		act(actHookRemove, kittui.LevelLetter, textKeyHookRemove, "U"),
+		act(actGrantAdd, kittui.LevelLetter, textKeyGrantAdd, "z"),
+		act(actGrantRemove, kittui.LevelLetter, textKeyGrantRemove, "Y"),
 		act(actRootless, kittui.LevelConfirm, textAnswerSetupRootless, "r"),
 		act(actYes, kittui.LevelConfirm, textAnswerYes, "y"),
 		act(actNo, kittui.LevelConfirm, textAnswerCancel, "n", "esc"),

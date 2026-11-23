@@ -45,7 +45,7 @@ func TestDetailShowsLoadingThenEachSectionOnItsOwn(t *testing.T) {
 	b.errs["changelog:demo-stack"] = errServiceBusy()
 	m := newTestModel(t, i18n.English, b, wideWidth, 48)
 	_, cmd := m.Update(keyMsg("enter"))
-	if screen := m.render(); strings.Count(screen, "Loading…") != 5 {
+	if screen := m.render(); strings.Count(screen, "Loading…") != 6 {
 		t.Fatalf("all sections should load:\n%s", screen)
 	}
 	drain(m, cmd)
@@ -455,7 +455,7 @@ func TestOverviewOnlyReads(t *testing.T) {
 	send(m, "enter", "r", "esc", "3", "enter", "L", "r", "esc", "esc")
 	for name := range b.calls {
 		switch name {
-		case "status", "stacks", "check", "updates", "runs", "log", "changelog", "backups", "secrets", "containers", "proposals":
+		case "status", "stacks", "check", "updates", "runs", "log", "changelog", "backups", "secrets", "containers", "proposals", "grantlist":
 		default:
 			t.Errorf("unexpected call %s", name)
 		}

@@ -33,8 +33,12 @@
 ╭─ Webhooks ────────────────║ mehr. Das lässt sich nicht rückgängig machen.                ║───────────────────────────╮
 │ h-a1b2c3d0                ║                                                              ║                           │
 ╰───────────────────────────║ [ ja, ausführen ]  > abbrechen <                             ║───────────────────────────╯
-╭─ Backups ─────────────────║ y ja, ausführen  n/esc/enter abbrechen                       ║───────────────────────────╮
-│ 20261030T140100Z-0123abcd ╚══════════════════════════════════════════════════════════════╝                           │
+╭─ Freigaben ───────────────║ y ja, ausführen  n/esc/enter abbrechen                       ║───────────────────────────╮
+│ Eine Freigabe gilt für den╚══════════════════════════════════════════════════════════════╝.                          │
+│ Keine Freigaben für diesen Stack.                                                                                    │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ 20261030T140100Z-0123abcd                                                                                            │
 │   10-30 14:01  12.0 MiB                                                                                              │
 │ 20261023T031000Z-4567cdef                                                                                            │
 │   10-23 03:10  11.0 MiB                                                                                              │
@@ -57,8 +61,4 @@
 │   a failed run goes back to the previous commit and restores the backup it made before the change                    │
 │ Backup  geht                                                                                                         │
 │   a backup saves the data directories data/db                                                                        │
-│ Geheimnisse schwärzen  geht                                                                                          │
-│   the values of secrets.env (2 key(s)) are redacted in logs and messages                                             │
-│ secrets-env-not-ignored  Warnung                                                                                     │
-│   secrets.env is not listed in .gitignore                                                                            │
-                                                                                                                   60/62
+                                                                                                                   60/66

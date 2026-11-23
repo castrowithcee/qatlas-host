@@ -44,6 +44,8 @@ type detailState struct {
 	sec       part
 	hooks     HookListResult
 	hk        part
+	grants    control.GrantListResult
+	gr        part
 	// top is the first shown line; total and rows are what the last drawing found.
 	top, total, rows int
 }
@@ -91,7 +93,7 @@ func (m *Model) loadDetail(force bool) tea.Cmd {
 			return changelogMsg{stack: stack, gen: gen, res: res, err: err}
 		})
 	}
-	return tea.Batch(append(cmds, m.readBackups(), m.readSecrets(), m.readHooks())...)
+	return tea.Batch(append(cmds, m.readBackups(), m.readSecrets(), m.readHooks(), m.readGrants())...)
 }
 
 // readBackups reads the backups of the stack shown; a read under way is not asked twice.
@@ -268,6 +270,7 @@ func (m *Model) detailLines(r stackRow, width int) []string {
 	section(textDetailChangelog, m.changelogLines)
 	section(textDetailSecrets, m.secretLines)
 	section(textDetailHooks, func(w int) []string { return m.hookSectionLines(r, w) })
+	section(textDetailGrants, m.grantSectionLines)
 	section(textDetailBackups, m.backupLines)
 	section(textDetailRuns, func(w int) []string { return m.runLines(r.engine, r.name, w) })
 	section(textDetailCapabilities, func(w int) []string { return m.capabilityLines(r.name, w) })

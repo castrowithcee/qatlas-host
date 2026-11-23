@@ -56,6 +56,8 @@ type settingsForm struct {
 	engine string
 	// titleArg is the name of the host the title of the form names.
 	titleArg string
+	// setup is what the stack of a grant form has set up.
+	setup *grantSetup
 }
 
 // input is the input focus of the form, or of the editor that is open in it.
@@ -222,6 +224,8 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitNotifyDetail(f, v)
 	case formHookListen:
 		return m.submitHookListen(f, text("listen"))
+	case formGrant:
+		return m.submitGrant(f, v)
 	case formSecret:
 		return m.submitSecret(f, text("key"), v["value"].Text)
 	case formDataDirs:

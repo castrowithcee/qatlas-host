@@ -51,6 +51,8 @@ type Backend interface {
 	Window(ctx context.Context) (control.WindowResult, error)
 	// Secrets lists the key names of the secrets of one stack; never a value.
 	Secrets(ctx context.Context, stack string) (control.SecretListResult, error)
+	// GrantList reads the standing grants of one stack; it needs no root for an administrator.
+	GrantList(ctx context.Context, stack string) (control.GrantListResult, error)
 	// Containers lists the containers of the host in groups, without readings of CPU and memory.
 	Containers(ctx context.Context) (ContainerList, error)
 	// Container reads one container by name; the result holds the names of its environment variables, never values.
@@ -493,6 +495,11 @@ func (b *ChannelBackend) NotifyTest(ctx context.Context, name string) (res contr
 
 func (b *ChannelBackend) Secrets(ctx context.Context, stack string) (res control.SecretListResult, err error) {
 	err = b.call(ctx, control.SecretListCommand, control.SecretListArgs{Stack: stack}, &res)
+	return res, err
+}
+
+func (b *ChannelBackend) GrantList(ctx context.Context, stack string) (res control.GrantListResult, err error) {
+	err = b.call(ctx, control.GrantListCommand, control.GrantListArgs{Stack: stack}, &res)
 	return res, err
 }
 

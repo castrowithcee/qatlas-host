@@ -33,8 +33,8 @@
 ╭─ Webhooks ───────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Kein Webhook-Empfänger eingerichtet. Richte ihn unter Einstellungen, Webhooks ein.                                   │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ 20261030T140100Z-0123abcd                                                                                            │
+╭─ Freigaben ──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Eine Freigabe gilt für den Benutzer und für jeden Agenten, der unter seinem Konto arbeitet.                          │
 Warnung: Der Stack demo-stack hat keine Einstellungen. Er ist schon nur Deploy; es wurde nichts entfernt.               
 B zurück auf Stand davor  e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log             
-a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  r Neu laden  1-7 Bereich  q Beenden    ↑/↓ Scrollen  34/62
+a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  z freigeben  r Neu laden  1-7 Bereich  q Beenden     34/66

@@ -33,6 +33,10 @@
 ╭─ Webhooks ───────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ No webhook for this stack.                                                                                           │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Grants ─────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ A grant applies to the user and to every agent working under the account of the user.                                │
+│ No grants for this stack.                                                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                                                                                            │
 │   10-30 14:01  12.0 MiB                                                                                              │
@@ -56,9 +60,5 @@
 │ Rollback with data  works                                                                                            │
 │   a failed run goes back to the previous commit and restores the backup it made before the change                    │
 │ Backup  works                                                                                                        │
-│   a backup saves the data directories data/db                                                                        │
-│ Redact secrets  works                                                                                                │
-│   the values of secrets.env (2 key(s)) are redacted in logs and messages                                             │
-│ secrets-env-not-ignored  warning                                                                                     │
 B back to before update  e update rules  b backup  C compose  k checks  E clear settings  o log  a set secret           
-x delete secret  R restore backup  h add hook  r reload  1-7 area  q quit                              ↑/↓ scroll  59/62
+x delete secret  R restore backup  h add hook  z grant  r reload  1-7 area  q quit                     ↑/↓ scroll  59/66

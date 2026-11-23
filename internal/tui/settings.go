@@ -136,6 +136,9 @@ const (
 	opHookSetup
 	opHookAdd
 	opHookRemove
+	opStackSettingsGrant
+	opGrantAdd
+	opGrantRemove
 	opReturn
 )
 
@@ -580,6 +583,16 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		cmds = append(cmds, m.loadPage(true))
 	case HookAddResult:
 		cmds = append(cmds, m.hookAdded(res, msg.name))
+	case grantAdded:
+		text := textDoneGrantAdded
+		if res.replaced {
+			text = textDoneGrantReplaced
+		}
+		done(t.Lookup(text, kittui.Escape(res.user), m.grantActionText(res.action), res.stack))
+		cmds = append(cmds, m.readGrants())
+	case grantRemoved:
+		done(t.Lookup(textDoneGrantRemoved, kittui.Escape(res.user), m.grantActionText(res.action), res.stack))
+		cmds = append(cmds, m.readGrants())
 	case hookRemoved:
 		done(t.Lookup(textDoneHookRemoved, res.id))
 		cmds = append(cmds, m.readHooks())
@@ -601,6 +614,8 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 			cmds = append(cmds, m.composeFormFor(res))
 		case opStackSettingsCheck:
 			cmds = append(cmds, m.checkFormFor(res))
+		case opStackSettingsGrant:
+			cmds = append(cmds, m.grantFormFor(res))
 		default:
 			cmds = append(cmds, m.updateFormFor(res))
 		}

@@ -34,14 +34,14 @@
 │ No webhook receiver is set up. Set it up under       │
 │ Settings, Webhooks.                                  │
 ╰──────────────────────────────────────────────────────╯
+╭─ Grants ─────────────────────────────────────────────╮
+│ A grant applies to the user and to every agent       │
+│ working under the account of the user.               │
+│ No grants for this stack.                            │
+╰──────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────╮
 │ error: the service refused the request: the service  │
 │ is busy                                              │
 ╰──────────────────────────────────────────────────────╯
-╭─ Last runs ──────────────────────────────────────────╮
-│ succeeded  10-30 14:02  update  48s                  │
-│   20261030T140200Z-0000000c                          │
-│ failed  10-29 02:00  poll  850ms                     │
-│   20261029T020000Z-00000010                          │
 B back to before update  e update rules  b backup       
 C compose  o log  a set secret  r reload  q quit        

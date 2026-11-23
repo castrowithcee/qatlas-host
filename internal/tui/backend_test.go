@@ -86,6 +86,7 @@ func TestChannelBackendSpeaksTheServiceCommands(t *testing.T) {
 		"notifyremove":  func() error { return b.NotifyRemove(ctx, "no-channel") },
 		"notifytest":    func() error { _, err := b.NotifyTest(ctx, "no-channel"); return err },
 		"secrets":       func() error { _, err := b.Secrets(ctx, "demo-stack"); return err },
+		"grantlist":     func() error { _, err := b.GrantList(ctx, "demo-stack"); return err },
 		"secretset":     func() error { _, err := b.SecretSet(ctx, "demo-stack", "BACKEND_TEST", "example-value"); return err },
 		"secretdelete":  func() error { _, err := b.SecretDelete(ctx, "demo-stack", "BACKEND_TEST"); return err },
 		"settings":      func() error { _, err := b.StackSettings(ctx, "demo-stack"); return err },

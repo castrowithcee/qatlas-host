@@ -29,6 +29,7 @@ const (
 	pickSecret pickKind = iota
 	pickBackup
 	pickHook
+	pickGrant
 )
 
 // picker is the list a person chooses one secret or one backup from.
@@ -72,6 +73,10 @@ func (m *Model) detailAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 		return m.askHookAdd(), true
 	case actHookRemove:
 		return m.openHookPick(), true
+	case actGrantAdd:
+		return m.openGrantForm(), true
+	case actGrantRemove:
+		return m.openGrantPick(), true
 	case actRollback:
 		return m.rollbackFromDetail(), true
 	case actDataDirs:
@@ -219,6 +224,8 @@ func (m *Model) picked(id kittui.ItemID) tea.Cmd {
 			decode: decodeSudo[control.SecretResult](func(r control.SecretResult) bool { return r.Stack != "" })})
 	case pickHook:
 		m.askHookRemove(stack, key)
+	case pickGrant:
+		m.askGrantRemove(stack, key)
 	case pickBackup:
 		b := p.backups[id]
 		details := []string{b.Created.In(m.loc).Format(lastRunLayout), humanSize(b.Size)}
@@ -302,6 +309,12 @@ func (m *Model) detailHints() []kittui.Hint {
 		hints = append(hints, kittui.Hint{Action: actHookAdd, Label: textKeyHookAdd, Priority: 4})
 		if len(d.hooks.Hooks) > 0 {
 			hints = append(hints, kittui.Hint{Action: actHookRemove, Label: textKeyHookRemove, Priority: 4})
+		}
+	}
+	if d := &m.detail; d.gr.loaded {
+		hints = append(hints, kittui.Hint{Action: actGrantAdd, Label: textKeyGrantAdd, Priority: 4})
+		if len(d.grants.Grants) > 0 {
+			hints = append(hints, kittui.Hint{Action: actGrantRemove, Label: textKeyGrantRemove, Priority: 4})
 		}
 	}
 	return hints

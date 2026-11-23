@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 [2 Stack-Details] 3 4 5 6 7                                                 
+────────────────────────────────────────────────────────────────────────────────
+  Aktion freigeben                                                              
+                                                                                
+              ╔════════════════════════════════════════════════════════════════╗
+> Benutzer    ║ ada                                                          ▾ ║
+        ╔═ Aktion freigeben ═══════════════════════════════════════════╗═══════╝
+        ║ ⚠ ada erlauben: Stack neu starten (demo-stack), ohne sudo?   ║        
+        ║                                                              ║───────╮
+  Aktion║ Der Stack hat weder Backup noch Prüfung eingerichtet.        ║     ▾ │
+        ║ Die Freigabe läuft nicht ab.                                 ║───────╯
+        ║ $ sudo qhost grant add --confirm --output json -- ada        ║───────╮
+  Letzte║   stack.restart demo-stack                                   ║       │
+        ║                                                              ║───────╯
+        ║ [ ja, mit sudo ]  > abbrechen <                              ║        
+        ║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+[ F2 speichern ]  [ esc Verwerfen ]                                             
+                                                                                

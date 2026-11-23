@@ -62,9 +62,12 @@ type fakeBackend struct {
 	hostWindows []control.WindowSetArgs
 	notify      []control.NotifyChannelInfo
 	// hook is the webhook receiver the service reads; HookServiceSetup sets it up.
-	hook    HookServiceInfo
-	hooks   map[string][]HookInfo
-	repoSet []control.RepoSetArgs
+	hook  HookServiceInfo
+	hooks map[string][]HookInfo
+	// grants holds the grants of the service by stack; grantProblem is what the list reports as unreadable.
+	grants       map[string][]control.GrantInfo
+	grantProblem string
+	repoSet      []control.RepoSetArgs
 	// The stack folders: inspects answers by path (unknown paths are rejected), folderList is the bound list,
 	// compare the answer of source.compare. fetchDirs, sourceAdds and removes record the calls in order; the
 	// reads (inspect, compare, list) are only counted, so a test can tell that nothing changing was called.
@@ -858,6 +861,17 @@ func (f *fakeBackend) Secrets(ctx context.Context, stack string) (control.Secret
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return control.SecretListResult{Stack: stack, Keys: slices.Clone(f.secrets[stack])}, nil
+}
+
+func (f *fakeBackend) GrantList(ctx context.Context, stack string) (control.GrantListResult, error) {
+	f.count("grantlist")
+	f.noteEngine(ctx, "grantlist", stack)
+	if err := f.fail("grantlist", stack); err != nil {
+		return control.GrantListResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return control.GrantListResult{Grants: slices.Clone(f.grants[stack]), Problem: f.grantProblem}, nil
 }
 
 func (f *fakeBackend) SecretSet(ctx context.Context, stack, key, value string) (control.SecretResult, error) {
