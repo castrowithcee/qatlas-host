@@ -96,6 +96,9 @@ type fakeBackend struct {
 	// containers is the list the service reads from the container engine, and containerDetails the detail by
 	// name; errs "containers:" and "container:<name>" fail those calls.
 	containers control.ContainerListResult
+	// containersDown and containersUnread are what a routing backend adds to the list.
+	containersDown   []control.EngineNotChecked
+	containersUnread bool
 	// proposals is the list the service holds, newest first, and proposalContents the content by ID; errs
 	// "proposals:" and "proposal:<id>" fail those calls. proposalActs records approve, reject and result calls.
 	proposals        []control.ProposalInfo
@@ -932,24 +935,28 @@ func (f *fakeBackend) StackSettingsRemove(ctx context.Context, stack string) (co
 	return control.StackSettingsRemoveResult{Stack: stack, Commit: commitB}, nil
 }
 
-func (f *fakeBackend) Containers(context.Context) (control.ContainerListResult, error) {
+func (f *fakeBackend) Containers(context.Context) (ContainerList, error) {
 	f.count("containers")
 	if err := f.fail("containers", ""); err != nil {
-		return control.ContainerListResult{}, err
+		return ContainerList{}, err
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.containers, nil
+	return ContainerList{ContainerListResult: f.containers, NotChecked: f.containersDown, EnginesUnread: f.containersUnread}, nil
 }
 
-func (f *fakeBackend) Container(_ context.Context, name string) (control.ContainerDetail, error) {
+// Container answers from containerDetails under "<name>@<engine>" for a call that names an engine, else under the name.
+func (f *fakeBackend) Container(ctx context.Context, name string) (control.ContainerDetail, error) {
 	f.count("container")
 	if err := f.fail("container", name); err != nil {
 		return control.ContainerDetail{}, err
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	d, ok := f.containerDetails[name]
+	d, ok := f.containerDetails[name+"@"+EngineOf(ctx)]
+	if !ok {
+		d, ok = f.containerDetails[name]
+	}
 	if !ok {
 		return control.ContainerDetail{}, control.NewError(control.CodeNotFound, "no such container")
 	}

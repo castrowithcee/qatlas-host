@@ -10,6 +10,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/rootless"
 	"github.com/castrowithcee/qatlas-host/internal/tui"
 )
 
@@ -345,5 +346,46 @@ func TestEngineBackendRunLogComesFromTheServiceThatKnowsIt(t *testing.T) {
 	var remote *control.Error
 	if _, err := b.Log(context.Background(), "none"); !errors.As(err, &remote) || remote.Code != control.CodeNoSuchRun {
 		t.Fatalf("none: %v", err)
+	}
+}
+
+func TestEngineBackendContainersMergeInstancesAndReadEnginesWithoutOneAsRoot(t *testing.T) {
+	d := useFolderHost(t)
+	eps := engineHost(t, d, "alice")
+	startFakeService(t, engineContainers{engine: "system", groups: []control.ContainerGroup{single("web"), single("shared")}}.handlers())
+	serveFake(t, eps["alice"], engineContainers{engine: "rootless:alice", groups: []control.ContainerGroup{single("shared")}}.handlers())
+	useEngine(t, "bob", func(int) []rootless.Container { return []rootless.Container{{Name: "ghost", State: "running"}} })
+
+	res, err := newEngineBackend().Containers(context.Background())
+	if err != nil || res.EnginesUnread || len(res.NotChecked) != 0 {
+		t.Fatalf("result %+v, err %v", res, err)
+	}
+	var got []string
+	for _, g := range res.Groups {
+		got = append(got, g.Name+"@"+g.Engine)
+		if g.ReadOnly != (g.Engine == "rootless:bob") {
+			t.Errorf("group %+v: read-only wrong", g)
+		}
+	}
+	if strings.Join(got, " ") != "shared@system shared@rootless:alice web@system ghost@rootless:bob" &&
+		strings.Join(got, " ") != "ghost@rootless:bob shared@system shared@rootless:alice web@system" {
+		t.Fatalf("groups %v", got)
+	}
+	// A named engine asks only that engine's service: nothing is read behind it.
+	res, err = newEngineBackend().Containers(tui.WithEngine(context.Background(), "rootless:alice"))
+	if err != nil || len(res.Groups) != 1 || res.Groups[0].Engine != "rootless:alice" {
+		t.Fatalf("named engine: %+v, err %v", res, err)
+	}
+}
+
+func TestEngineBackendContainersWithoutRootSayEnginesAreUnread(t *testing.T) {
+	d := useFolderHost(t)
+	asNonRoot(d)
+	engineHost(t, d, "alice") // set up, not running
+	startFakeService(t, engineContainers{engine: "system", groups: []control.ContainerGroup{single("web")}}.handlers())
+
+	res, err := newEngineBackend().Containers(context.Background())
+	if err != nil || !res.EnginesUnread || len(res.Groups) != 1 || len(res.NotChecked) != 1 || res.NotChecked[0].Engine != "rootless:alice" {
+		t.Fatalf("result %+v, err %v", res, err)
 	}
 }

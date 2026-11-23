@@ -69,9 +69,8 @@ func (m *Model) containerTarget() string {
 	if m.ctv.open {
 		return m.ctv.name
 	}
-	id, found := m.ctList.Selected()
-	if name, known := m.ctNames[id]; found && known {
-		return name
+	if ref, ok := m.ctSelected(); ok {
+		return ref.name
 	}
 	return ""
 }

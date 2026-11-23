@@ -60,9 +60,8 @@ func (m *Model) openContainerLogs() (cmd tea.Cmd, ok bool) {
 	case m.area == areaContainers && m.ctv.open:
 		return m.showContainerLog(m.ctv.name, ""), true
 	case m.area == areaContainers:
-		id, found := m.ctList.Selected()
-		if name, known := m.ctNames[id]; found && known {
-			return m.showContainerLog(name, ""), true
+		if ref, found := m.ctSelected(); found {
+			return m.showContainerLog(ref.name, ""), true
 		}
 	case m.area == areaDetail && m.pick == nil:
 		if stack, found := m.detailStack(); found {

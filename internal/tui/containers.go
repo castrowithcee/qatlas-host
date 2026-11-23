@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -30,12 +31,22 @@ type containerState struct {
 	// actGen separates the answer of the detail read before a question from an older one; readGen separates the
 	// answer of the list read that follows an action from a read that began before it.
 	actGen, readGen int
+	// down are the engines whose service could not be asked, unread is set without root. secs are the sections of
+	// a host with several engines (empty with one), each a list of its own: base is the list of one engine, lists
+	// the lists of the sections by engine and engine the marked section's.
+	down   []control.EngineNotChecked
+	unread bool
+	secs   []*ctSection
+	base   *kittui.List
+	lists  map[string]*kittui.List
+	engine string
 }
 
-// containerView is the detail of one container, opened from the list.
+// containerView is the detail of one container, opened from the list. engine is where the container runs, empty
+// while one engine is shown.
 type containerView struct {
 	open            bool
-	name            string
+	name, engine    string
 	gen             int
 	detail          control.ContainerDetail
 	loaded, loading bool
@@ -46,7 +57,7 @@ type containerView struct {
 
 type containersMsg struct {
 	gen int
-	res control.ContainerListResult
+	res ContainerList
 	err error
 }
 
@@ -185,42 +196,62 @@ func (m *Model) applyContainers(msg containersMsg) {
 		m.ct.err = msg.err
 		return
 	}
-	m.ct.err, m.ct.loaded, m.ct.groups = nil, true, msg.res.Groups
+	m.ct.err, m.ct.loaded, m.ct.groups, m.ct.down, m.ct.unread = nil, true, msg.res.Groups, msg.res.NotChecked, msg.res.EnginesUnread
 	m.fillContainers()
 }
 
-// fillContainers sets the rows of the containers list from the groups read last.
+// fillContainers sets the rows of the containers list, or of the lists of the sections, from the groups read
+// last. With several engines, or any engine without a deploy service, each engine is a section.
 func (m *Model) fillContainers() {
 	clear(m.ctTones)
-	clear(m.ctNames)
-	var items []kittui.ListItem
+	clear(m.ctRows)
+	engines := m.ctEngines()
+	sectioned := len(engines) > 1 || slices.ContainsFunc(m.ct.groups, func(g control.ContainerGroup) bool { return g.ReadOnly })
+	var entries []ctEntry
 	var names []string
 	for _, g := range m.ct.groups {
-		title := m.groupTitle(g)
+		title, engine := m.groupTitle(g), ""
+		if sectioned {
+			engine = ctGroupEngine(g)
+		}
 		for _, c := range g.Containers {
 			word, tone := m.stateWord(c.State)
 			m.ctTones[word] = tone
 			names = append(names, c.Name)
-			items = append(items, kittui.ListItem{Group: title, Cells: []string{c.Name, word, c.Image,
-				m.uptimeText(c.UptimeSeconds), fmt.Sprint(c.Restarts)}})
+			entries = append(entries, ctEntry{ref: ctRef{name: c.Name, engine: engine, readOnly: g.ReadOnly},
+				item: kittui.ListItem{Group: title, Cells: []string{c.Name, word, c.Image, m.uptimeText(c.UptimeSeconds), fmt.Sprint(c.Restarts)}}})
 		}
 	}
+	// The IDs are unique over all sections, so a name that two engines have stays two rows.
 	for i, id := range uniqueIDs(names) {
-		items[i].ID = id
-		m.ctNames[id] = names[i]
+		entries[i].item.ID = id
+		m.ctRows[id] = entries[i].ref
+	}
+	if sectioned {
+		m.fillCtSections(engines, entries)
+		return
+	}
+	m.leaveCtSections()
+	if m.ct.base == nil {
+		m.ct.base = m.ctList
+	}
+	items := make([]kittui.ListItem, len(entries))
+	for i, e := range entries {
+		items[i] = e.item
 	}
 	if err := m.ctList.SetItems(items); err != nil {
 		m.ct.err = err
 	}
 }
 
-// openContainer shows the detail of the container id of the list.
+// openContainer shows the detail of the container id of the list. A container of an engine without a deploy
+// service has none: no service can read it.
 func (m *Model) openContainer(id kittui.ItemID) tea.Cmd {
-	name, ok := m.ctNames[id]
-	if !ok {
+	ref, ok := m.ctRows[id]
+	if !ok || ref.readOnly {
 		return nil
 	}
-	m.ctv = containerView{open: true, name: name, gen: m.ctv.gen + 1}
+	m.ctv = containerView{open: true, name: ref.name, engine: ref.engine, gen: m.ctv.gen + 1}
 	return m.readContainer()
 }
 
@@ -231,7 +262,7 @@ func (m *Model) readContainer() tea.Cmd {
 		return nil
 	}
 	v.loading = true
-	ctx, b, name, gen := m.ctx, m.backend, v.name, v.gen
+	ctx, b, name, gen := m.engineCtx(v.engine), m.backend, v.name, v.gen
 	return func() tea.Msg {
 		res, err := b.Container(ctx, name)
 		return containerDetailMsg{name: name, gen: gen, res: res, err: err}
@@ -261,7 +292,19 @@ func (m *Model) containersView(width, height int) string {
 	case !m.ct.loaded:
 		return m.note(m.text.Lookup(textCtLoading), width)
 	}
-	return m.listView(m.ctList, width, height, 0)
+	// Without root the one line that says engines without a deploy service were not looked for stays below.
+	var note []string
+	if m.ct.unread {
+		note = m.wrapped(2, kittui.StyleHint, m.text.Lookup(textCtNoSudo), width)
+		height = max(height-len(note), 1)
+	}
+	var view string
+	if len(m.ct.secs) > 0 {
+		view = m.ctSectionsView(width, height)
+	} else {
+		view = m.listView(m.ctList, width, height, 0)
+	}
+	return strings.Join(append([]string{view}, note...), "\n")
 }
 
 func (m *Model) containerDetailView(width, height int) string {
@@ -415,8 +458,8 @@ func labelTexts(labels map[string]string) []string {
 }
 
 // stackContainerLines are the containers of one stack in the stack detail, from the list the Containers area
-// reads. The stack is the group of the own kind with its name.
-func (m *Model) stackContainerLines(stack string, width int) []string {
+// reads. The stack is the group of the own kind with its name, in the engine of the stack when engines are told apart.
+func (m *Model) stackContainerLines(engine, stack string, width int) []string {
 	t := m.text
 	var out []string
 	if m.ct.err != nil {
@@ -429,7 +472,7 @@ func (m *Model) stackContainerLines(stack string, width int) []string {
 	}
 	found := false
 	for _, g := range m.ct.groups {
-		if g.Kind != control.ContainerKindOwn || g.Name != stack {
+		if g.Kind != control.ContainerKindOwn || g.Name != stack || engine != "" && g.Engine != "" && g.Engine != engine {
 			continue
 		}
 		for _, c := range g.Containers {

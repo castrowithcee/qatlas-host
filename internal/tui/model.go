@@ -167,7 +167,7 @@ type Model struct {
 	ctv     containerView
 	ctList  *kittui.List
 	ctTones map[string]kittui.TextStyle
-	ctNames map[kittui.ItemID]string
+	ctRows  map[kittui.ItemID]ctRef
 	// The Proposals area: the list read, its rows and the proposal that is open.
 	prop      proposalState
 	pv        proposalView
@@ -228,7 +228,7 @@ func newModel(c config) (*Model, error) {
 		loc: c.loc, themes: themes, theme: c.theme, profile: c.profile, charset: c.charset, area: areaStacks,
 		tones: map[string]kittui.TextStyle{}, rows: map[kittui.ItemID]stackRow{},
 		runTones: map[string]kittui.TextStyle{}, runByID: map[kittui.ItemID]runRow{}, after: tea.Tick,
-		ctTones: map[string]kittui.TextStyle{}, ctNames: map[kittui.ItemID]string{},
+		ctTones: map[string]kittui.TextStyle{}, ctRows: map[kittui.ItemID]ctRef{},
 		propTones: map[string]kittui.TextStyle{}, propByID: map[kittui.ItemID]control.ProposalInfo{},
 		euid: defaultEuid, makeDirs: defaultMakeDirs, mouseOn: c.mouse, root: c.root, accounts: c.accounts, hostLog: c.hostLog, hostProps: c.hostProps}
 	if m.ctx == nil {
@@ -605,7 +605,7 @@ func (m *Model) typed(msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool) {
 	case m.area == areaSystem:
 		return m.systemTyped(msg)
 	case m.area == areaContainers && !m.ctv.open:
-		open, handled := m.ctList.Update(msg)
+		open, handled := m.ctUpdate(msg)
 		return m.openContainer(open), handled
 	case m.area == areaDetail && m.pick != nil:
 		open, handled := m.pick.list.Update(msg)
@@ -835,7 +835,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 		m.topEdge(handled, msg)
 		return m.open(open)
 	case m.area == areaContainers && !m.ctv.open:
-		open, handled := m.ctList.Update(msg)
+		open, handled := m.ctUpdate(msg)
 		m.topEdge(handled, msg)
 		return m.openContainer(open)
 	case m.area == areaRuns && m.log.open:
@@ -1002,6 +1002,11 @@ func (m *Model) setZone(z kittui.FocusZone) {
 			s.list.SetFocused(false)
 		}
 	}
+	for _, s := range m.ct.secs {
+		if s.list != nil && s.list != m.ctList {
+			s.list.SetFocused(false)
+		}
+	}
 }
 
 // navKey handles the keys that switch the area or the focus zone, for every screen alike. The zone keys
@@ -1124,10 +1129,10 @@ func (m *Model) footer() []kittui.Hint {
 		return append(append(append([]kittui.Hint{{Action: actBack, Label: kittui.TextKeyBack, Priority: 1}, containerLogsHint()},
 			append(containerActionHints(), m.adoptHints()...)...), common...), scrollHints()...)
 	case m.area == areaContainers:
-		if len(m.ctNames) > 0 {
+		if len(m.ctRows) > 0 {
 			common = append(append([]kittui.Hint{containerLogsHint()}, append(containerActionHints(), m.adoptHints()...)...), common...)
 		}
-		return m.listFooter(m.ctList, len(m.ctNames), textKeyDetails, common, nav)
+		return m.listFooter(m.ctList, len(m.ctRows), textKeyDetails, common, nav)
 	case m.area == areaProposals && m.pv.open:
 		return append(append(append([]kittui.Hint{{Action: actBack, Label: kittui.TextKeyBack, Priority: 1}}, m.proposalHints()...), common...), scrollHints()...)
 	case m.area == areaProposals:

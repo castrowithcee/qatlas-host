@@ -392,8 +392,39 @@ func (b *engineBackend) Window(ctx context.Context) (control.WindowResult, error
 	return onInstance(b, ctx, func(c *tui.ChannelBackend) (control.WindowResult, error) { return c.Window(ctx) })
 }
 
-func (b *engineBackend) Containers(ctx context.Context) (control.ContainerListResult, error) {
-	return onInstance(b, ctx, func(c *tui.ChannelBackend) (control.ContainerListResult, error) { return c.Containers(ctx) })
+// Containers merges the groups of every deploy service, each with its engine. As root, without a named
+// engine, it adds the engines that have no deploy service as read-only groups, through the same read as the
+// commands (readUnattended). A service that cannot be asked is a note, so it never hides the others.
+func (b *engineBackend) Containers(ctx context.Context) (tui.ContainerList, error) {
+	g, err := gather[control.ContainerListResult](ctx, b, control.ContainerListCommand, control.ContainerListArgs{}, overviewLimit)
+	if err != nil {
+		return tui.ContainerList{}, err
+	}
+	res := tui.ContainerList{NotChecked: g.notChecked}
+	res.Groups = []control.ContainerGroup{}
+	for _, r := range g.ok {
+		for _, grp := range r.value.Groups {
+			grp.Engine = r.target.id()
+			res.Groups = append(res.Groups, grp)
+		}
+		res.MetricsIncomplete = res.MetricsIncomplete || r.value.MetricsIncomplete
+	}
+	if tui.EngineOf(ctx) != "" {
+		return res, nil
+	}
+	// A service that failed still covers its engine, so its containers are not read behind its back.
+	all, err := folders.engineTargets()
+	if err != nil {
+		return tui.ContainerList{}, routeFailure(err)
+	}
+	ro := readUnattended(ctx, all)
+	for _, e := range ro.engines {
+		res.Groups = append(res.Groups, engineGroups(e)...)
+	}
+	res.NotChecked = append(res.NotChecked, ro.failed...)
+	res.EnginesUnread = ro.unread
+	sortGroups(res.Groups)
+	return res, nil
 }
 
 func (b *engineBackend) Container(ctx context.Context, name string) (control.ContainerDetail, error) {
