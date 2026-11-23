@@ -2642,7 +2642,7 @@ scenario_stacks_repo() {
 
 	# Up to the first repair attempt nothing restarts the deploy service; the restarts from scenario_tui_deploy_sudo
 	# to scenario_tui_folder_sudo take about a minute, too early to delay the second attempt, which falls into the
-	# failure monitor scenario (see scenario_repair_start).
+	# failure monitor scenario or the wait after it (see scenario_repair_start).
 	scenario_repair_start
 
 	scenario_deploy_audit
@@ -2663,6 +2663,8 @@ scenario_stacks_repo() {
 	scenario_tui_folder_sudo
 
 	scenario_container_monitor
+
+	scenario_repair_second
 
 	scenario_backup
 
@@ -2746,9 +2748,9 @@ scenario_stacks_repo() {
 
 	scenario_observe_end
 
-	# From the binding of the sources on, nothing up to here restarts the system deploy service, and the wait for the
-	# rollback of observe-demo covers the last repair attempt of repair-demo, so the halt comes on time; the source
-	# scenarios below restart the service often.
+	# The third repair attempt of repair-demo comes 15 minutes after the second, and with the halt after it falls into
+	# the wait of scenario_observe_end for the rollback, which restarts nothing; the restarts before that wait end
+	# more than three minutes before the attempt. The source scenarios below restart the service often.
 	scenario_repair_end
 
 	demo_leftovers_clean
@@ -6606,6 +6608,10 @@ repair_first_attempt() {
 	repair_text repair-demo | grep -q '^1 of 3 attempts, next '
 }
 
+repair_second_attempt() {
+	repair_text repair-demo | grep -q '^2 of 3 attempts, next '
+}
+
 repair_halted() {
 	repair_text "$1" | grep -q '^halted since '
 }
@@ -6649,6 +6655,13 @@ $hook_signing_value
 scenario_repair_attempt() {
 	wait_for 'the finding container-failed of repair-demo' 240 has_finding repair-demo container-failed
 	wait_for 'the first repair attempt' 240 repair_first_attempt
+	log "scenario: repair-demo $(repair_text repair-demo)"
+}
+
+# scenario_repair_second waits for the second repair attempt of repair-demo. The failure monitor scenario before it
+# restarts no deploy service, while the scenarios after it do so often and would delay the attempt.
+scenario_repair_second() {
+	wait_for 'the second repair attempt' 420 repair_second_attempt
 	log "scenario: repair-demo $(repair_text repair-demo)"
 }
 
