@@ -48,23 +48,30 @@ const (
 // logHeader is the first line of every log file of the store.
 var logHeader = []byte(fmt.Sprintf("{\"schema\":%d}\n", logSchema))
 
-// logFormat checks the format number on the first line of the log file at path. A file without the line, or
-// with another number, is not read, appended to, pruned or removed by the store.
+// logFormat checks the format number on the first line of the log file at path. A file without the number
+// was written before it existed and is format 1; one with another number is not read, appended to, pruned or
+// removed by the store.
 func logFormat(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	line, err := bufio.NewReaderSize(f, 256).ReadBytes('\n')
-	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, bufio.ErrBufferFull) {
+	// The first entry of a file without the header line can be longer than any fixed buffer.
+	var first json.RawMessage
+	err = json.NewDecoder(io.LimitReader(f, logFileBytes)).Decode(&first)
+	var syn *json.SyntaxError
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.As(err, &syn) {
 		return err
 	}
-	var head struct {
-		Schema int `json:"schema"`
+	if err != nil {
+		return formatnum.Check(path, "schema", 0, logSchema)
 	}
-	_ = json.Unmarshal(line, &head)
-	return formatnum.Check(path, "schema", head.Schema, logSchema)
+	var top map[string]json.RawMessage
+	if json.Unmarshal(first, &top) != nil || top == nil {
+		return formatnum.Check(path, "schema", 0, logSchema)
+	}
+	return formatnum.CheckJSONMissing(path, "schema", first, 1, logSchema)
 }
 
 // usable reports whether the file name of the store has the format number this version reads.

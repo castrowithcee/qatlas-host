@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -105,11 +106,25 @@ func TestLogStoreWritesAndRequiresItsFormatNumber(t *testing.T) {
 	}
 }
 
+func TestLogFileWithoutFormatNumberIsReadAsFormat1AndKept(t *testing.T) {
+	longMsg := strings.Repeat("x", 1500)
+	doc := `{"time":"2026-01-02T03:04:05Z","level":"INFO","msg":"` + longMsg + `","svc":"qhost"}` + "\n"
+	st, svc, _ := newTestStore(t)
+	path := filepath.Join(st.dir, "00000000000000000001.jsonl")
+	formatnumtest.Seed(t, path, doc)
+	if err := logFormat(path); err != nil {
+		t.Fatal(err)
+	}
+	if got := messages(askLog(t, svc, control.ServiceLogArgs{})); got != longMsg {
+		t.Fatalf("an earlier log was not read in full: %d bytes", len(got))
+	}
+	formatnumtest.Unchanged(t, path, doc)
+}
+
 func TestUnknownLogFormatNumberIsNotReadAppendedPrunedOrRemoved(t *testing.T) {
 	line := `{"time":"2026-01-02T03:04:05Z","level":"INFO","msg":"kept","svc":"qhost"}` + "\n"
 	for name, doc := range map[string]string{
-		"higher":  `{"schema":2,"added_later":true}` + "\n" + line,
-		"missing": line,
+		"higher": `{"schema":2,"added_later":true}` + "\n" + line,
 	} {
 		t.Run(name, func(t *testing.T) {
 			st, svc, _ := newTestStore(t)
