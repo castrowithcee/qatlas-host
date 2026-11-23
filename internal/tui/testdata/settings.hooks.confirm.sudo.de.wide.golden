@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe  [4 ⚙ Einstellungen]  5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+   Allgemein   Zugangsdaten   Wartungsfenster   Benachrichtigungen  [Webhooks]                                          
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Adresse des Webhook-Empfängers                                                                                        
+                                                                                                                        
+          ╔════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+> Adresse ║ 0.0.0.0:8480_   ╔═ Webhook-Empfänger ══════════════════════════════════════════╗                           ║
+          ╚═════════════════║ ⚠ Den Webhook-Empfänger auf 0.0.0.0:8480 lauschen lassen?    ║═══════════════════════════╝
+          host:port mit eine║                                                              ║                            
+                            ║ Der Empfänger startet auf der neuen Adresse neu. Die Hooks   ║                            
+                            ║ bleiben, wie sie sind. Die Adresse ist nicht lokal und der   ║                            
+                            ║ Empfänger spricht unverschlüsseltes HTTP: Ein Reverse Proxy  ║                            
+                            ║ sollte HTTPS bieten.                                         ║                            
+                            ║ $ sudo qhost hook-service setup --listen 0.0.0.0:8480        ║                            
+                            ║   --confirm --yes --output json                              ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+[ F2 speichern ]  [ esc Verwerfen ]                                                                                     
+                                                                                                                        

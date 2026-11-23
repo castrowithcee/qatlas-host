@@ -145,6 +145,8 @@ type modal struct {
 	on map[kittui.ActionID]func() tea.Cmd
 	// drop runs on every answer but yes, so a question that holds a secret overwrites it.
 	drop func()
+	// full draws the dialog over the whole workspace instead of a box, so a long line stays whole and can be copied.
+	full bool
 	// input is what the answer enter of a dialog with an input does with the text typed.
 	input      func(typed string) tea.Cmd
 	changelogs map[string]*changelogEntry

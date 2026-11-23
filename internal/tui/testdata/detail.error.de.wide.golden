@@ -30,6 +30,9 @@
 │ API_SIGNING_KEY                                                                                                      │
 │ DB_PASSWORD                                                                                                          │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Webhooks ───────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Kein Webhook-Empfänger eingerichtet. Richte ihn unter Einstellungen, Webhooks ein.                                   │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Fehler: der Dienst hat die Anfrage abgelehnt: the service is busy                                                    │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -40,8 +43,5 @@
 │   20261029T020000Z-00000010                                                                                          │
 │   compose pull failed: registry unreachable                                                                          │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Funktionen ─────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ Deploy  geht                                                                                                         │
-│   Compose starts the stack from compose.yaml                                                                         │
 B zurück auf Stand davor  e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log             
-a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  r Neu laden  1-7 Bereich  q Beenden    ↑/↓ Scrollen  42/54
+a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  r Neu laden  1-7 Bereich  q Beenden    ↑/↓ Scrollen  42/57

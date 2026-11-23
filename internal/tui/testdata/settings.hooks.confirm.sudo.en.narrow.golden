@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed  [esc] back  [?] help
+  1 2 3 [4 Settings] 5 6 7                              
+  [Webhooks]                                            
+────────────────────────────────────────────────────────
+  Address of the webhook receiver                       
+                                                        
+  ╔═ Webhook receiver ═══════════════════════════════╗═╗
+> ║ ⚠ Let the webhook receiver listen on             ║ ║
+  ║   0.0.0.0:8480?                                  ║═╝
+  ║                                                  ║  
+  ║ The receiver restarts on the new address. The    ║  
+  ║ hooks stay as they are. The address is not local ║  
+  ║ and the receiver speaks plain HTTP: a reverse    ║  
+  ║ proxy should provide HTTPS.                      ║  
+  ║ $ sudo qhost hook-service setup --listen         ║  
+  ║   0.0.0.0:8480 --confirm --yes --output json     ║  
+  ║                                                  ║  
+  ║ [ yes, with sudo ]  > cancel <                   ║  
+  ║ y yes, with sudo  n/esc/enter cancel             ║  
+  ╚══════════════════════════════════════════════════╝  
+                                                        
+                                                        
+[ F2 save ]  [ esc discard ]                            
+                                                        

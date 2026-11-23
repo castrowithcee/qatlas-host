@@ -21,6 +21,10 @@
 │ API_SIGNING_KEY                                      │
 │ DB_PASSWORD                                          │
 ╰──────────────────────────────────────────────────────╯
+╭─ Webhooks ───────────────────────────────────────────╮
+│ No webhook receiver is set up. Set it up under       │
+│ Settings, Webhooks.                                  │
+╰──────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                            │
 │   10-30 14:01  12.0 MiB                              │
@@ -39,9 +43,5 @@
 ╭─ Functions ──────────────────────────────────────────╮
 │ Deploy  works                                        │
 │   Compose starts the stack from compose.yaml         │
-│ Update  works, automatic                             │
-│   the maintenance window updates APP_VERSION by      │
-│   itself                                             │
-│ Rollback with data  works                            │
 B back to before update  e update rules  b backup       
 C compose  o log  a set secret  r reload  q quit        

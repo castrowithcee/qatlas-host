@@ -92,6 +92,9 @@ const (
 	actReject  kittui.ActionID = "reject"
 	// actInstance chooses the deploy service whose credentials or notification channels Settings shows.
 	actInstance kittui.ActionID = "instance"
+
+	actHookAdd    kittui.ActionID = "hookadd"
+	actHookRemove kittui.ActionID = "hookremove"
 )
 
 // areaKeys are the keys of actArea, one per area in the order of the tab line.
@@ -163,6 +166,8 @@ func keyTable() []kittui.Action {
 		act(actApprove, kittui.LevelLetter, textKeyApprove, "A"),
 		act(actReject, kittui.LevelLetter, textKeyReject, "N"),
 		act(actInstance, kittui.LevelLetter, textKeyInstance, "H"),
+		act(actHookAdd, kittui.LevelLetter, textKeyHookAdd, "h"),
+		act(actHookRemove, kittui.LevelLetter, textKeyHookRemove, "U"),
 		act(actRootless, kittui.LevelConfirm, textAnswerSetupRootless, "r"),
 		act(actYes, kittui.LevelConfirm, textAnswerYes, "y"),
 		act(actNo, kittui.LevelConfirm, textAnswerCancel, "n", "esc"),

@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  1 2 3 [4 Einstellungen] 5 6 7                         
+  [Webhooks]                                            
+────────────────────────────────────────────────────────
+  Adresse des Webhook-Empfängers                        
+                                                        
+  ╔═ Webhook-Empfänger ══════════════════════════════╗═╗
+> ║ ⚠ Den Webhook-Empfänger auf 0.0.0.0:8480         ║ ║
+  ║   lauschen lassen?                               ║═╝
+  ║                                                  ║1 
+  ║ Der Empfänger startet auf der neuen Adresse neu. ║  
+  ║ Die Hooks bleiben, wie sie sind. Die Adresse ist ║  
+  ║ nicht lokal und der Empfänger spricht            ║  
+  ║ unverschlüsseltes HTTP: Ein Reverse Proxy sollte ║  
+  ║ HTTPS bieten.                                    ║  
+  ║ $ sudo qhost hook-service setup --listen         ║  
+  ║   0.0.0.0:8480 --confirm --yes --output json     ║  
+  ║                                                  ║  
+  ║ [ ja, mit sudo ]  > abbrechen <                  ║  
+  ║ y ja, mit sudo  n/esc/enter abbrechen            ║  
+  ╚══════════════════════════════════════════════════╝  
+                                                        
+[ F2 speichern ]  [ esc Verwerfen ]                     
+                                                        

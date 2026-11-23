@@ -28,6 +28,7 @@ type pickKind int
 const (
 	pickSecret pickKind = iota
 	pickBackup
+	pickHook
 )
 
 // picker is the list a person chooses one secret or one backup from.
@@ -67,6 +68,10 @@ func (m *Model) detailAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 		return m.openSecretPick(), true
 	case actRestore:
 		return m.openBackupPick(), true
+	case actHookAdd:
+		return m.askHookAdd(), true
+	case actHookRemove:
+		return m.openHookPick(), true
 	case actRollback:
 		return m.rollbackFromDetail(), true
 	case actDataDirs:
@@ -212,6 +217,8 @@ func (m *Model) picked(id kittui.ItemID) tea.Cmd {
 			direct: func(b Backend) (any, error) { return b.SecretDelete(ctx, stack, key) },
 			args:   m.engineArgs(m.stackEngineOf(stack), []string{"stack", "secret", "delete", "--output", "json", "--", stack, key}),
 			decode: decodeSudo[control.SecretResult](func(r control.SecretResult) bool { return r.Stack != "" })})
+	case pickHook:
+		m.askHookRemove(stack, key)
 	case pickBackup:
 		b := p.backups[id]
 		details := []string{b.Created.In(m.loc).Format(lastRunLayout), humanSize(b.Size)}
@@ -286,8 +293,16 @@ func (m *Model) detailHints() []kittui.Hint {
 		kittui.Hint{Action: actCompose, Label: textKeyComposeForm, Priority: 3},
 		kittui.Hint{Action: actCheckForm, Label: textKeyCheckForm, Priority: 4},
 		kittui.Hint{Action: actRemoveSettings, Label: textKeyRemoveSettings, Priority: 4})
-	return append(hints, containerLogsHint(),
+	hints = append(hints, containerLogsHint(),
 		kittui.Hint{Action: actAdd, Label: textKeySecretSet, Priority: 3},
 		kittui.Hint{Action: actRemove, Label: textKeySecretDelete, Priority: 3},
 		kittui.Hint{Action: actRestore, Label: textKeyRestore, Priority: 3})
+	// The webhook keys show only where they can act, so the footer keeps room on a stack without a receiver.
+	if d := &m.detail; d.hk.loaded && d.hooks.SetUp {
+		hints = append(hints, kittui.Hint{Action: actHookAdd, Label: textKeyHookAdd, Priority: 4})
+		if len(d.hooks.Hooks) > 0 {
+			hints = append(hints, kittui.Hint{Action: actHookRemove, Label: textKeyHookRemove, Priority: 4})
+		}
+	}
+	return hints
 }

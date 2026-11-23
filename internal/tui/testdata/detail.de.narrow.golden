@@ -30,6 +30,10 @@
 │ API_SIGNING_KEY                                      │
 │ DB_PASSWORD                                          │
 ╰──────────────────────────────────────────────────────╯
+╭─ Webhooks ───────────────────────────────────────────╮
+│ Kein Webhook-Empfänger eingerichtet. Richte ihn      │
+│ unter Einstellungen, Webhooks ein.                   │
+╰──────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                            │
 │   10-30 14:01  12.0 MiB                              │
@@ -39,9 +43,5 @@
 │   0 B  unvollständig                                 │
 ╰──────────────────────────────────────────────────────╯
 ╭─ Letzte Läufe ───────────────────────────────────────╮
-│ erfolgreich  10-30 14:02  update  48s                │
-│   20261030T140200Z-0000000c                          │
-│ fehlgeschlagen  10-29 02:00  poll  850ms             │
-│   20261029T020000Z-00000010                          │
 B zurück auf Stand davor  e Update-Regeln  b Backup     
 C Compose  o Log  r Neu laden  q Beenden                

@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  1 2 3 [4 Einstellungen] 5 6 7                         
+  [Webhooks]                                            
+────────────────────────────────────────────────────────
+╭─ Webhooks ────────────────────── nicht eingerichtet ─╮
+│ Der Webhook-Empfänger ist nicht eingerichtet. Er     │
+│ lässt den Aufruf einer geheimen Adresse qhost sofort │
+│ ╔═ Webhook-Empfänger ══════════════════════════════╗ │
+│ ║ ⚠ Den Webhook-Empfänger auf 127.0.0.1:8480       ║ │
+│ ║   einrichten?                                    ║ │
+╰─║                                                  ║─╯
+  ║ Das legt den Systembenutzer qhost-hook, seine    ║  
+  ║ Konfiguration und die Unit qhost-hook.service an ║  
+  ║ und startet sie. An den Stacks ändert sich       ║  
+  ║ nichts.                                          ║  
+  ║                                                  ║  
+  ║ [ ja, ausführen ]  > abbrechen <                 ║  
+  ║ y ja, ausführen  n/esc/enter abbrechen           ║  
+  ╚══════════════════════════════════════════════════╝  
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        

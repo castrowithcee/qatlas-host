@@ -27,6 +27,10 @@
 ╭─ Geheimnisse ────────────────────────────────────────╮
 │ Keine Geheimnisse.                                   │
 ╰──────────────────────────────────────────────────────╯
+╭─ Webhooks ───────────────────────────────────────────╮
+│ Kein Webhook-Empfänger eingerichtet. Richte ihn      │
+│ unter Einstellungen, Webhooks ein.                   │
+╰──────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────╮
 │ Keine Backups.                                       │
 ╰──────────────────────────────────────────────────────╯
@@ -38,10 +42,6 @@
 ╭─ Funktionen ─────────────────────────────────────────╮
 │ Nicht geprüft.                                       │
 ╰──────────────────────────────────────────────────────╯
-                                                        
-                                                        
-                                                        
-                                                        
                                                         
 e Update-Regeln  b Backup  C Compose  o Log             
 a Geheimnis setzen  r Neu laden  q Beenden              

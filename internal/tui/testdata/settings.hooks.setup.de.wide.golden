@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe  [4 ⚙ Einstellungen]  5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+   Allgemein   Zugangsdaten   Wartungsfenster   Benachrichtigungen  [Webhooks]                                          
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+╭─ Webhooks ────────────────────────────────────────────────────────────────────────────────────── nicht eingerichtet ─╮
+│ Der Webhook-Empfänger ist nicht eingerichtet. Er lässt den Aufruf einer geheimen Adresse qhost sofort einen Stack    │
+│ prüfen. Eine erste Einrichtung lauscht nur auf diesem Host, auf 127.0.0.1:8480. Die Adresse kann vorher gewählt      │
+│ werden.                                                                                                              │
+╰───────────────────────────╔═ Webhook-Empfänger ══════════════════════════════════════════╗───────────────────────────╯
+                            ║ ⚠ Den Webhook-Empfänger auf 127.0.0.1:8480 einrichten?       ║                            
+                            ║                                                              ║                            
+                            ║ Das legt den Systembenutzer qhost-hook, seine Konfiguration  ║                            
+                            ║ und die Unit qhost-hook.service an und startet sie. An den   ║                            
+                            ║ Stacks ändert sich nichts.                                   ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, ausführen ]  > abbrechen <                             ║                            
+                            ║ y ja, ausführen  n/esc/enter abbrechen                       ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        

@@ -220,6 +220,8 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitNotifyBasics(f, text("name"), string(v["type"].Choice), v["events"].Selected)
 	case formNotifyDetail:
 		return m.submitNotifyDetail(f, v)
+	case formHookListen:
+		return m.submitHookListen(f, text("listen"))
 	case formSecret:
 		return m.submitSecret(f, text("key"), v["value"].Text)
 	case formDataDirs:

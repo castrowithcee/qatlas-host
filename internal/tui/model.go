@@ -380,6 +380,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applyBackups(msg)
 	case secretsMsg:
 		m.applySecrets(msg)
+	case hooksMsg:
+		m.applyHooks(msg)
 	case settingsLoadMsg:
 		m.applySettingsLoad(msg)
 	case keyLoadMsg:
@@ -711,7 +713,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			if m.saveOpenLog() {
 				return nil
 			}
-		case actFetch, actAdd, actRemove, actEdit, actRename, actTest, actEnter, actRestore, actRollback, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actRemote, actApprove, actReject:
+		case actFetch, actAdd, actRemove, actEdit, actRename, actTest, actEnter, actRestore, actRollback, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actRemote, actApprove, actReject:
 			switch m.area {
 			case areaSystem:
 				if cmd, handled := m.systemAction(id); handled {
@@ -1354,7 +1356,11 @@ func (m *Model) render() string {
 		}
 	}
 	if m.modal != nil && !m.modal.sheet() {
-		if over, ot, ok := m.modal.dialog.Overlay(m.styles, view, m.width, m.height, room); ok {
+		over, ot, ok := "", []kittui.Target(nil), false
+		if !m.modal.full {
+			over, ot, ok = m.modal.dialog.Overlay(m.styles, view, m.width, m.height, room)
+		}
+		if ok {
 			view, targets = over, ot
 		} else {
 			spec.Footer, spec.Input, spec.Position, spec.Back = m.modal.dialog.Hints(), kittui.InputNavigation, "", nil
