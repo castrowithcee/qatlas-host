@@ -9,14 +9,35 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/formatnum/formatnumtest"
 )
 
+func TestProposalWithoutFormatNumberIsReadAsFormat1AndKept(t *testing.T) {
+	h := newHarness(t)
+	id, err := h.p.newID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := `{"id":"` + id + `","kind":"example","content":{"name":"example-one"},"fingerprint":"` +
+		`","submitter_uid":4100,"submitter_name":"example-admin","submitted":"2030-01-01T00:00:00Z","state":"open"}`
+	path := h.p.path(id)
+	formatnumtest.Seed(t, path, doc)
+
+	if r, err := readRecord(path); err != nil || r.ID != id {
+		t.Fatalf("record = %+v, %v", r, err)
+	}
+	v, err := h.p.List(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	list := v.(control.ProposalListResult)
+	if len(list.Proposals) != 1 || list.Proposals[0].ID != id || len(list.Unreadable) != 0 {
+		t.Fatalf("list = %+v", list)
+	}
+	formatnumtest.Unchanged(t, path, doc)
+}
+
 func TestUnknownFormatNumberIsRefusedAndKept(t *testing.T) {
 	for name, build := range map[string]func(id string) string{
 		"higher": func(id string) string {
 			return `{"schema":2,"id":"` + id + `","kind":"example","added_later":true}`
-		},
-		"missing": func(id string) string {
-			return `{"id":"` + id + `","kind":"example","content":{"name":"example-one"},"fingerprint":"` +
-				`","submitter_uid":4100,"submitter_name":"example-admin","submitted":"2030-01-01T00:00:00Z","state":"open"}`
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

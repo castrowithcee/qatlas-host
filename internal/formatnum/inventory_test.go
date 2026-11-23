@@ -20,11 +20,13 @@ type store struct {
 	File    string
 	Field   string
 	// New is true for a store that got its number with the format-number work, false for one that had it.
+	// The runlog, the proposals, the journal and the service log existed without a number: a file without one
+	// is format 1 there, and only a higher or unreadable number is refused.
 	New bool
 }
 
 // stores is the inventory. Every store here has its own test that a higher and a missing number are refused
-// with this package's error and leave the file byte-identical.
+// with this package's error and leave the file byte-identical, except the four that existed without a number.
 var stores = []store{
 	{"notifier", "notifier/store.go", "notify.json", "schema", false},
 	{"notifier", "notifier/store.go", "notify-updates.json", "schema", false},

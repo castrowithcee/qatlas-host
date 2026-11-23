@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  1 2 [3 Läufe] 4 5 6 7                                 
+────────────────────────────────────────────────────────
+  STACK        START        ERGEBNIS                    
+  web-shop     10-30 15:00  läuft                       
+> demo-stack   10-30 14:02  erfolgreich                 
+  ╔═ Zurück auf den Stand davor ═════════════════════╗  
+  ║ ⚠ demo-stack auf die Versionen vor dem Update-   ║  
+  ║   Lauf 20261030T140200Z-0000000c zurücksetzen?   ║  
+  ║                                                  ║  
+  ║ Der Stack wird gestoppt, seine aktuellen Daten   ║  
+  ║ werden gesichert, wenn er Backup-Regeln hat, das ║  
+  ║ Backup dieses Updates wird eingespielt und der   ║  
+  ║ Stack startet auf den alten Versionen. Danach    ║  
+  ║ ist der Stack festgehalten.                      ║  
+  ║                                                  ║  
+  ║ [ ja, ausführen ]  > abbrechen <                 ║  
+  ║ y ja, ausführen  n/esc/enter abbrechen           ║  
+  ╚══════════════════════════════════════════════════╝  
+                                                        
+                                                        
+                                                        
+                                                        
+                                                     2/7

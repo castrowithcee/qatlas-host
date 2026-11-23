@@ -83,6 +83,12 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"the changelog, and a newer major version is flagged as not installed automatically. A failed stack does\n" +
 			"not stop the others; the result lists every stack, the stacks that failed stay ticked, and l opens the\n" +
 			"log of the run an action started, or the Runs list when it started several. One action runs at a time.\n\n" +
+			"B sets a stack back to the versions before a successful update run: in Runs on the run under the cursor, in\n" +
+			"Stack detail on the newest such run of the stack. The dialog lists the versions it sets (as root; otherwise they\n" +
+			"stand in the result) and offers with data, which restores the backup\n" +
+			"that update made and loses everything written since, or version only, which keeps the data and may leave\n" +
+			"it to a version that does not understand it; without a backup of the run only version only is offered. y\n" +
+			"then runs qhost stack rollback through sudo, and the stack stays pinned until I unpins it.\n\n" +
 			"The stack folders are managed in Stacks too: a adds a folder (with the steps of qhost source add; an\n" +
 			"empty host starts there), and on a folder row F fetches it, x releases it after a question and e shows,\n" +
 			"generates or stores its deploy key; a folder with no remote has no key to offer. The private key is\n" +

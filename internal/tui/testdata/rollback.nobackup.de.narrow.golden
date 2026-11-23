@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  1 [2 Stack-Details] 3 4 5 6 7                         
+────────────────────────────────────────────────────────
+  ╔═ Zurück auf den Stand davor ═════════════════════╗  
+  ║ ⚠ demo-stack auf den Stand vor dem Update-Lauf   ║  
+  ║   20261030T140200Z-0000000c zurücksetzen?        ║  
+  ║                                                  ║  
+  ║ Danach ist der Stack festgehalten, kein Update   ║  
+  ║ und kein Fenster bewegt ihn weiter. Wähle, was   ║  
+╭─║ mit seinen Daten geschieht.                      ║─╮
+│ ║ APP_VERSION: 2.0.0 -> 1.9.0                      ║ │
+│ ║ DB_VERSION: 16.2 -> 16.1                         ║ │
+╰─║ Mit Daten: Alles seit diesem Update Geschriebene ║─╯
+╭─║ geht verloren.                                   ║─╮
+│ ║ Nur Version: Die Daten bleiben, die alte Version ║ │
+╰─║ versteht migrierte Daten womöglich nicht.        ║─╯
+╭─║ Dieser Lauf hat kein Backup gemacht, daher kann  ║─╮
+│ ║ nur die Version zurück.                          ║ │
+│ ║                                                  ║ │
+│ ║ [ nur Version ]  > abbrechen <                   ║ │
+│ ║ v nur Version  n/esc/enter abbrechen             ║ │
+│ ╚══════════════════════════════════════════════════╝ │
+│     - faster start                                   │
+                                                   20/63
