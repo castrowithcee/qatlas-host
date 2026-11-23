@@ -6871,7 +6871,7 @@ scenario_hook() {
 	printf '%s' "$out" | grep -q "$hook_id *demo-stack *system" || fail "hook list does not show the hook: $out"
 	if printf '%s' "$out" | grep -qF -e "$hook_secret" -e sha256; then fail "hook list shows a hash or a secret: $out"; fi
 	out=$(as_admin 'qhost --output json hook list 2>&1') || fail "hook list as JSON failed: $out"
-	for want in "\"id\": *\"$hook_id\"" '"stack": *"demo-stack"' '"instance": *"system"' '"modified": *"'; do
+	for want in "\"id\": *\"$hook_id\"" '"stack": *"demo-stack"' '"instance": *"system"' '"created": *"20'; do
 		printf '%s' "$out" | grep -q "$want" || fail "hook list as JSON lacks $want: $out"
 	done
 	if printf '%s' "$out" | grep -qF -e "$hook_secret" -e sha256; then fail "hook list as JSON shows a hash or a secret: $out"; fi

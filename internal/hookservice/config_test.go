@@ -52,7 +52,7 @@ func writeRaw(t *testing.T, path, data string, mode os.FileMode) {
 }
 
 func cfgOf(hooks ...Hook) Config {
-	return Config{Version: 1, Listen: "127.0.0.1:8080", Hooks: hooks}
+	return Config{Version: ConfigVersion, Listen: "127.0.0.1:8080", Hooks: hooks}
 }
 
 func TestLoadConfigAcceptsAValidFile(t *testing.T) {
@@ -77,7 +77,7 @@ func TestLoadConfigRefusesWhatItMust(t *testing.T) {
 		"others writable":  {mustJSON(t, cfgOf(good)), 0o646},
 		"unknown field":    {`{"version":1,"listen":"127.0.0.1:1","hooks":[],"extra":true}`, 0o644},
 		"unknown hook key": {`{"version":1,"listen":"127.0.0.1:1","hooks":[{"id":"h-0a1b2c3d","stack":"a","instance":"system","hash":"` + good.Hash + `","x":1}]}`, 0o644},
-		"wrong version":    {`{"version":2,"listen":"127.0.0.1:1","hooks":[]}`, 0o644},
+		"wrong version":    {`{"version":3,"listen":"127.0.0.1:1","hooks":[]}`, 0o644},
 		"no listen":        {`{"version":1,"listen":"","hooks":[]}`, 0o644},
 		"trailing data":    {mustJSON(t, cfgOf(good)) + "{}", 0o644},
 		"bad id":           {mustJSON(t, cfgOf(Hook{ID: "x", Stack: "a", Instance: "system", Hash: good.Hash})), 0o644},
@@ -125,5 +125,45 @@ func TestLoadConfigRefusesASymlink(t *testing.T) {
 	}
 	if _, err := LoadConfig(link, uint32(os.Getuid())); err == nil {
 		t.Fatal("accepted a symlink")
+	}
+}
+
+func TestHookCreatedIsOptionalAndMustBeRFC3339(t *testing.T) {
+	h := hookFor("h-0a1b2c3d", "web", "system", newSecret(t))
+	for created, ok := range map[string]bool{"": true, "2026-01-02T03:04:05Z": true, "yesterday": false, "2026-01-02": false} {
+		h.Created = created
+		path := filepath.Join(t.TempDir(), "config.json")
+		writeConfig(t, path, cfgOf(h), 0o644)
+		_, err := LoadConfig(path, uint32(os.Getuid()))
+		if (err == nil) != ok {
+			t.Fatalf("created %q: err %v, want ok=%v", created, err, ok)
+		}
+	}
+}
+
+func TestUpdateConfigLiftsFormatOneToCurrentAndKeepsHooksWithoutTime(t *testing.T) {
+	secret := newSecret(t)
+	old := hookFor("h-0a1b2c3d", "web", "system", secret)
+	path := filepath.Join(t.TempDir(), "config.json")
+	writeConfig(t, path, Config{Version: 1, Listen: "127.0.0.1:8080", Hooks: []Hook{old}}, 0o644)
+	if _, err := LoadConfig(path, uint32(os.Getuid())); err != nil {
+		t.Fatalf("format 1 is not read: %v", err)
+	}
+	fresh := hookFor("h-1a1b2c3d", "web", "system", newSecret(t))
+	fresh.Created = "2026-01-02T03:04:05Z"
+	err := UpdateConfig(path, nil, func(c *Config) error { c.Hooks = append(c.Hooks, fresh); return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadConfig(path, uint32(os.Getuid()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Version != ConfigVersion || len(got.Hooks) != 2 || got.Hooks[0] != old || got.Hooks[1] != fresh {
+		t.Fatalf("after the update: %+v", got)
+	}
+	data, _ := os.ReadFile(path)
+	if strings.Count(string(data), `"created"`) != 1 {
+		t.Fatalf("a hook without a time got one: %s", data)
 	}
 }

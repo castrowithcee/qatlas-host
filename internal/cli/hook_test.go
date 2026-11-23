@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
@@ -110,8 +112,39 @@ func TestHookAddTwiceGivesTwoIDsAndListShowsNoHashOrSecret(t *testing.T) {
 		}
 	}
 	_, stdout, _ := run(t, "hook", "list", "--output", "json")
-	if !strings.Contains(stdout, `"modified"`) {
-		t.Fatalf("list lacks the file time: %q", stdout)
+	if strings.Contains(stdout, `"modified"`) {
+		t.Fatalf("list still shows the file time: %q", stdout)
+	}
+	for _, h := range cfg.Hooks {
+		if _, err := time.Parse(time.RFC3339, h.Created); err != nil || !strings.HasSuffix(h.Created, "Z") {
+			t.Fatalf("hook add stored created %q, want RFC 3339 in UTC: %v", h.Created, err)
+		}
+		if !strings.Contains(stdout, `"created":"`+h.Created+`"`) {
+			t.Fatalf("list lacks created %q: %q", h.Created, stdout)
+		}
+	}
+}
+
+func TestHookListShowsNoTimeForAHookFromFormatOne(t *testing.T) {
+	root := hookFixture(t, map[string]string{"web": "webhook"})
+	id, _, _ := addHook(t, "web")
+	old := `{"version":1,"listen":"127.0.0.1:8480","hooks":[{"id":"` + id + `","stack":"web","instance":"system","hash":"sha256:` +
+		strings.Repeat("a", 64) + `"}]}`
+	if err := os.WriteFile(hookConfigPath(root), []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, table, _ := run(t, "hook", "list")
+	if !regexp.MustCompile(`(?m)^` + id + `\s+web\s+system\s+-\s*$`).MatchString(table) {
+		t.Fatalf("the table shows no dash for a hook without a time: %q", table)
+	}
+	_, stdout, _ := run(t, "hook", "list", "--output", "json")
+	if !strings.Contains(stdout, `"created":""`) {
+		t.Fatalf("a hook without a time shows one: %q", stdout)
+	}
+	addHook(t, "web")
+	cfg, err := deploysetup.HookConfig(root)
+	if err != nil || cfg.Version != hookservice.ConfigVersion || len(cfg.Hooks) != 2 || cfg.Hooks[0].Created != "" {
+		t.Fatalf("after the next write: %+v, %v", cfg, err)
 	}
 }
 

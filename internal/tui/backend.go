@@ -185,8 +185,11 @@ type HookServiceInfo struct {
 	Problem string
 }
 
-// HookInfo is one hook of a stack. The configuration has no creation time, so the ID is all there is.
-type HookInfo struct{ ID string }
+// HookInfo is one hook of a stack. Created is zero for a hook added before the time was kept.
+type HookInfo struct {
+	ID      string
+	Created time.Time
+}
 
 // HookListResult is the hooks of a stack. Without SetUp there is no receiver and so no hook.
 type HookListResult struct {

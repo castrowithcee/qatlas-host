@@ -76,7 +76,7 @@ func init() {
 		if err := hostEnv.requireAdmin(); err != nil {
 			return nil, err
 		}
-		r, err := hookListResult()
+		r, err := hookListResult(false)
 		return encodeResult(r, err)
 	})
 	tools.Register("host.diagnose", func(ctx context.Context, args json.RawMessage) (json.RawMessage, error) {
