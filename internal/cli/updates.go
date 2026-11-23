@@ -34,7 +34,8 @@ func newUpdatesCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 			"Without --refresh the result of the last check is shown with its time; a stack never checked says so.\n" +
 			"With --refresh the service asks the registries now and stores the result. Nothing in any stack, in the\n" +
 			"repository or in a deployment is changed. A private registry needs a stored login (see qhost help\n" +
-			"credentials); without one it is asked anonymously.\n\n" +
+			"credentials); without one it is asked anonymously. --refresh for one stack, without --changelog, also runs\n" +
+			"without sudo when a grant for update.check covers the stack (see qhost help grants).\n\n" +
 			"With --changelog the release notes between the current and the available version are shown instead of\n" +
 			"the version table (see qhost stack changelog).",
 		Args: cobra.MaximumNArgs(1),

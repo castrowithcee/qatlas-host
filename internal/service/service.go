@@ -246,10 +246,11 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 	if err != nil {
 		return fmt.Errorf("prepare the grants: %w", err)
 	}
-	if err := registerGrantCommands(registry, &grantService{
+	grantSvc := &grantService{
 		store: grantStore, users: admins.Database{Group: db.group, Passwd: db.passwd}, now: grantNow,
 		stackKnown: eng.hasStack, stackSetup: eng.stackSetup, log: log,
-	}); err != nil {
+	}
+	if err := registerGrantCommands(registry, grantSvc); err != nil {
 		return err
 	}
 	repo.stopped = func(name string) *control.HoldInfo {
@@ -274,9 +275,11 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 		defer client.Close()
 		dock = engineClient{client}
 	}
-	if err := registerContainerCommands(registry, repo, eng, secrets, dock, cfg.Engine, cfg.ContainerWait, log); err != nil {
+	containers, err := registerContainerCommands(registry, repo, eng, secrets, dock, cfg.Engine, cfg.ContainerWait, log)
+	if err != nil {
 		return err
 	}
+	grantSvc.containerStack = containers.ownStack
 	if err := registerInspectCommands(registry, repo, dock, log); err != nil {
 		return err
 	}
@@ -336,7 +339,7 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 		check = kernelPeer
 	}
 	log.Info("service started")
-	serve(ctx, l, registry, check, db.authorize, log, audit)
+	serve(ctx, l, registry, check, db.authorize, grantSvc.cover, log, audit)
 	log.Info("service stopped")
 	return nil
 }
