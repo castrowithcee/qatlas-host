@@ -5011,13 +5011,7 @@ scenario_tui_move() {
 	tui_wait 'a source of its own' 10
 	tui_send Enter
 	tui_wait "moved into the source $tinto" 10
-	i=0
-	until tui_screen | grep -Eq "║ > *moved into the source $tinto +║"; do
-		i=$((i + 1))
-		[ "$i" -lt 12 ] || fail "the cursor does not reach the source $tinto: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "the source $tinto" grep -Eq "║ > *moved into the source $tinto +║"
 	tui_send Enter
 	tui_send F2
 	tui_wait "Move the project tuimove into the source $tinto as the folder $tinto/tuimove?" 60
@@ -6469,6 +6463,7 @@ EOF2
 	tui_send Enter
 	tui_wait 'Compose files' 15
 	tui_send a
+	tui_adopt_own
 	fs_password
 	tui_keep_engine 60
 	tui_wait "Start a git repository in $fs_base and take it over?" 60
@@ -7592,13 +7587,13 @@ tui_walk_down() {
 	tw_seen=$tw_sep
 	tw_screen=$(tui_screen)
 	while ! printf '%s\n' "$tw_screen" | "$@"; do
-		tw_cursor=$(printf '%s\n' "$tw_screen" | grep -nE '^(│ |║ )?> ')
+		tw_cursor=$(printf '%s\n' "$tw_screen" | grep -nE '(^|[│║] )> ')
 		tui_send Down
 		tw_n=0
 		while :; do
 			sleep 0.1
 			tw_screen=$(tui_screen)
-			tw_now=$(printf '%s\n' "$tw_screen" | grep -nE '^(│ |║ )?> ')
+			tw_now=$(printf '%s\n' "$tw_screen" | grep -nE '(^|[│║] )> ')
 			[ "$tw_now" != "$tw_cursor" ] && break
 			tw_n=$((tw_n + 1))
 			[ "$tw_n" -lt 20 ] || fail "the cursor does not reach $tw_target, it stops at '${tw_cursor:-no cursor row}': $tw_screen"
@@ -7608,6 +7603,14 @@ tui_walk_down() {
 		esac
 		tw_seen=$tw_seen$tw_now$tw_sep
 	done
+}
+
+# tui_adopt_own answers the first question of a takeover, which the interface asks while a source of the engine of
+# the project could take it in: the project becomes a source of its own.
+tui_adopt_own() {
+	tui_wait 'Take over as' 30
+	tui_wait 'a source of its own' 10
+	tui_send F2
 }
 
 # tui_cursor_to moves the cursor of the Stacks list to the stack $1. The list draws no cursor without the focus, so
@@ -8282,6 +8285,7 @@ EOF2
 
 	step 'a opens the takeover; it shows the labels, no warning, and changes nothing before the answer'
 	tui_send a
+	tui_adopt_own
 	tui_keep_engine 30
 	tui_wait 'Start a git repository in /srv/qd-foreign/app and take it over?' 30
 	tui_wait 'Foreign project' 10
