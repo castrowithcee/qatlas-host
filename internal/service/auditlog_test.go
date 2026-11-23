@@ -240,7 +240,7 @@ func TestARequestRunsOnWhenItsEntryCannotBeWritten(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		serve(ctx, l, reg, allowAll, groupDB{}.authorize, slog.New(slog.NewTextHandler(&logged, nil)), sink)
+		serve(ctx, l, reg, allowAll, groupDB{}.authorize, nil, slog.New(slog.NewTextHandler(&logged, nil)), sink)
 		close(done)
 	}()
 	defer func() { cancel(); <-done }()

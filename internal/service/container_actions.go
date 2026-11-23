@@ -66,6 +66,10 @@ func (s *containerService) act(ctx context.Context, verb, ref string, grace time
 	}
 	project, dir := d.Labels["com.docker.compose.project"], d.Labels["com.docker.compose.project.working_dir"]
 	kind, _ := classify(project, dir, s.stackDirs())
+	// The container is looked up again here, so a grant must still cover what was found: one of its own stack.
+	if g, ok := grantOf(ctx); ok && (kind != control.ContainerKindOwn || project != g.Stack) {
+		return res, kind, control.ErrNotRoot()
+	}
 	res.Kind = kind
 	// The ID keeps every step on the container found, even if its name is reused meanwhile.
 	id := d.ID
@@ -133,6 +137,18 @@ func (s *containerService) act(ctx context.Context, verb, ref string, grace time
 		return res, kind, s.containerRunAnswer(err)
 	}
 	return res, kind, fitAnswer(res, "the container answer is too large for one answer")
+}
+
+// ownStack returns the stack of this instance that the container ref belongs to by its Compose labels, under the
+// rule of act; false for a foreign or single container and for any failure.
+func (s *containerService) ownStack(ctx context.Context, ref string) (string, bool) {
+	d, err := s.docker.Inspect(ctx, ref)
+	if err != nil {
+		return "", false
+	}
+	project, dir := d.Labels["com.docker.compose.project"], d.Labels["com.docker.compose.project.working_dir"]
+	kind, _ := classify(project, dir, s.stackDirs())
+	return project, kind == control.ContainerKindOwn
 }
 
 // containerRunAnswer maps what is not an engine failure: the refusals of the run slot, with fixed texts, and

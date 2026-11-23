@@ -121,6 +121,9 @@ func newSystem(keys *kittui.Keymap, text kittui.Translator) (*systemState, error
 	if s.hlog.list, err = newHostLogList(keys, text); err != nil {
 		return nil, err
 	}
+	if s.hlog.dlist, err = newDeployLogList(keys, text); err != nil {
+		return nil, err
+	}
 	s.prop.tones, s.prop.byID = map[string]kittui.TextStyle{}, map[kittui.ItemID]control.ProposalInfo{}
 	if s.prop.list, err = newHostProposalList(keys, text, s.prop.tones); err != nil {
 		return nil, err
@@ -148,6 +151,11 @@ func (s *systemState) activeList() *kittui.List {
 			return nil
 		}
 		return s.jrnl.list
+	case s.page == pageLog && s.hlog.svc != "":
+		if d := s.hlog.dep[s.hlog.svc]; d == nil || !d.read || d.err != nil {
+			return nil
+		}
+		return s.hlog.dlist
 	case s.page == pageLog:
 		if !s.hlog.read {
 			return nil
@@ -344,6 +352,12 @@ func (m *Model) showSystemPage() tea.Cmd {
 			return m.readJournal()
 		}
 	case pageLog:
+		if s.hlog.svc != "" {
+			if d := s.hlog.dep[s.hlog.svc]; d == nil || !d.read {
+				return m.readDeployLog(s.hlog.svc)
+			}
+			return nil
+		}
 		if !s.hlog.read || s.hlog.stale {
 			return m.readHostLog()
 		}
@@ -361,6 +375,9 @@ func (m *Model) reloadSystemPage() tea.Cmd {
 	case pageChanges:
 		return m.readJournal()
 	case pageLog:
+		if m.sys.hlog.svc != "" {
+			return m.readDeployLog(m.sys.hlog.svc)
+		}
 		return m.readHostLog()
 	case pageProposals:
 		return m.readHostProposals()

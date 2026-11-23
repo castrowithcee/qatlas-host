@@ -216,7 +216,7 @@ func TestHandlerFailuresDoNotLeakOrCrash(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	go func() { serve(ctx, l, reg, allowAll, groupDB{}.authorize, quiet, nil); close(done) }()
+	go func() { serve(ctx, l, reg, allowAll, groupDB{}.authorize, nil, quiet, nil); close(done) }()
 	defer func() { cancel(); <-done }()
 	for command, code := range map[string]string{"boom": control.CodeInternal, "fail": control.CodeInternal, "typed": "nothing-open"} {
 		resp := rawExchange(t, ep, `{"v":1,"command":"`+command+"\"}\n")

@@ -388,6 +388,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applySystem(msg)
 	case folderMsg:
 		m.applyFolder(msg)
+	case deployLogMsg:
+		m.applyDeployLog(msg)
 	case hostLogMsg:
 		m.applyHostLog(msg)
 	case hostVerifyMsg:
@@ -682,6 +684,9 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 				return m.beginSetup()
 			}
 		case actInstance:
+			if m.area == areaSystem && m.sys.page == pageLog && m.sys.changes == nil {
+				return m.nextLogService()
+			}
 			if m.area == areaSettings {
 				if cmd, handled := m.settingsAction(id); handled {
 					return cmd
@@ -986,7 +991,7 @@ func (m *Model) setZone(z kittui.FocusZone) {
 		lists = append(lists, m.set.credList, m.set.notifyList)
 	}
 	if m.sys != nil {
-		lists = append(lists, m.sys.userList, m.sys.groupList, m.sys.changes, m.sys.jrnl.list, m.sys.hlog.list)
+		lists = append(lists, m.sys.userList, m.sys.groupList, m.sys.changes, m.sys.jrnl.list, m.sys.hlog.list, m.sys.hlog.dlist)
 	}
 	if m.pick != nil {
 		lists = append(lists, m.pick.list)

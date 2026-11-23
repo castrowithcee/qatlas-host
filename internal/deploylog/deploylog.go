@@ -1,7 +1,8 @@
 // Package deploylog is the action log of a deploy service: one entry per request on its channel, with the user,
-// the command, its class and scope, the stack, the result and the duration. It is the kit's auditlog with an
-// entry type of its own, because a deploy request names a command with a class and a stack where the host
-// service logs a fixed action. An entry never holds an argument, a result payload or a secret.
+// the command, its class and scope, the stack, the grant it ran under, the result and the duration. It is the
+// kit's auditlog with an entry type of its own, because a deploy request names a command with a class and a
+// stack where the host service logs a fixed action. An entry never holds an argument, a result payload or a
+// secret.
 package deploylog
 
 import (
@@ -61,6 +62,8 @@ type Entry struct {
 	DurationMS int64  `json:"duration_ms,omitempty"`
 	// Origin is what the client claimed and is display only: one of the control.Origin values.
 	Origin string `json:"origin,omitempty"`
+	// Grant is the ID of the standing grant that let the request run without root; empty when none did.
+	Grant string `json:"grant,omitempty"`
 }
 
 // Fields is what the server supplies for one finished request; the log adds the format number, the sequence
@@ -76,6 +79,8 @@ type Fields struct {
 	Duration  time.Duration
 	// Origin is normalized by the log.
 	Origin string
+	// Grant is the ID of the grant the request ran under, empty for none.
+	Grant string
 }
 
 func (f Fields) entry() Entry {
@@ -83,6 +88,7 @@ func (f Fields) entry() Entry {
 	e := Entry{
 		Format: EntryFormat, ClientUID: &uid, Command: f.Command, Stack: f.Stack, ErrorCode: f.ErrorCode,
 		Result: ResultSuccess, DurationMS: f.Duration.Milliseconds(), Origin: control.NormalizeOrigin(f.Origin),
+		Grant: f.Grant,
 	}
 	if f.Class != 0 {
 		e.Class = f.Class.String()
@@ -138,6 +144,8 @@ func (e Entry) Validate() error {
 		return errors.New("origin is not a known value")
 	case e.DurationMS < 0 || e.DurationMS > MaxDuration.Milliseconds():
 		return errors.New("duration is out of range")
+	case e.Grant != "" && !control.ValidGrantID(e.Grant):
+		return errors.New("grant has an invalid form")
 	}
 	return nil
 }

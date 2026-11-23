@@ -41,6 +41,10 @@ type fakeCopy struct {
 	pushErrs     []error
 	tagErrs      []error // one per TagCommit call, nil once used up
 	tags         []tagCall
+	pruneIDs     []string // the run IDs PruneTags offers, oldest first
+	pruneErrs    []error  // one per PruneTags call, nil once used up
+	pruneCalls   []string
+	pruned       []string
 	reverts      []revertCall
 	pushed       []string
 	commitErrs   []error
@@ -207,6 +211,19 @@ func (f *fakeCopy) TagCommit(_ context.Context, name, c string) error {
 	}
 	f.tags = append(f.tags, tagCall{name, c})
 	return nil
+}
+
+// PruneTags offers pruneIDs to pick, records what it chose and deletes nothing else.
+func (f *fakeCopy) PruneTags(_ context.Context, host, stack string, pick func([]string) []string) ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.pruneCalls = append(f.pruneCalls, host+"/"+stack)
+	if err := pop(&f.pruneErrs); err != nil {
+		return nil, err
+	}
+	got := pick(slices.Clone(f.pruneIDs))
+	f.pruned = append(f.pruned, got...)
+	return got, nil
 }
 
 func (f *fakeCopy) Push(_ context.Context, c string) error {

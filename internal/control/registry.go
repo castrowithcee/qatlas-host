@@ -27,7 +27,8 @@ const (
 	// the stored proposal of the caller's own, which changes nothing on the host. Root and the administrators
 	// of the service group may run it.
 	ClassPropose
-	// ClassChange marks every other command. Only root may run it.
+	// ClassChange marks every other command. Only root may run it, or an administrator whose standing grant
+	// covers the request.
 	ClassChange
 )
 

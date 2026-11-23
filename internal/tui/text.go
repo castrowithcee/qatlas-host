@@ -230,6 +230,8 @@ func catalog() i18n.Catalogs[kittui.TextID] {
 	maps.Copy(c[i18n.German], containerGerman())
 	maps.Copy(c[i18n.English], engineEnglish())
 	maps.Copy(c[i18n.German], engineGerman())
+	maps.Copy(c[i18n.English], deployLogEnglish())
+	maps.Copy(c[i18n.German], deployLogGerman())
 	maps.Copy(c[i18n.English], deployEnglish())
 	maps.Copy(c[i18n.German], deployGerman())
 	maps.Copy(c[i18n.English], sudoEnglish())

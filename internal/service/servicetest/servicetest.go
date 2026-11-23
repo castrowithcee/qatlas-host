@@ -396,6 +396,11 @@ func (g *Git) Pushed() []string {
 // TagCommit accepts every tag; the fake keeps none.
 func (c *copyOf) TagCommit(context.Context, string, string) error { return nil }
 
+// PruneTags deletes nothing; the fake keeps no tags.
+func (c *copyOf) PruneTags(context.Context, string, string, func([]string) []string) ([]string, error) {
+	return nil, nil
+}
+
 func (c *copyOf) TrackedFiles(_ context.Context, dir string) ([]string, error) {
 	c.g.mu.Lock()
 	defer c.g.mu.Unlock()
