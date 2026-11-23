@@ -4,12 +4,13 @@
 // commit that puts the stack folder back to its deployed state is pushed, and that state is started again.
 //
 // The working copy is shared with the repository commands of the service and belongs to the operator: the
-// engine fetches, fast-forwards only a copy without local changes, and otherwise only reads. Its only own
-// changes are a rollback's revert commit and an update's version commit, each built outside the working copy,
-// pushed as a plain fast-forward and then followed by a fast-forward. A working copy without a remote (local
-// mode of gitrepo) fetches nothing and lands such a commit on its branch in place of the push. It never
-// resets, stashes, checks out or writes into the working copy. Its content is data; stack names from it never
-// become file names.
+// engine fetches, fast-forwards only a copy without local changes, and otherwise only reads. The one exception
+// is the repeat of CommitChanges after a rejected push, which catches up with the remote first. Its own commits
+// are a rollback's revert commit and an update's version commit, each built outside the working copy, pushed
+// as a plain fast-forward and then followed by a fast-forward, and the commit of the changes the operator
+// confirmed, which gitrepo builds and lands itself. A working copy without a remote (local mode of gitrepo)
+// fetches nothing and lands such a commit on its branch in place of the push. It never resets, stashes, checks
+// out or writes into the working copy. Its content is data; stack names from it never become file names.
 package engine
 
 import (
@@ -97,6 +98,7 @@ type WorkingCopy interface {
 	TagCommit(ctx context.Context, name, commit string) error
 	Diff(ctx context.Context, path string) (text string, truncated bool, err error)
 	Discard(ctx context.Context, paths []string) error
+	CommitPaths(ctx context.Context, expectHead string, paths []string, list []stacks.Stack, message string) (string, error)
 }
 
 // Binding is the working copy to watch and the directory it lives in. Blocked, when set, maps the names of the

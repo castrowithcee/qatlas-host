@@ -87,6 +87,8 @@ var entries = []Entry{
 		object([]string{"path", "file"}, props{"path": str(), "file": str()}), "source diff"),
 	deployCmd("source.discard", ClassChange, ScopeDeploy, "Take local changes of a stack folder back, for the named files only.",
 		object([]string{"path", "files"}, props{"path": str(), "files": strList()}), "source discard"),
+	deployCmd("source.commit", ClassChange, ScopeDeploy, "Commit the named local changes of a stack folder, with a push when the source has a remote.",
+		object([]string{"path", "files", "head"}, props{"path": str(), "files": strList(), "head": str()}), "source commit"),
 	deployCmd("source.remove", ClassChange, ScopeDeploy, "Release a bound stack folder.", pathArg, "source remove"),
 	deployCmd("backup.create", ClassChange, ScopeStack, "Stop a stack, back up its data and start it again.", stackArg, "stack backup create"),
 	deployCmd("backup.list", ClassRead, ScopeStack, "List the backups of a stack.", stackArg, "stack backup list"),

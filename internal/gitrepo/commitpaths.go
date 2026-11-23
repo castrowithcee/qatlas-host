@@ -64,7 +64,8 @@ func ChangeOwner(c Change, list []stacks.Stack) (folder string, inStack, own boo
 //
 // With a remote, the commit is scanned like PushBranch does (*SecretsError) and then pushed as a plain
 // fast-forward, never forced: ErrPushRejected when the remote branch moved, *RemoteRejectedError when the
-// remote refuses the update. The branch moves only after the push succeeded. In local mode the branch moves in
+// remote refuses the update. The branch moves only after the push succeeded, which includes a push that
+// reported another error although the remote branch is at the commit afterwards. In local mode the branch moves in
 // place of the push. It returns the new commit id.
 func (r *Repo) CommitPaths(ctx context.Context, expectHead string, paths []string, list []stacks.Stack, message string) (string, error) {
 	if !hexRe.MatchString(expectHead) {
@@ -115,7 +116,13 @@ func (r *Repo) CommitPaths(ctx context.Context, expectHead string, paths []strin
 	if r.cfg.Local {
 		err = r.moveBranch(ctx, branch, commit, head, paths)
 	} else if err = r.scanUnpublished(ctx, branch, commit); err == nil {
-		if err = r.Push(ctx, commit); err == nil {
+		err = r.Push(ctx, commit)
+		var refused *RemoteRejectedError
+		if err != nil && !errors.Is(err, ErrPushRejected) && !errors.As(err, &refused) && r.landed(ctx, commit) {
+			// The push may fail after the remote took the commit; the remote branch is what counts.
+			err = nil
+		}
+		if err == nil {
 			err = r.moveBranch(ctx, branch, commit, head, paths)
 		}
 	}
@@ -123,6 +130,15 @@ func (r *Repo) CommitPaths(ctx context.Context, expectHead string, paths []strin
 		return "", err
 	}
 	return commit, nil
+}
+
+// landed fetches and reports whether the remote branch is at commit.
+func (r *Repo) landed(ctx context.Context, commit string) bool {
+	if r.Fetch(ctx) != nil {
+		return false
+	}
+	remote, err := r.RemoteHead(ctx)
+	return err == nil && remote == commit
 }
 
 // buildPathsCommit makes the commit on top of head with the working-copy state of paths, in a temporary index.

@@ -34,6 +34,8 @@ type fakeCopy struct {
 	head, remote string
 	bases        map[string]string // commit id to the base it was built on
 	changes      []gitrepo.Change
+	pathsErrs    []error // one per CommitPaths call, nil once used up
+	pathsCalls   []pathsCall
 	folders      map[[2]string][]string
 	fetchErr     error
 	ffErr        error
@@ -61,6 +63,11 @@ type fakeCopy struct {
 }
 
 type revertCall struct{ Stack, Deployed, Failed, Reason, Base string }
+
+type pathsCall struct {
+	Head, Message string
+	Paths         []string
+}
 
 type tagCall struct{ Name, Commit string }
 
@@ -263,6 +270,21 @@ func (f *fakeCopy) Discard(_ context.Context, paths []string) error {
 	f.calls = append(f.calls, "discard:"+strings.Join(paths, ","))
 	f.changes = slices.DeleteFunc(f.changes, func(c gitrepo.Change) bool { return slices.Contains(paths, c.Path) })
 	return nil
+}
+
+// CommitPaths records the call and, unless pathsErrs says otherwise, lands a new commit that takes the entries
+// of its paths out of the status.
+func (f *fakeCopy) CommitPaths(_ context.Context, head string, paths []string, _ []stacks.Stack, message string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.pathsCalls = append(f.pathsCalls, pathsCall{head, message, slices.Clone(paths)})
+	if err := pop(&f.pathsErrs); err != nil {
+		return "", err
+	}
+	id := commit(3000 + len(f.pathsCalls))
+	f.changes = slices.DeleteFunc(f.changes, func(c gitrepo.Change) bool { return slices.Contains(paths, c.Path) })
+	f.head, f.remote = id, id
+	return id, nil
 }
 
 func (f *fakeCopy) ChangedFolders(_ context.Context, from, to string) ([]string, error) {

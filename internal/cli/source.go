@@ -86,7 +86,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 	inspect.Flags().StringVar(&engine, "engine", "", "Docker engine the folder would be taken over into: system (default) or rootless:<user>")
 	group.AddCommand(inspect, newSourceAddCommand(program, state), newSourceRemoteCommand(program, state), newSourceCompareCommand(program, state), newSourceListCommand(program, state),
 		newSourceRemoveCommand(program, state), newSourceMoveCommand(program, state), newSourceChangesCommand(program, state),
-		newSourceDiffCommand(program, state), newSourceDiscardCommand(program, state))
+		newSourceDiffCommand(program, state), newSourceDiscardCommand(program, state), newSourceCommitCommand(program, state))
 	return group
 }
 
