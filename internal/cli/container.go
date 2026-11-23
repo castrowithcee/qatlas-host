@@ -27,7 +27,8 @@ func newContainerCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 		Long: "The container commands read every container of the host from the container engine: the stacks of this\n" +
 			"host (own), other Compose projects (foreign) and containers that belong to no project (single). list,\n" +
 			"show and logs change nothing; start, stop and restart act on one container after a question. list, show and logs need no sudo for\n" +
-			"an administrator in the group qhost; start, stop and restart need sudo. Every container shows the Docker engine it\n" +
+			"an administrator in the group qhost; start, stop and restart need sudo, except a restart that a\n" +
+			"grant for container.restart covers (see 'qhost help grants'). Every container shows the Docker engine it\n" +
 			"runs in. See 'qhost help containers'.",
 	}
 	group.AddCommand(newContainerList(program, state), newContainerShow(program, state), newContainerLogs(program, state))
