@@ -19,6 +19,8 @@ type DeployLogEntry struct {
 	DurationMS int64     `json:"duration_ms,omitempty"`
 	// Origin is what the client claimed: cli, tui, mcp or unknown. It is display only.
 	Origin string `json:"origin"`
+	// Grant is the ID of the standing grant the request ran under; empty when it needed none.
+	Grant string `json:"grant,omitempty"`
 }
 
 // DeployLogListResult answers LogListCommand of a deploy service; the filters are those of HostLogListArgs, with

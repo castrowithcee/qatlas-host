@@ -23,7 +23,7 @@ func TestUpsertKeepsIDAndReplacesExpiry(t *testing.T) {
 		t.Fatal(err)
 	}
 	first, replaced, err := s.Upsert(grant("example-admin", 4100, "stack.restart", "demo-stack"))
-	if err != nil || replaced || !idRe.MatchString(first.ID) {
+	if err != nil || replaced || !control.ValidGrantID(first.ID) {
 		t.Fatalf("first = %+v, %v, %v", first, replaced, err)
 	}
 	g := grant("example-admin", 4100, "stack.restart", "demo-stack")

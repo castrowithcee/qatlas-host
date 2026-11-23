@@ -64,11 +64,11 @@ Commands:
 - qhost stack resume <stack>: clear the pause a failed rollback left on a stack, and release a halted automatic repair; it starts no run (run with sudo)
 - qhost stack pause|unpause <stack>: keep the maintenance window from running a stack, or lift that; unrelated to the pause of a failed rollback (run with sudo)
 - qhost stack pin|unpin <stack>: hold the image versions of a stack, so the maintenance window and qhost stack update leave them alone, or release them (run with sudo)
-- qhost stack start|stop|restart <stack> [--yes]: start, stop or restart the containers of a stack after a question; a stop keeps the stack stopped against new commits and the maintenance window until a start, and qhost status and stack list show it (run with sudo; see qhost help containers)
+- qhost stack start|stop|restart <stack> [--yes]: start, stop or restart the containers of a stack after a question; a stop keeps the stack stopped against new commits and the maintenance window until a start, and qhost status and stack list show it (run with sudo; restart also runs without sudo with a grant for stack.restart, see qhost help grants)
 - qhost window show|set|reset: show the maintenance window of every deploy service with its origin (host or own), in which the service checks the registries and updates the stacks in automatic mode, or change the weekdays, start, duration and time zone of the host window, or with --engine of the own window of one deploy service; reset lets that service follow the host again; the running services follow within seconds (show runs without sudo for an administrator in the group qhost; set and reset need sudo; see qhost help maintenance-window)
-- qhost stack update <stack>... [--version <v>]: update the image versions of stacks, each version step a commit of the stack's .env pushed to the branch and a run with backup, check and rollback (run with sudo)
+- qhost stack update <stack>... [--version <v>]: update the image versions of stacks, each version step a commit of the stack's .env pushed to the branch and a run with backup, check and rollback (run with sudo; one stack without --version also runs without sudo with a grant for update.run, see qhost help grants)
 - qhost stack rollback <stack> <run> --restore-data|--keep-data [--yes]: set a stack back to the image versions before an update run of qhost, with the data the update backed up or with the data as it is, as a secured run of its own; it pins the stack afterwards (run with sudo; see qhost help backups)
-- qhost stack updates [stack] [--refresh]: show the current and the available image versions per stack and variable, with newer major versions flagged as not automatic; --refresh asks the registries now (without --refresh it runs without sudo for an administrator in the group qhost; --refresh needs sudo)
+- qhost stack updates [stack] [--refresh]: show the current and the available image versions per stack and variable, with newer major versions flagged as not automatic; --refresh asks the registries now (without --refresh it runs without sudo for an administrator in the group qhost; --refresh needs sudo, unless a grant for update.check covers the one stack, see qhost help grants)
 - qhost stack changelog <stack>: show the release notes between the current and the available version of each variable with an update; qhost stack updates --changelog shows them for all stacks (run with sudo, as it asks GitHub)
 - qhost stack backup create|list <stack>, qhost stack backup restore <stack> <backup> [--yes]: back up, list and restore the data of a stack (list runs without sudo for an administrator in the group qhost, the rest needs sudo; see qhost help backups)
 - qhost stack datadir <stack> [--owner UID:GID] [--mode 0750] --yes: create the missing data directories of a stack and deploy it (run with sudo; see qhost help data-directories)
@@ -85,7 +85,7 @@ Commands:
 - qhost host apply <action> [args...] --confirm, qhost host apply --proposal <id> --confirm, qhost host undo <journal-id> --confirm, qhost host journal: change the host with a registered action or a proposal of the host that keeps the previous state in a root-only journal, undo a change, and list the latest changes; every change appears in qhost audit; without --confirm apply and undo show the sentence and the commands and exit with code 2 (all need sudo; see qhost help host-admin)
 - qhost grant add <user> <action> <stack> [--expires YYYY-MM-DD] [--engine <engine>] [--confirm], qhost grant list [--stack <stack>] [--user <user>] [--engine <engine>], qhost grant remove <id> [--engine <engine>] [--confirm]: allow a user one action for one stack without sudo, list the grants with their state, and remove one; add and remove show the plan and exit with code 2 without --confirm and need sudo, list runs without sudo for an administrator in the group qhost (see qhost help grants)
 - qhost diagnose [--out <path>]: write a diagnostic package, an archive (tar.gz) with a text file and a JSON file per part, with the versions, the state of the service and the sources, the stacks and their check, the last 20 runs with the logs of the 5 newest and of every failed one, the service log of the last 24 hours and the list of the containers with their engine, but no container logs, env files or compose files; secret values are masked by the service, a part that cannot be collected is in the package with its reason. Without --out it goes to the folder qhost in your home; the file is new, mode 0600 and yours. It holds the host name and paths: check it before you pass it on (runs without sudo for an administrator in the group qhost)
-- qhost container start|stop|restart <name> [--engine <engine>] [--yes]: start, stop or restart one container of the host after a question (run with sudo; see qhost help containers)
+- qhost container start|stop|restart <name> [--engine <engine>] [--yes]: start, stop or restart one container of the host after a question (run with sudo; restart also runs without sudo with a grant for container.restart, see qhost help grants)
 - qhost version: print the version
 - qhost help <topic>: show a help topic`
 
@@ -393,7 +393,7 @@ Secrets: the webhook URL and its signing key, the Slack URL, the Telegram bot to
 
 Delivery runs in the background after the event; a failing channel is retried a few times and never delays or fails a run. A delivery that still fails is noted in the log of its run (qhost stack log <run>) and in the service log.`
 
-const grantsTopic = `A standing grant lets a person with root allow a user one action for one stack of a deploy service. The user can then take that action without sudo. This help covers giving, listing and removing grants; what a grant allows when the action runs is not part of these commands. The service must run.
+const grantsTopic = `A standing grant lets a person with root allow a user one action for one stack of a deploy service. The user can then take that action without sudo. The service must run.
 
 Commands:
 - sudo qhost grant add <user> <action> <stack> [--expires YYYY-MM-DD] [--engine <engine>] [--confirm]: allow the action for the stack
@@ -412,9 +412,16 @@ Plan: add first shows, on standard error, the user, the action, the stack, the e
 
 State: list shows every stored grant. A grant is valid, or not applied for one reason: expired, stack-missing (the stack no longer exists) or user-changed (the user ID belongs to another name today). Such a grant stays listed until it is removed. If the grants file cannot be read, qhost never rewrites it: list shows no grant, reports the problem with exit code 1 and every grant counts as invalid until a person has dealt with the file.
 
+Using a grant: an administrator in the group qhost with a valid grant runs exactly these commands without sudo, and nothing else:
+- stack.restart: qhost stack restart <stack>
+- container.restart: qhost container restart <name> for a container that belongs to the stack by its Compose labels, without a grace period; a foreign container or one without a stack is never covered
+- update.check: qhost stack updates --refresh <stack>, without --changelog
+- update.run: qhost stack update <stack> for that one stack, without --version and --var
+Every other command and every other form, also stack start, stop, deploy, backup and container start, still needs sudo, and without a valid grant the answer is the usual request for sudo. The service reads the grants on every request: a withdrawn or expired grant ends with the next request, also on an open connection. The action log of the deploy service (qhost audit --service deploy) shows the id of the grant a request ran under in the column grant.
+
 Never grantable: changes to the host, secrets and credentials, stack settings, sources, access and administrator rights, and the commands grant add and grant remove themselves.`
 
-const containersTopic = `qhost container list and qhost container show read the containers of the whole host from the container engine and change nothing. qhost container start, stop and restart act on one container. Listing, showing and logs run without sudo for an administrator in the group qhost; start, stop and restart need sudo. The service must run.
+const containersTopic = `qhost container list and qhost container show read the containers of the whole host from the container engine and change nothing. qhost container start, stop and restart act on one container. Listing, showing and logs run without sudo for an administrator in the group qhost; start, stop and restart need sudo, except a restart that a grant for container.restart covers (see qhost help grants). The service must run.
 
 Commands:
 - qhost container list [--metrics]: every container of every deploy service, grouped, each with its engine; add --output json for the groups with their engine

@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"time"
 
@@ -34,8 +33,6 @@ var (
 	// ErrFull answers the addition of a grant to a file that holds control.GrantMax already.
 	ErrFull = errors.New("the instance has the most grants it may have")
 )
-
-var idRe = regexp.MustCompile(`^` + regexp.QuoteMeta(control.GrantIDPrefix) + `[0-9a-f]{8}$`)
 
 type document struct {
 	Schema int             `json:"schema"`
@@ -83,7 +80,7 @@ func validate(list []control.Grant) error {
 	ids := map[string]bool{}
 	keys := map[string]bool{}
 	for _, g := range list {
-		if !idRe.MatchString(g.ID) || ids[g.ID] {
+		if !control.ValidGrantID(g.ID) || ids[g.ID] {
 			return errors.New("invalid or repeated grant ID")
 		}
 		ids[g.ID] = true

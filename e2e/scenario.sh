@@ -5108,7 +5108,9 @@ scenario_deploy_audit() {
 
 # scenario_grants proves the standing grants of demo-stack: a plan without --confirm stores nothing, sudo qhost grant
 # add --confirm allows an administrator of the group qhost one action, the grant is listed by that user without sudo
-# and by a stack filter, adding it without sudo is refused, and sudo qhost grant remove --confirm takes it away.
+# and by a stack filter, adding it without sudo is refused, the user restarts demo-stack without sudo (named in the audit
+# log) while stop and a restart of demo-cache are refused, and sudo qhost grant remove --confirm takes it away, after
+# which the restart is refused too.
 scenario_grants() {
 	step 'grant add without --confirm shows the plan and stores nothing'
 	ensure_user e2e-grantee
@@ -5135,6 +5137,23 @@ scenario_grants() {
 	out=$(as_user e2e-grantee 'qhost --output json grant list --stack demo-cache 2>&1') || fail "qhost grant list --stack failed: $out"
 	[ "$(printf '%s' "$out" | jq 'length')" = 0 ] || fail "the stack filter shows a grant of another stack: $out"
 
+	step 'the grant lets e2e-grantee restart demo-stack without sudo and nothing else'
+	ids=$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=demo-stack)
+	started_before=$(docker exec "$host" docker inspect -f '{{.State.StartedAt}}' $ids)
+	out=$(as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1') || fail "stack restart under a grant failed: $out"
+	started_after=$(docker exec "$host" docker inspect -f '{{.State.StartedAt}}' $ids)
+	[ "$started_before" != "$started_after" ] || fail 'stack restart under a grant did not restart demo-stack'
+	stack_healthy demo-stack || fail 'demo-stack is not healthy after the restart under a grant'
+	if out=$(as_user e2e-grantee 'qhost stack stop demo-stack --yes 2>&1'); then fail "stack stop under a restart grant succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'only root may use the service' || fail "the refusal of stack stop is unclear: $out"
+	if out=$(as_user e2e-grantee 'qhost stack restart demo-cache --yes 2>&1'); then fail "stack restart of another stack under the grant succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'only root may use the service' || fail "the refusal of stack restart of another stack is unclear: $out"
+	[ "$(running_containers demo-stack)" -gt 0 ] || fail 'the refused stack stop stopped demo-stack'
+	[ -z "$(stack_field demo-stack stopped)" ] || fail 'the refused stack stop marked demo-stack as stopped'
+	out=$(as_admin 'qhost --output json audit --service deploy --limit 200 2>&1') || fail "qhost audit --service deploy failed: $out"
+	printf '%s' "$out" | jq -e --arg id "$grant_id" 'any(.[]; .command == "stack.restart" and .stack == "demo-stack" and .grant == $id)' >/dev/null ||
+		fail "the audit log of the deploy service does not name the grant $grant_id on the restart: $out"
+
 	step 'grant remove without --confirm keeps the grant and sudo qhost grant remove --confirm removes it'
 	if out=$(as_admin "sudo qhost grant remove $grant_id 2>&1 </dev/null"); then fail "grant remove without --confirm succeeded: $out"; fi
 	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list failed after the plan: $out"
@@ -5142,6 +5161,8 @@ scenario_grants() {
 	as_admin "sudo qhost grant remove $grant_id --confirm 2>&1 </dev/null" >/dev/null || fail "grant remove failed for $grant_id"
 	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list failed after the removal: $out"
 	printf '%s' "$out" | jq -e --arg id "$grant_id" 'any(.[]; .id == $id) | not' >/dev/null || fail "the grant $grant_id is still listed after the removal: $out"
+	if out=$(as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1'); then fail "stack restart after the removal of the grant succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'only root may use the service' || fail "the refusal of stack restart after the removal is unclear: $out"
 	log "scenario: grant $grant_id for e2e-grantee was planned, added, listed without sudo and removed"
 }
 
