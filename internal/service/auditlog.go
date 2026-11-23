@@ -51,7 +51,7 @@ func auditList(dir string, args json.RawMessage) (any, error) {
 		e := r.Entry
 		out.Entries[i] = control.DeployLogEntry{
 			Seq: r.Seq, Time: r.Time, ClientUID: e.ClientUID, Command: e.Command, Class: e.Class, Scope: e.Scope,
-			Stack: e.Stack, Result: e.Result, ErrorCode: e.ErrorCode, DurationMS: e.DurationMS, Origin: e.Origin,
+			Stack: e.Stack, Result: e.Result, ErrorCode: e.ErrorCode, DurationMS: e.DurationMS, Origin: e.Origin, Grant: e.Grant,
 		}
 	}
 	return out, nil

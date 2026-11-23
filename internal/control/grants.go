@@ -1,6 +1,9 @@
 package control
 
-import "time"
+import (
+	"regexp"
+	"time"
+)
 
 // The commands that manage the standing grants of one deploy instance: a person with root allows a user one
 // action for one stack. They only record, change and list grants; what a grant allows at run time is decided
@@ -30,6 +33,11 @@ const (
 	// GrantExpiresLayout is the form of an expiry date. A grant is valid until the end of that day in UTC.
 	GrantExpiresLayout = "2006-01-02"
 )
+
+var grantIDPattern = regexp.MustCompile(`^` + regexp.QuoteMeta(GrantIDPrefix) + `[0-9a-f]{8}$`)
+
+// ValidGrantID reports whether id has the form of a grant ID.
+func ValidGrantID(id string) bool { return grantIDPattern.MatchString(id) }
 
 // The codes of the answers to the grant commands, besides CodeInvalid, CodeNoSuchStack and CodeNotRoot.
 const (

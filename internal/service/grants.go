@@ -23,8 +23,7 @@ type userDirectory interface {
 	Admin(uid uint32) (bool, error)
 }
 
-// grantService serves the grant commands. The grants of this instance are all it knows; what one allows at run
-// time is not its business.
+// grantService serves the grant commands and decides, by cover, whether a grant lets a request run.
 type grantService struct {
 	store *grants.Store
 	users userDirectory
@@ -33,7 +32,9 @@ type grantService struct {
 	stackKnown func(name string) bool
 	// stackSetup tells whether the stack has settings at all, a backup and a health check.
 	stackSetup func(ctx context.Context, name string) (settings, backup, check bool)
-	log        *slog.Logger
+	// containerStack returns the stack of this instance a container belongs to; nil knows none.
+	containerStack func(ctx context.Context, ref string) (string, bool)
+	log            *slog.Logger
 }
 
 // registerGrantCommands registers grant.add, grant.remove and grant.list. None of them is offered as a grant
@@ -184,15 +185,11 @@ func (g *grantService) handleList(_ context.Context, raw json.RawMessage) (any, 
 		return res, nil
 	}
 	now := g.now()
-	nameOf := func(uid uint32) (string, bool) {
-		name, ok, err := g.users.Name(uid)
-		return name, ok && err == nil
-	}
 	for _, x := range list {
 		if a.Stack != "" && x.Stack != a.Stack || a.User != "" && x.User != a.User {
 			continue
 		}
-		info := control.GrantInfo{Grant: x, Invalid: grants.Invalid(x, now, g.stackKnown, nameOf)}
+		info := control.GrantInfo{Grant: x, Invalid: grants.Invalid(x, now, g.stackKnown, g.nameOf)}
 		info.User, info.Stack = printable(x.User), printable(x.Stack)
 		res.Grants = append(res.Grants, info)
 	}
@@ -200,6 +197,12 @@ func (g *grantService) handleList(_ context.Context, raw json.RawMessage) (any, 
 		return cmp.Or(strings.Compare(x.Stack, y.Stack), strings.Compare(x.User, y.User), strings.Compare(x.Action, y.Action))
 	})
 	return res, nil
+}
+
+// nameOf returns the name the user uid has today; an unreadable user database names nobody.
+func (g *grantService) nameOf(uid uint32) (string, bool) {
+	name, ok, err := g.users.Name(uid)
+	return name, ok && err == nil
 }
 
 // stackSetup reads the settings of a stack for the plan of a grant. A stack whose settings cannot be read has
