@@ -4682,22 +4682,34 @@ EOF2
 	log 'scenario: source add --url took over the history of an equal repository and left a differing folder alone'
 }
 
-# scenario_source_move proves the preview of source move. A person runs a foreign Compose project from /opt/qd-move/moveapp,
-# outside every source, with the bind mount ./data and an invented data file. The preview into /opt/stacks, a
-# source with a remote in the git container, shows the target folder, the files a commit would take (compose.yaml and
-# .env, not the data) and the lines for the .gitignore, and changes nothing: the containers keep their ids and
-# keep running, the project folder and the source stay as they were, and no repository, commit or file appears. A
-# source that is a root stack is reported as a block with reason and fix, and so is a .env with a secret-like key
-# when the source has a remote, with the key and never the value.
-scenario_source_move() {
-	base=/opt/qd-move/moveapp
-	into=/opt/stacks
-	secret_value=not-a-real-secret-4711
+# qd_stdout runs the qhost CLI on the host as root with only standard output captured, so the JSON of a command that
+# fails can still be parsed; its standard error goes to $work/qd-stderr.log.
+qd_stdout() {
+	docker exec -i "$host" qhost "$@" 2>"$work/qd-stderr.log" </dev/null
+}
 
-	step 'a person starts a foreign Compose project with a data folder outside every source'
-	docker exec "$host" sh -ec "rm -rf /opt/qd-move && mkdir -p '$base/data' && chmod 0755 /opt/qd-move '$base' '$base/data'" ||
-		fail 'cannot create the project folder to move'
-	cat <<EOF2 | docker exec -i "$host" sh -ec "cat >'$base/compose.yaml'"
+# source_head_is succeeds when the working copy of the folder $1 is at the commit $2.
+source_head_is() {
+	[ "$(folder_git "$1" rev-parse HEAD)" = "$2" ]
+}
+
+# remote_git runs git on the bare repository stacks.git in the git container as root; stderr is merged.
+remote_git() {
+	docker exec "$prefix-git" git -c safe.directory='*' --git-dir=/srv/git/stacks.git "$@" 2>&1
+}
+
+# commit_has_prefix succeeds when the commit $1 starts with the abbreviated commit $2 (at least 7 characters).
+commit_has_prefix() {
+	[ "${#2}" -ge 7 ] && case $1 in "$2"*) true ;; *) false ;; esac
+}
+
+# move_project starts a foreign Compose project in the folder $1 from the image tag $2: a bind mount ./data with an
+# invented record and a named volume. Its Compose project name is the name of the folder.
+move_project() {
+	mp_dir=$1 mp_tag=$2
+	docker exec "$host" sh -ec "mkdir -p '$mp_dir/data' && chmod 0755 '$mp_dir' '$mp_dir/data'" ||
+		fail "cannot create the project folder $mp_dir"
+	cat <<EOF2 | docker exec -i "$host" sh -ec "cat >'$mp_dir/compose.yaml'"
 services:
   app:
     image: registry.$domain/demo/app:\${DEMO_APP_VERSION}
@@ -4708,12 +4720,43 @@ services:
       DEMO_HEALTH: \${DEMO_HEALTH}
     volumes:
       - ./data:/data
+      - state:/state
+
+volumes:
+  state:
 EOF2
-	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/.env'"
-	printf 'invented record 1\n' | docker exec -i "$host" sh -ec "cat >'$base/data/records.txt'"
-	docker exec "$host" sh -ec "chmod 0644 '$base/compose.yaml' '$base/.env' '$base/data/records.txt'" || fail 'cannot set the modes of the project files'
-	docker exec "$host" sh -ec "cd '$base' && docker compose up -d" >/dev/null 2>&1 || fail 'cannot start the project to move'
-	wait_for 'the project moveapp' 60 stack_healthy moveapp
+	printf 'DEMO_APP_VERSION=%s\nDEMO_HEALTH=ok\n' "$mp_tag" | docker exec -i "$host" sh -ec "cat >'$mp_dir/.env'"
+	printf 'invented record 1\n' | docker exec -i "$host" sh -ec "cat >'$mp_dir/data/records.txt'"
+	docker exec "$host" sh -ec "chmod 0644 '$mp_dir/compose.yaml' '$mp_dir/.env' '$mp_dir/data/records.txt'" || fail "cannot set the modes of the files in $mp_dir"
+	docker exec "$host" sh -ec "cd '$mp_dir' && docker compose up -d" >/dev/null 2>&1 || fail "cannot start the project in $mp_dir"
+	wait_for "the project ${mp_dir##*/}" 60 stack_healthy "${mp_dir##*/}"
+}
+
+# move_meta prints owner, group and mode of the folder $1 and of its direct children.
+move_meta() {
+	docker exec "$host" find "$1" -maxdepth 1 -printf '%p %u %g %m\n' | sort
+}
+
+# scenario_source_move proves source move. A person runs a foreign Compose project from /opt/qd-move/moveapp, outside
+# every source, with the bind mount ./data, an invented data file and a named volume. The preview into /opt/stacks, a
+# source with a remote in the git container, shows the target folder, the files a commit would take (compose.yaml and
+# .env, not the data) and the lines for the .gitignore, and changes nothing, in the folders, the containers, the source
+# and the remote. A source that is a root stack is reported as a block with reason and fix, and so is a .env with a
+# secret-like key when the source has a remote, with the key and never the value. With --yes the folder lies in the
+# source, the commit is in the remote without the data, the containers run in the new folder on the same data file and
+# the named volume is the same, the working copy of the source is clean, and a commit pushed from outside is taken over
+# by fast-forward. A second project whose image tag exists only on the host fails its run at the pull: the move is taken
+# back, the project runs in its old folder with its data, the remote holds a revert of the commit and the source is clean.
+scenario_source_move() {
+	base=/opt/qd-move/moveapp
+	into=/opt/stacks
+	secret_value=not-a-real-secret-4711
+
+	move_url=git.$domain:stacks.git
+
+	step 'a person starts a foreign Compose project with a data folder outside every source'
+	docker exec "$host" rm -rf /opt/qd-move || fail 'cannot clear /opt/qd-move'
+	move_project "$base" 1.0.0
 	ids_before=$(docker exec "$host" docker ps -q --no-trunc --filter label=com.docker.compose.project=moveapp | sort)
 	[ -n "$ids_before" ] || fail 'the project to move has no running container'
 	sums_project=$(tree_sums "$base")
@@ -4722,6 +4765,9 @@ EOF2
 	# Earlier scenarios may leave untracked paths in the source; the preview must not add to them.
 	source_status=$(folder_git "$into" status --porcelain)
 	sources_before=$(qd --output json source list | jq -c '[.sources[] | [.path, .kind, .head]]')
+	changes_before=$(qd --output json source changes "$into" | jq -c .changes)
+	remote_before=$(remote_head "$move_url")
+	[ -n "$remote_before" ] || fail 'the remote of the source has no head'
 
 	step 'the preview shows the target folder, the files and the exclusions'
 	out=$(qd --output json source move "$base" --into "$into") || fail "source move failed: $out"
@@ -4750,6 +4796,7 @@ EOF2
 	if docker exec "$host" test -e "$base/.git"; then fail 'the preview made a repository in the project folder'; fi
 	[ "$(qd --output json source list | jq -c '[.sources[] | [.path, .kind, .head]]')" = "$sources_before" ] || fail 'the preview changed the sources'
 	[ -z "$(stack_field moveapp source)" ] || fail 'the preview made a stack moveapp'
+	[ "$(remote_head "$move_url")" = "$remote_before" ] || fail 'the preview changed the remote'
 
 	step 'a secret-like key in .env blocks the move into a source with a remote, by key and never by value'
 	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\nDEMO_API_TOKEN=%s\n' "$secret_value" | docker exec -i "$host" sh -ec "cat >'$base/.env'"
@@ -4770,9 +4817,105 @@ EOF2
 	[ "$(docker exec "$host" docker ps -q --no-trunc --filter label=com.docker.compose.project=moveapp | sort)" = "$ids_before" ] ||
 		fail 'the containers of the project changed'
 
-	docker exec "$host" sh -ec "cd '$base' && docker compose down" >/dev/null 2>&1 || fail 'cannot stop the project to move'
+	step 'source move --yes moves the project into the source, pushes the commit and runs the project there'
+	data_inode=$(docker exec "$host" stat -c %i "$base/data/records.txt")
+	data_sum=$(docker exec "$host" sh -c "sha256sum <'$base/data/records.txt'")
+	volume_created=$(docker exec "$host" docker volume inspect -f '{{.CreatedAt}}' moveapp_state)
+	[ -n "$volume_created" ] || fail 'the project has no named volume moveapp_state'
+	rc=0
+	out=$(qd_stdout --output json source move "$base" --into "$into" --yes) || rc=$?
+	[ "$rc" = 0 ] || fail "source move --yes exited $rc: $out $(cat "$work/qd-stderr.log")"
+	printf '%s' "$out" | jq -e --arg t "$into/moveapp" \
+		'.result == "moved" and .moved == true and .location == $t and .project == "moveapp" and .run_result == "succeeded" and (.commit | length) >= 7 and has("revert") == false and
+		([.steps[] | .step + ":" + .result] == ["down:done", "rename:done", "permissions:done", "commit:done", "deploy:done"]) and (.rollback | length) == 0 and (.remaining | length) == 0' >/dev/null ||
+		fail "unexpected source move --yes result: $out"
+	move_commit=$(printf '%s' "$out" | jq -r .commit)
+	move_head=$(remote_head "$move_url")
+	commit_has_prefix "$move_head" "$move_commit" || fail "the remote head $move_head is not the commit $move_commit"
+	[ "$(remote_git ls-tree -r --name-only "$move_head" moveapp)" = "$(printf 'moveapp/.env\nmoveapp/.gitignore\nmoveapp/compose.yaml')" ] ||
+		fail "the remote holds the wrong files of moveapp: $(remote_git ls-tree -r --name-only "$move_head" moveapp)"
+	remote_git show "$move_head:moveapp/.gitignore" | grep -qx '/data' || fail 'the .gitignore in the remote does not leave out /data'
+	if docker exec "$host" test -e "$base"; then fail 'the old folder is still there'; fi
+	docker exec "$host" test -f "$into/moveapp/compose.yaml" || fail 'the folder is not in the source'
+	wait_for 'the source at the commit of the move' 60 source_head_is "$into" "$move_head"
+	wait_for 'the moved project' 60 stack_healthy moveapp
+	[ "$(docker exec "$host" docker ps --filter label=com.docker.compose.project=moveapp --format '{{.Label "com.docker.compose.project.working_dir"}}' | sort -u)" = "$into/moveapp" ] ||
+		fail 'the containers do not run in the new folder'
+	[ "$(docker exec "$host" docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Source}}{{end}}{{end}}' $(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=moveapp))" = "$into/moveapp/data" ] ||
+		fail 'the data folder is not mounted from the new folder'
+	[ "$(docker exec "$host" stat -c %i "$into/moveapp/data/records.txt")" = "$data_inode" ] || fail 'the data file is not the same file'
+	[ "$(docker exec "$host" sh -c "sha256sum <'$into/moveapp/data/records.txt'")" = "$data_sum" ] || fail 'the data file changed'
+	[ "$(docker exec "$host" docker volume inspect -f '{{.CreatedAt}}' moveapp_state)" = "$volume_created" ] || fail 'the named volume is not the same'
+	[ "$(stack_field moveapp deployed)" = "$move_head" ] || fail "moveapp is not recorded as deployed at $move_head: $(stack_field moveapp deployed)"
+
+	step 'the working copy of the source is clean and a commit from outside is taken over by fast-forward'
+	[ "$(folder_git "$into" status --porcelain)" = "$source_status" ] || fail "the move left changes in the source: $(folder_git "$into" status --porcelain)"
+	[ "$(qd --output json source changes "$into" | jq -c .changes)" = "$changes_before" ] || fail "source changes lists the move: $(qd --output json source changes "$into")"
+	as_admin "cd ~/stacks && git pull -q --ff-only && printf 'invented note\n' >move-note.txt && git add move-note.txt &&
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -m 'Add a note' && git push -q origin main" ||
+		fail 'cannot push a commit from outside'
+	foreign=$(remote_head "$move_url")
+	[ -n "$foreign" ] && [ "$foreign" != "$move_head" ] || fail 'the commit from outside is not the head of the remote'
+	wait_for 'the source to take over the commit from outside' 180 source_head_is "$into" "$foreign"
+	docker exec "$host" test -f "$into/move-note.txt" || fail 'the fast-forward did not bring the file'
+	[ "$(folder_git "$into" status --porcelain)" = "$source_status" ] || fail "the fast-forward left changes in the source: $(folder_git "$into" status --porcelain)"
+
+	step 'the moved project is removed from the source again'
+	docker exec "$host" docker compose -p moveapp down -v >/dev/null 2>&1 || fail 'cannot remove the containers of moveapp'
+	as_admin "cd ~/stacks && git pull -q --ff-only && git rm -rq moveapp move-note.txt &&
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -m 'Remove the moved project' && git push -q origin main" ||
+		fail 'cannot remove the moved project from the remote'
+	cleaned=$(remote_head "$move_url")
+	wait_for 'the source to drop the moved project' 180 source_head_is "$into" "$cleaned"
+	# The data folder is not versioned, so it stays behind.
+	docker exec "$host" rm -rf "$into/moveapp"
+	[ "$(folder_git "$into" status --porcelain)" = "$source_status" ] || fail "the clean-up left changes in the source: $(folder_git "$into" status --porcelain)"
+
+	step 'a project whose image cannot be pulled at the new place is taken back'
+	fbase=/opt/qd-move/movefail
+	fimage=registry.$domain/demo/app
+	docker exec "$host" sh -ec "docker pull -q $fimage:1.0.0 >/dev/null && docker tag $fimage:1.0.0 $fimage:local-only" ||
+		fail 'cannot tag the image only on the host'
+	move_project "$fbase" local-only
+	fail_meta=$(move_meta "$fbase")
+	fail_sum=$(tree_sums "$fbase")
+	fail_inode=$(docker exec "$host" stat -c %i "$fbase/data/records.txt")
+	fail_volume=$(docker exec "$host" docker volume inspect -f '{{.CreatedAt}}' movefail_state)
+	fail_remote=$(remote_head "$move_url")
+	rc=0
+	out=$(qd_stdout --output json source move "$fbase" --into "$into" --yes) || rc=$?
+	[ "$rc" = 1 ] || fail "source move --yes of the unpullable project exited $rc, not 1: $out $(cat "$work/qd-stderr.log")"
+	printf '%s' "$out" | jq -e --arg b "$fbase" \
+		'.result == "rolled-back" and .moved == false and .failed_step == "deploy" and .location == $b and .run_result == "failed" and (.commit | length) >= 7 and (.revert | length) >= 7 and
+		([.steps[] | .step + ":" + .result] == ["down:done", "rename:done", "permissions:done", "commit:done", "deploy:failed"]) and
+		([.rollback[] | select(.result != "done")] | length) == 0 and (.rollback | length) > 0 and (.remaining | length) == 0' >/dev/null ||
+		fail "unexpected result of the failed move: $out"
+	fail_commit=$(printf '%s' "$out" | jq -r .commit)
+	fail_revert=$(printf '%s' "$out" | jq -r .revert)
+	revert_head=$(remote_head "$move_url")
+	commit_has_prefix "$revert_head" "$fail_revert" || fail "the remote head $revert_head is not the revert $fail_revert"
+	commit_has_prefix "$(remote_git rev-parse "$revert_head^")" "$fail_commit" || fail "the revert $revert_head does not follow the commit $fail_commit"
+	[ "$(remote_git rev-parse "$revert_head^^")" = "$fail_remote" ] || fail 'the commit of the move does not follow the former head of the remote'
+	[ -z "$(remote_git ls-tree --name-only "$revert_head" movefail)" ] || fail 'the tree of the revert still holds movefail'
+	[ "$(remote_git rev-parse "$revert_head^{tree}")" = "$(remote_git rev-parse "$fail_remote^{tree}")" ] || fail 'the tree of the revert is not the tree before the move'
+	if docker exec "$host" test -e "$into/movefail"; then fail 'the folder is still in the source'; fi
+	if docker exec "$host" test -e "$fbase/.gitignore"; then fail 'the old folder got a .gitignore'; fi
+	[ "$(move_meta "$fbase")" = "$fail_meta" ] || fail "owner, group or mode of the old folder changed: $(move_meta "$fbase")"
+	[ "$(tree_sums "$fbase")" = "$fail_sum" ] || fail 'the old folder changed'
+	[ "$(docker exec "$host" stat -c %i "$fbase/data/records.txt")" = "$fail_inode" ] || fail 'the data file is not the same file'
+	wait_for 'the project in its old folder' 60 stack_healthy movefail
+	[ "$(docker exec "$host" docker ps --filter label=com.docker.compose.project=movefail --format '{{.Label "com.docker.compose.project.working_dir"}}' | sort -u)" = "$fbase" ] ||
+		fail 'the containers do not run in the old folder'
+	[ "$(stack_images movefail)" = "$fimage:local-only" ] || fail "movefail does not run its image: $(stack_images movefail)"
+	[ "$(docker exec "$host" docker volume inspect -f '{{.CreatedAt}}' movefail_state)" = "$fail_volume" ] || fail 'the named volume is not the same'
+	wait_for 'the source at the revert' 120 source_head_is "$into" "$(remote_git rev-parse "$revert_head")"
+	[ "$(folder_git "$into" status --porcelain)" = "$source_status" ] || fail "the failed move left changes in the source: $(folder_git "$into" status --porcelain)"
+	[ "$(qd --output json source changes "$into" | jq -c .changes)" = "$changes_before" ] || fail "source changes lists the failed move: $(qd --output json source changes "$into")"
+
+	docker exec "$host" docker compose -p movefail down -v >/dev/null 2>&1 || fail 'cannot remove the containers of movefail'
+	docker exec "$host" docker rmi "$fimage:local-only" >/dev/null 2>&1 || true
 	docker exec "$host" rm -rf /opt/qd-move
-	log 'scenario: source move previewed the move of a running project into a source with a remote, blocked a secret and a root stack, and changed nothing'
+	log 'scenario: source move previewed, moved a running project into a source with a remote and took a failed move back, and the source followed the remote'
 }
 
 # scenario_tui_remote proves the remote of a local stack folder in the Stacks area of the interface. A local folder
