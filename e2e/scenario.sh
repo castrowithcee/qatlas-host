@@ -6313,6 +6313,10 @@ scenario_hook() {
 	image=registry.$domain/demo/app
 	step 'demo-stack is at 1.0.1 in automatic mode with the update trigger window'
 	if [ "$(stack_images demo-stack)" != "$image:1.0.1" ]; then
+		# The fresh clone of scenario_tui_setup has no secrets.env for demo-stack, whose compose file reads DEMO_SECRET.
+		docker exec -u qhost-deploy "$host" sh -ec "test -e /opt/stacks/demo-stack/secrets.env ||
+			{ umask 077 && printf 'DEMO_SECRET=not-a-real-secret-e2e\n' >/opt/stacks/demo-stack/secrets.env; }" ||
+			fail 'cannot write secrets.env of demo-stack'
 		prev=$(newest_run demo-stack)
 		admin_commit demo-stack/.env 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.0.1/' 'Reset demo-stack to 1.0.1 for the webhook'
 		restart_service
