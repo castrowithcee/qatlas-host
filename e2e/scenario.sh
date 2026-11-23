@@ -1802,7 +1802,8 @@ $hook_signing_value
 #!/bin/sh
 case "$1" in refs/tags/qhost/*) echo 'tag refused by the test hook' >&2; exit 1 ;; esac
 HOOK
-	want=$(stack_field demo-stack deployed)
+	# A manual run deploys the head of the source, which the demo-cache commits moved past the last demo-stack run.
+	want=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
 	out=$(qd --output json stack deploy demo-stack) || fail "deploy failed: $out"
 	run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
 	[ -n "$run" ] || fail "deploy did not report a run: $out"
