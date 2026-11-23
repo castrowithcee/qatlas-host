@@ -65,33 +65,6 @@
 # and both uninstalls remove its unit, rule, folders, user and group. sudo qhost hook add gives demo-stack a secret
 # path that is shown once; a POST to it updates the stack within 30 seconds, a wrong or a removed secret gets 404. Sourced by run.sh scenario.
 
-# signature_asset is the name of the release file with the signature; it must match release.SignatureAsset.
-signature_asset=checksums.txt.sig
-# instance_service names the deploy service instances, and release_template is their template unit in packaging/.
-instance_service=qhost-deploy
-release_template=$instance_service@.service
-
-as_admin() {
-	docker exec -i -u "$admin" "$host" sh -ec "$*"
-}
-
-# as_user runs a command on the host as the test user $1.
-as_user() {
-	user=$1
-	shift
-	docker exec -i -u "$user" "$host" sh -c "$*" </dev/null
-}
-
-# ensure_user creates the test user $1 without sudo rights and without the group qhost, if it is missing.
-ensure_user() {
-	docker exec "$host" id "$1" >/dev/null 2>&1 || docker exec "$host" useradd --create-home --shell /bin/bash "$1" ||
-		fail "cannot create the test user $1"
-}
-
-step() {
-	log "scenario: $*"
-}
-
 run_scenario() {
 	repo=git.$domain:stacks.git
 
@@ -146,11 +119,6 @@ run_scenario() {
 	scenario_uninstall
 
 	log 'scenario: passed'
-}
-
-# as_rootless runs a command on the host as $rootless_user, with the environment of its rootless Docker engine.
-as_rootless() {
-	as_user "$rootless_user" "export XDG_RUNTIME_DIR=/run/user/$rootless_uid DOCKER_HOST=unix:///run/user/$rootless_uid/docker.sock; $*"
 }
 
 rootless_health_is() {
@@ -381,193 +349,9 @@ scenario_rootless_instance() {
 	log "scenario: systemd-analyze verify $ri_unit passed${out:+: $out}"
 }
 
-# qd runs the qhost CLI on the host as root; stderr is merged so a failure message can be checked.
-qd() {
-	docker exec -i "$host" qhost "$@" 2>&1 </dev/null
-}
-
-# qd_fails runs qd, requires a non-zero exit and prints the output.
-qd_fails() {
-	if out=$(qd "$@"); then
-		printf '%s\n' "$out"
-		return 1
-	fi
-	printf '%s\n' "$out"
-}
-
-known_hosts_sum() {
-	docker exec "$host" sh -c 'sha256sum /var/lib/qhost-deploy/known_hosts 2>/dev/null || echo none'
-}
-
-git_ed25519_fingerprint() {
-	docker exec "$prefix-git" ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | cut -d ' ' -f 2
-}
-
 # scanned_git_key prints the ed25519 host key the git server offers now.
 scanned_git_key() {
 	docker exec -u "$admin" "$host" ssh-keyscan -t ed25519 "git.$domain" 2>/dev/null | grep -v "^#" | cut -d ' ' -f 2,3
-}
-
-# release_build builds the fake release $1 (a tag) for the architecture of the host into $work/releases/$1 and
-# signs its checksums with the test key. The binary trusts that key through a source overlay of the key list, so
-# release.json and the sources stay as they are. With changed-template as $2 the binary also carries a template unit
-# of the deploy service instances with one more comment line, $work/releasebuild/$release_template, the same way.
-release_build() {
-	tag=$1
-	arch=$(docker exec "$host" dpkg --print-architecture)
-	dir=$work/releasebuild
-	overlay=$dir/overlay.json
-	if [ ! -f "$overlay" ]; then
-		mkdir -p "$dir"
-		ssh-keygen -q -t ed25519 -N '' -C "$prefix-release-test-key" -f "$work/keys/release"
-		printf 'qhost-release %s\n' "$(cut -d ' ' -f 1,2 "$work/keys/release.pub")" >"$dir/allowed-signers"
-		sed "s|^var extraKeyLines string\$|var extraKeyLines = \"$(cut -d ' ' -f 1,2 "$work/keys/release.pub")\"|" \
-			"$root/internal/release/release.go" >"$dir/release.go"
-		grep -q '^var extraKeyLines = "ssh-ed25519 ' "$dir/release.go" || fail 'cannot add the test key to the release key list'
-		printf '{"Replace":{"%s":"%s"}}' "$root/internal/release/release.go" "$dir/release.go" >"$dir/overlay.json"
-		sed "s|\"targets\": .*|\"targets\": [\"linux/$arch\"],|" "$root/release.json" >"$dir/release.json"
-	fi
-	if [ "${2:-}" = changed-template ]; then
-		overlay=$dir/overlay-template.json
-		{ cat "$root/packaging/$release_template" && printf '# Changed by the self-update test of the template.\n'; } >"$dir/$release_template"
-		printf '{"Replace":{"%s":"%s","%s":"%s"}}' "$root/internal/release/release.go" "$dir/release.go" \
-			"$root/packaging/$release_template" "$dir/$release_template" >"$overlay"
-	fi
-	rel_signers=$(realpath --relative-to="$root" "$dir/allowed-signers")
-	(cd "$root" && SOURCE_DATE_EPOCH=1700000000 GOFLAGS="${GOFLAGS:+$GOFLAGS }-overlay=$overlay" \
-		go run github.com/castrowithcee/qatlas-kit/cmd/releasebuild -config "$dir/release.json" -program qhost \
-		-namespace qhost-release -signature-asset "$signature_asset" -allowed-signers "$rel_signers" \
-		-releases-url https://github.com/castrowithcee/qatlas-host/releases -version "$tag" -out "$work/releases/$tag" >/dev/null) ||
-		fail "cannot build the test release $tag"
-	(cd "$work/releases/$tag" && ssh-keygen -q -Y sign -f "$work/keys/release" -n qhost-release checksums.txt) ||
-		fail "cannot sign the test release $tag"
-}
-
-# release_publish makes the directory $work/releases/$1 (or the directory $2) the release $1 of the releases fake.
-release_publish() {
-	docker exec "$prefix-releases" rm -rf "/srv/releases/$1"
-	docker cp "${2:-$work/releases/$1}" "$prefix-releases:/srv/releases/$1" || fail "cannot publish the test release $1"
-}
-
-# setup_service installs qhost from the fake release, checks the host service the installer started and the state
-# without a deploy service, then sets the deploy service up the way an administrator does. With the argument
-# default-backup-image the deploy service keeps the unit as installed and backs up with its default helper image;
-# otherwise a drop-in names the local helper image, and the second release for the self-update section is built too,
-# with a changed template of the instances.
-setup_service() {
-	step 'install qhost from a signed test release with the published installer'
-	release_build v0.1.0
-	[ "${1:-}" = default-backup-image ] || release_build v0.2.0 changed-template
-	release_publish v0.1.0
-	as_admin 'curl -fsSL -o /tmp/install.sh https://github.com/castrowithcee/qatlas-host/releases/latest/download/install.sh &&
-		sudo sh /tmp/install.sh && rm -f /tmp/install.sh' || fail 'the installer failed'
-	wait_for 'the host service channel' 20 docker exec "$host" sh -c 'ls /run/qhost | grep -q sock'
-	log 'scenario: host service running'
-
-	step 'after the installation only the host service runs, as qhost without the group docker, and keeps its directories closed'
-	[ "$(docker exec "$host" systemctl is-active qhost)" = active ] || fail 'the host service is not active'
-	pid=$(docker exec "$host" systemctl show -p MainPID --value qhost)
-	[ -n "$pid" ] && [ "$pid" != 0 ] || fail 'the host service has no process'
-	[ "$(docker exec "$host" stat -c %U "/proc/$pid")" = qhost ] || fail "the host service does not run as qhost: $(docker exec "$host" stat -c %U "/proc/$pid")"
-	if docker exec "$host" grep '^Uid:' "/proc/$pid/status" | grep -qw 0; then fail 'the host service has a root user ID'; fi
-	if docker exec "$host" id -nG qhost | tr ' ' '\n' | grep -qx docker; then fail 'the user qhost is in the group docker'; fi
-	if docker exec "$host" grep '^Groups:' "/proc/$pid/status" | grep -qw "$(docker exec "$host" getent group docker | cut -d : -f 3)"; then
-		fail 'the host service process holds the group docker'
-	fi
-	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost)" = qhost:qhost:750 ] ||
-		fail "/run/qhost is $(docker exec "$host" stat -c %U:%G:%a /run/qhost), want qhost:qhost:750"
-	[ "$(docker exec "$host" stat -c %a /var/lib/qhost)" = 700 ] || fail "/var/lib/qhost has the mode $(docker exec "$host" stat -c %a /var/lib/qhost), want 700"
-	ensure_user e2e-outsider
-	if as_user e2e-outsider 'ls /run/qhost' >/dev/null 2>&1; then fail 'a user outside the group qhost can list /run/qhost'; fi
-	[ "$(docker exec "$host" systemctl is-enabled qhost-deploy 2>&1 || true)" != enabled ] || fail 'the installer enabled the deploy service'
-	[ "$(docker exec "$host" systemctl is-active qhost-deploy 2>&1 || true)" != active ] || fail 'the deploy service runs after the installation'
-	if docker exec "$host" test -e /usr/local/lib/systemd/system/qhost-deploy.service; then fail 'the installer installed the unit of the deploy service'; fi
-	if docker exec "$host" id qhost-deploy >/dev/null 2>&1; then fail 'the installer created the user qhost-deploy'; fi
-	log "scenario: qhost runs as pid $pid, user qhost, without docker; /run/qhost qhost:qhost 750, /var/lib/qhost 700; no deploy service"
-
-	step 'the installing admin is in the group qhost and sees the deploy service as not set up, with and without sudo'
-	docker exec "$host" id -nG "$admin" | tr ' ' '\n' | grep -qx qhost || fail "the installer did not add $admin to the group qhost: $(docker exec "$host" id -nG "$admin")"
-	as_admin 'id -nG' | tr ' ' '\n' | grep -qx qhost || fail "$admin has no group qhost in a new session: $(as_admin 'id -nG')"
-	out=$(as_admin 'sudo qhost --output json status 2>&1') || fail "sudo qhost status failed before the setup: $out"
-	printf '%s' "$out" | grep -q '"deploy_service": *"not set up"' || fail "sudo qhost status does not name the deploy service as not set up: $out"
-	printf '%s' "$out" | grep -q '"host_service": *"running"' || fail "sudo qhost status does not show the host service: $out"
-	out_plain=$(as_admin 'qhost --output json status 2>&1') || fail "qhost status without sudo failed for an administrator of the group qhost: $out_plain"
-	printf '%s' "$out_plain" | grep -q '"deploy_service": *"not set up"' || fail "qhost status without sudo does not name the deploy service as not set up: $out_plain"
-	printf '%s' "$out_plain" | grep -q '"host_service": *"running' || fail "qhost status without sudo does not show the host service: $out_plain"
-	log "scenario: qhost status before the setup, with sudo: $(printf '%s' "$out" | tr -d '\n ')"
-	log "scenario: qhost status before the setup, without sudo: $(printf '%s' "$out_plain" | tr -d '\n ')"
-
-	step 'a command of the deploy service before the setup ends with a clear message and exit code 3'
-	for cmd in 'qhost stack list' 'qhost window show' 'qhost stack runs'; do
-		out=$(docker exec "$host" sh -c "$cmd 2>&1 </dev/null; echo exit=\$?")
-		printf '%s\n' "$out" | grep -qx 'exit=3' || fail "'$cmd' before the setup did not end with exit code 3: $out"
-		printf '%s' "$out" | grep -q 'the deploy service is not set up; run sudo qhost deploy-service setup' || fail "'$cmd' before the setup does not say that the deploy service is not set up: $out"
-		if printf '%s' "$out" | grep -qi 'cannot talk\|connect\|no such file\|refused\|dial'; then fail "'$cmd' before the setup shows a raw connection error: $out"; fi
-	done
-	out=$(as_admin 'qhost stack list 2>&1 || true')
-	printf '%s' "$out" | grep -q 'not set up' || fail "'qhost stack list' without sudo does not say that the deploy service is not set up: $out"
-
-	step 'the setup of the deploy service needs --confirm and root, then runs as qhost-deploy and changes nothing when repeated'
-	if out=$(as_admin 'qhost deploy-service setup --confirm --yes 2>&1'); then fail "the setup without root succeeded: $out"; fi
-	printf '%s' "$out" | grep -qi 'needs root' || fail "the setup without root does not say that it needs root: $out"
-	if out=$(as_admin 'sudo qhost deploy-service setup --yes 2>&1'); then fail "the setup without --confirm succeeded: $out"; fi
-	printf '%s' "$out" | grep -q 'Set up the deploy service' || fail "the setup without --confirm does not show its plan: $out"
-	printf '%s' "$out" | grep -q 'systemctl enable --now qhost-deploy' || fail "the setup without --confirm does not show its commands: $out"
-	if docker exec "$host" test -e /usr/local/lib/systemd/system/qhost-deploy.service; then fail 'a refused setup installed the unit'; fi
-	out=$(as_admin 'sudo qhost --output json deploy-service setup --confirm --yes 2>&1') || fail "the setup failed: $out"
-	printf '%s' "$out" | grep -q '"changed": *true' || fail "the first setup did not report a change: $out"
-	# The backup helper image is a local one, so a drop-in (which an update keeps) names it.
-	if [ "${1:-}" != default-backup-image ]; then
-		docker exec "$host" sh -ec '
-			install -d /etc/systemd/system/qhost-deploy.service.d
-			printf "[Service]\nExecStart=\nExecStart=/usr/local/bin/qhost deploy-service run --backup-image '"$backup_image"'\n" >/etc/systemd/system/qhost-deploy.service.d/e2e.conf
-			systemctl daemon-reload' || fail 'cannot write the drop-in'
-		docker exec "$host" systemctl restart qhost-deploy || fail 'cannot restart the deploy service'
-	fi
-	wait_for 'the deploy service channel' 20 docker exec "$host" sh -c 'ls /run/qhost-deploy | grep -q sock'
-	wait_for 'the deploy service to answer' 20 qd status
-	out=$(as_admin 'sudo qhost --output json deploy-service setup --confirm --yes 2>&1') || fail "the repeated setup failed: $out"
-	printf '%s' "$out" | grep -q '"changed": *false' || fail "the repeated setup reported a change: $out"
-	log "scenario: deploy service set up; repeated setup: $(printf '%s' "$out" | tr -d '\n ')"
-
-	step 'the deploy service runs as qhost-deploy with the group docker and keeps its directories closed'
-	[ "$(docker exec "$host" systemctl is-active qhost-deploy)" = active ] || fail 'the deploy service is not active'
-	[ "$(docker exec "$host" systemctl is-enabled qhost-deploy)" = enabled ] || fail 'the deploy service is not enabled'
-	[ "$(docker exec "$host" systemctl is-active qhost)" = active ] || fail 'the host service stopped with the setup'
-	[ "$(docker exec "$host" systemctl show -p MainPID --value qhost)" = "$pid" ] || fail 'the setup restarted the host service'
-	dpid=$(docker exec "$host" systemctl show -p MainPID --value qhost-deploy)
-	[ -n "$dpid" ] && [ "$dpid" != 0 ] || fail 'the deploy service has no process'
-	[ "$(docker exec "$host" stat -c %U "/proc/$dpid")" = qhost-deploy ] || fail "the deploy service does not run as qhost-deploy: $(docker exec "$host" stat -c %U "/proc/$dpid")"
-	if docker exec "$host" grep '^Uid:' "/proc/$dpid/status" | grep -qw 0; then fail 'the deploy service has a root user ID'; fi
-	docker exec "$host" id -nG qhost-deploy | tr ' ' '\n' | grep -qx docker || fail 'the user qhost-deploy is not in the group docker'
-	docker exec "$host" grep '^Groups:' "/proc/$dpid/status" | grep -qw "$(docker exec "$host" getent group docker | cut -d : -f 3)" ||
-		fail 'the deploy service process does not hold the group docker'
-	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost-deploy)" = qhost-deploy:qhost:2750 ] ||
-		fail "/run/qhost-deploy is $(docker exec "$host" stat -c %U:%G:%a /run/qhost-deploy), want qhost-deploy:qhost:2750"
-	[ "$(docker exec "$host" stat -c %G "$(docker exec "$host" sh -c 'ls /run/qhost-deploy/*.sock | head -n 1')")" = qhost ] ||
-		fail 'the socket of the deploy service does not have the group qhost'
-	[ "$(docker exec "$host" stat -c %a /var/lib/qhost-deploy)" = 700 ] || fail "/var/lib/qhost-deploy has the mode $(docker exec "$host" stat -c %a /var/lib/qhost-deploy), want 700"
-	[ "$(docker exec "$host" stat -c %U:%G:%a /etc/qhost-deploy)" = root:root:755 ] ||
-		fail "/etc/qhost-deploy is $(docker exec "$host" stat -c %U:%G:%a /etc/qhost-deploy), want root:root:755"
-	if as_user e2e-outsider 'ls /run/qhost-deploy' >/dev/null 2>&1; then fail 'a user outside the group qhost can list /run/qhost-deploy'; fi
-	log "scenario: qhost-deploy runs as pid $dpid, user qhost-deploy, group docker; /run/qhost-deploy qhost-deploy:qhost 2750, /var/lib/qhost-deploy 700"
-
-	step 'the two services stay apart: qhost-deploy cannot reach the state or the channel of the host service and qhost cannot read the state of the deploy service'
-	if docker exec "$host" id -nG qhost-deploy | tr ' ' '\n' | grep -qx qhost; then fail 'the user qhost-deploy is in the group qhost'; fi
-	if out=$(docker exec -u qhost-deploy "$host" ls /var/lib/qhost 2>&1); then fail "qhost-deploy lists /var/lib/qhost: $out"; fi
-	printf '%s' "$out" | grep -qi 'permission denied' || fail "qhost-deploy was refused /var/lib/qhost for another reason: $out"
-	if out=$(docker exec -u qhost-deploy "$host" ls /run/qhost 2>&1); then fail "qhost-deploy lists /run/qhost: $out"; fi
-	printf '%s' "$out" | grep -qi 'permission denied' || fail "qhost-deploy was refused /run/qhost for another reason: $out"
-	if out=$(docker exec -u qhost "$host" ls /var/lib/qhost-deploy 2>&1); then fail "qhost lists /var/lib/qhost-deploy: $out"; fi
-	printf '%s' "$out" | grep -qi 'permission denied' || fail "qhost was refused /var/lib/qhost-deploy for another reason: $out"
-
-	step 'the admin, with and without sudo, reads the status of both services'
-	out=$(as_admin 'sudo qhost status 2>&1') || fail "sudo qhost status failed: $out"
-	printf '%s' "$out" | grep -qi 'running\|started\|uptime\|version' || fail "sudo qhost status does not show the services: $out"
-	out_plain=$(as_admin 'qhost --output json status 2>&1') || fail "qhost status without sudo failed for an administrator of the group qhost: $out_plain"
-	printf '%s' "$out_plain" | grep -q '"deploy_service": *"running"' || fail "qhost status without sudo does not show the deploy service: $out_plain"
-	printf '%s' "$out_plain" | grep -q '"host_service": *"running' || fail "qhost status without sudo does not show the host service: $out_plain"
-	log "scenario: qhost status answers with and without sudo: $(printf '%s' "$out_plain" | tr -d '\n ')"
 }
 
 # host_log_file prints the newest day file of the action log of the host service.
@@ -643,11 +427,6 @@ scenario_host_service() {
 	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the line was restored: $out"
 	if printf '%s' "$out" | grep -q 'broken'; then fail "qhost audit verify still reports a broken day: $out"; fi
 	[ "$(docker exec "$host" stat -c %U:%a "$file")" = qhost:600 ] || fail 'the day file lost its owner or mode'
-}
-
-# host_audit_rows prints the host changes of the action log as JSON with every space and line break removed.
-host_audit_rows() {
-	as_admin 'qhost --output json audit --action host.change --limit 100' | tr -d ' \n'
 }
 
 # scenario_host_changes proves the changes of the host through the CLI. A folder gets other permissions with sudo
@@ -862,18 +641,6 @@ scenario_host_changes() {
 	if docker exec "$host" grep -rqF "$pw" /var/lib/qhost-host /var/lib/qhost; then fail 'the password reached the journal or the action log'; fi
 	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the user changes: $out"
 	log 'scenario: user e2e-hostuser created, put in e2e-hostgroup, locked and deleted; every change is in the action log with uid '"$admin_uid"
-}
-
-# tui_system_tab clicks the sub-tab $1 of the System area on the third line of the screen (header, tab line,
-# sub-tab line) and leads the focus into its content.
-tui_system_tab() {
-	cell=$(tui_screen | awk -v t="$1" 'NR == 3 && (i = index($0, t)) { print i, NR; exit }')
-	[ -n "$cell" ] || fail "cannot click the sub-tab '$1', it is not on the sub-tab line: $(tui_screen)"
-	set -- $cell
-	tui_send -l "$(printf '\033[<0;%d;%dM\033[<0;%d;%dm' "$1" "$2" "$1" "$2")"
-	sleep 0.4
-	tui_send Down
-	sleep 0.3
 }
 
 # tui_system_user_create_count prints how many changes user.create of the administrator the action log holds.
@@ -1530,66 +1297,14 @@ scenario_compose_integration() {
 	log "scenario: Docker integration tests passed: $(printf '%s' "$out" | grep -E '^(--- |ok|PASS)' | tr '\n' ' ')"
 }
 
-# stack_field prints one flat field of a stack from qhost status (empty when it is absent).
-stack_field() {
-	qd --output json status | sed -n "s/.*\"stack\\.$1\\.$2\": *\"\\([^\"]*\\)\".*/\\1/p"
-}
-
-# stack_settled succeeds when the stack has no run in progress and its last run ended with the given result.
-stack_settled() {
-	[ -z "$(stack_field "$1" active_run)" ] && [ "$(stack_field "$1" last_run)" = "$2" ]
-}
-
 # stack_deployed_at succeeds when the stack is settled with the given result at the given deployed commit. Right
 # after a restart the last result is still that of an earlier run until the poll starts the new one.
 stack_deployed_at() {
 	stack_settled "$1" "$2" && [ "$(stack_field "$1" deployed)" = "$3" ]
 }
 
-# stack_idle succeeds when the stack has no run in progress and has finished at least one.
-stack_idle() {
-	[ -z "$(stack_field "$1" active_run)" ] && [ -n "$(stack_field "$1" last_run)" ]
-}
-
-# run_finished succeeds when the log of the run has its result line and the stack has no run in progress.
-run_finished() {
-	[ -z "$(stack_field "$1" active_run)" ] && qd stack log "$2" | grep -q ' result '
-}
-
 has_failed_commit_finding() {
 	stack_field demo-cache findings | grep -q failed-commit
-}
-
-# restart_service restarts the deploy service, which makes the engine poll at once.
-restart_service() {
-	docker exec "$host" systemctl restart qhost-deploy || fail 'cannot restart the deploy service'
-	wait_for 'the deploy service channel' 20 docker exec "$host" sh -c 'ls /run/qhost-deploy | grep -q sock'
-	wait_for 'the deploy service to answer' 20 qd status
-}
-
-# status_field prints one top-level field of qhost status.
-status_field() {
-	qd --output json status | sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p"
-}
-
-# poll_done succeeds when the service has polled since it started.
-poll_done() {
-	started=$(status_field started_at) polled=$(status_field last_poll)
-	[ -n "$started" ] && [ -n "$polled" ] && [ "$(printf '%s\n%s\n' "$polled" "$started" | sort | head -n 1)" = "$started" ]
-}
-
-# stack_healthy succeeds when the stack runs and every container with a healthcheck is healthy.
-stack_healthy() {
-	[ -n "$(docker exec "$host" docker ps -q --filter "label=com.docker.compose.project=$1" --filter health=healthy)" ] &&
-		[ -z "$(docker exec "$host" docker ps -q --filter "label=com.docker.compose.project=$1" --filter health=unhealthy --filter health=starting)" ]
-}
-
-# log_steps prints the run's own steps of a run log in order, joined by commas; the sub-steps of the backup
-# and the restore are left out.
-log_steps() {
-	printf '%s\n' "$1" | sed -n 's/^[^ ]* step //p' |
-		grep -x -e stop -e backup -e pull -e up -e check -e rollback -e restore -e revert -e push -e fast-forward |
-		tr '\n' ',' | sed 's/,$//'
 }
 
 rolled_back_steps=stop,backup,pull,up,check,rollback,stop,restore,revert,push,fast-forward,up,check
@@ -1598,79 +1313,11 @@ rolled_back_plain_steps=backup,pull,up,check,rollback,stop,restore,revert,push,f
 # The rollback-failed run is one of demo-cache, which has no backup rules either.
 rollback_failed_steps=backup,pull,up,check,rollback,stop,restore,revert,push,stop
 
-# newest_run prints the id of the newest recorded run of a stack (empty when there is none).
-newest_run() {
-	# The error column can name another run, so only the first id of the newest line counts.
-	qd stack runs "$1" | grep -m 1 -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}' | head -n 1
-}
-
-# next_run waits for a run of the stack other than the run id $2, active or already finished, and prints its
-# id. Recorded runs are listed only once they have ended, so an active run is read from the status.
-next_run() {
-	i=0
-	while :; do
-		id=$(stack_field "$1" active_run)
-		[ -n "$id" ] || id=$(newest_run "$1")
-		if [ -n "$id" ] && [ "$id" != "$2" ]; then
-			printf '%s' "$id"
-			return 0
-		fi
-		i=$((i + 1))
-		[ "$i" -lt 400 ] || return 1
-		sleep 0.3
-	done
-}
-
-# admin_commit changes a file of the admin clone with a sed expression and pushes it as a new commit.
-admin_commit() {
-	as_admin "cd ~/stacks && git pull -q --ff-only && sed -i '$2' $1 &&
-		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -am '$3' && git push -q origin main"
-}
-
-# stack_images prints the images of the running containers of a Compose project on the host.
-stack_images() {
-	docker exec "$host" docker ps --filter "label=com.docker.compose.project=$1" --format '{{.Image}}'
-}
-
-# qd_in runs qd with standard input from the first argument.
-qd_in() {
-	input=$1
-	shift
-	printf '%s' "$input" | docker exec -i "$host" qhost "$@" 2>&1
-}
-
-# hook_seen succeeds when the webhook receiver recorded a signed request to the path $1 with the event $2 and,
-# if given, the stack $3 in its body.
-hook_seen() {
-	stack_pattern='"body"'
-	[ -z "${3:-}" ] || stack_pattern="\\\"stack\\\":\\\"$3\\\""
-	docker exec "$prefix-hooks" cat /data/requests.jsonl 2>/dev/null | grep -F "\"path\":\"$1\"" |
-		grep -F "\"X-Qhost-Event\":\"$2\"" | grep -F '"X-Qhost-Signature":"' | grep -qF -- "$stack_pattern"
-}
-
-# hook_has succeeds when the webhook receiver recorded a signed request to the path $1 for the event $2 whose
-# body contains every further fixed string.
-hook_has() {
-	lines=$(docker exec "$prefix-hooks" cat /data/requests.jsonl 2>/dev/null | grep -F "\"path\":\"$1\"" |
-		grep -F "\"X-Qhost-Event\":\"$2\"" | grep -F '"X-Qhost-Signature":"') || return 1
-	shift 2
-	for part in "$@"; do
-		lines=$(printf '%s\n' "$lines" | grep -F -- "$part") || return 1
-	done
-}
-
-# journal prints the log of the deploy service.
-journal() {
-	docker exec "$host" journalctl -u qhost-deploy --no-pager -o cat
-}
-
 # mail_seen succeeds when the mail server recorded a message containing the fixed string $1.
 mail_seen() {
 	docker exec "$prefix-mail" cat /data/messages.jsonl 2>/dev/null | grep -F -- "$1" >/dev/null
 }
 
-hook_url=https://hooks.$domain/notify
-hook_signing_value=demo-signing-value-e2e
 slack_url_value=https://hooks.$domain/slack/T000/B000/demo-slack-path-e2e
 bot_credential=123456:demo-bot-credential-e2e
 mail_login_value=demo-mail-login-e2e
@@ -1941,38 +1588,9 @@ $(qd stack log "$id")"
 	log 'scenario: all four channel types delivered a test message and no secret part showed anywhere'
 }
 
-# fixture_run runs a script as root in a throwaway container of the backup helper image on the host, with the
-# data source (a host directory or a volume name) mounted at /data.
-fixture_run() {
-	docker exec -i "$host" docker run --rm --network none -v "$1:/data" "$backup_image" sh -ec "$2"
-}
-
 # fixture_write fills /data with entries of mixed numeric owners and modes.
 fixture_write() {
 	fixture_run "$1" "$(fixture_write_script)"
-}
-
-# fixture_write_script is the script that fills /data of a helper container.
-fixture_write_script() {
-	printf '%s' '
-		cd /data
-		mkdir -p sub/deep
-		printf "alpha\n" >a.txt && chown 1234:1234 a.txt && chmod 640 a.txt
-		printf "root only\n" >r.txt && chown 0:0 r.txt && chmod 600 r.txt
-		printf "nested\n" >sub/deep/n.bin && chown 4321:5678 sub/deep/n.bin && chmod 755 sub/deep/n.bin
-		chown 2000:2000 sub && chmod 750 sub
-		ln -s a.txt link'
-}
-
-# fixture_change_script alters, removes and adds entries in the current directory so the data differs from
-# fixture_write in content, owners and modes.
-fixture_change_script() {
-	printf '%s' '
-		rm -f a.txt
-		printf "changed\n" >r.txt && chown 99:99 r.txt && chmod 666 r.txt
-		chown 0:0 sub && chmod 777 sub
-		rm -rf sub/deep
-		printf "extra\n" >extra.txt'
 }
 
 fixture_change() {
@@ -1985,10 +1603,6 @@ fixture_snap() {
 		cd /data
 		find . -printf "%U:%G:%m:%y %p -> %l\n" | sort -k2
 		find . -type f -exec sha256sum {} + | sort -k2'
-}
-
-backup_ids() {
-	qd stack backup list "$1" | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'
 }
 
 stack_running() {
@@ -2075,33 +1689,6 @@ scenario_backup() {
 	printf '%s' "$out" | grep -q -- 'config-invalid' || fail "backup create does not refuse the invalid settings: $out"
 	if docker exec "$host" test -e /var/lib/qhost-deploy/backups/demo-badpath; then fail 'a refused backup left a store directory'; fi
 	log "scenario: backup create refused: $out"
-}
-
-# json_value prints the first string value of a key in compact JSON (empty when the key is absent or empty).
-json_value() {
-	printf '%s' "$1" | grep -o "\"$2\":\"[^\"]*\"" | head -n 1 | cut -d '"' -f 4
-}
-
-# updates_expect checks the single row of a 'qhost stack updates' JSON output: current, available, major_available
-# (empty for none) and status.
-updates_expect() {
-	out=$1
-	[ "$(json_value "$out" current)" = "$2" ] && [ "$(json_value "$out" available)" = "$3" ] &&
-		[ "$(json_value "$out" major_available)" = "$4" ] && [ "$(json_value "$out" status)" = "$5" ] ||
-		fail "unexpected updates, want current=$2 available=$3 major_available=$4 status=$5: $out"
-	case $out in *2.1.0-rc.1*) fail "a pre-release is offered: $out" ;; esac
-}
-
-# demo_stack_settings prints the settings of demo-stack: the backup section the repository starts with and,
-# if given, the update section $1, whose backslash escapes printf %b expands.
-demo_stack_settings() {
-	printf 'version: 1\n%bbackup:\n  paths:\n    - data\n  volumes:\n    - state\n  command: [/bin/echo, backup-command-output]\n  retention:\n    keep: 2\n' "${1:-}"
-}
-
-# settings_set replaces the settings of the stack $1 with the YAML $2 from standard input and keeps the JSON
-# answer in settings_out. The service commits and pushes them and moves its working copy; no run starts.
-settings_set() {
-	settings_out=$(qd_in "$2" --output json stack settings set "$1" --file -) || fail "settings set of $1 failed: $settings_out"
 }
 
 # scenario_updates shows the update detection against the registry: the stored result, the ceiling of the stack,
@@ -2275,11 +1862,6 @@ scenario_rollback() {
 	log "scenario: resumed; fixing commit $fix deployed"
 }
 
-# json_values prints every string value of a key in JSON output, one per line.
-json_values() {
-	printf '%s' "$1" | grep -o "\"$2\": *\"[^\"]*\"" | cut -d '"' -f 4
-}
-
 # update_reset sets the major strategy $2 of demo-stack, commits the version $1 and waits for its run.
 update_reset() {
 	settings_set demo-stack "$(demo_stack_settings "update:\\n  major: $2\\n")"
@@ -2290,30 +1872,6 @@ update_reset() {
 	wait_for "the run $run" 240 run_finished demo-stack "$run"
 	qd stack log "$run" | grep -q ' result succeeded' || fail "the run for the reset to $1 did not succeed: $(qd stack log "$run")"
 	[ "$(stack_images demo-stack)" = "registry.$domain/demo/app:$1" ] || fail "demo-stack does not run $1: $(stack_images demo-stack)"
-}
-
-# update_commit_only_version requires that a commit of the stacks repo changes one line of demo-stack/.env, the
-# image variable, from one version to another.
-update_commit_only_version() {
-	files=$(as_admin "cd ~/stacks && git show --format= --numstat $1")
-	[ "$files" = "$(printf '1\t1\tdemo-stack/.env')" ] || fail "the commit $1 touches more than one line of demo-stack/.env: $files"
-	diff_lines=$(as_admin "cd ~/stacks && git show --format= -U0 $1 | grep '^[-+]' | grep -v '^\(---\|+++\)'")
-	[ "$diff_lines" = "$(printf -- '-DEMO_APP_VERSION=%s\n+DEMO_APP_VERSION=%s' "$2" "$3")" ] ||
-		fail "the commit $1 does not only move DEMO_APP_VERSION from $2 to $3: $diff_lines"
-	[ "$(as_admin "cd ~/stacks && git log -1 --format=%s $1")" = "Update demo-stack DEMO_APP_VERSION from $2 to $3" ] ||
-		fail "the commit $1 has an unexpected subject: $(as_admin "cd ~/stacks && git log -1 --format=%s $1")"
-}
-
-# update_run_backup prints the backup a run log names.
-update_run_backup() {
-	printf '%s\n' "$1" | sed -n 's/^[^ ]* info backup \([0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}\)$/\1/p' | head -n 1
-}
-
-# update_steps prints the steps of an update run in order, joined by commas.
-update_steps() {
-	printf '%s\n' "$1" | sed -n 's/^[^ ]* step //p' |
-		grep -x -e stop -e backup -e commit -e push -e pull -e up -e check -e rollback -e restore -e revert -e fast-forward |
-		tr '\n' ',' | sed 's/,$//'
 }
 
 # scenario_update takes version steps with 'qhost stack update' against the real git server and registry: a direct
@@ -3862,11 +3420,6 @@ local_git() {
 	docker exec -u "$admin" "$host" git -C /srv/qd-local "$@" 2>&1
 }
 
-# list_has_path succeeds when source list names the folder $1.
-list_has_path() {
-	qd --output json source list | jq -e --arg p "$1" '[.sources[].path] | index($p) != null' >/dev/null
-}
-
 # live_containers prints the id and the start time of every container of demo-live.
 live_containers() {
 	docker exec "$host" sh -c "docker ps -q --filter label=com.docker.compose.project=demo-live | sort | xargs -r docker inspect -f '{{.Id}} {{.State.StartedAt}}'"
@@ -4257,11 +3810,6 @@ files_state() {
 		find . -path ./.git -prune -o -path ./.gitignore -prune -o -printf '%p %y %u %s\n' | sort"
 }
 
-# files_git runs git on /srv/qd-files/web as root; the folder is marked safe because the service owns .git; stderr is merged.
-files_git() {
-	docker exec "$host" git -c safe.directory=/srv/qd-files/web -C /srv/qd-files/web "$@" 2>&1
-}
-
 # scenario_source_files proves source add on a folder of files without a repository below /srv/qd-files, which no
 # stack folder uses: the answer lists the files, what is left out and the lines for .gitignore, nothing changes without
 # the confirmation, the confirmed add starts a repository with one commit of only the files the stack refers to and the
@@ -4539,26 +4087,6 @@ EOF2
 	out=$(qd --output json source remove "$base" --yes) || fail "source remove of the folder with two stacks failed: $out"
 	docker exec "$host" docker compose -p qd-multi-ok down >/dev/null 2>&1 || fail 'cannot remove the containers of qd-multi-ok'
 	log 'scenario: a stack whose .env the service cannot read brought no file into the first commit'
-}
-
-# register_folder_key creates the deploy key of the folder $1 and enters its public part at the git server.
-register_folder_key() {
-	out=$(qd --output json key generate --dir "$1") || fail "key generate --dir $1 failed: $out"
-	pub=$(printf '%s\n' "$out" | sed -n 's/.*"public_key": *"\([^"]*\)".*/\1/p')
-	case $pub in ssh-ed25519\ *) ;; *) fail "no public key in: $out" ;; esac
-	printf '%s\n' "$pub" | docker exec -i "$prefix-git" sh -c 'cat >>/srv/git/.ssh/authorized_keys'
-}
-
-# remote_head prints the commit of refs/heads/main at the git server for the repository address $1 (empty without).
-remote_head() {
-	as_admin "git ls-remote $1 refs/heads/main" | cut -f 1
-}
-
-# folder_git runs git on the folder $1 as root, marked safe because the service owns .git; stderr is merged.
-folder_git() {
-	dir=$1
-	shift
-	docker exec "$host" git -c "safe.directory=$dir" -C "$dir" "$@" 2>&1
 }
 
 # tree_sums prints the checksum of every file of the folder $1 outside .git.
@@ -5176,11 +4704,6 @@ scenario_tui_remote() {
 	log 'scenario: the interface pushed a local folder to an empty remote and left a differing remote alone without the confirmation'
 }
 
-# key_pub_field prints the public part (type and key, without comment) of the qhost key output $1.
-key_pub_field() {
-	printf '%s\n' "$1" | sed -n 's/.*"public_key": *"\([^"]*\)".*/\1/p' | cut -d ' ' -f 1,2
-}
-
 # key_fp_field prints the fingerprint of the qhost key output $1.
 key_fp_field() {
 	printf '%s\n' "$1" | sed -n 's/.*"fingerprint": *"\([^"]*\)".*/\1/p'
@@ -5410,16 +4933,6 @@ scenario_container_actions() {
 	[ "$missing_rc" -ne 0 ] || fail "container stop of a missing container succeeded: $missing_out"
 	printf '%s' "$missing_out" | grep -q 'no such container' || fail "the refusal of a missing container is unclear: $missing_out"
 	log 'scenario: container stop, start and restart acted on a single container'
-}
-
-# field_is succeeds when a flat field of a stack in qhost status has the given value.
-field_is() {
-	[ "$(stack_field "$1" "$2")" = "$3" ]
-}
-
-# running_containers prints how many containers of the stack run.
-running_containers() {
-	docker exec "$host" docker ps -q --filter "label=com.docker.compose.project=$1" | wc -l
 }
 
 # scenario_stack_actions proves that a stop through qhost keeps demo-cache stopped against a new commit and
@@ -6499,16 +6012,6 @@ EOF2
 	wait_for 'the deploy service to answer' 30 qd status
 }
 
-# has_finding succeeds when the stack shows the finding $2 in qhost status.
-has_finding() {
-	stack_field "$1" findings | grep -q "$2"
-}
-
-# no_finding succeeds when the stack does not show the finding $2.
-no_finding() {
-	! has_finding "$1" "$2"
-}
-
 # stack_removed succeeds when qhost status marks the stack as removed from the repository.
 stack_removed() {
 	qd --output json status | jq -e --arg k "stack.$1.removed" '.[$k] == true' >/dev/null
@@ -6916,30 +6419,9 @@ selfupdate_field() {
 	as_admin "qhost --output json update status 2>&1" | sed -n "s/.*\"$1\": *\"\{0,1\}\([^\",}]*\).*/\1/p"
 }
 
-# service_pid prints the main process ID of the unit $1; without an argument that of the deploy service.
-service_pid() {
-	docker exec "$host" systemctl show -p MainPID --value "${1:-qhost-deploy}"
-}
-
 # service_entered prints when the unit $1 (the deploy service without an argument) last became active.
 service_entered() {
 	docker exec "$host" systemctl show -p ActiveEnterTimestampMonotonic --value "${1:-qhost-deploy}"
-}
-
-# installed_sum identifies the installed program and the units systemd uses, with their drop-ins.
-installed_sum() {
-	docker exec "$host" sh -c 'sha256sum /usr/local/bin/qhost; systemctl cat qhost 2>&1 | sha256sum; systemctl cat qhost-deploy 2>&1 | sha256sum'
-}
-
-# host_serving succeeds when the host service is active and answers root.
-host_serving() {
-	[ "$(docker exec "$host" systemctl is-active qhost)" = active ] &&
-		docker exec "$host" qhost --output json status 2>&1 </dev/null | grep -q '"host_service": *"running"'
-}
-
-# service_serving succeeds when both services are active and the deploy service answers.
-service_serving() {
-	host_serving && [ "$(docker exec "$host" systemctl is-active qhost-deploy)" = active ] && qd status >/dev/null
 }
 
 # unit_is_release succeeds when the installed unit $1 equals the one in the archive of the release $2.
@@ -7267,37 +6749,9 @@ refuse_update() {
 	log "scenario: tampered release $1 refused, installation unchanged: $out"
 }
 
-# window_field prints one field of the line of qhost window show for the engine $2 (default system); empty when
-# the field is absent.
-window_field() {
-	qd --output json window show | jq -r --arg f "$1" --arg e "${2:-system}" '.[] | select(.engine == $e) | if .[$f] == null then empty else .[$f] end'
-}
-
-# window_open succeeds while the window of the system engine is open.
-window_open() {
-	[ "$(window_field open)" = true ]
-}
-
-# window_far_away opens the window daily at the time twelve hours from now, for one minute, and prints the answer.
-window_far_away() {
-	qd --output json window set --days daily --zone UTC --start "$(date -u -d '+12 hours' +%H:%M)" --duration 1m
-}
-
 # window_log prints what the service logged about the window and the stacks since it started.
 window_log() {
 	docker exec "$host" journalctl -u qhost-deploy --no-pager -o cat
-}
-
-# stack_run_count prints the number of recorded runs of a stack.
-stack_run_count() {
-	qd stack runs "$1" | grep -c '[0-9]\{8\}T[0-9]\{6\}Z-' || true
-}
-
-# window_done succeeds when the service has begun the work of an opening since last_run read $window_last_before
-# and has finished it. The default window may already have run once when the service started.
-window_done() {
-	last=$(window_field last_run)
-	[ -n "$last" ] && [ "$last" != "$window_last_before" ] && [ -z "$(window_field running)" ]
 }
 
 # scenario_window proves the maintenance window with the real service and a real, short window. demo-stack is in
@@ -7449,138 +6903,6 @@ scenario_window() {
 	[ "$(stack_images demo-stack)" = "$image:1.1.0" ] || fail "demo-stack does not run 1.1.0: $(stack_images demo-stack)"
 }
 
-# interval_updated succeeds once demo-stack runs the version $1 and has no run in progress.
-interval_updated() {
-	[ "$(stack_images demo-stack)" = "registry.$domain/demo/app:$1" ] && [ -z "$(stack_field demo-stack active_run)" ]
-}
-
-# The terminal interface is driven in a tmux pane of the administrator, 120 columns by 40 rows. The command
-# keeps the pane after qhost ends, so the exit code can be read from the screen.
-# The icons of the tab line in the default setting (unicode), which the pane's UTF-8 locale draws; an icon
-# stands between the digit and the name.
-tui_icon_stacks='▤'
-tui_icon_detail='▣'
-tui_icon_runs='▶'
-tui_icon_settings='⚙'
-tui_icon_containers='▦'
-
-tui_tmux() {
-	docker exec -u "$admin" "$host" tmux -L qdtui "$@"
-}
-
-# tui_screen prints the screen and appends it to the capture log, which the first-setup section searches for
-# masked values at its end.
-tui_screen() {
-	tui_tmux capture-pane -p -t qdtui | tee -a "${tui_log:-/dev/null}" 2>/dev/null
-}
-
-# tui_send sends Escape as its CSI u sequence: a lone ESC byte waits for a following key and merges with it into
-# Alt+key, which the interface ignores, while the full sequence reads as Escape at once.
-tui_send() {
-	tui_send_esc=
-	case "${1-}" in -*) ;; *)
-		for tui_send_key in "$@"; do
-			[ "$tui_send_key" != Escape ] || tui_send_esc=1
-		done
-	esac
-	if [ -z "$tui_send_esc" ]; then
-		tui_tmux send-keys -t qdtui "$@"
-		return
-	fi
-	for tui_send_key in "$@"; do
-		if [ "$tui_send_key" = Escape ]; then
-			tui_tmux send-keys -t qdtui -l "$(printf '\033[27u')"
-		else
-			tui_tmux send-keys -t qdtui "$tui_send_key"
-		fi
-	done
-}
-
-tui_has() {
-	tui_screen | grep -qF -- "$1"
-}
-
-# tui_keep_engine waits up to $1 seconds for the choice of the engine, which follows the inspection of a folder
-# while more than one deploy service is set up, checks that system is preselected and keeps it.
-tui_keep_engine() {
-	i=0
-	until tui_screen | grep -qE 'whose deploy service runs the stacks|preselected is the engine where containers'; do
-		i=$((i + 1))
-		if [ "$i" -ge $(($1 * 4)) ]; then
-			printf '%s\n' "$(tui_screen)" >&2
-			fail 'timeout waiting for the choice of the engine on the screen of the terminal interface'
-		fi
-		sleep 0.25
-	done
-	tui_screen | grep -qE '> Engine +│ system' || fail "the choice of the engine does not preselect system: $(tui_screen)"
-	tui_send F2
-}
-
-# tui_wait waits up to $2 seconds for the text $1 on the screen and shows the screen when it does not appear.
-tui_wait() {
-	i=0
-	until tui_has "$1"; do
-		i=$((i + 1))
-		if [ "$i" -ge $(($2 * 4)) ]; then
-			printf '%s\n' "$(tui_screen)" >&2
-			fail "timeout waiting for '$1' on the screen of the terminal interface"
-		fi
-		sleep 0.25
-	done
-}
-
-# tui_walk_down presses Down until the command $2..., which reads the screen on its input, succeeds; $1 names the
-# target in the failure. The cursor rows count with their screen lines, so rows of the same text stay apart. After
-# each key it waits up to two seconds for them to change, as a pending redraw cannot be told from the end of the list
-# otherwise. The end of the list ends the walk with a failure, and so do cursor rows seen twice: a list that wraps.
-tui_walk_down() {
-	tw_target=$1
-	shift
-	tw_sep=$(printf '\037')
-	tw_seen=$tw_sep
-	tw_screen=$(tui_screen)
-	while ! printf '%s\n' "$tw_screen" | "$@"; do
-		tw_cursor=$(printf '%s\n' "$tw_screen" | grep -nE '^(│ |║ )?> ')
-		tui_send Down
-		tw_n=0
-		while :; do
-			sleep 0.1
-			tw_screen=$(tui_screen)
-			tw_now=$(printf '%s\n' "$tw_screen" | grep -nE '^(│ |║ )?> ')
-			[ "$tw_now" != "$tw_cursor" ] && break
-			tw_n=$((tw_n + 1))
-			[ "$tw_n" -lt 20 ] || fail "the cursor does not reach $tw_target, it stops at '${tw_cursor:-no cursor row}': $tw_screen"
-		done
-		case $tw_seen in
-		*"$tw_sep$tw_now$tw_sep"*) fail "the cursor does not reach $tw_target, the list wraps around at '$tw_now': $tw_screen" ;;
-		esac
-		tw_seen=$tw_seen$tw_now$tw_sep
-	done
-}
-
-# tui_cursor_to moves the cursor of the Stacks list to the stack $1. The list draws no cursor without the focus, so
-# the focus must be in the list.
-tui_cursor_to() {
-	tui_walk_down "$1" grep -Eq "^(│ |║ )?> .*\[.\] $1 "
-}
-
-# tui_folder_to moves the cursor of the Stacks list to the group row of the stack folder $1. The mark before the path
-# is a symbol in a terminal.
-tui_folder_to() {
-	tui_send Home
-	tui_walk_down "the folder $1" grep -Eq "^(│ |║ )?> .*\[.\] [^ ]* $1 \("
-}
-
-# tui_click presses and releases the left mouse button at the first cell of the text $1 on the screen, as a
-# terminal reports it (SGR, 1-based), and fails when the text is not on the screen. awk counts bytes, so the
-# continuation bytes of the icons before the text are taken off; an icon is one cell wide.
-tui_click() {
-	cell=$(tui_screen | awk -v t="$1" 'i = index($0, t) { p = substr($0, 1, i - 1); gsub(/[\200-\277]/, "", p); print length(p) + 1, NR; exit }')
-	[ -n "$cell" ] || fail "cannot click '$1', it is not on the screen: $(tui_screen)"
-	set -- $cell
-	tui_send -l "$(printf '\033[<0;%d;%dM\033[<0;%d;%dm' "$1" "$2" "$1" "$2")"
-}
-
 # tui_wheel turns the mouse wheel $2 notches ($1 is up or down) at the cell $3 (column), $4 (row), 1-based, as
 # a terminal reports it (SGR, buttons 64 and 65).
 tui_wheel() {
@@ -7591,22 +6913,6 @@ tui_wheel() {
 		tui_send -l "$(printf '\033[<%d;%d;%dM' "$button" "$3" "$4")"
 		n=$((n + 1))
 	done
-}
-
-# tui_click_row clicks the stack $1 in the Stacks list and waits until the cursor marks it.
-tui_click_row() {
-	tui_click "$1"
-	i=0
-	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] $1 "; do
-		i=$((i + 1))
-		[ "$i" -lt 20 ] || fail "the click did not mark $1: $(tui_screen)"
-		sleep 0.25
-	done
-}
-
-# tui_excerpt logs the lines of the screen from the first one containing $1, at most $2 lines.
-tui_excerpt() {
-	tui_screen | sed -n "/$1/,\$p" | head -n "$2" | sed 's/ *$//; s/^/e2e:   | /'
 }
 
 # scenario_window_instances proves the host window and the own window of an instance: sudo qhost window set without
@@ -8162,21 +7468,6 @@ tui_commit_only_version() {
 		fail "the commit $1 has an unexpected subject: $(as_admin "cd ~/stacks && git log -1 --format=%s $1")"
 }
 
-health_is() {
-	[ "$(docker exec "$host" docker inspect -f '{{.State.Health.Status}}' "$1")" = "$2" ]
-}
-
-# tui_ct_cursor_on tells whether the cursor of the Containers list is on the container $1. With engine sections
-# the row sits inside the frame of its section, so it starts with that frame.
-tui_ct_cursor_on() {
-	tui_screen | grep -Eq "^(│ |║ )?> .*$1 "
-}
-
-# tui_ct_cursor_to moves the cursor of the Containers list to the container $1.
-tui_ct_cursor_to() {
-	tui_walk_down "$1" grep -Eq "^(│ |║ )?> *$1 "
-}
-
 # scenario_adopt proves that the interface takes over a foreign Compose project: a person starts the project app
 # below /srv/qd-foreign with docker compose so that qhost would pass the same project name (Compose derives app
 # from the folder) and the same files (compose.yaml and .env, both directly in the folder, which Compose records
@@ -8290,25 +7581,6 @@ prop_submit() {
 	printf '%s' "$out" | sed -n 's/.*"id": *"\(p-[0-9a-f]*\)".*/\1/p' | head -n 1
 }
 
-# prop_state prints the state of the proposal $1 as the administrator without sudo reads it.
-prop_state() {
-	as_admin "qhost --output json proposal show $1" | sed -n 's/.*"state": *"\([a-z]*\)".*/\1/p' | head -n 1
-}
-
-# prop_is succeeds when the proposal $1 is in the state $2.
-prop_is() {
-	[ "$(prop_state "$1")" = "$2" ]
-}
-
-# prop_tui starts the interface under sudo in a fresh tmux session and waits for the notice of the open proposals.
-prop_tui() {
-	tui_tmux kill-server >/dev/null 2>&1 || true
-	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
-		fail 'cannot start tmux for the interface'
-	tui_wait "1 $tui_icon_stacks Stacks" 30
-	tui_wait '1 open proposal waits for you' 30
-}
-
 # scenario_tui_proposals proves approving a proposal in the interface. An administrator without sudo proposes to
 # add a missing folder as a clone; under sudo the interface lists it with its effect, and approving it runs the
 # way of adding a folder by hand: the host key is confirmed, the folder is cloned and bound, and the proposal
@@ -8395,14 +7667,6 @@ scenario_tui_proposals() {
 	docker exec "$prefix-git" rm -rf /srv/git/stacks7.git
 	wait_for 'the qhost service to answer' 30 qd status
 	log "scenario: proposal $id1 was approved in the interface and applied; proposal $id2 was refused after its folder changed"
-}
-
-# prop_submit_kind submits the JSON $2 as a proposal of the kind $1 as the administrator without sudo and prints its
-# id.
-prop_submit_kind() {
-	out=$(printf '%s' "$2" | as_admin "qhost --output json proposal submit --kind $1" 2>&1) ||
-		fail "qhost proposal submit --kind $1 without sudo failed: $out"
-	printf '%s' "$out" | sed -n 's/.*"id": *"\(p-[0-9a-f]*\)".*/\1/p' | head -n 1
 }
 
 # scenario_tui_proposal_kinds proves approving the proposals of the kinds stack-settings, window and notify-channel
@@ -8544,16 +7808,10 @@ scenario_tui_proposal_kinds() {
 # --- First setup of a fresh service through the terminal interface only ---
 
 tui_login_user=alice-e2e
-tui_registry_host=quay.other.example.test
 tui_login_value=tui-registry-login-e2e
 tui_hook_url_value=https://hooks.$domain/tui-hook-e2e-path
 tui_hook_signing_value=tui-signing-value-e2e
 tui_stack_value=tuivalue-e2e-0451
-
-# tui_type types text into the interface.
-tui_type() {
-	tui_tmux send-keys -t qdtui -l -- "$1"
-}
 
 # tui_wait_noecho waits up to $1 seconds until the terminal of the interface no longer echoes, as sudo turns the echo
 # off for its password prompt; text typed before would show on the screen.
@@ -8565,39 +7823,6 @@ tui_wait_noecho() {
 		[ "$i" -lt $(($1 * 4)) ] || fail "the terminal of the interface still echoes after $1 seconds: $(tui_screen)"
 		sleep 0.25
 	done
-}
-
-# tui_clear empties the text field that has the focus.
-tui_clear() {
-	tui_send BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace
-	tui_send BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace
-}
-
-# tui_subtab opens the sub-tab of the Settings area that is named $1, whatever page was open, and leads the focus
-# into its content. The digit shows the area with the focus in the content, so the sub-tab line is not focused and
-# draws no mark before its first tab; the third line of the screen is that line (header, tab line, sub-tab line).
-# The name is clicked, as the page stands where only spaces precede it.
-tui_subtab() {
-	tui_send 4
-	sleep 0.4
-	cell=$(tui_screen | awk -v t="$1" 'NR == 3 && (i = index($0, t)) { print i, NR; exit }')
-	[ -n "$cell" ] || fail "cannot click the sub-tab '$1', it is not on the sub-tab line: $(tui_screen)"
-	set -- $cell
-	tui_send -l "$(printf '\033[<0;%d;%dM\033[<0;%d;%dm' "$1" "$2" "$1" "$2")"
-	sleep 0.4
-	tui_send Down
-	sleep 0.3
-}
-
-# tui_key_generate runs the form of the deploy key view and chooses to generate; the result dialog is closed.
-tui_key_generate() {
-	tui_send e
-	tui_wait 'store an existing key' 10
-	tui_send Right
-	sleep 0.3
-	tui_send F2
-	tui_wait 'The deploy key is generated' 30
-	tui_send Enter
 }
 
 # tui_pick_to moves the cursor of an open choice to the row that starts with the text $1.

@@ -611,6 +611,13 @@ check() {
 	exit "$rc"
 }
 
+# source_lib loads the shared helpers of the scenarios from e2e/lib/.
+source_lib() {
+	for lib in core host stack source tui; do
+		. "$here/lib/$lib.sh"
+	done
+}
+
 main() {
 	cmd=${1:-}
 	[ $# -eq 0 ] || shift
@@ -641,12 +648,13 @@ main() {
 		;;
 	scenario)
 		require_up
+		source_lib
 		. "$here/scenario.sh"
 		run_scenario
 		;;
 	acceptance)
 		require_up
-		. "$here/scenario.sh"
+		source_lib
 		. "$here/acceptance.sh"
 		prepare_real_images
 		run_acceptance
