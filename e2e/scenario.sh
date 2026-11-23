@@ -5511,7 +5511,7 @@ scenario_tui_sudo() {
 	tui_wait "$sa_single" 15
 	tui_send Home
 	i=0
-	until tui_screen | grep -q "^> .*$sa_single "; do
+	until tui_ct_cursor_on "$sa_single"; do
 		i=$((i + 1))
 		[ "$i" -lt 40 ] || fail "the cursor of the Containers area does not reach $sa_single: $(tui_screen)"
 		tui_send Down
@@ -7704,7 +7704,7 @@ scenario_tui() {
 	tui_wait 'own stack demo-stack' 15
 	tui_send Home
 	i=0
-	until tui_screen | grep -q "^> .*$ctname "; do
+	until tui_ct_cursor_on "$ctname"; do
 		i=$((i + 1))
 		[ "$i" -lt 30 ] || fail "the cursor of the Containers area does not reach $ctname: $(tui_screen)"
 		tui_send Down
@@ -7770,7 +7770,7 @@ scenario_tui() {
 	ct_action() {
 		tui_send Home
 		i=0
-		until tui_screen | grep -q "^> .*$foreign "; do
+		until tui_ct_cursor_on "$foreign"; do
 			i=$((i + 1))
 			[ "$i" -lt 40 ] || fail "the cursor of the Containers area does not reach $foreign: $(tui_screen)"
 			tui_send Down
@@ -7942,10 +7942,16 @@ health_is() {
 	[ "$(docker exec "$host" docker inspect -f '{{.State.Health.Status}}' "$1")" = "$2" ]
 }
 
+# tui_ct_cursor_on tells whether the cursor of the Containers list is on the container $1. With engine sections
+# the row sits inside the frame of its section, so it starts with that frame.
+tui_ct_cursor_on() {
+	tui_screen | grep -Eq "^(│ |║ )?> .*$1 "
+}
+
 # tui_ct_cursor_to moves the cursor of the Containers list to the container $1.
 tui_ct_cursor_to() {
 	i=0
-	until tui_screen | grep -q "^> *$1 "; do
+	until tui_screen | grep -Eq "^(│ |║ )?> *$1 "; do
 		i=$((i + 1))
 		[ "$i" -lt 40 ] || fail "the cursor does not reach $1: $(tui_screen)"
 		tui_send Down
