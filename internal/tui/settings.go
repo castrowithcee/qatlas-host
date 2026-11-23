@@ -22,6 +22,7 @@ const (
 	pageCreds   settingsPage = "credentials"
 	pageWindow  settingsPage = "window"
 	pageNotify  settingsPage = "notifications"
+	pageHooks   settingsPage = "webhooks"
 )
 
 type settingsEntry struct {
@@ -35,6 +36,7 @@ var settingsPages = []settingsEntry{
 	{pageCreds, textPageCreds},
 	{pageWindow, textPageWindow},
 	{pageNotify, textPageNotify},
+	{pageHooks, textPageHooks},
 }
 
 // settingsTabs are the sub-tabs of the Settings area.
@@ -82,6 +84,10 @@ type settingsState struct {
 	notifyList *kittui.List
 	notifyData map[kittui.ItemID]control.NotifyChannelInfo
 	notifyRead []control.NotifyChannelInfo
+
+	// hooks is the read of the webhook receiver, hookInfo what it answered.
+	hooks    part
+	hookInfo HookServiceInfo
 }
 
 // settingsLoadMsg carries the answer of a read of one page.
@@ -127,6 +133,7 @@ const (
 	opDeploySetup
 	opProposalReject
 	opProposalApply
+	opHookSetup
 )
 
 // settingMsg carries the answer of a write. A write answers with the name it concerned, never with a value.
@@ -258,6 +265,8 @@ func (m *Model) loadPage(force bool) tea.Cmd {
 		return read(&s.window, func() (any, error) { return readWindows(m.ctx, b, engines), nil })
 	case pageNotify:
 		return read(&s.notify, func() (any, error) { return b.Notifications(ctx) })
+	case pageHooks:
+		return read(&s.hooks, func() (any, error) { return b.HookService(m.ctx) })
 	}
 	return nil
 }
@@ -271,6 +280,8 @@ func (s *settingsState) pagePart(p settingsPage) *part {
 		return &s.window
 	case pageNotify:
 		return &s.notify
+	case pageHooks:
+		return &s.hooks
 	}
 	return nil
 }
@@ -303,6 +314,10 @@ func (m *Model) applySettingsLoad(msg settingsLoadMsg) {
 	case control.NotifyListResult:
 		if msg.err == nil {
 			m.setChannels(res.Channels)
+		}
+	case HookServiceInfo:
+		if msg.err == nil {
+			s.hookInfo = res
 		}
 	}
 }
@@ -383,6 +398,9 @@ func (m *Model) settingsAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 	}
 	if chooses(s.page) && (id == actAdd || id == actRemove || id == actTest) && m.needInstance() {
 		return nil, true
+	}
+	if s.page == pageHooks {
+		return m.hookAction(id)
 	}
 	switch {
 	case id == actAdd && s.page == pageCreds:
@@ -553,6 +571,10 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		cmds = append(cmds, m.loadPage(true))
 	case control.NotifyTestResult:
 		done(t.Lookup(textDoneTested, res.Name))
+	case HookSetupResult:
+		done(t.Lookup(textDoneHook, kittui.Escape(res.Listen)))
+		s.hooks = part{}
+		cmds = append(cmds, m.loadPage(true))
 	case control.SecretResult:
 		text := t.Lookup(textDoneSecretSet, res.Key, res.Stack)
 		switch {
@@ -788,6 +810,8 @@ func (m *Model) settingsFooter(common, nav []kittui.Hint) []kittui.Hint {
 		own = append(own, m.instanceHints()...)
 		own = append(own, kittui.Hint{Action: actAdd, Label: textKeyAdd, Priority: 3}, kittui.Hint{Action: actTest, Label: textKeyTest, Priority: 3},
 			kittui.Hint{Action: actRemove, Label: textKeyRemove, Priority: 3})
+	case pageHooks:
+		own = append(own, m.hookHints()...)
 	}
 	hints := append(own, back)
 	if s.activeList() != nil {
@@ -836,6 +860,8 @@ func (m *Model) pageLines(width, height int) []string {
 	switch m.set.page {
 	case pageWindow:
 		return m.windowLines(width, height)
+	case pageHooks:
+		return m.hookLines(width)
 	}
 	return nil
 }

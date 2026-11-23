@@ -12,6 +12,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/diagnose"
 	"github.com/castrowithcee/qatlas-host/internal/tui"
 	"github.com/castrowithcee/qatlas-host/internal/window"
@@ -541,6 +542,35 @@ func (b *engineBackend) HostWindowSet(_ context.Context, args control.WindowSetA
 		res.NextOpening = next.Start
 	}
 	return res, nil
+}
+
+// HookService reads the webhook receiver as 'qhost status' does: systemd for the state, the configuration for the
+// address and the number of hooks.
+func (b *engineBackend) HookService(ctx context.Context) (tui.HookServiceInfo, error) {
+	root := deploySetup.host.Root
+	if !deploysetup.HookInstalled(root) {
+		return tui.HookServiceInfo{}, nil
+	}
+	info := tui.HookServiceInfo{SetUp: true, Running: hookActive(ctx)}
+	cfg, err := deploysetup.HookConfig(root)
+	if err != nil {
+		info.Problem = err.Error()
+		return info, nil
+	}
+	info.Listen, info.Hooks = cfg.Listen, len(cfg.Hooks)
+	return info, nil
+}
+
+// HookServiceSetup does what 'sudo qhost hook-service setup' does after its confirmation; the interface asked already.
+func (b *engineBackend) HookServiceSetup(ctx context.Context, listen string) (tui.HookSetupResult, error) {
+	plan, err := deploySetup.host.PlanHook(ctx, listen)
+	if err != nil {
+		return tui.HookSetupResult{}, routeFailure(hookSetupFailure(err, false))
+	}
+	if err := plan.Apply(ctx); err != nil {
+		return tui.HookSetupResult{}, routeFailure(hookSetupFailure(err, true))
+	}
+	return tui.HookSetupResult{Listen: plan.Listen}, nil
 }
 
 func (b *engineBackend) Notifications(ctx context.Context) (control.NotifyListResult, error) {

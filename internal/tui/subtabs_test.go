@@ -28,12 +28,16 @@ func TestArrowsAloneLeadThroughTheLinesAndTheContent(t *testing.T) {
 	send(m, "down")
 	wantZone(t, m, kittui.ZoneSubtabs)
 	// The arrows walk the sub-tabs with wrap-around, and each page is shown at once.
-	for _, want := range []settingsPage{pageCreds, pageWindow, pageNotify, pageGeneral} {
+	for _, want := range []settingsPage{pageCreds, pageWindow, pageNotify, pageHooks, pageGeneral} {
 		send(m, "right")
 		if m.set.page != want {
 			t.Fatalf("page %q, want %q", m.set.page, want)
 		}
 		wantZone(t, m, kittui.ZoneSubtabs)
+	}
+	send(m, "left")
+	if m.set.page != pageHooks {
+		t.Fatalf("page %q after left", m.set.page)
 	}
 	send(m, "left")
 	if m.set.page != pageNotify {

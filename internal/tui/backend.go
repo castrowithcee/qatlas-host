@@ -113,6 +113,13 @@ type Backend interface {
 	NotifyRemove(ctx context.Context, name string) error
 	NotifyTest(ctx context.Context, name string) (control.NotifyTestResult, error)
 
+	// HookService reads the state of the webhook receiver from systemd and its configuration, which everybody
+	// may read; it reaches no deploy service and needs no root. It never carries a secret or a hash.
+	HookService(ctx context.Context) (HookServiceInfo, error)
+	// HookServiceSetup sets the receiver up, or moves it to listen; an empty listen keeps the stored address or
+	// takes the default. It needs root, so the interface calls it only as root and after a confirmation.
+	HookServiceSetup(ctx context.Context, listen string) (HookSetupResult, error)
+
 	// The stack-detail writes. The value of SecretSet travels only in this call.
 	SecretSet(ctx context.Context, stack, key, value string) (control.SecretResult, error)
 	SecretDelete(ctx context.Context, stack, key string) (control.SecretResult, error)
@@ -148,6 +155,21 @@ type Backend interface {
 	ProposalApprove(ctx context.Context, args control.ProposalApproveArgs) (control.ProposalInfo, error)
 	ProposalReject(ctx context.Context, args control.ProposalRejectArgs) (control.ProposalInfo, error)
 	ProposalResult(ctx context.Context, args control.ProposalResultArgs) (control.ProposalInfo, error)
+}
+
+// HookServiceInfo is the state of the webhook receiver. Without SetUp nothing else is known; Problem says why
+// the configuration of a receiver that is set up could not be read.
+type HookServiceInfo struct {
+	SetUp   bool
+	Running bool
+	Listen  string
+	Hooks   int
+	Problem string
+}
+
+// HookSetupResult is what a setup of the webhook receiver reports.
+type HookSetupResult struct {
+	Listen string
 }
 
 type engineKey struct{}

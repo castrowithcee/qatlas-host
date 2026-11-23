@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs  [4 ⚙ Settings]  5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+   General   Credentials   Maintenance window   Notifications  [Webhooks]                                               
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+╭─ Webhooks ────────────────────────────────────────────────────────────────────────────────────────────── not set up ─╮
+│ The webhook receiver is not set up. It lets a call of a secret address make qhost check a stack at once. A first     │
+│ setup listens only on this host, on 127.0.0.1:8480; the address can be chosen before.                                │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+a set up receiver  e address  esc back  r reload  1-7 area  q quit                                                      

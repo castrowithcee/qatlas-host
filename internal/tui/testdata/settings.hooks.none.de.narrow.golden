@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  1 2 3 [4 Einstellungen] 5 6 7                         
+  [Webhooks]                                            
+────────────────────────────────────────────────────────
+╭─ Webhooks ────────────────────── nicht eingerichtet ─╮
+│ Der Webhook-Empfänger ist nicht eingerichtet. Er     │
+│ lässt den Aufruf einer geheimen Adresse qhost sofort │
+│ einen Stack prüfen. Eine erste Einrichtung lauscht   │
+│ nur auf diesem Host, auf 127.0.0.1:8480. Die Adresse │
+│ kann vorher gewählt werden.                          │
+╰──────────────────────────────────────────────────────╯
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+a Empfänger einrichten  e Adresse  esc Zurück           
+r Neu laden  1-7 Bereich  q Beenden                     

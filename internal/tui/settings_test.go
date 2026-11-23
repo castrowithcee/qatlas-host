@@ -99,11 +99,11 @@ func contains(t *testing.T, m *Model, want ...string) {
 func TestSettingsAreaShowsItsPagesAsSubtabs(t *testing.T) {
 	m := newSettingsModel(t, settingsBackend())
 	send(m, "4")
-	contains(t, m, "General", "Credentials", "Maintenance window", "Notifications", "Theme")
+	contains(t, m, "General", "Credentials", "Maintenance window", "Notifications", "Webhooks", "Theme")
 	if screen := m.render(); strings.Contains(screen, "Stack folders") || strings.Contains(screen, "Deploy key") {
 		t.Fatalf("a sub-tab offers a page that lives in Stacks:\n%s", screen)
 	}
-	if n := len(settingsPages); n != 4 {
+	if n := len(settingsPages); n != 5 {
 		t.Fatalf("%d pages", n)
 	}
 	// Every page shows its content as soon as its sub-tab is chosen, without enter.
@@ -113,7 +113,8 @@ func TestSettingsAreaShowsItsPagesAsSubtabs(t *testing.T) {
 		page settingsPage
 		want string
 	}{{"right", pageCreds, "registry.docker.io"}, {"right", pageWindow, "days: sun"}, {"right", pageNotify, "ops-hook"},
-		{"right", pageGeneral, "Theme"}, {"left", pageNotify, "ops-mail"}} {
+		{"right", pageHooks, "not set up"}, {"right", pageGeneral, "Theme"}, {"left", pageHooks, "not set up"},
+		{"left", pageNotify, "ops-mail"}} {
 		send(m, c.step)
 		if m.set.page != c.page || m.focus() != kittui.ZoneSubtabs {
 			t.Fatalf("page %q, zone %s", m.set.page, m.focus())

@@ -58,7 +58,9 @@ type fakeBackend struct {
 	windowBy    map[string]control.WindowResult
 	hostWindows []control.WindowSetArgs
 	notify      []control.NotifyChannelInfo
-	repoSet     []control.RepoSetArgs
+	// hook is the webhook receiver the service reads; HookServiceSetup sets it up.
+	hook    HookServiceInfo
+	repoSet []control.RepoSetArgs
 	// The stack folders: inspects answers by path (unknown paths are rejected), folderList is the bound list,
 	// compare the answer of source.compare. fetchDirs, sourceAdds and removes record the calls in order; the
 	// reads (inspect, compare, list) are only counted, so a test can tell that nothing changing was called.
@@ -1166,4 +1168,29 @@ func planWithInclude(res control.SourceInspectResult, include []string) (control
 	}
 	slices.Sort(res.PlannedFiles)
 	return res, nil
+}
+
+func (f *fakeBackend) HookService(context.Context) (HookServiceInfo, error) {
+	if err := f.fail("hookservice", ""); err != nil {
+		return HookServiceInfo{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.hook, nil
+}
+
+func (f *fakeBackend) HookServiceSetup(ctx context.Context, listen string) (HookSetupResult, error) {
+	if err := f.actCtx(ctx, "hooksetup", listen); err != nil {
+		return HookSetupResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if listen == "" {
+		listen = f.hook.Listen
+	}
+	if listen == "" {
+		listen = "127.0.0.1:8480"
+	}
+	f.hook.SetUp, f.hook.Running, f.hook.Listen = true, true, listen
+	return HookSetupResult{Listen: listen}, nil
 }

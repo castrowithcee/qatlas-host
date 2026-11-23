@@ -1,6 +1,6 @@
 ◆ qhost                                                                                             [esc] back  [?] help
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs  [4 ⚙ Settings]  5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
-   General  [Credentials]  Maintenance window   Notifications                                                           
+   General  [Credentials]  Maintenance window   Notifications   Webhooks                                                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Several deploy services exist and none is the default. H chooses the instance whose settings this page shows.         
                                                                                                                         

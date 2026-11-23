@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed  [esc] back  [?] help
+  1 2 3 [4 Settings] 5 6 7                              
+  [Webhooks]                                            
+────────────────────────────────────────────────────────
+╭─ Webhooks ────────────────────────────── not set up ─╮
+│ The webhook receiver is not set up. It lets a call   │
+│ of a secret address make qhost check a stack at      │
+│ ╔═ Webhook receiver ═══════════════════════════════╗ │
+│ ║ ⚠ Set up the webhook receiver on 127.0.0.1:8480? ║ │
+╰─║                                                  ║─╯
+  ║ This creates the system user qhost-hook, its     ║  
+  ║ configuration and the unit qhost-hook.service    ║  
+  ║ and starts it. It changes nothing for the        ║  
+  ║ stacks.                                          ║  
+  ║ $ sudo qhost hook-service setup --confirm --yes  ║  
+  ║   --output json                                  ║  
+  ║                                                  ║  
+  ║ [ yes, with sudo ]  > cancel <                   ║  
+  ║ y yes, with sudo  n/esc/enter cancel             ║  
+  ╚══════════════════════════════════════════════════╝  
+                                                        
+                                                        
+                                                        
+                                                        
