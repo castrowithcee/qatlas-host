@@ -56,7 +56,7 @@ func (f *fakeDocker) Run(_ context.Context, c compose.Command) (compose.Result, 
 		if f.running {
 			state = "running"
 		}
-		return compose.Result{Output: []byte(`{"Name":"demo-app-1","Service":"app","State":"` + state + `"}`)}, nil
+		_, _ = fmt.Fprintf(c.Stdout, `{"Name":"demo-app-1","Service":"app","State":%q}`, state)
 	case strings.HasPrefix(sum, "compose config"):
 		var parts []string
 		for k, v := range f.volumes {

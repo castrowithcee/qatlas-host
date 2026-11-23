@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -27,10 +28,11 @@ func (l *fakeLog) text() string { return strings.Join(l.lines, "\n") }
 
 // fakeRunner records commands and answers ps with the next scripted listing.
 type fakeRunner struct {
-	calls   []Command
-	ps      []string // successive answers to ps; the last repeats
-	failOn  string   // compose verb that fails with exit 1
-	outputs map[string]string
+	calls    []Command
+	ps       []string // successive answers to ps; the last repeats
+	psStderr string   // what ps writes to standard error
+	failOn   string   // compose verb that fails with exit 1
+	outputs  map[string]string
 }
 
 func (r *fakeRunner) Run(_ context.Context, c Command) (Result, error) {
@@ -44,7 +46,13 @@ func (r *fakeRunner) Run(_ context.Context, c Command) (Result, error) {
 				r.ps = r.ps[1:]
 			}
 		}
-		return Result{Output: []byte(out)}, nil
+		if c.Stdout == nil {
+			return Result{Output: []byte(r.psStderr + out)}, nil
+		}
+		if _, err := io.WriteString(c.Stdout, out); err != nil {
+			return Result{}, err
+		}
+		return Result{Output: []byte(r.psStderr)}, nil
 	}
 	if verb == r.failOn {
 		return Result{Output: []byte("boom")}, &ExitError{Code: 1}
@@ -342,6 +350,30 @@ func TestContainerStates(t *testing.T) {
 				t.Errorf("sleeps = %d, want %d", clk.sleeps, tc.sleeps)
 			}
 		})
+	}
+}
+
+func TestContainerCheckReadsOnlyStandardOutput(t *testing.T) {
+	const warning = `The "DEMO_SECRET" variable is not set. Defaulting to a blank string.` + "\n"
+	running := `{"Service":"web","State":"running","Health":""}`
+	st := newStack(t, true)
+	log := &fakeLog{}
+	d, _ := newDeployer(&fakeRunner{ps: []string{running}, psStderr: warning})
+	if err := d.Checker.Check(context.Background(), st, log); err != nil {
+		t.Fatalf("a warning on standard error must not fail the check: %v", err)
+	}
+	if !strings.Contains(log.text(), strings.TrimSpace(warning)) {
+		t.Errorf("the run log must name the warning:\n%s", log.text())
+	}
+
+	d, _ = newDeployer(&fakeRunner{ps: []string{"not json"}, psStderr: warning})
+	if err := d.Checker.Check(context.Background(), st, &fakeLog{}); err == nil || !strings.Contains(err.Error(), "unexpected output") {
+		t.Errorf("bad output: %v", err)
+	}
+
+	d, _ = newDeployer(&fakeRunner{ps: []string{strings.Repeat(" ", maxPSOutput) + running}})
+	if err := d.Checker.Check(context.Background(), st, &fakeLog{}); err == nil || !strings.Contains(err.Error(), "the container listing is too large") {
+		t.Errorf("a listing over the limit: %v", err)
 	}
 }
 
