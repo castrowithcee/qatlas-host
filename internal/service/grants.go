@@ -72,22 +72,9 @@ func (g *grantService) handleAdd(ctx context.Context, raw json.RawMessage) (any,
 	if err := decodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
-	if !slices.Contains(control.GrantActions, a.Action) {
-		return nil, control.NewError(control.CodeGrantAction,
-			"the action cannot be granted; grantable are "+strings.Join(control.GrantActions, ", "))
-	}
-	if !backup.ValidStack(a.Stack) {
-		return nil, control.NewError(control.CodeInvalid, "the stack name is not valid")
-	}
 	now := g.time()
-	if a.Expires != "" {
-		day, err := grants.ParseExpires(a.Expires)
-		if err != nil {
-			return nil, control.NewError(control.CodeInvalid, "the expiry is not a date of the form YYYY-MM-DD")
-		}
-		if !now.Before(day.AddDate(0, 0, 1)) {
-			return nil, control.NewError(control.CodeInvalid, "the expiry date is in the past")
-		}
+	if err := g.checkShape(a.Action, a.Stack, a.Expires, now); err != nil {
+		return nil, err
 	}
 	uid, name, err := g.grantee(a.User)
 	if err != nil {
@@ -126,6 +113,28 @@ func (g *grantService) handleAdd(ctx context.Context, raw json.RawMessage) (any,
 	g.log.Info("grant added", "id", stored.ID, "user", printable(name), "action", stored.Action, "target", printable(stored.Stack),
 		"expires", stored.Expires, "replaced", replaced, "by", a.SudoUID)
 	return res, nil
+}
+
+// checkShape checks what a grant names, before any state is read: the action, the form of the stack name and
+// an expiry that is a date, not in the past.
+func (g *grantService) checkShape(action, stack, expires string, now time.Time) *control.Error {
+	if !slices.Contains(control.GrantActions, action) {
+		return control.NewError(control.CodeGrantAction,
+			"the action cannot be granted; grantable are "+strings.Join(control.GrantActions, ", "))
+	}
+	if !backup.ValidStack(stack) {
+		return control.NewError(control.CodeInvalid, "the stack name is not valid")
+	}
+	if expires != "" {
+		day, err := grants.ParseExpires(expires)
+		if err != nil {
+			return control.NewError(control.CodeInvalid, "the expiry is not a date of the form YYYY-MM-DD")
+		}
+		if !now.Before(day.AddDate(0, 0, 1)) {
+			return control.NewError(control.CodeInvalid, "the expiry date is in the past")
+		}
+	}
+	return nil
 }
 
 // grantee resolves a user name to its ID and checks the user has access to the channel, as an administrator in
