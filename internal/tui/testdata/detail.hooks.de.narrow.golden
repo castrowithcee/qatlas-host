@@ -33,6 +33,11 @@
 ╭─ Webhooks ───────────────────────────────────────────╮
 │ h-a1b2c3d0  2026-01-02 03:04                         │
 ╰──────────────────────────────────────────────────────╯
+╭─ Freigaben ──────────────────────────────────────────╮
+│ Eine Freigabe gilt für den Benutzer und für jeden    │
+│ Agenten, der unter seinem Konto arbeitet.            │
+│ Keine Freigaben für diesen Stack.                    │
+╰──────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                            │
 │   10-30 14:01  12.0 MiB                              │
@@ -55,10 +60,5 @@
 │   the maintenance window updates APP_VERSION by      │
 │   itself                                             │
 │ Rollback mit Daten  geht                             │
-│   a failed run goes back to the previous commit and  │
-│   restores the backup it made before the change      │
-│ Backup  geht                                         │
-│   a backup saves the data directories data/db        │
-│ Geheimnisse schwärzen  geht                          │
 B zurück auf Stand davor  e Update-Regeln  b Backup     
 C Compose  o Log  r Neu laden  q Beenden                

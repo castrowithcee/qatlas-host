@@ -382,6 +382,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.applySecrets(msg)
 	case hooksMsg:
 		m.applyHooks(msg)
+	case grantCoverMsg:
+		return m, m.applyGrantCover(msg)
+	case grantsMsg:
+		m.applyGrants(msg)
 	case settingsLoadMsg:
 		m.applySettingsLoad(msg)
 	case keyLoadMsg:
@@ -410,15 +414,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sys.busy = false
 		return m, msg.after(msg.out, msg.err)
 	case tea.PasteMsg:
-		if m.modal != nil {
-			if m.modal.dialog != nil {
-				m.modal.dialog.Paste(msg.Content)
-			}
-		} else if m.set.form != nil {
-			if target := m.set.form.pasteTo(); target != nil {
-				target.Paste(msg.Content)
-			}
-		}
+		m.paste(msg)
 	case logMsg:
 		return m, m.applyLog(msg)
 	case logTickMsg:
@@ -713,7 +709,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			if m.saveOpenLog() {
 				return nil
 			}
-		case actFetch, actAdd, actRemove, actEdit, actRename, actTest, actEnter, actRestore, actRollback, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actRemote, actApprove, actReject:
+		case actFetch, actAdd, actRemove, actEdit, actRename, actTest, actEnter, actRestore, actRollback, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actGrantAdd, actGrantRemove, actRemote, actApprove, actReject:
 			switch m.area {
 			case areaSystem:
 				if cmd, handled := m.systemAction(id); handled {

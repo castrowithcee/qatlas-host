@@ -62,9 +62,12 @@ type fakeBackend struct {
 	hostWindows []control.WindowSetArgs
 	notify      []control.NotifyChannelInfo
 	// hook is the webhook receiver the service reads; HookServiceSetup sets it up.
-	hook    HookServiceInfo
-	hooks   map[string][]HookInfo
-	repoSet []control.RepoSetArgs
+	hook  HookServiceInfo
+	hooks map[string][]HookInfo
+	// grants holds the grants of the service by stack; grantProblem is what the list reports as unreadable.
+	grants       map[string][]control.GrantInfo
+	grantProblem string
+	repoSet      []control.RepoSetArgs
 	// The stack folders: inspects answers by path (unknown paths are rejected), folderList is the bound list,
 	// compare the answer of source.compare. fetchDirs, sourceAdds and removes record the calls in order; the
 	// reads (inspect, compare, list) are only counted, so a test can tell that nothing changing was called.
@@ -847,45 +850,6 @@ func (f *fakeBackend) NotifyTest(ctx context.Context, name string) (control.Noti
 		return control.NotifyTestResult{}, err
 	}
 	return control.NotifyTestResult{Name: name, Type: control.NotifyWebhook}, nil
-}
-
-func (f *fakeBackend) Secrets(ctx context.Context, stack string) (control.SecretListResult, error) {
-	f.count("secrets")
-	f.noteEngine(ctx, "secrets", stack)
-	if err := f.fail("secrets", stack); err != nil {
-		return control.SecretListResult{}, err
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return control.SecretListResult{Stack: stack, Keys: slices.Clone(f.secrets[stack])}, nil
-}
-
-func (f *fakeBackend) SecretSet(ctx context.Context, stack, key, value string) (control.SecretResult, error) {
-	if err := f.actCtx(ctx, "secretset", stack+"/"+key); err != nil {
-		return control.SecretResult{}, err
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.secretSets = append(f.secretSets, control.SecretSetArgs{Stack: stack, Key: key, Value: value})
-	replaced := slices.Contains(f.secrets[stack], key)
-	if !replaced {
-		if f.secrets == nil {
-			f.secrets = map[string][]string{}
-		}
-		f.secrets[stack] = append(f.secrets[stack], key)
-		slices.Sort(f.secrets[stack])
-	}
-	return control.SecretResult{Stack: stack, Key: key, Replaced: replaced}, nil
-}
-
-func (f *fakeBackend) SecretDelete(ctx context.Context, stack, key string) (control.SecretResult, error) {
-	if err := f.actCtx(ctx, "secretdelete", stack+"/"+key); err != nil {
-		return control.SecretResult{}, err
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.secrets[stack] = slices.DeleteFunc(f.secrets[stack], func(k string) bool { return k == key })
-	return control.SecretResult{Stack: stack, Key: key}, nil
 }
 
 func (f *fakeBackend) BackupRestore(ctx context.Context, stack, id string) (control.BackupRestoreResult, error) {

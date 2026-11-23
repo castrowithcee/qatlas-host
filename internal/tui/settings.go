@@ -138,6 +138,9 @@ const (
 	opHookSetup
 	opHookAdd
 	opHookRemove
+	opStackSettingsGrant
+	opGrantAdd
+	opGrantRemove
 	opReturn
 	opMovePreview
 	opMove
@@ -591,6 +594,10 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		cmds = append(cmds, m.loadPage(true))
 	case HookAddResult:
 		cmds = append(cmds, m.hookAdded(res, msg.name))
+	case grantAdded:
+		cmds = append(cmds, m.grantAddedDone(res, done))
+	case grantRemoved:
+		cmds = append(cmds, m.grantRemovedDone(res, done))
 	case hookRemoved:
 		done(t.Lookup(textDoneHookRemoved, res.id))
 		cmds = append(cmds, m.readHooks())
@@ -605,16 +612,7 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		done(text, t.Lookup(textSecretAppliesLater))
 		cmds = append(cmds, m.readSecrets())
 	case control.StackSettingsResult:
-		switch msg.op {
-		case opStackSettingsBackup:
-			cmds = append(cmds, m.backupFormFor(res))
-		case opStackSettingsCompose:
-			cmds = append(cmds, m.composeFormFor(res))
-		case opStackSettingsCheck:
-			cmds = append(cmds, m.checkFormFor(res))
-		default:
-			cmds = append(cmds, m.updateFormFor(res))
-		}
+		cmds = append(cmds, m.settingsFormFor(msg.op, res))
 	case control.StackSettingsSetResult:
 		cmds = append(cmds, m.settingsSaved(res, done))
 	case control.StackSettingsRemoveResult:

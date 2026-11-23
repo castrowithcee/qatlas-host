@@ -44,6 +44,8 @@ type detailState struct {
 	sec       part
 	hooks     HookListResult
 	hk        part
+	grants    control.GrantListResult
+	gr        part
 	// top is the first shown line; total and rows are what the last drawing found.
 	top, total, rows int
 }
@@ -91,7 +93,7 @@ func (m *Model) loadDetail(force bool) tea.Cmd {
 			return changelogMsg{stack: stack, gen: gen, res: res, err: err}
 		})
 	}
-	return tea.Batch(append(cmds, m.readBackups(), m.readSecrets(), m.readHooks())...)
+	return tea.Batch(append(cmds, m.readBackups(), m.readSecrets(), m.readHooks(), m.readGrants())...)
 }
 
 // readBackups reads the backups of the stack shown; a read under way is not asked twice.
@@ -268,6 +270,7 @@ func (m *Model) detailLines(r stackRow, width int) []string {
 	section(textDetailChangelog, m.changelogLines)
 	section(textDetailSecrets, m.secretLines)
 	section(textDetailHooks, func(w int) []string { return m.hookSectionLines(r, w) })
+	section(textDetailGrants, m.grantSectionLines)
 	section(textDetailBackups, m.backupLines)
 	section(textDetailRuns, func(w int) []string { return m.runLines(r.engine, r.name, w) })
 	section(textDetailCapabilities, func(w int) []string { return m.capabilityLines(r.name, w) })
@@ -642,29 +645,4 @@ func (m *Model) runLines(engine, stack string, width int) []string {
 		}
 	}
 	return out
-}
-
-// humanSize writes a size in bytes with a binary unit.
-func humanSize(n int64) string {
-	const unit = 1024
-	if n < unit {
-		return fmt.Sprintf("%d B", n)
-	}
-	f, suffix := float64(n), ""
-	for _, s := range []string{"KiB", "MiB", "GiB", "TiB"} {
-		f /= unit
-		suffix = s
-		if f < unit {
-			break
-		}
-	}
-	return fmt.Sprintf("%.1f %s", f, suffix)
-}
-
-// formatDuration writes a run's duration: milliseconds below a second, whole seconds above.
-func formatDuration(d time.Duration) string {
-	if d < time.Second {
-		return fmt.Sprintf("%dms", d.Milliseconds())
-	}
-	return d.Round(time.Second).String()
 }

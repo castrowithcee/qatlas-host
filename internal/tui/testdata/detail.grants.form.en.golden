@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks [2 Stack detail] 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+  Grant an action                                                               
+                                                                                
+           ╔═══════════════════════════════════════════════════════════════════╗
+> User     ║ ada                                                             ▾ ║
+           ╚═══════════════════════════════════════════════════════════════════╝
+           Users with access to qhost.                                          
+           ╭───────────────────────────────────────────────────────────────────╮
+  Action   │ restart the stack                                               ▾ │
+           ╰───────────────────────────────────────────────────────────────────╯
+           ╭───────────────────────────────────────────────────────────────────╮
+  Last day │ empty                                                             │
+           ╰───────────────────────────────────────────────────────────────────╯
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+[ F2 save ]  [ esc discard ]                                                    
+enter choose  F2 save  esc discard      tab next field  shift+tab previous field
