@@ -114,8 +114,7 @@ func TestDiscardTakesBackTheNamedFilesAndTheFindingsGo(t *testing.T) {
 	if err := os.Remove(filepath.Join(dir, "web/old.txt")); err != nil {
 		t.Fatal(err)
 	}
-	clock.Advance(time.Hour)
-	h.waitStatus("local changes found", func(st control.StatusResult) bool { return hasLocalChanges(st, "web") && hasLocalChanges(st, "db") })
+	h.advanceUntil(clock, time.Hour, "local changes found", func(st control.StatusResult) bool { return hasLocalChanges(st, "web") && hasLocalChanges(st, "db") })
 
 	// nothing happens when one file is no change, not even for the valid ones
 	for _, bad := range []string{"web/secrets.env", "web/data/new.bin", "../db/.env", "/etc/passwd", "web/conf", "web", "", ".", "web/missing.txt"} {
