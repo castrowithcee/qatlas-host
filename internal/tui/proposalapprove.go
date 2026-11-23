@@ -141,6 +141,7 @@ func (m *Model) proposalHints() []kittui.Hint {
 	if m.canApprove() {
 		hints = append(hints, kittui.Hint{Action: actApprove, Label: textKeyApprove, Priority: 3})
 	}
+	hints = append(hints, m.grantHints()...)
 	if m.canReject() {
 		hints = append(hints, kittui.Hint{Action: actReject, Label: textKeyReject, Priority: 3})
 	}
@@ -149,6 +150,9 @@ func (m *Model) proposalHints() []kittui.Hint {
 
 // proposalAction takes the keys that decide the proposal shown; handled is false for any other.
 func (m *Model) proposalAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
+	if id == actEdit {
+		return m.grantExpiryAction()
+	}
 	if id != actApprove && id != actReject {
 		return nil, false
 	}
