@@ -9,14 +9,16 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/castrowithcee/qatlas-kit/localipc"
+
 	"github.com/castrowithcee/qatlas-host/internal/channeltest"
 	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/service"
 )
 
-// Every method of the channel backend reaches a command the service knows.
-func TestChannelBackendSpeaksTheServiceCommands(t *testing.T) {
+// startBackendService runs a service on a temporary state directory until the test ends.
+func startBackendService(t *testing.T) (context.Context, localipc.ServiceEndpoint) {
 	ep := channeltest.Endpoint(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -26,6 +28,28 @@ func TestChannelBackendSpeaksTheServiceCommands(t *testing.T) {
 	}()
 	t.Cleanup(func() { cancel(); <-done })
 	channeltest.WaitReady(t, ep)
+	return ctx, ep
+}
+
+// checkSpeaks fails when err shows that the service does not know the command or refuses its form.
+func checkSpeaks(t *testing.T, name string, err error) {
+	var remote *control.Error
+	if errors.As(err, &remote) && (remote.Code == control.CodeUnknownCommand || remote.Code == control.CodeBadRequest) {
+		t.Errorf("%s: %v", name, err)
+	} else if err != nil && !errors.As(err, &remote) {
+		t.Errorf("%s: no answer of the service: %v", name, err)
+	}
+}
+
+func TestChannelBackendSpeaksGrantList(t *testing.T) {
+	ctx, ep := startBackendService(t)
+	_, err := NewBackend(ep).GrantList(ctx, "demo-stack")
+	checkSpeaks(t, "grantlist", err)
+}
+
+// Every method of the channel backend reaches a command the service knows.
+func TestChannelBackendSpeaksTheServiceCommands(t *testing.T) {
+	ctx, ep := startBackendService(t)
 
 	b := NewBackend(ep)
 	st, err := b.Status(ctx)
@@ -97,12 +121,7 @@ func TestChannelBackendSpeaksTheServiceCommands(t *testing.T) {
 		"restore":        func() error { _, err := b.BackupRestore(ctx, "demo-stack", "20261023T031000Z-4567cdef"); return err },
 	}
 	for name, call := range calls {
-		var remote *control.Error
-		if err := call(); errors.As(err, &remote) && (remote.Code == control.CodeUnknownCommand || remote.Code == control.CodeBadRequest) {
-			t.Errorf("%s: %v", name, err)
-		} else if err != nil && !errors.As(err, &remote) {
-			t.Errorf("%s: no answer of the service: %v", name, err)
-		}
+		checkSpeaks(t, name, call())
 	}
 }
 

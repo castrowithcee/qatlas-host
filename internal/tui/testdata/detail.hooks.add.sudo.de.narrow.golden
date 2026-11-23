@@ -37,6 +37,11 @@
 │ ║ [ ja, mit sudo ]  > abbrechen <                  ║ │
 │ ║ y ja, mit sudo  n/esc/enter abbrechen            ║ │
 │ ╚══════════════════════════════════════════════════╝ │
+╰──────────────────────────────────────────────────────╯
+╭─ Backups ────────────────────────────────────────────╮
+│ 20261030T140100Z-0123abcd                            │
+│   10-30 14:01  12.0 MiB                              │
+│ 20261023T031000Z-4567cdef                            │
 │   10-23 03:10  11.0 MiB                              │
 │ 20261016T031000Z-89abcdef                            │
 │   0 B  unvollständig                                 │
@@ -56,9 +61,4 @@
 │   itself                                             │
 │ Rollback mit Daten  geht                             │
 │   a failed run goes back to the previous commit and  │
-│   restores the backup it made before the change      │
-│ Backup  geht                                         │
-│   a backup saves the data directories data/db        │
-│ Geheimnisse schwärzen  geht                          │
-│   the values of secrets.env (2 key(s)) are redacted  │
-                                                   60/66
+                                                   60/71

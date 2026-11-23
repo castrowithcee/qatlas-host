@@ -33,9 +33,13 @@
 ╭─ Webhooks ────────────────║ cannot be read again.                                        ║───────────────────────────╮
 │ No webhook for this stack.║ $ sudo qhost hook add --output json -- demo-stack            ║                           │
 ╰───────────────────────────║                                                              ║───────────────────────────╯
-╭─ Backups ─────────────────║ [ yes, with sudo ]  > cancel <                               ║───────────────────────────╮
-│ 20261030T140100Z-0123abcd ║ y yes, with sudo  n/esc/enter cancel                         ║                           │
-│   10-30 14:01  12.0 MiB   ╚══════════════════════════════════════════════════════════════╝                           │
+╭─ Grants ──────────────────║ [ yes, with sudo ]  > cancel <                               ║───────────────────────────╮
+│ A grant applies to the use║ y yes, with sudo  n/esc/enter cancel                         ║                           │
+│ No grants for this stack. ╚══════════════════════════════════════════════════════════════╝                           │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ 20261030T140100Z-0123abcd                                                                                            │
+│   10-30 14:01  12.0 MiB                                                                                              │
 │ 20261023T031000Z-4567cdef                                                                                            │
 │   10-23 03:10  11.0 MiB                                                                                              │
 │ 20261016T031000Z-89abcdef                                                                                            │
@@ -57,8 +61,4 @@
 │   a failed run goes back to the previous commit and restores the backup it made before the change                    │
 │ Backup  works                                                                                                        │
 │   a backup saves the data directories data/db                                                                        │
-│ Redact secrets  works                                                                                                │
-│   the values of secrets.env (2 key(s)) are redacted in logs and messages                                             │
-│ secrets-env-not-ignored  warning                                                                                     │
-│   secrets.env is not listed in .gitignore                                                                            │
-                                                                                                                   60/62
+                                                                                                                   60/66

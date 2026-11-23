@@ -33,6 +33,10 @@
 ╭─ Webhooks ───────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ h-a1b2c3d0  -                                                                                                        │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Freigaben ──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Eine Freigabe gilt für den Benutzer und für jeden Agenten, der unter seinem Konto arbeitet.                          │
+│ Keine Freigaben für diesen Stack.                                                                                    │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                                                                                            │
 │   10-30 14:01  12.0 MiB                                                                                              │
@@ -56,9 +60,5 @@
 │ Rollback mit Daten  geht                                                                                             │
 │   a failed run goes back to the previous commit and restores the backup it made before the change                    │
 │ Backup  geht                                                                                                         │
-│   a backup saves the data directories data/db                                                                        │
-│ Geheimnisse schwärzen  geht                                                                                          │
-│   the values of secrets.env (2 key(s)) are redacted in logs and messages                                             │
-│ secrets-env-not-ignored  Warnung                                                                                     │
 B zurück auf Stand davor  e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log             
 a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  h Hook anlegen  r Neu laden  1-7 Bereich  q Beenden       

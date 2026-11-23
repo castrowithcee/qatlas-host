@@ -56,6 +56,8 @@ type settingsForm struct {
 	engine string
 	// titleArg is the name of the host the title of the form names.
 	titleArg string
+	// setup is what the stack of a grant form has set up.
+	setup *grantSetup
 }
 
 // input is the input focus of the form, or of the editor that is open in it.
@@ -226,6 +228,8 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitNotifyDetail(f, v)
 	case formHookListen:
 		return m.submitHookListen(f, text("listen"))
+	case formGrant:
+		return m.submitGrant(f, v)
 	case formSecret:
 		return m.submitSecret(f, text("key"), v["value"].Text)
 	case formDataDirs:
@@ -248,24 +252,8 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitUserGroups(f, v)
 	case formUserSecret:
 		return m.submitUserSecret(f, v)
-	case formUserKeyAdd:
-		return m.submitUserKeyAdd(f, v)
-	case formUserKeyRemove:
-		return m.submitUserKeyRemove(f, v)
-	case formUserDelete:
-		return m.submitUserDelete(f, v)
-	case formGroupCreate:
-		return m.submitGroupCreate(f, v)
-	case formGroupMembers:
-		return m.submitGroupMembers(f, v)
-	case formGroupRename:
-		return m.submitGroupRename(f, v)
-	case formHostFolder:
-		return m.submitFolderChange(f, v)
-	case formProposalPassword:
-		return m.submitProposalPassword(f, v)
 	}
-	return nil
+	return m.submitHostForm(f, v)
 }
 
 func (m *Model) bad(field string, cause kittui.TextID, args ...any) kittui.FormProblem {

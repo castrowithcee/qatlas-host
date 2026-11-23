@@ -26,6 +26,11 @@
 │ Kein Webhook-Empfänger eingerichtet. Richte ihn      │
 │ unter Einstellungen, Webhooks ein.                   │
 ╰──────────────────────────────────────────────────────╯
+╭─ Freigaben ──────────────────────────────────────────╮
+│ Eine Freigabe gilt für den Benutzer und für jeden    │
+│ Agenten, der unter seinem Konto arbeitet.            │
+│ Keine Freigaben für diesen Stack.                    │
+╰──────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────╮
 │ Keine Backups.                                       │
 ╰──────────────────────────────────────────────────────╯
@@ -37,11 +42,6 @@
 ╭─ Funktionen ─────────────────────────────────────────╮
 │ Nicht geprüft.                                       │
 ╰──────────────────────────────────────────────────────╯
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
                                                         
 e Update-Regeln  b Backup  C Compose  o Log             
 a Geheimnis setzen  r Neu laden  q Beenden              

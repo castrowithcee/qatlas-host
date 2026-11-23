@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 [2 Stack-Details] 3 4 5 6 7                                                 
+────────────────────────────────────────────────────────────────────────────────
+  demo-stack                                                                    
+                                                                                
+  Modus    automatisch                                                          
+  Zustand  deployt                                                              
+  Befund╔═ Freigabe entziehen ═════════════════════════════════════════╗        
+        ║ ⚠ Die Freigabe von ada entziehen: Stack neu starten (demo-   ║        
+╭─ Image║   stack)?                                                    ║───────╮
+│ APP_VE║                                                              ║       │
+│   1.4.║ Der Benutzer und jeder Agent unter seinem Konto brauchen     ║       │
+╰───────║ dafür wieder sudo.                                           ║───────╯
+╭─ Conta║ $ sudo qhost grant remove --confirm --output json --         ║───────╮
+│ Keine ║   g-0a1b2c3d                                                 ║       │
+╰───────║                                                              ║───────╯
+╭─ Chang║ [ ja, mit sudo ]  > abbrechen <                              ║───────╮
+│ APP_VE║ y ja, mit sudo  n/esc/enter abbrechen                        ║       │
+│   Quel╚══════════════════════════════════════════════════════════════╝       │
+│   1.5.0  Spring release  2026-10-29                                          │
+│     Adds a dark theme.                                                       │
+│                                                                              │
+│     - faster start                                                           │
+                                                                           20/70
