@@ -221,7 +221,7 @@ const repositoryTopic = `The service clones the stacks repository of the host ov
 
 Binding:
 - qhost key generate (or qhost key set for a key you already have), then enter the public key as a deploy key with write access in the git platform; qhost pushes its version and revert commits and the run tags with it
-- The deploy key must be allowed to push tags. Do not block tags under qhost/ with tag protection rules or hooks, or each run ends with the finding tag-rejected (see qhost help runs)
+- The deploy key must be allowed to push tags. Do not block creating or deleting tags under qhost/ with tag protection rules or hooks, or each run ends with the finding tag-rejected (see qhost help runs)
 - qhost repo set <ssh-url> --dir <path> [--engine <engine>]: the URL is user@host:path or ssh://[user@]host[:port]/path; --dir names the stack folder, is required and has no default
 - On first contact the host key and its SHA256 fingerprint are shown. At a terminal you confirm it by answering the question (default no). Without a terminal, pass the expected fingerprint: --fingerprint SHA256:...
 - Compare the fingerprint with the one the git platform publishes before you confirm it.

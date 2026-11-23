@@ -5,8 +5,10 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
+	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
 var errTagRefused = errors.New("tags are protected on the demo remote")
@@ -123,5 +125,68 @@ func TestFailedAndPausedRunsSetNoTag(t *testing.T) {
 	r.poll()
 	if r.stack("web").LastRun.Result != ResultFailed || len(r.copy.tags) != n {
 		t.Fatalf("tags = %+v", r.copy.tags)
+	}
+}
+
+func TestStaleRunIDs(t *testing.T) {
+	ids := []string{"20260101T000000Z-00000001", "20260110T000000Z-00000002", "20260119T000000Z-00000003", "20260120T000000Z-00000004"}
+	now := time.Date(2026, 1, 20, 12, 0, 0, 0, time.UTC)
+	cases := map[string]struct {
+		rules *stacks.Backup
+		want  []string
+	}{
+		"no rules keeps 50": {nil, nil},
+		"keep 2":            {&stacks.Backup{Keep: 2}, ids[:2]},
+		"keep 1":            {&stacks.Backup{Keep: 1}, ids[:3]},
+		"max age 5 days":    {&stacks.Backup{MaxAgeDays: 5}, ids[:2]},
+		"max age 1 day":     {&stacks.Backup{MaxAgeDays: 1}, ids[:3]},
+		"both limits":       {&stacks.Backup{Keep: 3, MaxAgeDays: 5}, ids[:2]},
+	}
+	for name, c := range cases {
+		got := staleRunIDs(ids, c.rules, now)
+		slices.Sort(got)
+		if !slices.Equal(got, c.want) {
+			t.Errorf("%s: got %v, want %v", name, got, c.want)
+		}
+	}
+	if got := staleRunIDs(ids[3:], &stacks.Backup{Keep: 1, MaxAgeDays: 1}, now.AddDate(1, 0, 0)); got != nil {
+		t.Errorf("the newest tag was chosen: %v", got)
+	}
+	many := make([]string, 53)
+	for i := range many {
+		many[i] = "20260101T0000" + string(rune('0'+i/10)) + string(rune('0'+i%10)) + "Z-00000000"
+	}
+	got := staleRunIDs(many, nil, now)
+	slices.Sort(got)
+	if !slices.Equal(got, many[:3]) {
+		t.Errorf("default keep: got %v", got)
+	}
+}
+
+func TestPruneIsAskedAfterThePushedTag(t *testing.T) {
+	r := tagRig(t)
+	r.copy.set(func(f *fakeCopy) { f.pruneIDs, f.pruneCalls = []string{"20200101T000000Z-00000000"}, nil })
+	r.poll()
+	if got := r.copy.pruneCalls; len(got) != 1 || got[0] != "Demo01.example.test/web" {
+		t.Fatalf("prune calls = %v", got)
+	}
+}
+
+func TestPruneRefusalMakesAFindingWithoutFailingTheRun(t *testing.T) {
+	r := tagRig(t)
+	r.copy.set(func(f *fakeCopy) { f.pruneErrs = []error{errTagRefused} })
+	r.poll()
+	st := r.stack("web")
+	if st.LastRun.Result != ResultSucceeded || st.LastRun.Tag == "" || !hasFinding(st, FindingTagRejected) {
+		t.Fatalf("web = %+v / %+v", st, st.LastRun)
+	}
+}
+
+func TestNoPruneWhenTheTagWasNotPushed(t *testing.T) {
+	r := tagRig(t)
+	r.copy.set(func(f *fakeCopy) { f.tagErrs = []error{errTagRefused}; f.pruneCalls = nil })
+	r.poll()
+	if len(r.copy.pruneCalls) != 0 {
+		t.Fatalf("prune calls = %v", r.copy.pruneCalls)
 	}
 }

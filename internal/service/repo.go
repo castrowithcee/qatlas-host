@@ -47,6 +47,7 @@ type WorkingCopy interface {
 	FileAt(ctx context.Context, commit, path string) ([]byte, error)
 	Push(ctx context.Context, commit string) error
 	TagCommit(ctx context.Context, name, commit string) error
+	PruneTags(ctx context.Context, hostname, stack string, pick func(ids []string) []string) ([]string, error)
 	Diff(ctx context.Context, path string) (text string, truncated bool, err error)
 	Discard(ctx context.Context, paths []string) error
 	TrackedFiles(ctx context.Context, dir string) ([]string, error)
