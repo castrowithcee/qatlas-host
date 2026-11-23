@@ -23,11 +23,15 @@ const (
 	textCtGroupSingle   kittui.TextID = "ct.group.single"
 	textCtKindSingle    kittui.TextID = "ct.kind.single"
 
-	textCtLoading     kittui.TextID = "ct.loading"
-	textCtEmpty       kittui.TextID = "ct.empty"
-	textCtNoneOfStack kittui.TextID = "ct.noneofstack"
-	textCtNone        kittui.TextID = "ct.none"
-	textCtReadOnly    kittui.TextID = "ct.readonly"
+	textCtLoading        kittui.TextID = "ct.loading"
+	textCtEmpty          kittui.TextID = "ct.empty"
+	textCtNoneOfStack    kittui.TextID = "ct.noneofstack"
+	textCtNone           kittui.TextID = "ct.none"
+	textCtReadOnly       kittui.TextID = "ct.readonly"
+	textCtEngineReadOnly kittui.TextID = "ct.engine.readonly"
+	textCtReadOnlyNote   kittui.TextID = "ct.engine.readonlynote"
+	textCtEngineEmpty    kittui.TextID = "ct.engine.empty"
+	textCtNoSudo         kittui.TextID = "ct.nosudo"
 
 	textCtFieldGroup    kittui.TextID = "ct.field.group"
 	textCtFieldState    kittui.TextID = "ct.field.state"
@@ -141,11 +145,15 @@ func containerEnglish() map[kittui.TextID]string {
 		textCtGroupSingle:   "single containers",
 		textCtKindSingle:    "single container",
 
-		textCtLoading:     "Reading the containers…",
-		textCtEmpty:       "No containers on this host.",
-		textCtNoneOfStack: "No containers of this stack.",
-		textCtNone:        "none",
-		textCtReadOnly:    "read-only",
+		textCtLoading:        "Reading the containers…",
+		textCtEmpty:          "No containers on this host.",
+		textCtNoneOfStack:    "No containers of this stack.",
+		textCtNone:           "none",
+		textCtReadOnly:       "read-only",
+		textCtEngineReadOnly: "Engine %s, read-only",
+		textCtReadOnlyNote:   "This engine has no deploy service: its containers are only shown, and no key acts on them.",
+		textCtEngineEmpty:    "No containers in this engine.",
+		textCtNoSudo:         "Engines without a deploy service are shown only with sudo.",
 
 		textCtFieldGroup:    "group",
 		textCtFieldState:    "state",
@@ -260,11 +268,15 @@ func containerGerman() map[kittui.TextID]string {
 		textCtGroupSingle:   "einzelne Container",
 		textCtKindSingle:    "einzelner Container",
 
-		textCtLoading:     "Container werden gelesen…",
-		textCtEmpty:       "Keine Container auf diesem Host.",
-		textCtNoneOfStack: "Keine Container dieses Stacks.",
-		textCtNone:        "keine",
-		textCtReadOnly:    "nur lesend",
+		textCtLoading:        "Container werden gelesen…",
+		textCtEmpty:          "Keine Container auf diesem Host.",
+		textCtNoneOfStack:    "Keine Container dieses Stacks.",
+		textCtNone:           "keine",
+		textCtReadOnly:       "nur lesend",
+		textCtEngineReadOnly: "Engine %s, nur lesen",
+		textCtReadOnlyNote:   "Diese Engine hat keinen Deploy-Dienst: Ihre Container werden nur gezeigt, keine Taste wirkt auf sie.",
+		textCtEngineEmpty:    "Keine Container in dieser Engine.",
+		textCtNoSudo:         "Engines ohne Deploy-Dienst werden nur mit sudo gezeigt.",
 
 		textCtFieldGroup:    "Gruppe",
 		textCtFieldState:    "Zustand",

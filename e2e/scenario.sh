@@ -2710,6 +2710,8 @@ scenario_stacks_repo() {
 
 	scenario_tui_engine
 
+	scenario_tui_containers_engine
+
 	scenario_backup_rootless
 
 	scenario_proposal_engine
@@ -3770,6 +3772,66 @@ scenario_tui_engine() {
 	[ -z "$(docker exec "$host" docker ps -aq --filter label=com.docker.compose.project=demo-rootless)" ] ||
 		fail 'the deploy of the interface started demo-rootless in the system engine'
 	log "scenario: the interface deployed demo-rootless from its engine section, run $te_run in the instance"
+}
+
+# tc_cursor_engine prints the engine of the section whose marked row is $1, or nothing.
+tc_cursor_engine() {
+	tui_screen | awk -v name="$1" '
+		/ Engine / { match($0, /Engine [^ ]+/); eng = substr($0, RSTART + 7, RLENGTH - 7) }
+		/^(│ |║ )?> / { if (index($0, " " name " ")) print eng }'
+}
+
+# scenario_tui_containers_engine proves the Containers area with two engines for the interface of $admin started
+# without sudo: the container of demo-rootless stands in the section of the rootless engine, a container of the same
+# name in the system engine in the other, and a restart of the marked row goes through sudo with --engine and
+# restarts the container of the rootless engine only.
+scenario_tui_containers_engine() {
+	tc_engine=rootless:$rootless_user
+	tc_ct=$(as_rootless "docker ps --filter label=com.docker.compose.project=demo-rootless --format '{{.Names}}'" | head -n 1)
+	[ -n "$tc_ct" ] || fail 'no container of demo-rootless runs in the rootless engine'
+
+	step 'the Containers area shows the container of the rootless engine in its section, beside a container of the same name in the system engine'
+	docker exec "$host" docker rm -f "$tc_ct" >/dev/null 2>&1 || true
+	docker exec "$host" docker run -d --name "$tc_ct" "registry.$domain/demo/app:1.0.0" >/dev/null ||
+		fail "cannot start a container called $tc_ct in the system engine"
+	tc_started=$(as_rootless "docker inspect -f '{{.State.StartedAt}}' $tc_ct")
+	tc_sys_started=$(docker exec "$host" docker inspect -f '{{.State.StartedAt}}' "$tc_ct")
+	tui_log=$work/tui-containers-engine-screens.log
+	: >"$tui_log"
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 5
+	tui_wait "5 $tui_icon_containers Containers" 10
+	tui_wait "Engine $tc_engine" 30
+	tui_wait 'Engine system' 30
+	tui_send Home
+	i=0
+	until [ "$(tc_cursor_engine "$tc_ct")" = "$tc_engine" ]; do
+		i=$((i + 1))
+		[ "$i" -lt 60 ] || fail "the cursor of the Containers area does not reach $tc_ct in $tc_engine: $(tui_screen)"
+		tui_send Down
+		sleep 0.2
+	done
+	tui_excerpt "Engine $tc_engine" 12
+
+	step 'a restart from the section runs through sudo with --engine and restarts the container of that engine only'
+	tui_send Z
+	tui_wait "Restart container $tc_ct" 15
+	# The dialog may break the command after --engine.
+	tui_has 'sudo qhost container restart --yes --output json --engine' && tui_has "$tc_engine --" ||
+		fail "the question does not show the command with the engine: $(tui_screen)"
+	tui_send y
+	tui_wait 'restart finished: 1 ok, 0 failed' 120
+	tui_send Escape
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	[ "$(as_rootless "docker inspect -f '{{.State.StartedAt}}' $tc_ct")" != "$tc_started" ] ||
+		fail "the restart of the interface did not restart $tc_ct in $tc_engine"
+	[ "$(docker exec "$host" docker inspect -f '{{.State.StartedAt}}' "$tc_ct")" = "$tc_sys_started" ] ||
+		fail "the restart of the interface restarted the container $tc_ct of the system engine"
+	docker exec "$host" docker rm -f "$tc_ct" >/dev/null || fail "cannot remove $tc_ct from the system engine"
+	log "scenario: the interface restarted $tc_ct in $tc_engine from its section and left the container of that name in the system engine alone"
 }
 
 # local_tree prints mode, owner, group and size of every path below /srv/qd-local except .git, which the service

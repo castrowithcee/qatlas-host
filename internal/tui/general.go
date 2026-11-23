@@ -177,6 +177,7 @@ func (m *Model) relocalize(lang i18n.Lang) tea.Cmd {
 	m.lang, m.text, m.frame = lang, text, kittui.NewFrame(m.keys, text)
 	// The lists of the sections hold the old translator; they are built again from what was read.
 	m.secs, m.secLists, m.baseList = nil, nil, nil
+	m.ct.secs, m.ct.lists, m.ct.base = nil, nil, nil
 	if m.loaded {
 		m.fillStacks()
 	}
@@ -231,6 +232,6 @@ func (m *Model) relocalizeLogs() tea.Cmd {
 		m.closeContainerLog()
 		return nil
 	}
-	*l = containerLog{open: true, area: l.area, name: l.name, stack: l.stack, service: l.service, level: l.level, view: view, gen: l.gen + 1}
+	*l = containerLog{open: true, area: l.area, name: l.name, stack: l.stack, engine: l.engine, service: l.service, level: l.level, view: view, gen: l.gen + 1}
 	return m.readContainerLog()
 }

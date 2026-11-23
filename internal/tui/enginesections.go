@@ -193,6 +193,7 @@ func (m *Model) leaveSections() {
 
 // activateList marks the section that holds list, as a click on one of its rows does.
 func (m *Model) activateList(list *kittui.List) {
+	m.activateCtList(list)
 	for _, s := range m.secs {
 		if s.list == list {
 			m.list, m.listEngine = list, s.engine
@@ -287,38 +288,7 @@ func (m *Model) stackSectionsView(width, height int) string {
 			need[i] = s.shown + 3
 		}
 	}
-	heights := make([]int, len(m.secs))
-	left := height
-	for i := range heights {
-		heights[i] = min(need[i], minSection)
-	}
-	sum := 0
-	for _, h := range heights {
-		sum += h
-	}
-	if sum > height {
-		// Too small for every section: the marked one and those after it that still fit.
-		for i := range heights {
-			heights[i] = 0
-		}
-		at := slices.IndexFunc(m.secs, func(s *stackSection) bool { return s.list == m.list })
-		for _, i := range append([]int{max(at, 0)}, otherThan(len(m.secs), max(at, 0))...) {
-			if h := min(min(need[i], minSection), left); h >= 3 {
-				heights[i], left = h, left-h
-			}
-		}
-	} else {
-		left = height - sum
-	}
-	// The rest goes first to the marked section, then to the others in order.
-	at := slices.IndexFunc(m.secs, func(s *stackSection) bool { return s.list == m.list })
-	for _, i := range append([]int{max(at, 0)}, otherThan(len(m.secs), max(at, 0))...) {
-		if heights[i] == 0 {
-			continue
-		}
-		extra := min(need[i]-heights[i], left)
-		heights[i], left = heights[i]+extra, left-extra
-	}
+	heights := sectionHeights(need, nil, slices.IndexFunc(m.secs, func(s *stackSection) bool { return s.list == m.list }), height)
 	focused := m.focus() != kittui.ZoneTabs && m.focus() != kittui.ZoneSubtabs
 	var out []string
 	y := 0
@@ -346,6 +316,49 @@ func (m *Model) stackSectionsView(width, height int) string {
 		y += h
 	}
 	return strings.Join(out, "\n")
+}
+
+// sectionHeights shares height rows among sections that need the given rows each: every one gets keep rows
+// (minSection when keep is nil), and the marked one (at, or the first when none is) the rest. When they do not all fit, the marked one and those
+// after it that still fit are drawn.
+func sectionHeights(need, keep []int, at, height int) []int {
+	at = max(at, 0)
+	heights := make([]int, len(need))
+	left := height
+	least := func(i int) int {
+		if keep == nil {
+			return min(need[i], minSection)
+		}
+		return min(need[i], keep[i])
+	}
+	for i := range heights {
+		heights[i] = least(i)
+	}
+	sum := 0
+	for _, h := range heights {
+		sum += h
+	}
+	if sum > height {
+		for i := range heights {
+			heights[i] = 0
+		}
+		for _, i := range append([]int{at}, otherThan(len(need), at)...) {
+			if h := min(least(i), left); h >= 3 {
+				heights[i], left = h, left-h
+			}
+		}
+	} else {
+		left = height - sum
+	}
+	// The rest goes first to the marked section, then to the others in order.
+	for _, i := range append([]int{at}, otherThan(len(need), at)...) {
+		if heights[i] == 0 {
+			continue
+		}
+		extra := min(need[i]-heights[i], left)
+		heights[i], left = heights[i]+extra, left-extra
+	}
+	return heights
 }
 
 // otherThan lists 0..n-1 without skip.

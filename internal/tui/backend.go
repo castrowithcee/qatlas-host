@@ -19,10 +19,12 @@ import (
 //
 // A host can have several deploy services, one per Docker engine: the one of the system engine and an instance
 // for each rootless engine. A Backend over all of them (the one the qhost command builds) routes each call:
-//   - The reads of the lists (Status, Stacks, Runs, SourceList, Check and Updates without a stack) merge every
-//     deploy service, mark each stack, stack folder and run with its engine (control.EngineSystem or
-//     "rootless:<user>") and name a deploy service that could not be asked in the field NotChecked of the
-//     result, with its engine, instead of failing. Only when none answers is that an error.
+//   - The reads of the lists (Status, Stacks, Runs, SourceList, Containers, Check and Updates without a stack)
+//     merge every deploy service, mark each stack, stack folder, run and container group with its engine
+//     (control.EngineSystem or "rootless:<user>") and name a deploy service that could not be asked in the field
+//     NotChecked of the result, with its engine, instead of failing. Only when none answers is that an error.
+//     As root, Containers adds the Docker engines that have no deploy service as groups marked ReadOnly; without
+//     root it sets EnginesUnread.
 //   - A call about one stack or one stack folder goes to the deploy service that has it. A name several engines
 //     have is an error that names them; WithEngine chooses one. Nothing falls back to another engine.
 //   - A call about a whole engine (credentials, notification channels, the window and every call that names
@@ -50,7 +52,7 @@ type Backend interface {
 	// Secrets lists the key names of the secrets of one stack; never a value.
 	Secrets(ctx context.Context, stack string) (control.SecretListResult, error)
 	// Containers lists the containers of the host in groups, without readings of CPU and memory.
-	Containers(ctx context.Context) (control.ContainerListResult, error)
+	Containers(ctx context.Context) (ContainerList, error)
 	// Container reads one container by name; the result holds the names of its environment variables, never values.
 	Container(ctx context.Context, name string) (control.ContainerDetail, error)
 	// ContainerLogs reads a page of the output of one container or of all containers of an own stack.
@@ -443,9 +445,18 @@ func (b *ChannelBackend) Secrets(ctx context.Context, stack string) (res control
 	return res, err
 }
 
-func (b *ChannelBackend) Containers(ctx context.Context) (res control.ContainerListResult, err error) {
-	err = client.Do(ctx, b.endpoint, containerCallLimit, control.ContainerListCommand, control.ContainerListArgs{}, &res)
+func (b *ChannelBackend) Containers(ctx context.Context) (res ContainerList, err error) {
+	err = client.Do(ctx, b.endpoint, containerCallLimit, control.ContainerListCommand, control.ContainerListArgs{}, &res.ContainerListResult)
 	return res, err
+}
+
+// ContainerList is the answer of Backend.Containers: the groups, and what only a Backend over several deploy
+// services knows. NotChecked names the engines whose service could not be asked; EnginesUnread is set when the
+// reader is not root, so it cannot tell whether engines without a deploy service exist.
+type ContainerList struct {
+	control.ContainerListResult
+	NotChecked    []control.EngineNotChecked
+	EnginesUnread bool
 }
 
 func (b *ChannelBackend) Container(ctx context.Context, name string) (res control.ContainerDetail, err error) {

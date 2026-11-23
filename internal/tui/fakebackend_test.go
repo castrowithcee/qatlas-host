@@ -99,6 +99,9 @@ type fakeBackend struct {
 	// containers is the list the service reads from the container engine, and containerDetails the detail by
 	// name; errs "containers:" and "container:<name>" fail those calls.
 	containers control.ContainerListResult
+	// containersDown and containersUnread are what a routing backend adds to the list.
+	containersDown   []control.EngineNotChecked
+	containersUnread bool
 	// proposals is the list the service holds, newest first, and proposalContents the content by ID; errs
 	// "proposals:" and "proposal:<id>" fail those calls. proposalActs records approve, reject and result calls.
 	proposals        []control.ProposalInfo
@@ -116,6 +119,8 @@ type fakeBackend struct {
 	ctLogLines []control.ContainerLogLine
 	ctLogPage  int
 	ctLogArgs  []control.ContainerLogsArgs
+	// ctLogEngines is the engine each of those calls was addressed to.
+	ctLogEngines []string
 	// svcLog are the entries of the service log in time order, svcPage the most entries one answer holds (zero:
 	// no limit) and svcArgs the arguments of the calls made.
 	svcLog  []control.ServiceLogEntry
@@ -327,8 +332,8 @@ func (f *fakeBackend) StackRestart(_ context.Context, stack string) (control.Sta
 
 // containerAction records "<call>:<id>", where id is what the interface passed (the container ID), and answers
 // with the container as it is afterwards: running after a start or restart, exited after a stop.
-func (f *fakeBackend) containerAction(call, id string) (control.ContainerActionResult, error) {
-	if err := f.act(call, id); err != nil {
+func (f *fakeBackend) containerAction(ctx context.Context, call, id string) (control.ContainerActionResult, error) {
+	if err := f.actCtx(ctx, call, id); err != nil {
 		return control.ContainerActionResult{}, err
 	}
 	f.mu.Lock()
@@ -351,16 +356,16 @@ func (f *fakeBackend) containerAction(call, id string) (control.ContainerActionR
 	return res, nil
 }
 
-func (f *fakeBackend) ContainerStart(_ context.Context, id string) (control.ContainerActionResult, error) {
-	return f.containerAction("ctstart", id)
+func (f *fakeBackend) ContainerStart(ctx context.Context, id string) (control.ContainerActionResult, error) {
+	return f.containerAction(ctx, "ctstart", id)
 }
 
-func (f *fakeBackend) ContainerStop(_ context.Context, id string) (control.ContainerActionResult, error) {
-	return f.containerAction("ctstop", id)
+func (f *fakeBackend) ContainerStop(ctx context.Context, id string) (control.ContainerActionResult, error) {
+	return f.containerAction(ctx, "ctstop", id)
 }
 
-func (f *fakeBackend) ContainerRestart(_ context.Context, id string) (control.ContainerActionResult, error) {
-	return f.containerAction("ctrestart", id)
+func (f *fakeBackend) ContainerRestart(ctx context.Context, id string) (control.ContainerActionResult, error) {
+	return f.containerAction(ctx, "ctrestart", id)
 }
 
 func (f *fakeBackend) Window(ctx context.Context) (control.WindowResult, error) {
@@ -935,24 +940,28 @@ func (f *fakeBackend) StackSettingsRemove(ctx context.Context, stack string) (co
 	return control.StackSettingsRemoveResult{Stack: stack, Commit: commitB}, nil
 }
 
-func (f *fakeBackend) Containers(context.Context) (control.ContainerListResult, error) {
+func (f *fakeBackend) Containers(context.Context) (ContainerList, error) {
 	f.count("containers")
 	if err := f.fail("containers", ""); err != nil {
-		return control.ContainerListResult{}, err
+		return ContainerList{}, err
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.containers, nil
+	return ContainerList{ContainerListResult: f.containers, NotChecked: f.containersDown, EnginesUnread: f.containersUnread}, nil
 }
 
-func (f *fakeBackend) Container(_ context.Context, name string) (control.ContainerDetail, error) {
+// Container answers from containerDetails under "<name>@<engine>" for a call that names an engine, else under the name.
+func (f *fakeBackend) Container(ctx context.Context, name string) (control.ContainerDetail, error) {
 	f.count("container")
 	if err := f.fail("container", name); err != nil {
 		return control.ContainerDetail{}, err
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	d, ok := f.containerDetails[name]
+	d, ok := f.containerDetails[name+"@"+EngineOf(ctx)]
+	if !ok {
+		d, ok = f.containerDetails[name]
+	}
 	if !ok {
 		return control.ContainerDetail{}, control.NewError(control.CodeNotFound, "no such container")
 	}
@@ -963,7 +972,7 @@ func (f *fakeBackend) Container(_ context.Context, name string) (control.Contain
 // starts with "<stack>-"), by time and cursor, keeps the last Tail lines and cuts a page at ctLogPage lines.
 // The arguments of every call are kept in ctLogArgs; an error set in errs under "containerlogs:<name or stack>"
 // fails the call.
-func (f *fakeBackend) ContainerLogs(_ context.Context, a control.ContainerLogsArgs) (control.ContainerLogsResult, error) {
+func (f *fakeBackend) ContainerLogs(ctx context.Context, a control.ContainerLogsArgs) (control.ContainerLogsResult, error) {
 	f.count("containerlogs")
 	if err := f.fail("containerlogs", a.Name+a.Stack); err != nil {
 		return control.ContainerLogsResult{}, err
@@ -971,6 +980,7 @@ func (f *fakeBackend) ContainerLogs(_ context.Context, a control.ContainerLogsAr
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.ctLogArgs = append(f.ctLogArgs, a)
+	f.ctLogEngines = append(f.ctLogEngines, EngineOf(ctx))
 	var sel []control.ContainerLogLine
 	for _, l := range f.ctLogLines {
 		switch {
