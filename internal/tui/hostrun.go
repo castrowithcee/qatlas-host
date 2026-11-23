@@ -175,10 +175,11 @@ func zeroAll(bufs ...[]byte) {
 	}
 }
 
-// scrub takes every secret out of text.
+// scrub takes every secret out of text. A blank one, as the empty line a command gets as its standard input only
+// so that it does not read the terminal, hides nothing and would only break the text apart.
 func scrub(text string, secrets ...[]byte) string {
 	for _, s := range secrets {
-		if len(s) > 0 {
+		if len(bytes.TrimSpace(s)) > 0 {
 			text = strings.ReplaceAll(text, string(s), "<hidden>")
 		}
 	}

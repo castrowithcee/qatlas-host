@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs 4 Settings [5 Containers] 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+  The project legacy-blog cannot be moved into /srv/stacks-example.             
+                                                                                
+  Nothing was changed.                                                          
+                                                                                
+    folder: /srv/demo-foreign                                                   
+    source: /srv/stacks-example                                                 
+    target folder: /srv/stacks-example/demo-foreign                             
+    project: legacy-blog                                                        
+    engine: system                                                              
+                                                                                
+  Files of the first commit (2)                                                 
+    compose.yaml                                                                
+    .env                                                                        
+                                                                                
+  Left out (1), not needed by the stacks, kept out of git by .gitignore         
+    data: bind-mount                                                            
+                                                                                
+  Blocks (1), the move cannot be done as it is                                  
+    other-filesystem: the folder and the source are on different file systems,  
+    so its data would have to be copied                                         
+    what to do: Choose a source on the same file system as the project folder.  
+                                                                                
+  Warning                                                                       
+    downtime: the containers of the project are recreated from the new folder   
+    what to do: Move in a quiet period.                                         
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+n/esc/enter close                                                     ↑/↓ scroll

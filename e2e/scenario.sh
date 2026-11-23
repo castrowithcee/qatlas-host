@@ -2744,6 +2744,8 @@ scenario_stacks_repo() {
 
 	scenario_source_move
 
+	scenario_tui_move
+
 	scenario_tui_remote
 
 	scenario_repair_end
@@ -4952,6 +4954,106 @@ scenario_source_move() {
 	docker exec "$host" docker rmi "$fimage:local-only" >/dev/null 2>&1 || true
 	docker exec "$host" rm -rf /opt/qd-move
 	log 'scenario: source move previewed, moved a running project into a source with a remote and took a failed move back, and the source followed the remote'
+}
+
+# scenario_tui_move proves the move of a foreign Compose project into a source that exists, in the Containers area of
+# the interface started under sudo, so the command runs directly as root. A person runs the project tuimove from
+# /opt/qd-tmove/tuimove, outside every source, with a data folder and a file in a named volume. The takeover offers the
+# source of its own and the sources of the engine that are no root stack; choosing /opt/stacks shows the preview with
+# the target folder, the files and the downtime warning, and nothing changes before yes. After yes the folder lies in
+# the source, the commit is in the remote, the project is a stack of the source and runs from the new folder on the same
+# data folder and the same named volume with its file. The project is removed from the source again at the end.
+scenario_tui_move() {
+	tbase=/opt/qd-tmove/tuimove
+	tinto=/opt/stacks
+	tmove_url=git.$domain:stacks.git
+
+	step 'a person starts a foreign Compose project with a data folder and a named volume outside every source'
+	docker exec "$host" rm -rf /opt/qd-tmove || fail 'cannot clear /opt/qd-tmove'
+	move_project "$tbase" 1.0.0
+	docker exec "$host" docker run --rm --network none -v tuimove_state:/state "$backup_image" sh -ec "printf 'invented state\n' >/state/note.txt" ||
+		fail 'cannot write a file into the named volume'
+	tids_before=$(docker exec "$host" docker ps -q --no-trunc --filter label=com.docker.compose.project=tuimove | sort)
+	[ -n "$tids_before" ] || fail 'the project to move has no running container'
+	tsums=$(tree_sums "$tbase")
+	tdata_inode=$(docker exec "$host" stat -c %i "$tbase/data/records.txt")
+	tvolume_created=$(docker exec "$host" docker volume inspect -f '{{.CreatedAt}}' tuimove_state)
+	tsource_status=$(folder_git "$tinto" status --porcelain)
+	tremote_before=$(remote_head "$tmove_url")
+	[ -n "$tremote_before" ] || fail 'the remote of the source has no head'
+
+	step 'the takeover offers a source of its own and the source to move into; the preview changes nothing'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 5
+	tui_wait 'foreign project tuimove' 30
+	tui_ct_cursor_to tuimove-app-1
+	tui_send a
+	tui_wait 'Take over as' 30
+	tui_wait 'a source of its own' 10
+	tui_send Enter
+	tui_wait "moved into the source $tinto" 10
+	i=0
+	until tui_screen | grep -Eq "║ > *moved into the source $tinto +║"; do
+		i=$((i + 1))
+		[ "$i" -lt 12 ] || fail "the cursor does not reach the source $tinto: $(tui_screen)"
+		tui_send Down
+		sleep 0.2
+	done
+	tui_send Enter
+	tui_send F2
+	tui_wait "Move the project tuimove into the source $tinto as the folder $tinto/tuimove?" 60
+	tui_wait "target folder: $tinto/tuimove" 10
+	tui_wait 'compose.yaml' 10
+	tui_wait 'data: bind-mount' 10
+	tui_wait 'downtime:' 10
+	if tui_has '$ sudo qhost'; then fail "the question shows a sudo command although the interface runs as root: $(tui_screen)"; fi
+	[ "$(docker exec "$host" docker ps -q --no-trunc --filter label=com.docker.compose.project=tuimove | sort)" = "$tids_before" ] ||
+		fail 'the question changed the containers'
+	[ "$(tree_sums "$tbase")" = "$tsums" ] || fail 'the question changed the project folder'
+	if docker exec "$host" test -e "$tinto/tuimove"; then fail 'the question made the target folder'; fi
+	[ "$(remote_head "$tmove_url")" = "$tremote_before" ] || fail 'the question changed the remote'
+
+	step 'yes moves the project into the source and it runs there on its data'
+	tui_send y
+	tui_wait "The project tuimove is moved to $tinto/tuimove and deployed there." 180
+	tui_send Enter
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	wait_for 'the deploy service to answer' 30 qd status
+	tmove_head=$(remote_head "$tmove_url")
+	[ -n "$tmove_head" ] && [ "$tmove_head" != "$tremote_before" ] || fail 'the move pushed no commit'
+	[ "$(remote_git ls-tree -r --name-only "$tmove_head" tuimove)" = "$(printf 'tuimove/.env\ntuimove/.gitignore\ntuimove/compose.yaml')" ] ||
+		fail "the remote holds the wrong files of tuimove: $(remote_git ls-tree -r --name-only "$tmove_head" tuimove)"
+	if docker exec "$host" test -e "$tbase"; then fail 'the old folder is still there'; fi
+	docker exec "$host" test -f "$tinto/tuimove/compose.yaml" || fail 'the folder is not in the source'
+	wait_for 'the source at the commit of the move' 60 source_head_is "$tinto" "$tmove_head"
+	qd --output json stack list | jq -e '[.[] | select(.stack == "tuimove")] | length == 1' >/dev/null ||
+		fail "stack list does not show the stack tuimove: $(qd --output json stack list)"
+	wait_for 'the moved project' 60 stack_healthy tuimove
+	[ "$(docker exec "$host" docker ps --filter label=com.docker.compose.project=tuimove --format '{{.Label "com.docker.compose.project.working_dir"}}' | sort -u)" = "$tinto/tuimove" ] ||
+		fail 'the containers do not run in the new folder'
+	[ "$(docker exec "$host" stat -c %i "$tinto/tuimove/data/records.txt")" = "$tdata_inode" ] || fail 'the data file is not the same file'
+	[ "$(docker exec "$host" cat "$tinto/tuimove/data/records.txt")" = 'invented record 1' ] || fail 'the data file changed'
+	[ "$(docker exec "$host" docker volume inspect -f '{{.CreatedAt}}' tuimove_state)" = "$tvolume_created" ] || fail 'the named volume is not the same'
+	[ "$(docker exec "$host" docker run --rm --network none -v tuimove_state:/state:ro "$backup_image" cat /state/note.txt)" = 'invented state' ] ||
+		fail 'the file in the named volume is gone'
+	[ "$(stack_field tuimove deployed)" = "$tmove_head" ] || fail "tuimove is not recorded as deployed at $tmove_head: $(stack_field tuimove deployed)"
+	[ "$(folder_git "$tinto" status --porcelain)" = "$tsource_status" ] || fail "the move left changes in the source: $(folder_git "$tinto" status --porcelain)"
+
+	step 'the moved project is removed from the source again'
+	docker exec "$host" docker compose -p tuimove down -v >/dev/null 2>&1 || fail 'cannot remove the containers of tuimove'
+	as_admin "cd ~/stacks && git pull -q --ff-only && git rm -rq tuimove &&
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -m 'Remove the moved project' && git push -q origin main" ||
+		fail 'cannot remove the moved project from the remote'
+	tcleaned=$(remote_head "$tmove_url")
+	restart_service
+	source_follows 'the source to drop the moved project' "$tinto" "$tcleaned" 180
+	# The data folder is not versioned, so it stays behind.
+	docker exec "$host" rm -rf "$tinto/tuimove" /opt/qd-tmove
+	[ "$(folder_git "$tinto" status --porcelain)" = "$tsource_status" ] || fail "the clean-up left changes in the source: $(folder_git "$tinto" status --porcelain)"
+	log 'scenario: the interface moved a foreign project into a source that exists, and it runs there on its data'
 }
 
 # scenario_tui_remote proves the remote of a local stack folder in the Stacks area of the interface. A local folder
