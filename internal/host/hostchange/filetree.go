@@ -60,7 +60,23 @@ type node struct {
 	mnt   uint64
 	ino   uint64
 	mtime unix.Timespec
+	// born tells an entry from a later one that got the same inode number.
+	born stamp
 }
+
+// stamp is the creation time of an entry: the birth time where the file system reports it, else the change time
+// of its metadata. The kind is part of it, so a stamp of one kind never equals one of the other. The zero stamp
+// means none was recorded.
+type stamp struct {
+	Kind string `json:"stamp,omitempty"`
+	Sec  int64  `json:"stamp_sec,omitempty"`
+	Nsec int64  `json:"stamp_nsec,omitempty"`
+}
+
+const (
+	stampBirth  = "birth"
+	stampChange = "ctime"
+)
 
 // statxAt reads name in dir without following a link; an empty name reads dir itself. A missing entry is
 // errNoEntry.
@@ -70,7 +86,7 @@ func statxAt(dir int, name string) (node, error) {
 		flags |= unix.AT_EMPTY_PATH
 	}
 	var sx unix.Statx_t
-	if err := unix.Statx(dir, name, flags, unix.STATX_BASIC_STATS|unix.STATX_MNT_ID, &sx); err != nil {
+	if err := unix.Statx(dir, name, flags, unix.STATX_BASIC_STATS|unix.STATX_MNT_ID|unix.STATX_BTIME, &sx); err != nil {
 		if errors.Is(err, unix.ENOENT) {
 			return node{}, errNoEntry
 		}
@@ -80,6 +96,11 @@ func statxAt(dir int, name string) (node, error) {
 		uid: int(sx.Uid), gid: int(sx.Gid), mode: uint32(sx.Mode) & 0o7777, size: int64(sx.Size),
 		dev: unix.Mkdev(sx.Dev_major, sx.Dev_minor), ino: sx.Ino,
 		mtime: unix.Timespec{Sec: sx.Mtime.Sec, Nsec: int64(sx.Mtime.Nsec)},
+	}
+	if sx.Mask&unix.STATX_BTIME != 0 {
+		n.born = stamp{stampBirth, sx.Btime.Sec, int64(sx.Btime.Nsec)}
+	} else {
+		n.born = stamp{stampChange, sx.Ctime.Sec, int64(sx.Ctime.Nsec)}
 	}
 	// The mount id tells a bind mount of the same file system apart, where the kernel reports it.
 	if sx.Mask&unix.STATX_MNT_ID != 0 {
@@ -460,7 +481,7 @@ func renameEntry(src, dst string, expect *fileRenameState) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", src, err)
 	}
-	if expect != nil && (n.dev != expect.Dev || n.ino != expect.Ino) {
+	if expect != nil && (n.dev != expect.Dev || n.ino != expect.Ino || (expect.stamp != (stamp{}) && n.born != expect.stamp)) {
 		return fmt.Errorf("%s is no longer the entry the change renamed; it is left as it is", src)
 	}
 	if err := checkRenameTree(sdir, sname, src, dst); err != nil {
@@ -775,6 +796,7 @@ type manifestEntry struct {
 	Size   int64  `json:"size"`
 	SHA256 string `json:"sha256,omitempty"`
 	Link   string `json:"link,omitempty"`
+	stamp
 }
 
 // entriesOf describes a scanned tree as manifest entries; withIno keeps the inodes. A hash is set only where the
@@ -784,7 +806,7 @@ func entriesOf(s treeScan, withIno bool) []manifestEntry {
 	for i, e := range s.entries {
 		out[i] = manifestEntry{Rel: e.rel, Kind: e.kind, Link: e.link}
 		if withIno {
-			out[i].Ino = e.ino
+			out[i].Ino, out[i].stamp = e.ino, e.born
 		}
 		if e.kind == kindFile {
 			out[i].Size, out[i].SHA256 = e.size, e.sha256
@@ -826,6 +848,9 @@ func equalEntries(got, want []manifestEntry, hashes bool) bool {
 		g, w := got[i], want[i]
 		if !hashes {
 			g.SHA256, w.SHA256 = "", ""
+		}
+		if w.stamp == (stamp{}) { // a manifest from before the stamp was recorded
+			g.stamp = stamp{}
 		}
 		if g != w {
 			return false
