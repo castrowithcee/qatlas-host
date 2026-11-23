@@ -31,7 +31,7 @@
 │ DB_PASSWORD               ║                                                              ║                           │
 ╰───────────────────────────║ Seine Adresse wirkt nach spätestens zehn Sekunden nicht      ║───────────────────────────╯
 ╭─ Webhooks ────────────────║ mehr. Das lässt sich nicht rückgängig machen.                ║───────────────────────────╮
-│ h-a1b2c3d0                ║ $ sudo qhost hook remove --output json -- h-a1b2c3d0         ║                           │
+│ h-a1b2c3d0  2026-01-02 03:║ $ sudo qhost hook remove --output json -- h-a1b2c3d0         ║                           │
 ╰───────────────────────────║                                                              ║───────────────────────────╯
 ╭─ Freigaben ───────────────║ [ ja, mit sudo ]  > abbrechen <                              ║───────────────────────────╮
 │ Eine Freigabe gilt für den║ y ja, mit sudo  n/esc/enter abbrechen                        ║.                          │

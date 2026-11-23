@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/castrowithcee/qatlas-kit/i18n"
 )
@@ -23,7 +24,7 @@ var (
 	hookAddSudo  = []string{"hook", "add", "--output", "json", "--", "demo-stack"}
 	hookDelSudo  = []string{"hook", "remove", "--output", "json", "--", "h-a1b2c3d0"}
 	oneHook      = map[string][]HookInfo{"demo-stack": {{ID: "h-a1b2c3d0"}}}
-	twoHooks     = map[string][]HookInfo{"demo-stack": {{ID: "h-a1b2c3d0"}, {ID: "h-a1b2c3d1"}}}
+	twoHooks     = map[string][]HookInfo{"demo-stack": {{ID: "h-a1b2c3d0", Created: time.Date(2026, 1, 2, 3, 4, 0, 0, time.UTC)}, {ID: "h-a1b2c3d1"}}}
 	hookTrigger  = func(b *fakeBackend, trigger string) *fakeBackend { b.stacks.Stacks[0].Trigger = trigger; return b }
 	hookStackFor = func(info HookServiceInfo, hooks map[string][]HookInfo, trigger string) func() *fakeBackend {
 		return func() *fakeBackend {
@@ -110,9 +111,7 @@ func TestHookSectionListsTheHooksOfTheStack(t *testing.T) {
 	m := newTestModel(t, i18n.English, b, wideWidth, hookRows)
 	send(m, toDetail...)
 	contains(t, m, "Webhooks", "h-a1b2c3d0", "h-a1b2c3d1")
-	if strings.Contains(m.render(), "modified") {
-		t.Fatalf("a hook shows a time:\n%s", m.render())
-	}
+	contains(t, m, "h-a1b2c3d0  2026-01-02 03:04", "h-a1b2c3d1  -")
 	if strings.Contains(m.render(), "Maintenance window") {
 		t.Fatalf("the trigger webhook gets the note about the window:\n%s", m.render())
 	}

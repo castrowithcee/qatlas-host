@@ -16,7 +16,7 @@ import (
 // The Grants section of the stack detail lists the standing grants of the stack, grants one and withdraws one. Both
 // writes need root, so they run as `sudo qhost grant …`. The list is read by the deploy service and needs no root.
 
-const formGrant formKind = formAdoptTarget + 1
+const formGrant formKind = formGrantExpiry + 1
 
 // grantSetup is what the stack has set up, as the confirmation of a new grant says it.
 type grantSetup struct{ backup, check bool }
@@ -188,7 +188,7 @@ func (m *Model) grantFormFor(res control.StackSettingsResult) tea.Cmd {
 	f := m.newSettingsForm(formGrant, textTitleGrant, []kittui.FormField{
 		pick("user", textFieldGrantUser, textHintGrantUser, users),
 		pick("action", textFieldGrantAction, textHintGrantAction, actions),
-		textField("expires", textFieldGrantExpires, textHintGrantExpires, ""),
+		textField("expires", textFieldDetailGrantExpires, textHintDetailGrantExpires, ""),
 	})
 	if f == nil {
 		return nil
@@ -203,7 +203,7 @@ func (m *Model) submitGrant(f *settingsForm, v map[kittui.FieldID]kittui.FormVal
 	expires := strings.TrimSpace(v["expires"].Text)
 	if expires != "" {
 		if _, err := time.Parse(control.GrantExpiresLayout, expires); err != nil {
-			f.problems(m.bad("expires", textProblemGrantExpires))
+			f.problems(m.bad("expires", textProblemDetailGrantExpires))
 			return nil
 		}
 	}
@@ -236,7 +236,7 @@ func (m *Model) askGrantAdd(stack, user, action, expires string, s grantSetup) {
 		args = append(args, "--expires", expires)
 	}
 	args = m.engineArgs(engine, append(args, "--confirm", "--output", "json", "--", user, action, stack))
-	m.askGrantSudo(sudoAsk{title: textTitleGrant,
+	m.askDetailGrantSudo(sudoAsk{title: textTitleGrant,
 		question:    m.text.Lookup(textAskGrantAdd, kittui.Escape(user), m.grantActionText(action), stack),
 		consequence: m.grantSetupText(action, s), lead: dialogLines([]string{m.grantLeadText(expires)}), args: args},
 		opGrantAdd, user, func(r sudoRun) (any, bool) {
@@ -251,9 +251,9 @@ func (m *Model) askGrantAdd(stack, user, action, expires string, s grantSetup) {
 		})
 }
 
-// askGrantSudo asks with the command and gives the answer of the run to applySetting, as askSetting does without
+// askDetailGrantSudo asks with the command and gives the answer of the run to applySetting, as askSetting does without
 // root; as root the command runs without sudo.
-func (m *Model) askGrantSudo(a sudoAsk, op settingOp, name string, decode func(sudoRun) (any, bool)) {
+func (m *Model) askDetailGrantSudo(a sudoAsk, op settingOp, name string, decode func(sudoRun) (any, bool)) {
 	if m.settingsBusy() {
 		m.warn(m.text.Lookup(textActionBusy))
 		return
@@ -303,7 +303,7 @@ func (m *Model) askGrantRemove(stack, id string) {
 	}
 	g := m.detail.grants.Grants[i]
 	args := m.engineArgs(m.stackEngineOf(stack), []string{"grant", "remove", "--confirm", "--output", "json", "--", id})
-	m.askGrantSudo(sudoAsk{title: textTitleGrantRemove,
+	m.askDetailGrantSudo(sudoAsk{title: textTitleGrantRemove,
 		question:    m.text.Lookup(textAskGrantRemove, kittui.Escape(g.User), m.grantActionText(g.Action), stack),
 		consequence: m.text.Lookup(textWhatGrantRemove), danger: true, args: args},
 		opGrantRemove, id, func(r sudoRun) (any, bool) {

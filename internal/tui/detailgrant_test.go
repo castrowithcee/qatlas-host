@@ -25,8 +25,8 @@ var (
 	toGrantForm  = seq(toDetail, keys("z"))
 )
 
-// grantBackend has one valid and one invalid grant for the demo stack.
-func grantBackend() *fakeBackend {
+// detailGrantBackend has one valid and one invalid grant for the demo stack.
+func detailGrantBackend() *fakeBackend {
 	b := settingsBackend()
 	b.grants = map[string][]control.GrantInfo{"demo-stack": {
 		{Grant: control.Grant{ID: "g-0a1b2c3d", User: "ada", UID: 1000, Action: control.GrantActionStackRestart, Stack: "demo-stack", Expires: "2027-03-31"}},
@@ -37,8 +37,8 @@ func grantBackend() *fakeBackend {
 
 func emptyGrantBackend() *fakeBackend { return settingsBackend() }
 
-// goldenGrant is goldenScreens at 80 columns with the user having no root, so that the question shows the command.
-func goldenGrant(t *testing.T, prefix string, rows int, setup func() *fakeBackend, keys ...string) {
+// goldenDetailGrant is goldenScreens at 80 columns with the user having no root, so that the question shows the command.
+func goldenDetailGrant(t *testing.T, prefix string, rows int, setup func() *fakeBackend, keys ...string) {
 	t.Helper()
 	for name, lang := range goldenLangs {
 		t.Run(name, func(t *testing.T) {
@@ -63,42 +63,42 @@ func containsFlat(t *testing.T, m *Model, want ...string) {
 }
 
 func TestGoldenGrantSection(t *testing.T) {
-	goldenGrant(t, "detail.grants", grantRows, grantBackend, toDetail...)
+	goldenDetailGrant(t, "detail.grants", grantRows, detailGrantBackend, toDetail...)
 }
 
 func TestGoldenGrantSectionEmpty(t *testing.T) {
-	goldenGrant(t, "detail.grants.none", grantRows, emptyGrantBackend, toDetail...)
+	goldenDetailGrant(t, "detail.grants.none", grantRows, emptyGrantBackend, toDetail...)
 }
 
 func TestGoldenGrantForm(t *testing.T) {
-	goldenGrant(t, "detail.grants.form", 24, grantBackend, toGrantForm...)
+	goldenDetailGrant(t, "detail.grants.form", 24, detailGrantBackend, toGrantForm...)
 }
 
 func TestGoldenGrantConfirm(t *testing.T) {
-	goldenGrant(t, "detail.grants.confirm", 24, grantBackend, seq(toGrantForm, keys("f2"))...)
+	goldenDetailGrant(t, "detail.grants.confirm", 24, detailGrantBackend, seq(toGrantForm, keys("f2"))...)
 }
 
 func TestGoldenGrantRemoveQuestion(t *testing.T) {
-	goldenGrant(t, "detail.grants.remove", 24, grantBackend, seq(toDetail, keys("Y", "enter"))...)
+	goldenDetailGrant(t, "detail.grants.remove", 24, detailGrantBackend, seq(toDetail, keys("Y", "enter"))...)
 }
 
 func TestGrantSectionShowsStatesAndWordsInBothLanguages(t *testing.T) {
-	m := newTestModel(t, i18n.English, grantBackend(), grantWidth, grantRows)
+	m := newTestModel(t, i18n.English, detailGrantBackend(), grantWidth, grantRows)
 	send(m, toDetail...)
 	contains(t, m, "Grants", "every agent", "ada", "restart the stack", "until 2027-03-31", "valid",
 		"cleo", "update the stack", "no expiry", "invalid: the account changed")
-	m = newTestModel(t, i18n.German, grantBackend(), grantWidth, grantRows)
+	m = newTestModel(t, i18n.German, detailGrantBackend(), grantWidth, grantRows)
 	send(m, toDetail...)
 	contains(t, m, "Freigaben", "jeden Agenten", "Stack neu starten", "bis 2027-03-31", "gültig", "ungültig: Konto geändert")
 }
 
 func TestGrantSectionProblemAndReadFailure(t *testing.T) {
-	b := grantBackend()
+	b := detailGrantBackend()
 	b.grantProblem = "grants.json is not valid"
 	m := newTestModel(t, i18n.English, b, grantWidth, grantRows)
 	send(m, toDetail...)
 	contains(t, m, "none of them counts", "grants.json is not valid")
-	b = grantBackend()
+	b = detailGrantBackend()
 	b.errs = map[string]error{"grantlist:demo-stack": errServiceBusy()}
 	m = newTestModel(t, i18n.English, b, grantWidth, grantRows)
 	send(m, toDetail...)
@@ -110,7 +110,7 @@ func TestGrantSectionProblemAndReadFailure(t *testing.T) {
 }
 
 func TestGrantAddRunsTheCommandThroughSudoAndReadsTheListAgain(t *testing.T) {
-	b := grantBackend()
+	b := detailGrantBackend()
 	m, f := sudoDetailModel(t, i18n.English, b, grantWidth, grantRows)
 	f.report = reportGrantAd
 	send(m, toGrantForm...)
@@ -137,7 +137,7 @@ func TestGrantAddRunsTheCommandThroughSudoAndReadsTheListAgain(t *testing.T) {
 }
 
 func TestGrantAddWithExpiryAndNothingRunsOnCancel(t *testing.T) {
-	m, f := sudoDetailModel(t, i18n.English, grantBackend(), grantWidth, grantRows)
+	m, f := sudoDetailModel(t, i18n.English, detailGrantBackend(), grantWidth, grantRows)
 	f.report = reportGrantAd
 	send(m, toGrantForm...)
 	send(m, "tab", "tab")
@@ -155,7 +155,7 @@ func TestGrantAddWithExpiryAndNothingRunsOnCancel(t *testing.T) {
 }
 
 func TestGrantAddRefusesABadDay(t *testing.T) {
-	m, f := sudoDetailModel(t, i18n.English, grantBackend(), grantWidth, grantRows)
+	m, f := sudoDetailModel(t, i18n.English, detailGrantBackend(), grantWidth, grantRows)
 	send(m, toGrantForm...)
 	send(m, "tab", "tab")
 	send(m, typed("31.03.2027")...)
@@ -167,7 +167,7 @@ func TestGrantAddRefusesABadDay(t *testing.T) {
 }
 
 func TestGrantAddNeedsAUserWithAccess(t *testing.T) {
-	m, _ := sudoDetailModel(t, i18n.English, grantBackend(), grantWidth, grantRows)
+	m, _ := sudoDetailModel(t, i18n.English, detailGrantBackend(), grantWidth, grantRows)
 	m.sys.loaded, m.sys.users = true, nil
 	send(m, toGrantForm...)
 	if m.set.form != nil || m.notice == "" {
@@ -176,7 +176,7 @@ func TestGrantAddNeedsAUserWithAccess(t *testing.T) {
 }
 
 func TestGrantAddAnswerWithoutAnIDFails(t *testing.T) {
-	m, f := sudoDetailModel(t, i18n.English, grantBackend(), grantWidth, grantRows)
+	m, f := sudoDetailModel(t, i18n.English, detailGrantBackend(), grantWidth, grantRows)
 	f.report = `{"removed":true}`
 	send(m, toGrantForm...)
 	send(m, "f2", "y")
@@ -184,7 +184,7 @@ func TestGrantAddAnswerWithoutAnIDFails(t *testing.T) {
 }
 
 func TestGrantConfirmationSaysWhatTheStackHasSetUp(t *testing.T) {
-	m := newTestModel(t, i18n.English, grantBackend(), grantWidth, grantRows)
+	m := newTestModel(t, i18n.English, detailGrantBackend(), grantWidth, grantRows)
 	for _, tt := range []struct {
 		action string
 		setup  grantSetup
@@ -203,7 +203,7 @@ func TestGrantConfirmationSaysWhatTheStackHasSetUp(t *testing.T) {
 }
 
 func TestGrantFormReadsTheSetupFromTheStackSettings(t *testing.T) {
-	b := grantBackend()
+	b := detailGrantBackend()
 	b.stackSettings = map[string]control.StackSettings{"demo-stack": {Version: 1, Backup: &control.StackBackupSettings{}, Check: &control.StackCheckSettings{}}}
 	m, _ := sudoDetailModel(t, i18n.English, b, grantWidth, grantRows)
 	send(m, toGrantForm...)
@@ -212,7 +212,7 @@ func TestGrantFormReadsTheSetupFromTheStackSettings(t *testing.T) {
 }
 
 func TestGrantRemoveAsksThenRunsTheCommandAndReadsTheListAgain(t *testing.T) {
-	b := grantBackend()
+	b := detailGrantBackend()
 	m, f := sudoDetailModel(t, i18n.English, b, grantWidth, grantRows)
 	f.report = reportGrantRm
 	send(m, toDetail...)

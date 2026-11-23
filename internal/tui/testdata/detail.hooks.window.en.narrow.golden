@@ -31,7 +31,7 @@
 │ DB_PASSWORD                                          │
 ╰──────────────────────────────────────────────────────╯
 ╭─ Webhooks ───────────────────────────────────────────╮
-│ h-a1b2c3d0                                           │
+│ h-a1b2c3d0  -                                        │
 │ The update trigger is Maintenance window: a hook     │
 │ acts only with the trigger Polling or Webhook only.  │
 ╰──────────────────────────────────────────────────────╯

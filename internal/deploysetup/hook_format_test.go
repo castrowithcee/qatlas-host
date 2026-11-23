@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/castrowithcee/qatlas-host/internal/formatnum/formatnumtest"
+	"github.com/castrowithcee/qatlas-host/internal/hookservice"
 )
 
 func TestHookSetupKeepsAConfigurationWithAnUnknownFormatNumber(t *testing.T) {
-	for name, doc := range formatnumtest.Cases("version", 1, `"listen":"127.0.0.1:8480","hooks":[]`) {
+	for name, doc := range formatnumtest.Cases("version", hookservice.ConfigVersion, `"listen":"127.0.0.1:8480","hooks":[]`) {
 		t.Run(name, func(t *testing.T) {
 			h := newHookHost(t)
 			h.put(HookConfigPath, doc)

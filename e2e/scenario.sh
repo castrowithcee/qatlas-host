@@ -2238,6 +2238,7 @@ scenario_rollback() {
 	printf '%s' "$run_log" | grep -q ' result rollback-failed' || fail "the run did not end rollback-failed: $run_log"
 	[ "$(log_steps "$run_log")" = "$rollback_failed_steps" ] || fail "unexpected steps of the rollback-failed run: $(log_steps "$run_log")"
 	printf '%s' "$run_log" | grep -q 'the remote refused the push' || fail "the run log does not show the remote refusing the push: $run_log"
+	printf '%s' "$run_log" | grep -q 'rejected by the e2e hook' || fail "the run log does not show the output of the remote hook: $run_log"
 	[ "$(as_admin "git ls-remote $repo refs/heads/main" | cut -f 1)" = "$stuck" ] || fail 'the remote branch moved although the push was refused'
 	[ -z "$(stack_images demo-cache)" ] || fail "demo-cache is still running after the failed rollback: $(stack_images demo-cache)"
 	[ -n "$(stack_field demo-cache paused)" ] || fail "status does not show demo-cache as paused: $(qd --output json status)"
@@ -6870,7 +6871,7 @@ scenario_hook() {
 	printf '%s' "$out" | grep -q "$hook_id *demo-stack *system" || fail "hook list does not show the hook: $out"
 	if printf '%s' "$out" | grep -qF -e "$hook_secret" -e sha256; then fail "hook list shows a hash or a secret: $out"; fi
 	out=$(as_admin 'qhost --output json hook list 2>&1') || fail "hook list as JSON failed: $out"
-	for want in "\"id\": *\"$hook_id\"" '"stack": *"demo-stack"' '"instance": *"system"' '"modified": *"'; do
+	for want in "\"id\": *\"$hook_id\"" '"stack": *"demo-stack"' '"instance": *"system"' '"created": *"20'; do
 		printf '%s' "$out" | grep -q "$want" || fail "hook list as JSON lacks $want: $out"
 	done
 	if printf '%s' "$out" | grep -qF -e "$hook_secret" -e sha256; then fail "hook list as JSON shows a hash or a secret: $out"; fi
