@@ -5888,6 +5888,7 @@ scenario_tui_folder_sudo() {
 	tui_type "$fs_clone"
 	tui_send F2
 	fs_password
+	tui_keep_engine 60
 	tui_wait "Clone a repository into $fs_clone?" 60
 	tui_send y
 	tui_wait 'Address of the repository to clone' 10
@@ -5956,6 +5957,7 @@ EOF2
 	tui_wait 'Compose files' 15
 	tui_send a
 	fs_password
+	tui_keep_engine 60
 	tui_wait "Start a git repository in $fs_base and take it over?" 60
 	# The command stands at the end of the sheet, below the window.
 	for _ in 1 2 3 4 5 6 7 8 9 10; do tui_send Down; done
@@ -6957,6 +6959,22 @@ tui_has() {
 	tui_screen | grep -qF -- "$1"
 }
 
+# tui_keep_engine waits up to $1 seconds for the choice of the engine, which follows the inspection of a folder
+# while more than one deploy service is set up, checks that system is preselected and keeps it.
+tui_keep_engine() {
+	i=0
+	until tui_screen | grep -qE 'whose deploy service runs the stacks|preselected is the engine where containers'; do
+		i=$((i + 1))
+		if [ "$i" -ge $(($1 * 4)) ]; then
+			printf '%s\n' "$(tui_screen)" >&2
+			fail 'timeout waiting for the choice of the engine on the screen of the terminal interface'
+		fi
+		sleep 0.25
+	done
+	tui_screen | grep -qE '> Engine +│ system' || fail "the choice of the engine does not preselect system: $(tui_screen)"
+	tui_send F2
+}
+
 # tui_wait waits up to $2 seconds for the text $1 on the screen and shows the screen when it does not appear.
 tui_wait() {
 	i=0
@@ -7666,6 +7684,7 @@ EOF2
 
 	step 'a opens the takeover; it shows the labels, no warning, and changes nothing before the answer'
 	tui_send a
+	tui_keep_engine 30
 	tui_wait 'Start a git repository in /srv/qd-foreign/app and take it over?' 30
 	tui_wait 'Foreign project' 10
 	tui_wait 'project: app' 10
@@ -8145,6 +8164,7 @@ scenario_tui_setup() {
 	tui_wait 'Add a stack folder' 10
 	tui_type /opt/stacks
 	tui_send F2
+	tui_keep_engine 30
 	tui_wait 'Clone a repository into /opt/stacks?' 10
 	tui_send y
 	tui_wait 'Address of the repository to clone' 10
@@ -8262,6 +8282,7 @@ scenario_tui_setup() {
 	tui_wait 'Add a stack folder' 10
 	tui_type "$local_dir"
 	tui_send F2
+	tui_keep_engine 30
 	tui_wait "Take over the repository $local_dir as a local stack folder?" 10
 	tui_send n
 	tui_wait 'No stack folders yet' 10
@@ -8279,6 +8300,7 @@ scenario_tui_setup() {
 	tui_wait 'Add a stack folder' 10
 	tui_type /opt/stacks
 	tui_send F2
+	tui_keep_engine 30
 	tui_wait 'Clone a repository into /opt/stacks?' 10
 	tui_send y
 	tui_wait 'Address of the repository to clone' 10
@@ -8310,6 +8332,7 @@ scenario_tui_setup() {
 	tui_wait 'Add a stack folder' 10
 	tui_type "$local_dir"
 	tui_send F2
+	tui_keep_engine 30
 	tui_wait "Take over the repository $local_dir as a local stack folder?" 10
 	tui_send y
 	tui_wait "The stack folder $local_dir is added" 120
