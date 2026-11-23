@@ -5346,7 +5346,7 @@ EOF2
 	tui_wait 'maintenance window' 15
 	tui_send Enter
 	tui_wait 'Effect if applied now' 30
-	tui_wait 'The maintenance window would change:' 10
+	tui_wait 'The maintenance window of the host would change:' 10
 	tui_wait "after:  \"$ds_start\"" 10
 	tui_send A
 	tui_wait 'and set this maintenance window?' 30
@@ -7917,7 +7917,7 @@ scenario_tui_proposal_kinds() {
 	tui_wait 'maintenance window' 15
 	tui_send Enter
 	tui_wait 'Effect if applied now' 30
-	tui_wait 'The maintenance window would change:' 10
+	tui_wait 'The maintenance window of the host would change:' 10
 	tui_wait "after:  \"$pk_new_start\"" 10
 	tui_send A
 	tui_wait 'and set this maintenance window?' 30
