@@ -3504,7 +3504,8 @@ bkr_containers() {
 # scenario_backup_rootless proves backup, restore and rollback with data in the rootless engine of $rootless_user, for
 # the stack demo-rootless that scenario_source_rootless bound to the instance. The instance gets the local helper image
 # in its own image store and a drop-in that names it; the drop-in is removed at the end, because the uninstall
-# removes the folder of the drop-ins only when it is empty. The stack keeps its rules and runs at the end.
+# removes the folder of the drop-ins only when it is empty. At the end the stack runs with the settings it had before,
+# without backup rules.
 scenario_backup_rootless() {
 	bk_base=/srv/qd-rootless
 	bk_dir=$bk_base/demo-rootless
@@ -3723,11 +3724,18 @@ EOF2
 	sr_stack_runs || fail 'demo-rootless does not run after demo-rootless-dirs left'
 
 	step 'the drop-in of the helper image is removed again and the instance answers'
+	bkr_settings 'version: 1
+check:
+  containers: false
+'
+	printf '%s' "$bkr_out" | jq -e '.changed == true' >/dev/null || fail "settings set reports no change: $bkr_out"
 	docker exec "$host" sh -ec "rm -f '$bk_dropin' && systemctl daemon-reload" || fail 'cannot remove the drop-in of the instance'
 	docker exec "$host" test -f "/etc/systemd/system/$bk_unit.d/10-stack-folders.conf" || fail 'the drop-in of the stack folders is gone'
 	bkr_restart
 	wait_for 'the instance to be idle' 180 sr_idle
 	sr_stack_runs || fail 'demo-rootless does not run after the drop-in is removed'
+	qd --output json stack settings demo-rootless | jq -e '.configured == true and .settings.backup == null' >/dev/null ||
+		fail "demo-rootless still has backup rules: $(qd --output json stack settings demo-rootless)"
 }
 
 # te_new_run succeeds when the instance lists a run of demo-rootless that is not in $te_old, and sets te_run to it.
@@ -3756,14 +3764,7 @@ scenario_tui_engine() {
 	tui_wait "Engine $te_engine" 30
 	tui_wait 'demo-rootless' 30
 	tui_send Home
-	# The rootless section comes after every row of the system section, more rows than tui_cursor_to walks.
-	i=0
-	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] demo-rootless "; do
-		i=$((i + 1))
-		[ "$i" -lt 40 ] || fail "the cursor does not reach demo-rootless: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_cursor_to demo-rootless
 	tui_excerpt 'demo-rootless' 12
 
 	step 'a deploy from the section runs through sudo in the instance'
@@ -3793,6 +3794,13 @@ tc_cursor_engine() {
 		/^(│ |║ )?> / { if (index($0, " " name " ")) print eng }'
 }
 
+# tc_cursor_in_engine tells whether the marked row of the screen on its input is $tc_ct in the section of $tc_engine.
+tc_cursor_in_engine() {
+	[ "$(awk -v name="$tc_ct" '
+		/ Engine / { match($0, /Engine [^ ]+/); eng = substr($0, RSTART + 7, RLENGTH - 7) }
+		/^(│ |║ )?> / { if (index($0, " " name " ")) print eng }')" = "$tc_engine" ]
+}
+
 # scenario_tui_containers_engine proves the Containers area with two engines for the interface of $admin started
 # without sudo: the container of demo-rootless stands in the section of the rootless engine, a container of the same
 # name in the system engine in the other, and a restart of the marked row goes through sudo with --engine and
@@ -3819,13 +3827,7 @@ scenario_tui_containers_engine() {
 	tui_wait "Engine $tc_engine" 30
 	tui_wait 'Engine system' 30
 	tui_send Home
-	i=0
-	until [ "$(tc_cursor_engine "$tc_ct")" = "$tc_engine" ]; do
-		i=$((i + 1))
-		[ "$i" -lt 60 ] || fail "the cursor of the Containers area does not reach $tc_ct in $tc_engine: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "$tc_ct in $tc_engine" tc_cursor_in_engine
 	tui_excerpt "Engine $tc_engine" 12
 
 	step 'a restart from the section runs through sudo with --engine and restarts the container of that engine only'
@@ -5596,13 +5598,7 @@ scenario_tui_sudo() {
 	tui_wait "5 $tui_icon_containers Containers" 10
 	tui_wait "$sa_single" 15
 	tui_send Home
-	i=0
-	until tui_ct_cursor_on "$sa_single"; do
-		i=$((i + 1))
-		[ "$i" -lt 40 ] || fail "the cursor of the Containers area does not reach $sa_single: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "$sa_single" tui_ct_cursor_on "$sa_single"
 	tui_send Z
 	tui_wait "Restart container $sa_single" 15
 	tui_has 'sudo qhost container restart' || fail "the question does not show the command: $(tui_screen)"
@@ -5815,13 +5811,7 @@ EOF2
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_wait "[ ] $ds_stack" 30
 	tui_send Home
-	i=0
-	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] $ds_stack "; do
-		i=$((i + 1))
-		[ "$i" -lt 40 ] || fail "the cursor does not reach $ds_stack: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_cursor_to "$ds_stack"
 	tui_send Enter
 	tui_wait 'Missing data directories' 15
 	tui_wait 'owner 1000:1000' 10
@@ -6416,6 +6406,23 @@ no_finding() {
 	! has_finding "$1" "$2"
 }
 
+# stack_removed succeeds when qhost status marks the stack as removed from the repository.
+stack_removed() {
+	qd --output json status | jq -e --arg k "stack.$1.removed" '.[$k] == true' >/dev/null
+}
+
+# stack_leftovers_clean makes the service poll at once and waits until it has noticed that the stack $1 left the
+# repository, which it only records: it stops no container and deletes no folder. Then it removes the containers
+# and the unversioned folder $2 (data and the like) and proves that nothing of the stack is left on the host.
+stack_leftovers_clean() {
+	restart_service
+	wait_for "the service to report $1 as removed" 120 stack_removed "$1"
+	docker exec "$host" sh -c "docker ps -aq --filter label=com.docker.compose.project=$1 | xargs -r docker rm -f" >/dev/null ||
+		fail "cannot remove the containers of $1"
+	docker exec "$host" rm -rf "$2" || fail "cannot remove $2"
+	if docker exec "$host" test -e "$2"; then fail "$2 is left on the host"; fi
+}
+
 # scenario_container_monitor proves that the failure monitor reports a container of demo-stack that dies outside
 # qhost and then repairs it: the webhook hears container-failed and qhost status shows the finding; qhost
 # restarts the container after a minute, and the webhook hears recovered with restarted. The same for a container
@@ -6540,6 +6547,7 @@ scenario_repair_end() {
 	out=$(qd notify remove rep) || fail "notify remove rep failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q repair-demo &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the repair-demo stack" && git push -q origin main'
+	stack_leftovers_clean repair-demo /opt/stacks/repair-demo
 	log 'scenario: resume released the repair; repair-demo is fixed and removed'
 }
 
@@ -6640,6 +6648,8 @@ scenario_observe_end() {
 	out=$(qd notify remove obs) || fail "notify remove obs failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q observe-demo .qatlas/qhost/observe-demo.yaml &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the observe-demo stack" && git push -q origin main'
+	stack_leftovers_clean observe-demo /opt/stacks/observe-demo
+	if docker exec "$host" test -e /opt/stacks/.qatlas/qhost/observe-demo.yaml; then fail 'the settings of observe-demo are left on the host'; fi
 	log 'scenario: the update of observe-demo was rolled back by qhost; observe-demo is removed'
 }
 
@@ -7416,29 +7426,46 @@ tui_wait() {
 	done
 }
 
+# tui_walk_down presses Down until the command $2..., which reads the screen on its input, succeeds; $1 names the
+# target in the failure. The cursor rows count with their screen lines, so rows of the same text stay apart. After
+# each key it waits up to two seconds for them to change, as a pending redraw cannot be told from the end of the list
+# otherwise. The end of the list ends the walk with a failure, and so do cursor rows seen twice: a list that wraps.
+tui_walk_down() {
+	tw_target=$1
+	shift
+	tw_sep=$(printf '\037')
+	tw_seen=$tw_sep
+	tw_screen=$(tui_screen)
+	while ! printf '%s\n' "$tw_screen" | "$@"; do
+		tw_cursor=$(printf '%s\n' "$tw_screen" | grep -nE '^(│ |║ )?> ')
+		tui_send Down
+		tw_n=0
+		while :; do
+			sleep 0.1
+			tw_screen=$(tui_screen)
+			tw_now=$(printf '%s\n' "$tw_screen" | grep -nE '^(│ |║ )?> ')
+			[ "$tw_now" != "$tw_cursor" ] && break
+			tw_n=$((tw_n + 1))
+			[ "$tw_n" -lt 20 ] || fail "the cursor does not reach $tw_target, it stops at '${tw_cursor:-no cursor row}': $tw_screen"
+		done
+		case $tw_seen in
+		*"$tw_sep$tw_now$tw_sep"*) fail "the cursor does not reach $tw_target, the list wraps around at '$tw_now': $tw_screen" ;;
+		esac
+		tw_seen=$tw_seen$tw_now$tw_sep
+	done
+}
+
 # tui_cursor_to moves the cursor of the Stacks list to the stack $1. The list draws no cursor without the focus, so
 # the focus must be in the list.
 tui_cursor_to() {
-	i=0
-	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] $1 "; do
-		i=$((i + 1))
-		[ "$i" -lt 12 ] || fail "the cursor does not reach $1: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "$1" grep -Eq "^(│ |║ )?> .*\[.\] $1 "
 }
 
 # tui_folder_to moves the cursor of the Stacks list to the group row of the stack folder $1. The mark before the path
 # is a symbol in a terminal.
 tui_folder_to() {
 	tui_send Home
-	i=0
-	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] [^ ]* $1 ("; do
-		i=$((i + 1))
-		[ "$i" -lt 40 ] || fail "the cursor does not reach the folder $1: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "the folder $1" grep -Eq "^(│ |║ )?> .*\[.\] [^ ]* $1 \("
 }
 
 # tui_click presses and releases the left mouse button at the first cell of the text $1 on the screen, as a
@@ -7809,13 +7836,7 @@ scenario_tui() {
 	tui_send 5
 	tui_wait 'own stack demo-stack' 15
 	tui_send Home
-	i=0
-	until tui_ct_cursor_on "$ctname"; do
-		i=$((i + 1))
-		[ "$i" -lt 30 ] || fail "the cursor of the Containers area does not reach $ctname: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "$ctname" tui_ct_cursor_on "$ctname"
 	tui_send o
 	tui_wait 'demo tick' 10
 	# The log opens following at its end, so an older container shows its start line, the only one with the
@@ -7875,13 +7896,7 @@ scenario_tui() {
 	# command $3. The dialog wraps the question, so only its first words are matched whole.
 	ct_action() {
 		tui_send Home
-		i=0
-		until tui_ct_cursor_on "$foreign"; do
-			i=$((i + 1))
-			[ "$i" -lt 40 ] || fail "the cursor of the Containers area does not reach $foreign: $(tui_screen)"
-			tui_send Down
-			sleep 0.2
-		done
+		tui_walk_down "$foreign" tui_ct_cursor_on "$foreign"
 		tui_send "$1"
 		tui_wait "$2 container $foreign" 15
 		tui_has 'demo-foreign-tui)?' || fail "the question of $3 does not name the foreign project: $(tui_screen)"
@@ -8056,13 +8071,7 @@ tui_ct_cursor_on() {
 
 # tui_ct_cursor_to moves the cursor of the Containers list to the container $1.
 tui_ct_cursor_to() {
-	i=0
-	until tui_screen | grep -Eq "^(│ |║ )?> *$1 "; do
-		i=$((i + 1))
-		[ "$i" -lt 40 ] || fail "the cursor does not reach $1: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "$1" grep -Eq "^(│ |║ )?> *$1 "
 }
 
 # scenario_adopt proves that the interface takes over a foreign Compose project: a person starts the project app
@@ -8490,13 +8499,7 @@ tui_key_generate() {
 
 # tui_pick_to moves the cursor of an open choice to the row that starts with the text $1.
 tui_pick_to() {
-	i=0
-	until tui_screen | grep -q "^> *$1"; do
-		i=$((i + 1))
-		[ "$i" -lt 12 ] || fail "the cursor does not reach $1: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "$1" grep -Eq "^> *$1"
 }
 
 # first_setup_reset gives the service a fresh state: no key, credentials, channels, repository or runs, and
