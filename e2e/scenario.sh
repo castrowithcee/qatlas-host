@@ -4698,6 +4698,24 @@ source_head_is() {
 	[ "$(folder_git "$1" rev-parse HEAD)" = "$2" ]
 }
 
+# source_follows waits up to $4 seconds until the working copy of the source $2 is at the commit $3, described as $1.
+# On a timeout it prints what the service knows of the source and the end of its log, then fails.
+source_follows() {
+	what=$1 dir=$2 want=$3 tries=$4
+	i=0
+	until source_head_is "$dir" "$want"; do
+		i=$((i + 1))
+		if [ "$i" -ge "$tries" ]; then
+			printf 'e2e: source %s wanted at %s: %s\n' "$dir" "$want" \
+				"$(qd --output json source list | jq -c --arg p "$dir" '.sources[] | select(.path == $p) | {head, remote_head, last_poll, note, poll_error}')" >&2
+			printf 'e2e: status of %s:\n%s\n' "$dir" "$(folder_git "$dir" status --porcelain)" >&2
+			printf 'e2e: end of the deploy service log:\n%s\n' "$(docker exec "$host" journalctl -u qhost-deploy -n 20 -o cat --no-pager 2>&1)" >&2
+			fail "timeout waiting for $what"
+		fi
+		sleep 1
+	done
+}
+
 # remote_git runs git on the bare repository stacks.git in the git container as root; stderr is merged.
 remote_git() {
 	docker exec "$prefix-git" git -c safe.directory='*' --git-dir=/srv/git/stacks.git "$@" 2>&1
@@ -4861,7 +4879,10 @@ scenario_source_move() {
 		fail 'cannot push a commit from outside'
 	foreign=$(remote_head "$move_url")
 	[ -n "$foreign" ] && [ "$foreign" != "$move_head" ] || fail 'the commit from outside is not the head of the remote'
-	wait_for 'the source to take over the commit from outside' 180 source_head_is "$into" "$foreign"
+	# The poll that the commit of the move woke was the last one; the next follows only after the poll interval of
+	# five minutes. The restart makes the engine poll at once.
+	restart_service
+	source_follows 'the source to take over the commit from outside' "$into" "$foreign" 180
 	docker exec "$host" test -f "$into/move-note.txt" || fail 'the fast-forward did not bring the file'
 	[ "$(folder_git "$into" status --porcelain)" = "$source_status" ] || fail "the fast-forward left changes in the source: $(folder_git "$into" status --porcelain)"
 
@@ -4871,7 +4892,8 @@ scenario_source_move() {
 		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -m 'Remove the moved project' && git push -q origin main" ||
 		fail 'cannot remove the moved project from the remote'
 	cleaned=$(remote_head "$move_url")
-	wait_for 'the source to drop the moved project' 180 source_head_is "$into" "$cleaned"
+	restart_service
+	source_follows 'the source to drop the moved project' "$into" "$cleaned" 180
 	# The data folder is not versioned, so it stays behind.
 	docker exec "$host" rm -rf "$into/moveapp"
 	[ "$(folder_git "$into" status --porcelain)" = "$source_status" ] || fail "the clean-up left changes in the source: $(folder_git "$into" status --porcelain)"
