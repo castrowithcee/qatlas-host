@@ -38,6 +38,23 @@ func TestFailureOfNotFoundHintsFitTheObject(t *testing.T) {
 	}
 }
 
+func TestFailureOfSourceCommitRefusalsKeepTheirCode(t *testing.T) {
+	for _, code := range []string{control.CodeHeadMoved, control.CodeNotChanged, control.CodePushRejected} {
+		t.Run(code, func(t *testing.T) {
+			var f *cli.Failure
+			if !errors.As(failureOf(control.NewError(code, "nothing was committed")), &f) {
+				t.Fatal("not a failure")
+			}
+			if f.Code != output.Code(code) || f.Message != "nothing was committed" {
+				t.Fatalf("code %q, message %q", f.Code, f.Message)
+			}
+			if !strings.Contains(f.NextStep, "qhost source changes <path>") || strings.Contains(f.NextStep, "same version") {
+				t.Fatalf("next step %q", f.NextStep)
+			}
+		})
+	}
+}
+
 func TestFailureOfNoSuchKeyAddsNoSecondHintWhenTheMessageNamesTheCommand(t *testing.T) {
 	for msg, want := range map[string]string{
 		"no deploy key exists": "qhost key generate",
