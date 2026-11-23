@@ -145,6 +145,8 @@ type fileRenameState struct {
 	Target string `json:"target"`
 	Dev    uint64 `json:"dev"`
 	Ino    uint64 `json:"ino"`
+	// The stamp is set by Seal, after the rename, which changes the change time of the entry.
+	stamp
 }
 
 func planRename(args []string, _ []byte) (Plan, error) {
@@ -169,6 +171,17 @@ func planRename(args []string, _ []byte) (Plan, error) {
 	var state fileRenameState
 	return Plan{
 		Sentence: sentence,
+		Seal: func(context.Context) (json.RawMessage, error) {
+			ddir, dname, err := openParentDir(dst)
+			if err != nil {
+				return nil, err
+			}
+			defer unix.Close(ddir)
+			if n, err := statxAt(ddir, dname); err == nil && n.dev == state.Dev && n.ino == state.Ino {
+				state.stamp = n.born
+			}
+			return json.Marshal(state)
+		},
 		Commands: []Command{{Argv: []string{stepFileRename, src, dst}, Builtin: true}},
 		Capture: func(context.Context) (json.RawMessage, error) {
 			st, err := captureRename(src, dst)

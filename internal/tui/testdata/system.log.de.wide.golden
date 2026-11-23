@@ -2,6 +2,7 @@
    1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge  [7 ◎ System]        
    Benutzer   Gruppen   Ordner   Vorschläge   Änderungen  [Protokoll]                                                   
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Dienst: Host                                                                                                          
   Kette der Hashes intakt: 2 Tage mit 42 Einträgen geprüft.                                                             
                                                                                                                         
   ZEIT                 BENUTZER  AKTION          ERGEBNIS           ÄNDERUNG                                            
@@ -36,5 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-/ Suchen  r Neu laden  1-7 Bereich  q Beenden                                                         ↑/↓ Auswählen  1/3
+H Dienst  / Suchen  W Log speichern  r Neu laden  1-7 Bereich  q Beenden                              ↑/↓ Auswählen  1/3

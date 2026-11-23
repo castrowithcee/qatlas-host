@@ -78,8 +78,12 @@ func heldLine(in kittui.LogLine, part string) string {
 
 // saveLog writes the lines of the log view to a file and tells where it went. kind and subject make the name.
 func (m *Model) saveLog(v *heldLogView, kind, subject string) {
-	name := userfile.Name(kind, subject, m.now().In(m.loc), ".log")
-	path, err := saveLogFile(name, []byte(v.text()))
+	m.saveText(userfile.Name(kind, subject, m.now().In(m.loc), ".log"), v.text())
+}
+
+// saveText writes text to a new file called name and tells where it went.
+func (m *Model) saveText(name, text string) {
+	path, err := saveLogFile(name, []byte(text))
 	if err != nil {
 		m.notice = m.text.Lookup(kittui.TextWarning, m.text.Lookup(textLogSaveFailed, err.Error()))
 		return
@@ -99,7 +103,7 @@ func (m *Model) saveOpenLog() (ok bool) {
 	case m.area == areaRuns && m.log.open && m.log.view != nil:
 		m.saveLog(m.log.view, "run", m.log.row.id)
 	default:
-		return false
+		return m.saveShownLog()
 	}
 	return true
 }

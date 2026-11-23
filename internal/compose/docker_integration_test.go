@@ -46,7 +46,8 @@ func integrationStack(t *testing.T, health string) (stacks.Stack, *Executor) {
 			t.Fatal(err)
 		}
 	}
-	write("compose.yaml", "services:\n  app:\n    image: "+image+"\n    environment:\n      DEMO_HEALTH: ${DEMO_HEALTH}\n")
+	// DEMO_SECRET comes from secrets.env; without that file Compose warns about it on standard error.
+	write("compose.yaml", "services:\n  app:\n    image: "+image+"\n    environment:\n      DEMO_HEALTH: ${DEMO_HEALTH}\n      DEMO_SECRET: ${DEMO_SECRET}\n")
 	write(".env", "DEMO_HEALTH="+health+"\n")
 	st := stacks.Stack{Name: name, Dir: dir, ComposeFiles: []string{"compose.yaml"}}
 	x := &Executor{Runner: &ExecRunner{}, Env: ProductionEnv(os.Getenv, t.TempDir(), "")}

@@ -1823,6 +1823,30 @@ HOOK
 	[ "$(remote_run_tag demo-stack "$run" | cut -d ' ' -f 2)" = "$want" ] || fail "the remote has no tag for run $run on $want after the hook was removed"
 	log "scenario: a refused tag raised tag-rejected and the next run cleared it"
 
+	step 'with a retention of 1 only the newest own run tag of demo-stack stays in the remote; foreign tags stay'
+	settings_set demo-stack "$(demo_stack_settings | sed 's/keep: 2/keep: 1/')"
+	own_host=$(printf '%s' "$(remote_run_tag demo-stack "$run" | cut -d ' ' -f 1)" | cut -d / -f 2)
+	foreign_tags="qhost/other-host/demo-stack/20200101T000000Z-00000000 manual-e2e-tag"
+	as_admin "rm -rf ~/stacks-tags && git clone -q $repo ~/stacks-tags"
+	for tag in $foreign_tags; do
+		as_admin "cd ~/stacks-tags && git tag $tag HEAD && git push -q origin refs/tags/$tag" || fail "cannot set the foreign tag $tag"
+	done
+	for i in 1 2; do
+		out=$(qd --output json stack deploy demo-stack) || fail "deploy failed: $out"
+		run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
+		[ -n "$run" ] || fail "deploy did not report a run: $out"
+		wait_for "the run $run" 240 run_finished demo-stack "$run"
+		qd stack log "$run" | grep -q ' result succeeded' || fail "the run $run did not succeed: $(qd stack log "$run")"
+	done
+	own=$(as_admin "git ls-remote --tags $repo 'refs/tags/qhost/$own_host/demo-stack/*'" | awk '{ print $2 }')
+	[ "$own" = "refs/tags/qhost/$own_host/demo-stack/$run" ] || fail "the remote does not hold only the tag of run $run for demo-stack: $own"
+	for tag in $foreign_tags; do
+		[ -n "$(as_admin "git ls-remote --tags $repo refs/tags/$tag")" ] || fail "the foreign tag $tag was deleted"
+	done
+	tag_rejected_gone || fail 'tag pruning raised tag-rejected'
+	settings_set demo-stack "$(demo_stack_settings)"
+	log "scenario: retention 1 left $own and the foreign tags in the remote"
+
 	step 'no run log holds a secret value'
 	ids=$(qd stack runs | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
 	n=0

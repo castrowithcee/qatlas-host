@@ -116,7 +116,7 @@ func (r *run) record(out outcome, freeSlot bool) RunRecord {
 	if out.result == ResultRolledBack {
 		rec.RolledBackTo = out.at
 	}
-	var tagErr error
+	var tagErr, pruneErr error
 	if rec.Result == ResultSucceeded || rec.Result == ResultRolledBack {
 		r.log.Step("tag")
 		rec.Tag, tagErr = r.tagRun(out.at)
@@ -124,6 +124,9 @@ func (r *run) record(out outcome, freeSlot bool) RunRecord {
 			r.log.Printf("not set: %s", tagErr)
 		} else if rec.Tag != "" {
 			r.log.Printf("%s", rec.Tag)
+			if pruneErr = r.pruneTags(); pruneErr != nil {
+				r.log.Printf("old tags not deleted: %s", pruneErr)
+			}
 		}
 	}
 	r.log.line("result", rec.Result+" "+rec.Error)
@@ -177,6 +180,10 @@ func (r *run) record(out outcome, freeSlot bool) RunRecord {
 			if tagErr != nil {
 				cur.Findings = append(cur.Findings, Finding{Kind: FindingTagRejected,
 					Detail: e.text("the tag of run " + rec.ID + " was not set or pushed: " + tagErr.Error())})
+			}
+			if pruneErr != nil {
+				cur.Findings = append(cur.Findings, Finding{Kind: FindingTagRejected,
+					Detail: e.text("old run tags were not deleted: " + pruneErr.Error())})
 			}
 		}
 		cur.Observe = nil
