@@ -547,6 +547,8 @@ setup_service() {
 	[ "$(docker exec "$host" stat -c %G "$(docker exec "$host" sh -c 'ls /run/qhost-deploy/*.sock | head -n 1')")" = qhost ] ||
 		fail 'the socket of the deploy service does not have the group qhost'
 	[ "$(docker exec "$host" stat -c %a /var/lib/qhost-deploy)" = 700 ] || fail "/var/lib/qhost-deploy has the mode $(docker exec "$host" stat -c %a /var/lib/qhost-deploy), want 700"
+	[ "$(docker exec "$host" stat -c %U:%G:%a /etc/qhost-deploy)" = root:root:755 ] ||
+		fail "/etc/qhost-deploy is $(docker exec "$host" stat -c %U:%G:%a /etc/qhost-deploy), want root:root:755"
 	if as_user e2e-outsider 'ls /run/qhost-deploy' >/dev/null 2>&1; then fail 'a user outside the group qhost can list /run/qhost-deploy'; fi
 	log "scenario: qhost-deploy runs as pid $dpid, user qhost-deploy, group docker; /run/qhost-deploy qhost-deploy:qhost 2750, /var/lib/qhost-deploy 700"
 
@@ -1432,7 +1434,7 @@ scenario_diagnose() {
 	file=$home/diag-e2e.tar.gz
 	as_admin 'rm -rf ~/diag-e2e.tar.gz ~/diag-e2e'
 	out=$(qd_in "$token" credential set "$cred") || fail "credential set failed: $out"
-	failed_run=$(qd stack runs | grep 'rolled-back' | grep -m 1 -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
+	failed_run=$(qd stack runs | grep 'rolled-back' | grep -m 1 -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
 	[ -n "$failed_run" ] || fail "there is no failed run to find in the package: $(qd stack runs)"
 
 	out=$(as_admin "qhost diagnose --out $file 2>&1") || fail "qhost diagnose without sudo failed: $out"
@@ -1763,7 +1765,7 @@ $hook_signing_value
 	restart_service
 	wait_for 'the rolled-back run of demo-cache' 240 stack_settled demo-cache rolled-back
 	runs_out=$(qd stack runs demo-cache)
-	failed_run=$(printf '%s\n' "$runs_out" | grep -m 1 -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
+	failed_run=$(printf '%s\n' "$runs_out" | grep -m 1 -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
 	printf '%s\n' "$runs_out" | grep -m 1 "$failed_run" | grep -q 'rolled-back' || fail "the newest run of demo-cache is not rolled-back: $runs_out"
 	failed_log=$(qd stack log "$failed_run")
 	printf '%s' "$failed_log" | grep -q ' result rolled-back' || fail "the run log does not end rolled-back: $failed_log"
@@ -1800,7 +1802,8 @@ $hook_signing_value
 #!/bin/sh
 case "$1" in refs/tags/qhost/*) echo 'tag refused by the test hook' >&2; exit 1 ;; esac
 HOOK
-	want=$(stack_field demo-stack deployed)
+	# A manual run deploys the head of the source, which the demo-cache commits moved past the last demo-stack run.
+	want=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
 	out=$(qd --output json stack deploy demo-stack) || fail "deploy failed: $out"
 	run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
 	[ -n "$run" ] || fail "deploy did not report a run: $out"
@@ -1821,7 +1824,7 @@ HOOK
 	log "scenario: a refused tag raised tag-rejected and the next run cleared it"
 
 	step 'no run log holds a secret value'
-	ids=$(qd stack runs | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
+	ids=$(qd stack runs | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}')
 	n=0
 	for id in $ids; do
 		n=$((n + 1))
@@ -1880,7 +1883,7 @@ scenario_notify() {
 	step 'no secret part of a channel shows in the listing, the run logs or the journal'
 	listing=$(qd notify list; qd --output json notify list)
 	runs=$(qd stack runs)
-	for id in $(qd stack runs | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'); do
+	for id in $(qd stack runs | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'); do
 		runs="$runs
 $(qd stack log "$id")"
 	done
@@ -1950,7 +1953,7 @@ fixture_snap() {
 }
 
 backup_ids() {
-	qd stack backup list "$1" | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'
+	qd stack backup list "$1" | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'
 }
 
 stack_running() {
@@ -3433,7 +3436,7 @@ bkr_settings() {
 
 # bkr_backup_ids prints the ids of the backups of demo-rootless, newest first.
 bkr_backup_ids() {
-	qd stack backup list demo-rootless --engine "$bk_engine" | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'
+	qd stack backup list demo-rootless --engine "$bk_engine" | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'
 }
 
 # bkr_healthy succeeds when a container of demo-rootless in the rootless engine is healthy.
@@ -3921,6 +3924,8 @@ EOF2
 	prev=$(newest_run demo-local)
 	docker exec "$host" sh -ec "cd '$base/demo-local' && printf '# edited by hand\n' >>.env && printf 'scratch\n' >scratch.txt" ||
 		fail 'cannot edit the stack folder by hand'
+	# A hand edit wakes no poll; the restart starts the one that judges the findings.
+	restart_service
 	i=0
 	until stack_field demo-local findings | grep -q local-changes; do
 		i=$((i + 1))
@@ -5217,9 +5222,9 @@ scenario_tui_sudo() {
 	sa_start=$(date -u -d '+11 hours' +%H:%M)
 	[ "$sa_start" != "$(window_field start)" ] || sa_start=$(date -u -d '+10 hours' +%H:%M)
 	tui_subtab 'Maintenance window'
-	tui_wait 'e edit' 10
+	tui_wait 'e host window' 10
 	tui_send e
-	tui_wait 'Change the maintenance window' 10
+	tui_wait 'Change the host window' 10
 	tui_clear
 	tui_type daily
 	tui_send Tab
@@ -5232,7 +5237,7 @@ scenario_tui_sudo() {
 	tui_clear
 	tui_type UTC
 	tui_send F2
-	tui_wait 'Change the maintenance window?' 10
+	tui_wait 'Change the maintenance window of the host?' 10
 	tui_has 'sudo qhost window set' || fail "the question does not show the command: $(tui_screen)"
 	tui_send y
 	tui_wait "[sudo] password for $admin" 30
@@ -5343,7 +5348,7 @@ EOF2
 	tui_wait 'maintenance window' 15
 	tui_send Enter
 	tui_wait 'Effect if applied now' 30
-	tui_wait 'The maintenance window would change:' 10
+	tui_wait 'The maintenance window of the host would change:' 10
 	tui_wait "after:  \"$ds_start\"" 10
 	tui_send A
 	tui_wait 'and set this maintenance window?' 30
@@ -5757,7 +5762,8 @@ scenario_tui_secrets() {
 	tui_send Enter
 	tui_wait "set for the stack demo-stack" 60
 	tui_send Enter
-	docker exec "$host" grep -qxF "$ts_key='$ts_secret'" "$ts_env" || fail "secrets.env does not hold the secret: $(docker exec "$host" cat "$ts_env")"
+	# The expected line goes on standard input: on a command line the watcher would catch the value.
+	printf '%s\n' "$ts_key='$ts_secret'" | docker exec -i "$host" grep -qxF -f - "$ts_env" || fail "secrets.env does not hold the secret: $(docker exec "$host" cat "$ts_env")"
 	[ "$(docker exec "$host" stat -c %U:%a "$ts_env")" = qhost-deploy:600 ] || fail 'secrets.env has the wrong owner or mode'
 	qd stack secret list demo-stack | grep -q "$ts_key" || fail "the key is not listed: $(qd stack secret list demo-stack)"
 	log "scenario: the interface set $ts_key of demo-stack through sudo"
@@ -5885,6 +5891,7 @@ scenario_tui_folder_sudo() {
 	tui_type "$fs_clone"
 	tui_send F2
 	fs_password
+	tui_keep_engine 60
 	tui_wait "Clone a repository into $fs_clone?" 60
 	tui_send y
 	tui_wait 'Address of the repository to clone' 10
@@ -5953,6 +5960,7 @@ EOF2
 	tui_wait 'Compose files' 15
 	tui_send a
 	fs_password
+	tui_keep_engine 60
 	tui_wait "Start a git repository in $fs_base and take it over?" 60
 	# The command stands at the end of the sheet, below the window.
 	for _ in 1 2 3 4 5 6 7 8 9 10; do tui_send Down; done
@@ -6305,11 +6313,16 @@ scenario_hook() {
 	image=registry.$domain/demo/app
 	step 'demo-stack is at 1.0.1 in automatic mode with the update trigger window'
 	if [ "$(stack_images demo-stack)" != "$image:1.0.1" ]; then
+		# The fresh clone of scenario_tui_setup has no secrets.env for demo-stack, whose compose file reads DEMO_SECRET.
+		docker exec -u qhost-deploy "$host" sh -ec "test -e /opt/stacks/demo-stack/secrets.env ||
+			{ umask 077 && printf 'DEMO_SECRET=not-a-real-secret-e2e\n' >/opt/stacks/demo-stack/secrets.env; }" ||
+			fail 'cannot write secrets.env of demo-stack'
 		prev=$(newest_run demo-stack)
 		admin_commit demo-stack/.env 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.0.1/' 'Reset demo-stack to 1.0.1 for the webhook'
 		restart_service
 		run=$(next_run demo-stack "$prev") || fail 'no run of demo-stack started for the reset to 1.0.1'
 		wait_for "the run $run" 240 run_finished demo-stack "$run"
+		qd stack log "$run" | grep -q ' result succeeded' || fail "the reset of demo-stack to 1.0.1 did not succeed: $(qd stack log "$run")"
 	fi
 	settings_set demo-stack "$(demo_stack_settings 'update:\n  mode: automatic\n')"
 	[ "$(stack_images demo-stack)" = "$image:1.0.1" ] || fail "demo-stack does not run 1.0.1: $(stack_images demo-stack)"
@@ -6952,6 +6965,22 @@ tui_send() {
 
 tui_has() {
 	tui_screen | grep -qF -- "$1"
+}
+
+# tui_keep_engine waits up to $1 seconds for the choice of the engine, which follows the inspection of a folder
+# while more than one deploy service is set up, checks that system is preselected and keeps it.
+tui_keep_engine() {
+	i=0
+	until tui_screen | grep -qE 'whose deploy service runs the stacks|preselected is the engine where containers'; do
+		i=$((i + 1))
+		if [ "$i" -ge $(($1 * 4)) ]; then
+			printf '%s\n' "$(tui_screen)" >&2
+			fail 'timeout waiting for the choice of the engine on the screen of the terminal interface'
+		fi
+		sleep 0.25
+	done
+	tui_screen | grep -qE '> Engine +│ system' || fail "the choice of the engine does not preselect system: $(tui_screen)"
+	tui_send F2
 }
 
 # tui_wait waits up to $2 seconds for the text $1 on the screen and shows the screen when it does not appear.
@@ -7663,6 +7692,7 @@ EOF2
 
 	step 'a opens the takeover; it shows the labels, no warning, and changes nothing before the answer'
 	tui_send a
+	tui_keep_engine 30
 	tui_wait 'Start a git repository in /srv/qd-foreign/app and take it over?' 30
 	tui_wait 'Foreign project' 10
 	tui_wait 'project: app' 10
@@ -7914,7 +7944,7 @@ scenario_tui_proposal_kinds() {
 	tui_wait 'maintenance window' 15
 	tui_send Enter
 	tui_wait 'Effect if applied now' 30
-	tui_wait 'The maintenance window would change:' 10
+	tui_wait 'The maintenance window of the host would change:' 10
 	tui_wait "after:  \"$pk_new_start\"" 10
 	tui_send A
 	tui_wait 'and set this maintenance window?' 30
@@ -8142,6 +8172,7 @@ scenario_tui_setup() {
 	tui_wait 'Add a stack folder' 10
 	tui_type /opt/stacks
 	tui_send F2
+	tui_keep_engine 30
 	tui_wait 'Clone a repository into /opt/stacks?' 10
 	tui_send y
 	tui_wait 'Address of the repository to clone' 10
@@ -8196,9 +8227,9 @@ scenario_tui_setup() {
 	step 'Settings: the maintenance window is moved away from now'
 	win_start=$(date -u -d '+12 hours' +%H:%M)
 	tui_subtab 'Maintenance window'
-	tui_wait 'e edit' 10
+	tui_wait 'e host window' 10
 	tui_send e
-	tui_wait 'Change the maintenance window' 10
+	tui_wait 'Change the host window' 10
 	tui_clear
 	tui_type daily
 	tui_send Tab
@@ -8211,7 +8242,7 @@ scenario_tui_setup() {
 	tui_clear
 	tui_type UTC
 	tui_send F2
-	tui_wait 'Change the maintenance window?' 10
+	tui_wait 'Change the maintenance window of the host?' 10
 	tui_send y
 	tui_wait 'The maintenance window is changed' 20
 	tui_send Enter
@@ -8259,6 +8290,7 @@ scenario_tui_setup() {
 	tui_wait 'Add a stack folder' 10
 	tui_type "$local_dir"
 	tui_send F2
+	tui_keep_engine 30
 	tui_wait "Take over the repository $local_dir as a local stack folder?" 10
 	tui_send n
 	tui_wait 'No stack folders yet' 10
@@ -8276,6 +8308,7 @@ scenario_tui_setup() {
 	tui_wait 'Add a stack folder' 10
 	tui_type /opt/stacks
 	tui_send F2
+	tui_keep_engine 30
 	tui_wait 'Clone a repository into /opt/stacks?' 10
 	tui_send y
 	tui_wait 'Address of the repository to clone' 10
@@ -8307,6 +8340,7 @@ scenario_tui_setup() {
 	tui_wait 'Add a stack folder' 10
 	tui_type "$local_dir"
 	tui_send F2
+	tui_keep_engine 30
 	tui_wait "Take over the repository $local_dir as a local stack folder?" 10
 	tui_send y
 	tui_wait "The stack folder $local_dir is added" 120
@@ -8432,7 +8466,7 @@ scenario_tui_setup() {
 	[ "$(wc -l <"$tui_log")" -gt 200 ] || fail 'too few screens were captured to check'
 	grep -qF DEMO_ECHO_TAG "$tui_log" || fail 'the captured screens do not show the key of the secret'
 	runs_text=$(qd stack runs)
-	for id in $(qd stack runs | grep -o '[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'); do
+	for id in $(qd stack runs | grep -o '^[0-9]\{8\}T[0-9]\{6\}Z-[0-9a-f]\{8\}'); do
 		runs_text="$runs_text
 $(qd stack log "$id")"
 	done

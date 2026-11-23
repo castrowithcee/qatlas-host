@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/castrowithcee/qatlas-kit/sysservice"
 
@@ -35,6 +36,11 @@ const (
 	noLogin = "/usr/sbin/nologin"
 	// tmpfilesConf holds the rule that creates the channel directory at every boot.
 	tmpfilesConf = "/etc/tmpfiles.d/qhost-deploy.conf"
+	// configDir holds what every deploy service reads, the host window among it; only root writes there. The
+	// setup creates it before the first start: for ConfigurationDirectory= systemd 252 gives a folder it creates
+	// to the service user, but leaves an existing one alone.
+	configDir     = "/etc/qhost-deploy"
+	configDirMode = 0o755
 )
 
 // Host is everything the setup takes from the host. The zero value is the real host; tests set Root and Run so
@@ -175,6 +181,19 @@ func (h Host) Plan(ctx context.Context) (Plan, error) {
 		command("systemd-tmpfiles", "--create", tmpfilesConf)
 	}
 
+	if !h.ownDir(configDir, configDirMode) {
+		add("mkdir "+configDir+" (root, mode 0755)", func(context.Context) error {
+			dir := h.path(configDir)
+			if err := os.MkdirAll(dir, configDirMode); err != nil {
+				return err
+			}
+			if err := h.chown(dir, os.Geteuid(), os.Getegid()); err != nil {
+				return err
+			}
+			return os.Chmod(dir, configDirMode)
+		})
+	}
+
 	unitChanged := h.differs(UnitPath(), packaging.DeployUnit)
 	if unitChanged {
 		add("write "+UnitPath()+" (mode 0644)", func(context.Context) error { return h.write(UnitPath(), packaging.DeployUnit) })
@@ -194,6 +213,17 @@ func (h Host) Plan(ctx context.Context) (Plan, error) {
 // so its members reach the socket without the service reaching them.
 func tmpfilesRule(dir, user, group string) []byte {
 	return []byte(fmt.Sprintf("d %s 2750 %s %s -\n", dir, user, group))
+}
+
+// ownDir reports whether the host path p is a folder with mode perm owned by the user running the setup (root in
+// production).
+func (h Host) ownDir(p string, perm os.FileMode) bool {
+	info, err := os.Lstat(h.path(p))
+	if err != nil || !info.IsDir() || info.Mode().Perm() != perm {
+		return false
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	return ok && int(st.Uid) == os.Geteuid()
 }
 
 // differs reports whether the file at the host path p is missing or holds other content than want.

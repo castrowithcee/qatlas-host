@@ -199,9 +199,9 @@ acc_first_setup() {
 	step 'Settings: the maintenance window is moved away from now'
 	win_start=$(date -u -d '+12 hours' +%H:%M)
 	tui_subtab 'Maintenance window'
-	tui_wait 'e edit' 10
+	tui_wait 'e host window' 10
 	tui_send e
-	tui_wait 'Change the maintenance window' 10
+	tui_wait 'Change the host window' 10
 	tui_clear
 	tui_type daily
 	tui_send Tab
@@ -214,7 +214,7 @@ acc_first_setup() {
 	tui_clear
 	tui_type UTC
 	tui_send F2
-	tui_wait 'Change the maintenance window?' 10
+	tui_wait 'Change the maintenance window of the host?' 10
 	tui_send y
 	tui_wait 'The maintenance window is changed' 20
 	tui_send Enter

@@ -568,7 +568,10 @@ func (m *Model) input() kittui.InputFocus {
 		}
 		return m.list.Input()
 	case areaContainers:
-		if m.ctv.open {
+		switch {
+		case m.set.form != nil:
+			return m.set.form.input()
+		case m.ctv.open:
 			return kittui.InputNavigation
 		}
 		return m.ctList.Input()
@@ -1100,7 +1103,7 @@ func (m *Model) footer() []kittui.Hint {
 		return append(m.clog.view.Hints(), append([]kittui.Hint{saveLogHint()}, common...)...)
 	case m.area == areaSettings:
 		return m.settingsFooter(common, nav)
-	case (m.area == areaDetail || m.area == areaStacks || m.area == areaProposals || m.area == areaSystem) && m.set.form != nil:
+	case (m.area == areaDetail || m.area == areaStacks || m.area == areaContainers || m.area == areaProposals || m.area == areaSystem) && m.set.form != nil:
 		if e := m.set.form.editor; e != nil {
 			return m.editorHints(e)
 		}
@@ -1257,7 +1260,8 @@ func (m *Model) frameSpec() kittui.FrameSpec {
 	switch {
 	case m.clogShown():
 		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
-	case (m.area == areaStacks || m.area == areaProposals || m.area == areaSystem) && m.set.form != nil, m.area == areaStacks && m.set.keyOpen:
+	case (m.area == areaStacks || m.area == areaContainers || m.area == areaProposals || m.area == areaSystem) && m.set.form != nil,
+		m.area == areaStacks && m.set.keyOpen:
 		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
 	case m.area == areaSystem:
 		spec.Position = m.systemPosition()
