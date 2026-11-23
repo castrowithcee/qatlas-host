@@ -199,7 +199,9 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		control.ProposalListCommand:     {nil},
 		control.ProposalShowCommand:     {control.ProposalIDArgs{ID: prop.ID}},
 		control.GrantListCommand:        {nil, control.GrantListArgs{Stack: "plain-stack"}},
-		control.ContainerLogsCommand:    {control.ContainerLogsArgs{Stack: "plain-stack"}, control.ContainerLogsArgs{Name: app.Name}},
+		// The deploy run is no update run, so the check refuses; the refusal is checked for secrets as well.
+		control.ReturnCheckCommand:   {control.ReturnArgs{Stack: "plain-stack", Run: dep.ID, Data: control.ReturnKeepData}},
+		control.ContainerLogsCommand: {control.ContainerLogsArgs{Stack: "plain-stack"}, control.ContainerLogsArgs{Name: app.Name}},
 	}
 	if got, want := slices.Sorted(maps.Keys(reads)), commandsOf(reg, control.ClassRead); !slices.Equal(got, want) {
 		t.Fatalf("the test covers %v, the service reads with %v", got, want)
@@ -210,8 +212,11 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		for _, args := range list {
 			var raw json.RawMessage
 			if err := h.call(name, args, &raw); err != nil {
-				t.Errorf("%s %+v = %v", name, args, err)
-				continue
+				if name != control.ReturnCheckCommand {
+					t.Errorf("%s %+v = %v", name, args, err)
+					continue
+				}
+				raw = json.RawMessage(err.Error())
 			}
 			for _, s := range secrets {
 				if strings.Contains(string(raw), s) {
