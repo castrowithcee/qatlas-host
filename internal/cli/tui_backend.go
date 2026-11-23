@@ -411,6 +411,10 @@ func (b *engineBackend) ServiceLog(ctx context.Context, args control.ServiceLogA
 	return onInstance(b, ctx, func(c *tui.ChannelBackend) (control.ServiceLogResult, error) { return c.ServiceLog(ctx, args) })
 }
 
+func (b *engineBackend) DeployLog(ctx context.Context, args control.HostLogListArgs) (control.DeployLogListResult, error) {
+	return onInstance(b, ctx, func(c *tui.ChannelBackend) (control.DeployLogListResult, error) { return c.DeployLog(ctx, args) })
+}
+
 func (b *engineBackend) Diagnose(ctx context.Context) *diagnose.Package {
 	c, err := b.instanceBackend(ctx)
 	if err != nil {
