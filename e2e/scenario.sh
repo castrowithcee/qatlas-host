@@ -5518,6 +5518,10 @@ scenario_tui_sudo() {
 	tui_wait 'Deploy demo-cache?' 15
 	tui_send y
 	tui_wait "[sudo] password for $admin" 30
+	tui_wait_noecho 30
+	# The handover cleared the screen: only the new prompt shows, not the one of the Ctrl-C before.
+	tui_wait "[sudo] password for $admin" 10
+	[ "$(tui_screen | grep -cF "[sudo] password for $admin")" = 1 ] || fail "an old sudo prompt shows after the handover: $(tui_screen)"
 	tui_type "$sa_login"
 	tui_send Enter
 	tui_wait 'deploy finished: 1 ok, 0 failed' 240
@@ -5550,6 +5554,7 @@ scenario_tui_sudo() {
 	tui_has 'sudo qhost container restart' || fail "the question does not show the command: $(tui_screen)"
 	tui_send y
 	tui_wait "[sudo] password for $admin" 30
+	tui_wait_noecho 30
 	tui_type "$sa_login"
 	tui_send Enter
 	tui_wait 'restart finished: 1 ok, 0 failed' 60
@@ -5583,6 +5588,7 @@ scenario_tui_sudo() {
 	tui_has 'sudo qhost window set' || fail "the question does not show the command: $(tui_screen)"
 	tui_send y
 	tui_wait "[sudo] password for $admin" 30
+	tui_wait_noecho 30
 	tui_type "$sa_login"
 	tui_send Enter
 	tui_wait 'The maintenance window is changed' 30
@@ -8381,6 +8387,18 @@ tui_stack_value=tuivalue-e2e-0451
 # tui_type types text into the interface.
 tui_type() {
 	tui_tmux send-keys -t qdtui -l -- "$1"
+}
+
+# tui_wait_noecho waits up to $1 seconds until the terminal of the interface no longer echoes, as sudo turns the echo
+# off for its password prompt; text typed before would show on the screen.
+tui_wait_noecho() {
+	tui_pane_tty=$(tui_tmux display -p -t qdtui '#{pane_tty}') || fail 'cannot read the terminal of the interface'
+	i=0
+	until docker exec -u "$admin" "$host" stty -F "$tui_pane_tty" -a 2>/dev/null | grep -qw -- -echo; do
+		i=$((i + 1))
+		[ "$i" -lt $(($1 * 4)) ] || fail "the terminal of the interface still echoes after $1 seconds: $(tui_screen)"
+		sleep 0.25
+	done
 }
 
 # tui_clear empties the text field that has the focus.
