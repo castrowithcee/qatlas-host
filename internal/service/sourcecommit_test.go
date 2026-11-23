@@ -32,8 +32,7 @@ func TestCommitTakesExactlyTheNamedPathsAndTheStacksRunAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	head := headOf(t, dir)
-	clock.Advance(time.Hour)
-	h.waitStatus("web deployed", func(st control.StatusResult) bool {
+	h.advanceUntil(clock, time.Hour, "web deployed", func(st control.StatusResult) bool {
 		s := stacksNamed(st, "web")
 		return len(s) == 1 && s[0].Deployed == head
 	})
@@ -66,8 +65,7 @@ func TestCommitTakesExactlyTheNamedPathsAndTheStacksRunAgain(t *testing.T) {
 	if got := fileText(t, filepath.Join(dir, "web/secrets.env")); got != "TOKEN=demo\n" {
 		t.Fatalf("secrets.env = %q", got)
 	}
-	clock.Advance(time.Hour)
-	h.waitStatus("the run of the new commit", func(st control.StatusResult) bool {
+	h.advanceUntil(clock, time.Hour, "the run of the new commit", func(st control.StatusResult) bool {
 		s := stacksNamed(st, "web")
 		return len(s) == 1 && s[0].Deployed == res.Commit && s[0].ActiveRun == "" && s[0].LastRun == "succeeded"
 	})
