@@ -436,6 +436,19 @@ func failureOf(err error) error {
 	case errors.As(err, &remote) && remote.Code == control.CodeBusy:
 		return &cli.Failure{Code: output.CodeRuntime, Message: remote.Message,
 			NextStep: "Run the command again in a moment.", Cause: err}
+	case errors.As(err, &remote) && remote.Code == control.CodeHeadMoved:
+		return &cli.Failure{Code: output.Code(control.CodeHeadMoved), Message: remote.Message,
+			NextStep: "Read the changes again with 'qhost source changes <path>' and the head with 'qhost source list', then run the command again.",
+			Cause:    err}
+	case errors.As(err, &remote) && remote.Code == control.CodeNotChanged:
+		return &cli.Failure{Code: output.Code(control.CodeNotChanged), Message: remote.Message,
+			NextStep: "Read the changes again with 'qhost source changes <path>' and name only files it lists, then run the command again.",
+			Cause:    err}
+	case errors.As(err, &remote) && remote.Code == control.CodePushRejected:
+		return &cli.Failure{Code: output.Code(control.CodePushRejected), Message: remote.Message,
+			NextStep: "Nothing was committed or reverted. If the remote branch moved, read the changes again with 'qhost source changes <path>' " +
+				"and run the command again. If the message names a refusal such as a protected branch, change the setting at the git platform first.",
+			Cause: err}
 	case errors.As(err, &remote):
 		return &cli.Failure{Code: output.CodeRuntime, Message: "the service refused the request: " + remote.Message,
 			NextStep: "Check that the client and the service are the same version.", Cause: err}

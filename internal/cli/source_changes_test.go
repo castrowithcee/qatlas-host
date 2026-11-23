@@ -127,6 +127,19 @@ func TestSourceCommitCallsTheServiceAndPrintsTheCommit(t *testing.T) {
 	}
 }
 
+func TestSourceCommitOnAMovedHeadReportsHeadMoved(t *testing.T) {
+	startFakeService(t, withStatus(fakeHandlers{
+		control.SourceCommitCommand: func(json.RawMessage) any {
+			return control.NewError(control.CodeHeadMoved, "the branch moved since the changes were read; nothing was committed")
+		},
+	}, []string{"/srv/stacks"}, "web"))
+
+	code, _, stderr := run(t, "source", "commit", "/srv/stacks", "web/.env", "--head", exampleHead)
+	if code == 0 || !strings.Contains(stderr, "head-moved") || strings.Contains(stderr, "service refused") {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+}
+
 func TestSourceCommitRefusesBadArgumentsBeforeCallingTheService(t *testing.T) {
 	var seen []json.RawMessage
 	svc := startFakeService(t, withStatus(changesHandlers(&seen), []string{"/srv/stacks"}, "web"))
