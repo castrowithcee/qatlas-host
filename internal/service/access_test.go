@@ -89,6 +89,19 @@ func TestAuthorize(t *testing.T) {
 	}
 }
 
+// The check only reads image versions, so an admin without root gets it; the run still needs root.
+func TestReturnCheckIsReadAndReturnRunIsChange(t *testing.T) {
+	var seen atomic.Pointer[control.Registry]
+	runService(t, Config{Version: "x", PeerCheck: allowAll, registryHook: seen.Store})
+	reg := seen.Load()
+	for name, want := range map[string]control.Class{control.ReturnCheckCommand: control.ClassRead, control.ReturnRunCommand: control.ClassChange} {
+		c, ok := reg.Lookup(name)
+		if !ok || c.Class != want {
+			t.Errorf("%s = %v, want %v", name, c.Class, want)
+		}
+	}
+}
+
 func TestRevokedAccessEndsAtTheNextRequestOfAnOpenConnection(t *testing.T) {
 	for _, revoke := range []struct{ name, groups string }{
 		{"admin group", strings.Replace(inventedGroups, "sudo:x:27:example-admin,", "sudo:x:27:", 1)},

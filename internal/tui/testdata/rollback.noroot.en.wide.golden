@@ -3,14 +3,14 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   STACK        STARTED      RESULT           TRIGGER  DURATION  RUN                                                     
   web-shop     10-30 15:00  running          manual   -         20261030T150000Z-0000000b                               
-> demo-stack   10-30 14:02  succeeded        update   48s       20261030T140200Z-0000000c                               
-  web-shop     10-30 12:00  ╔═ Back to the state before ═══════════════════════════════════╗                            
-  photo-album  10-29 03:10  ║ ⚠ Set demo-stack back to the state before the update run     ║                            
-  demo-stack   10-29 02:00  ║   20261030T140200Z-0000000c?                                 ║                            
-  mail-relay   10-28 03:10  ║                                                              ║                            
-  wiki         10-27 03:10  ║ The stack is pinned afterwards, so no update or window moves ║                            
-                            ║ it on. Choose what happens to its data.                      ║                            
-                            ║ The versions it sets are shown in the result after the run.  ║                            
+> demo-stack   10-30 14:02  ╔═ Back to the state before ═══════════════════════════════════╗                            
+  web-shop     10-30 12:00  ║ ⚠ Set demo-stack back to the state before the update run     ║                            
+  photo-album  10-29 03:10  ║   20261030T140200Z-0000000c?                                 ║                            
+  demo-stack   10-29 02:00  ║                                                              ║                            
+  mail-relay   10-28 03:10  ║ The stack is pinned afterwards, so no update or window moves ║                            
+  wiki         10-27 03:10  ║ it on. Choose what happens to its data.                      ║                            
+                            ║ APP_VERSION: 2.0.0 -> 1.9.0                                  ║                            
+                            ║ DB_VERSION: 16.2 -> 16.1                                     ║                            
                             ║ With data: Everything written since this update is lost.     ║                            
                             ║ Version only: The data stays, the old version may not        ║                            
                             ║ understand migrated data.                                    ║                            
