@@ -5012,7 +5012,7 @@ scenario_tui_move() {
 	tui_wait 'a source of its own' 10
 	tui_send Enter
 	tui_wait "moved into the source $tinto" 10
-	tui_walk_down "the source $tinto" grep -Eq "║ > *moved into the source $tinto +║"
+	tui_walk_down "the source $tinto" grep -Eq "[│║] > *moved into the source $tinto +[│║]"
 	tui_send Enter
 	tui_send F2
 	tui_wait "Move the project tuimove into the source $tinto as the folder $tinto/tuimove?" 60
