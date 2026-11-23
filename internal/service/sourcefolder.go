@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
 	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
@@ -26,8 +29,8 @@ func (s *inspectService) handleFolderCommit(ctx context.Context, raw json.RawMes
 	if !commitIDRe.MatchString(a.Head) {
 		return nil, control.NewError(control.CodeInvalid, "the head must be a full commit id")
 	}
-	if a.Folder == "" || strings.ContainsAny(a.Folder, "/\x00") || strings.HasPrefix(a.Folder, ".") {
-		return nil, control.NewError(control.CodeInvalid, "the folder must be the name of a folder in the source, without a leading dot")
+	if err := checkFolderName(a.Folder); err != nil {
+		return nil, err
 	}
 	if len(a.Files) == 0 {
 		return nil, control.NewError(control.CodeInvalid, "name the files of the folder that the preview listed")
@@ -97,10 +100,74 @@ func (s *inspectService) handleFolderCommit(ctx context.Context, raw json.RawMes
 // headMoved reports whether the branch of the source is at another commit than head, or cannot be read. After a
 // failed commit it tells a commit that landed, which keeps the written .gitignore, from one that did not.
 func (s *inspectService) headMoved(ctx context.Context, src *source, head string) bool {
+	now, err := s.headOf(ctx, src)
+	return err != nil || now != head
+}
+
+func (s *inspectService) headOf(ctx context.Context, src *source) (string, error) {
 	wc, err := s.repo.set.git.Open(s.repo.set.gitConfig(src.conf), src.conf.Path)
 	if err != nil {
-		return true
+		return "", err
 	}
-	now, err := wc.Head(ctx)
-	return err != nil || now != head
+	return wc.Head(ctx)
+}
+
+func checkFolderName(folder string) error {
+	if folder == "" || strings.ContainsAny(folder, "/\x00") || strings.HasPrefix(folder, ".") {
+		return control.NewError(control.CodeInvalid, "the folder must be the name of a folder in the source, without a leading dot")
+	}
+	return nil
+}
+
+// handleFolderRevert answers source.revert-folder: it takes back the commit of source.commit-folder once the client
+// moved the folder out again. A folder that is still there is refused, because the working copy following the
+// revert would delete its files.
+func (s *inspectService) handleFolderRevert(ctx context.Context, raw json.RawMessage) (any, error) {
+	var a control.SourceFolderRevertArgs
+	if err := decodeArgs(raw, &a); err != nil {
+		return nil, err
+	}
+	if !commitIDRe.MatchString(a.Commit) {
+		return nil, control.NewError(control.CodeInvalid, "the commit must be a full commit id")
+	}
+	if err := checkFolderName(a.Folder); err != nil {
+		return nil, err
+	}
+	src := s.repo.set.byPath(a.Path)
+	if src == nil || checkDirShape(a.Path) != nil {
+		return nil, control.NewError(control.CodeNoSuchSource, "no source is bound to this folder")
+	}
+	if _, err := os.Lstat(filepath.Join(a.Path, a.Folder)); !errors.Is(err, fs.ErrNotExist) {
+		return nil, control.NewError(control.CodeInvalid, "the folder is still in the source; move it out first, nothing was reverted")
+	}
+	reason := fmt.Sprintf("the move of %s into the source was taken back by %s", a.Folder, committer(a.SudoUID))
+	revert, err := src.eng.RevertFolder(ctx, a.Folder, a.Commit, reason)
+	if err != nil {
+		return nil, revertAnswer(err)
+	}
+	head, err := s.headOf(ctx, src)
+	if err != nil {
+		return nil, errors.New("the working copy cannot be read")
+	}
+	return control.SourceFolderRevertResult{Path: a.Path, Folder: a.Folder, Revert: revert, Head: head}, nil
+}
+
+// revertAnswer maps an error of the revert to a fixed answer, as commitAnswer does.
+func revertAnswer(err error) error {
+	var refused *gitrepo.RemoteRejectedError
+	switch {
+	case errors.Is(err, gitrepo.ErrRevertConflict):
+		return control.NewError(control.CodeInvalid, "the folder changed on the branch after the commit; nothing was reverted")
+	case errors.Is(err, engine.ErrLocalChanges):
+		return control.NewError(control.CodeLocalChanges, "the working copy has other local changes and cannot follow a revert; nothing was pushed")
+	case errors.Is(err, gitrepo.ErrPushRejected):
+		return control.NewError(control.CodePushRejected, "the remote branch moved twice and the revert could not be pushed; nothing was reverted")
+	case errors.As(err, &refused):
+		return control.NewError(control.CodePushRejected, fmt.Sprintf("the remote refused the push: %s; nothing was reverted", printable(refused.Reason)))
+	case strings.HasPrefix(err.Error(), "push failed"):
+		return pushFailure(err, "nothing was reverted")
+	case errors.Is(err, engine.ErrBusy), errors.Is(err, engine.ErrStopped), errors.Is(err, engine.ErrNoRepo):
+		return runsAnswer(err)
+	}
+	return control.NewError(control.CodeInternal, "the revert failed: "+printable(err.Error()))
 }

@@ -21,33 +21,52 @@ import (
 
 func newSourceMoveCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var into string
+	var gate *cobracli.Gate
 	move := &cobra.Command{
-		Use:   "move <folder> --into <source>",
-		Short: "Preview moving a Compose project into an existing source; changes nothing",
-		Long: "move shows what moving the project in <folder> into the source <source> would do. The folder must lie\n" +
-			"outside every source and hold one Compose project with its compose file at its root; <source> is the\n" +
-			"path of a source that exists. The project would get the folder <source>/<name of the folder>, by renaming\n" +
-			"the folder on the same file system: the data stays untouched, and the way back is renaming it back. The\n" +
-			"preview shows that target folder, the files a commit into the source would take, as source inspect lists\n" +
-			"them for a folder of files, what is left out and the lines for the .gitignore of the folder. It changes\n" +
-			"nothing: no file is written, no container is touched, nothing is fetched or committed, and no value of an\n" +
-			"env file is shown.\n" +
+		Use:   "move <folder> --into <source> [--yes]",
+		Short: "Move a Compose project into an existing source after a preview, with the way back when a step fails",
+		Long: "move shows what moving the project in <folder> into the source <source> would do, and does it after you\n" +
+			"confirm: at a terminal by answering the question, without a terminal with --yes. Without --yes and without a\n" +
+			"terminal it is the preview only and changes nothing. The folder must lie outside every source and hold one\n" +
+			"Compose project with its compose file at its root; <source> is the path of a source that exists. The\n" +
+			"project gets the folder <source>/<name of the folder>, by renaming the folder on the same file system: the\n" +
+			"data stays untouched, and the way back is renaming it back. The preview shows that target folder, the files\n" +
+			"a commit into the source takes, as source inspect lists them for a folder of files, what is left out and\n" +
+			"the lines for the .gitignore of the folder. It changes nothing: no file is written, no container is\n" +
+			"touched, nothing is fetched or committed, and no value of an env file is shown.\n" +
 			"A block means the move cannot be done as it is; each block names its code, the reason and what to do.\n" +
 			"Blocks: root-stack (the source is one root stack), source-unreadable, target-exists, target-overlaps,\n" +
-			"target-name, other-filesystem, engine-differs (the project runs in another Docker engine than the\n" +
-			"source), name-taken (a stack of that name exists in any engine), project-name-changes (the Compose project\n" +
-			"name would change, which would create new, empty volumes), absolute-bind-mount (a bind mount names a path\n" +
-			"inside the old folder), secrets-in-env (values of secret-like keys in .env, for a source with a remote;\n" +
-			"the keys are named, never the values), and folder-rejected, not-a-project, project-is-repository and\n" +
-			"stack-unreadable for a folder that cannot be looked at as a project. Warnings do not block:\n" +
-			"secrets-in-env for a local source, fixed-tags (images with a fixed tag, which qhost cannot update; the\n" +
-			"stack counts as deploy only), downtime (the containers are recreated) and not-checked (an engine or a\n" +
-			"deploy service could not be asked, or the containers could not be read). qhost never rewrites compose\n" +
-			"files or .env: what does not fit is named, and you change it yourself.\n" +
+			"target-name (a leading dot, or other characters than letters, digits, ., _ and -), other-filesystem,\n" +
+			"engine-differs (the project runs in another Docker engine than the source), name-taken (a stack of that\n" +
+			"name exists in any engine), project-name-changes (the Compose project name would change, which would\n" +
+			"create new, empty volumes), absolute-bind-mount (a bind mount names a path inside the old folder),\n" +
+			"secrets-in-env (values of secret-like keys in .env, for a source with a remote; the keys are named, never\n" +
+			"the values), and folder-rejected, not-a-project, project-is-repository and stack-unreadable for a folder\n" +
+			"that cannot be looked at as a project. Warnings do not block: secrets-in-env for a local source,\n" +
+			"fixed-tags (images with a fixed tag, which qhost cannot update; the stack counts as deploy only), downtime\n" +
+			"(the containers are recreated) and not-checked (an engine or a deploy service could not be asked, or the\n" +
+			"containers could not be read). qhost never rewrites compose files or .env: what does not fit is named, and\n" +
+			"you change it yourself.\n" +
 			"The deploy service of the engine that has <source> bound answers. The Docker engines of the host are\n" +
 			"read like source inspect does, only with sudo; the system and rootless engines, and the deploy services of\n" +
-			"the other engines, are asked for containers of the folder, stack folders and stack names. A rejection or\n" +
-			"a block is a complete answer and exits 0; read the movable field of --output json. Run it with sudo.",
+			"the other engines, are asked for containers of the folder, stack folders and stack names. The preview\n" +
+			"exits 0 also for a rejection or a block; read the movable field of --output json. With --yes a block stops\n" +
+			"the command with exit code 2 and changes nothing.\n" +
+			"The move takes these steps in this order: down (docker compose down in the old folder, without -v, so\n" +
+			"named volumes stay), rename (the folder into the source; never over something at the target and never\n" +
+			"through a symbolic link), permissions (the group of the service account with group write on the folder,\n" +
+			"the folders of the listed files and the listed files, as source add does; the owner, bind-mount sources\n" +
+			"and unlisted files stay), commit (the listed files and the .gitignore lines in one commit as the person\n" +
+			"behind sudo, pushed when the source has a remote) and deploy (the normal run of the new stack with its\n" +
+			"check; the command waits for its result). The folder lies in the source uncommitted only between rename\n" +
+			"and commit; meanwhile the source skips its fast-forwards and catches up right after the commit.\n" +
+			"When a step fails, everything is taken back: the folder is renamed back, the containers of the project\n" +
+			"are removed once the deploy was tried, a commit that reached the branch is taken back by a revert commit\n" +
+			"that is pushed, group and mode of each path and the .gitignore are put back as they were, and a project\n" +
+			"that ran is started in its old folder with docker compose up -d. The output lists every step and every\n" +
+			"step of the way back with its result; result is moved, rolled-back or rollback-incomplete, location says\n" +
+			"where the folder is, and for rollback-incomplete remaining says what is left to do by hand. A move that was\n" +
+			"taken back or not finished exits 1. Data is never copied or deleted. Run it with sudo.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return usageFailure("source move takes exactly one argument, the path of the project folder",
@@ -56,15 +75,16 @@ func newSourceMoveCommand(program *cobracli.Program, state *notRunning) *cobra.C
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSourceMove(c, program, state, args[0], into)
+			return runSourceMove(c, program, gate, state, args[0], into)
 		},
 	}
-	move.Flags().StringVar(&into, "into", "", "path of the source the project would move into")
+	move.Flags().StringVar(&into, "into", "", "path of the source the project moves into")
 	_ = move.MarkFlagRequired("into")
+	gate = program.AddGate(move, cobracli.Gates{Question: true})
 	return move
 }
 
-func runSourceMove(c *cobra.Command, program *cobracli.Program, state *notRunning, path, into string) error {
+func runSourceMove(c *cobra.Command, program *cobracli.Program, gate *cobracli.Gate, state *notRunning, path, into string) error {
 	for _, p := range []string{path, into} {
 		if !filepath.IsAbs(p) || filepath.Clean(p) != p {
 			return usageFailure("the paths must be absolute and clean", "Pass the absolute paths of the folder and of the source.")
@@ -81,7 +101,7 @@ func runSourceMove(c *cobra.Command, program *cobracli.Program, state *notRunnin
 	if err != nil {
 		return err
 	}
-	return output.Encode(c.OutOrStdout(), program.Format(), moveResult(program.Format(), res))
+	return runConfirmedMove(c, program, gate, res)
 }
 
 // addMoveHost adds to the answer of the service what only a client on the host can tell: the file system, the

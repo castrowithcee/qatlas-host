@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -19,6 +20,9 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
+
+// stackFolderName is the folder name gitrepo.Repo.RevertStack takes.
+var stackFolderName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
 // handleMove answers source.move: the preview of moving a project folder into the source at Into. It reads the
 // folder as source.inspect does, reads the source, and the containers of the folder in the engine of the
@@ -126,9 +130,13 @@ func (m *mover) checkSource() {
 func (m *mover) checkTarget() {
 	base := filepath.Base(m.args.Path)
 	target := filepath.Join(m.args.Into, base)
-	if strings.HasPrefix(base, ".") {
+	switch {
+	case strings.HasPrefix(base, "."):
 		m.block(control.MoveTargetName, fmt.Sprintf("the folder name %s starts with a dot, so the source does not read it as a stack folder", maskControl(base)),
 			"Rename the project folder to a name without a leading dot.")
+	case !stackFolderName.MatchString(base):
+		m.block(control.MoveTargetName, fmt.Sprintf("the folder name %s has other characters than letters, digits, ., _ and -, so a move could not be taken back", maskControl(base)),
+			"Rename the project folder to a name of letters, digits, ., _ and -.")
 	}
 	if _, err := os.Lstat(target); err == nil {
 		m.block(control.MoveTargetExists, fmt.Sprintf("the target folder %s exists already in the source", m.res.Target),
@@ -181,6 +189,7 @@ func (m *mover) checkProject(list []stacks.Stack) {
 		return
 	}
 	st := list[0]
+	m.res.BindMounts = mapAll(st.BindMounts, maskControl)
 	red := &redact.Redactor{}
 	registerStackSecrets(red, st)
 	for _, val := range st.Env {

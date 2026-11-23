@@ -142,3 +142,59 @@ func TestFolderCommitIsRootOnly(t *testing.T) {
 	}
 	p.as(0)
 }
+
+func (h *harness) revertFolder(into, folder, commit string) (control.SourceFolderRevertResult, error) {
+	var res control.SourceFolderRevertResult
+	err := h.call(control.SourceFolderRevertCommand, control.SourceFolderRevertArgs{Path: into, Folder: folder, Commit: commit, SudoUID: 1000}, &res)
+	return res, err
+}
+
+func TestFolderRevertTakesTheCommitBackOnlyOnceTheFolderIsOut(t *testing.T) {
+	h, into := moveSource(t, &fakeDocker{}, nil)
+	writeTree(t, filepath.Join(into, "myapp"), projectFiles())
+	res, err := h.commitFolder(into, "myapp", headOf(t, into), ".env", "compose.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Following a revert would delete the versioned files of a folder that is still there.
+	_, err = h.revertFolder(into, "myapp", res.Commit)
+	wantCode(t, err, control.CodeInvalid)
+	if headOf(t, into) != res.Commit || fileText(t, filepath.Join(into, "myapp/compose.yaml")) != moveCompose {
+		t.Fatal("a refused revert changed the source")
+	}
+
+	out := filepath.Join(tempBase(t), "myapp")
+	if err := os.Rename(filepath.Join(into, "myapp"), out); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(into, "stray.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err = h.revertFolder(into, "myapp", res.Commit)
+	wantCode(t, err, control.CodeLocalChanges)
+	if headOf(t, into) != res.Commit {
+		t.Fatal("a revert with another local change moved the branch")
+	}
+	if err := os.Remove(filepath.Join(into, "stray.txt")); err != nil {
+		t.Fatal(err)
+	}
+
+	rev, err := h.revertFolder(into, "myapp", res.Commit)
+	if err != nil || rev.Revert == "" || rev.Head != rev.Revert || headOf(t, into) != rev.Revert {
+		t.Fatalf("revert = %+v, %v", rev, err)
+	}
+	if names := gitOutput(t, into, "ls-tree", "--name-only", "HEAD"); strings.Contains(names, "myapp") {
+		t.Fatalf("the branch still holds the folder: %s", names)
+	}
+	if st := gitOutput(t, into, "status", "--porcelain", "--untracked-files=all"); st != "" {
+		t.Fatalf("the working copy is not clean: %s", st)
+	}
+	for _, f := range []string{"compose.yaml", ".env", ".gitignore", "data/db.bin", "notes.txt"} {
+		if _, err := os.Lstat(filepath.Join(out, f)); err != nil {
+			t.Errorf("the moved-out folder lost %s", f)
+		}
+	}
+	if msg := gitOutput(t, into, "log", "-1", "--format=%B"); !strings.Contains(msg, "taken back") {
+		t.Fatalf("message = %q", msg)
+	}
+}

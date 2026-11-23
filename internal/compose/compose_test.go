@@ -174,6 +174,25 @@ func TestStopCommand(t *testing.T) {
 	}
 }
 
+func TestProjectDownKeepsTheVolumesAndProjectUpStartsDetached(t *testing.T) {
+	st := newStack(t, true)
+	r := &fakeRunner{}
+	d, _ := newDeployer(r)
+	if err := d.ProjectDown(context.Background(), st, &fakeLog{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.ProjectUp(context.Background(), st, &fakeLog{}); err != nil {
+		t.Fatal(err)
+	}
+	n := len(globalArgs(st))
+	if got := strings.Join(r.calls[0].Args[n:], " "); got != "down --remove-orphans" {
+		t.Errorf("down args = %q", r.calls[0].Args)
+	}
+	if got := strings.Join(r.calls[1].Args[n:], " "); got != "up -d --remove-orphans" {
+		t.Errorf("up args = %q", r.calls[1].Args)
+	}
+}
+
 func TestStartAndRestartCommands(t *testing.T) {
 	st := newStack(t, true)
 	r := &fakeRunner{}
