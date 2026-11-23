@@ -13,4 +13,4 @@
 │     - faster start                                                                                                   │
 │     - fixes the upload limit                                                                                         │
 e update rules  b backup  C compose  k checks  E clear settings  o log  a set secret  x delete secret  R restore backup 
-r reload  1-7 area  q quit                                                                             ↑/↓ scroll  21/59
+h add hook  U remove hook  r reload  1-7 area  q quit                                                  ↑/↓ scroll  21/62

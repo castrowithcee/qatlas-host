@@ -21,6 +21,9 @@
 │ API_SIGNING_KEY                                                                                                      │
 │ DB_PASSWORD                                                                                                          │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Webhooks ───────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Kein Webhook-Empfänger eingerichtet. Richte ihn unter Einstellungen, Webhooks ein.                                   │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                                                                                            │
 │   10-30 14:01  12.0 MiB                                                                                              │
@@ -40,8 +43,5 @@
 │ Deploy  geht                                                                                                         │
 │   Compose starts the stack from compose.yaml                                                                         │
 │ Update  geht, automatisch                                                                                            │
-│   the maintenance window updates APP_VERSION by itself                                                               │
-│ Rollback mit Daten  geht                                                                                             │
-│   a failed run goes back to the previous commit and restores the backup it made before the change                    │
 e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log  a Geheimnis setzen                   
-x Geheimnis löschen  R Backup einspielen  r Neu laden  1-7 Bereich  q Beenden                        ↑/↓ Scrollen  42/50
+x Geheimnis löschen  R Backup einspielen  h Hook anlegen  U Hook entfernen  r Neu laden  1-7 Bereich  q Beenden    42/53

@@ -21,6 +21,9 @@
 ╭─ Geheimnisse ────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Keine Geheimnisse.                                                                                                   │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Webhooks ───────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Kein Webhook-Empfänger eingerichtet. Richte ihn unter Einstellungen, Webhooks ein.                                   │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Keine Backups.                                                                                                       │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -40,8 +43,5 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
 e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log  a Geheimnis setzen                   
-x Geheimnis löschen  R Backup einspielen  r Neu laden  1-7 Bereich  q Beenden                               ↑/↓ Scrollen
+x Geheimnis löschen  R Backup einspielen  h Hook anlegen  U Hook entfernen  r Neu laden  1-7 Bereich  q Beenden         

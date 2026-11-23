@@ -43,9 +43,9 @@ func noBadBytes(t *testing.T, what, screen string, profile kittui.ColorProfile) 
 func TestDetailShowsLoadingThenEachSectionOnItsOwn(t *testing.T) {
 	b := demoBackend()
 	b.errs["changelog:demo-stack"] = errServiceBusy()
-	m := newTestModel(t, i18n.English, b, wideWidth, 40)
+	m := newTestModel(t, i18n.English, b, wideWidth, 48)
 	_, cmd := m.Update(keyMsg("enter"))
-	if screen := m.render(); strings.Count(screen, "Loading…") != 4 {
+	if screen := m.render(); strings.Count(screen, "Loading…") != 5 {
 		t.Fatalf("all sections should load:\n%s", screen)
 	}
 	drain(m, cmd)

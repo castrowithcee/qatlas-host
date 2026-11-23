@@ -60,6 +60,7 @@ type fakeBackend struct {
 	notify      []control.NotifyChannelInfo
 	// hook is the webhook receiver the service reads; HookServiceSetup sets it up.
 	hook    HookServiceInfo
+	hooks   map[string][]HookInfo
 	repoSet []control.RepoSetArgs
 	// The stack folders: inspects answers by path (unknown paths are rejected), folderList is the bound list,
 	// compare the answer of source.compare. fetchDirs, sourceAdds and removes record the calls in order; the
@@ -1193,4 +1194,42 @@ func (f *fakeBackend) HookServiceSetup(ctx context.Context, listen string) (Hook
 	}
 	f.hook.SetUp, f.hook.Running, f.hook.Listen = true, true, listen
 	return HookSetupResult{Listen: listen}, nil
+}
+
+// fakeHookPath is the made-up secret path HookAdd answers with; tests look for it where it must not be.
+const fakeHookPath = "/hook/FAKE-SECRET-not-a-real-token-0123456789"
+
+func (f *fakeBackend) HookList(_ context.Context, stack string) (HookListResult, error) {
+	if err := f.fail("hooklist", stack); err != nil {
+		return HookListResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return HookListResult{SetUp: f.hook.SetUp, Hooks: slices.Clone(f.hooks[stack])}, nil
+}
+
+func (f *fakeBackend) HookAdd(ctx context.Context, stack string) (HookAddResult, error) {
+	if err := f.actCtx(ctx, "hookadd", stack); err != nil {
+		return HookAddResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.hooks == nil {
+		f.hooks = map[string][]HookInfo{}
+	}
+	id := "h-a1b2c3d" + strconv.Itoa(len(f.hooks[stack]))
+	f.hooks[stack] = append(f.hooks[stack], HookInfo{ID: id, Modified: at(31, 9, 0)})
+	return HookAddResult{ID: id, Listen: "127.0.0.1:8480", Path: fakeHookPath}, nil
+}
+
+func (f *fakeBackend) HookRemove(ctx context.Context, id string) error {
+	if err := f.actCtx(ctx, "hookremove", id); err != nil {
+		return err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for stack, list := range f.hooks {
+		f.hooks[stack] = slices.DeleteFunc(list, func(h HookInfo) bool { return h.ID == id })
+	}
+	return nil
 }

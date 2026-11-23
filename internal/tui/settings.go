@@ -134,6 +134,8 @@ const (
 	opProposalReject
 	opProposalApply
 	opHookSetup
+	opHookAdd
+	opHookRemove
 )
 
 // settingMsg carries the answer of a write. A write answers with the name it concerned, never with a value.
@@ -575,6 +577,11 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		done(t.Lookup(textDoneHook, kittui.Escape(res.Listen)))
 		s.hooks = part{}
 		cmds = append(cmds, m.loadPage(true))
+	case HookAddResult:
+		cmds = append(cmds, m.hookAdded(res, msg.name))
+	case hookRemoved:
+		done(t.Lookup(textDoneHookRemoved, res.id))
+		cmds = append(cmds, m.readHooks())
 	case control.SecretResult:
 		text := t.Lookup(textDoneSecretSet, res.Key, res.Stack)
 		switch {

@@ -90,24 +90,9 @@ func newHookAddCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 					Message:  fmt.Sprintf("no such stack: %s is not in the engine %s", stack, target.id()),
 					NextStep: "List the stacks with 'qhost stack list'."}
 			}
-			secret, err := hookservice.NewSecret()
+			id, secret, listen, err := appendHook(stack, instance)
 			if err != nil {
-				return &cli.Failure{Code: output.CodeRuntime, Message: err.Error(), Cause: err,
-					NextStep: "Run the command again."}
-			}
-			var id, listen string
-			err = deploySetup.host.UpdateHooks(func(cfg *hookservice.Config) error {
-				var err error
-				if id, err = cfg.NewID(); err != nil {
-					return err
-				}
-				listen = cfg.Listen
-				cfg.Hooks = append(cfg.Hooks, hookservice.Hook{ID: id, Stack: stack, Instance: instance,
-					Hash: hookservice.HashSecret(secret)})
-				return nil
-			})
-			if err != nil {
-				return hookFailure(err)
+				return err
 			}
 			if info.Trigger == "window" || info.Trigger == "" {
 				_, _ = fmt.Fprintf(c.ErrOrStderr(), "warning: the stack %s has the update trigger window; the hook acts only with the "+
@@ -122,6 +107,30 @@ func newHookAddCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 	}
 	addEngineFlag(cmd, &engine, stackEngineUsage, stackEngineNote)
 	return cmd
+}
+
+// appendHook stores a new hook of the stack with the hash of a fresh secret and returns the secret with the id and the
+// address the receiver listens on. The secret is not kept anywhere else.
+func appendHook(stack, instance string) (id, secret, listen string, err error) {
+	secret, err = hookservice.NewSecret()
+	if err != nil {
+		return "", "", "", &cli.Failure{Code: output.CodeRuntime, Message: err.Error(), Cause: err,
+			NextStep: "Run the command again."}
+	}
+	err = deploySetup.host.UpdateHooks(func(cfg *hookservice.Config) error {
+		var err error
+		if id, err = cfg.NewID(); err != nil {
+			return err
+		}
+		listen = cfg.Listen
+		cfg.Hooks = append(cfg.Hooks, hookservice.Hook{ID: id, Stack: stack, Instance: instance,
+			Hash: hookservice.HashSecret(secret)})
+		return nil
+	})
+	if err != nil {
+		return "", "", "", hookFailure(err)
+	}
+	return id, secret, listen, nil
 }
 
 func stackInfo(res control.StacksResult, name string) (control.StackInfo, bool) {
@@ -179,26 +188,32 @@ func newHookRemoveCommand(program *cobracli.Program) *cobra.Command {
 				return err
 			}
 			id := args[0]
-			var found bool
-			err := deploySetup.host.UpdateHooks(func(cfg *hookservice.Config) error {
-				found = cfg.Remove(id)
-				if !found {
-					return errHookUnknown
-				}
-				return nil
-			})
-			if errors.Is(err, errHookUnknown) {
-				return &cli.Failure{Code: output.CodeNotFound, Message: "no such webhook: " + id,
-					NextStep: "List the hooks with 'qhost hook list'."}
-			}
-			if err != nil {
-				return hookFailure(err)
+			if err := removeHook(id); err != nil {
+				return err
 			}
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
 				{Name: "id", Value: id}, {Name: "removed", Value: true},
 			}})
 		},
 	}
+}
+
+// removeHook deletes the hook with the id from the configuration.
+func removeHook(id string) error {
+	err := deploySetup.host.UpdateHooks(func(cfg *hookservice.Config) error {
+		if !cfg.Remove(id) {
+			return errHookUnknown
+		}
+		return nil
+	})
+	if errors.Is(err, errHookUnknown) {
+		return &cli.Failure{Code: output.CodeNotFound, Message: "no such webhook: " + id,
+			NextStep: "List the hooks with 'qhost hook list'."}
+	}
+	if err != nil {
+		return hookFailure(err)
+	}
+	return nil
 }
 
 var errHookUnknown = errors.New("unknown hook")

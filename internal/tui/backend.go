@@ -119,6 +119,13 @@ type Backend interface {
 	// HookServiceSetup sets the receiver up, or moves it to listen; an empty listen keeps the stored address or
 	// takes the default. It needs root, so the interface calls it only as root and after a confirmation.
 	HookServiceSetup(ctx context.Context, listen string) (HookSetupResult, error)
+	// HookList reads the hooks of one stack; it needs no root and never carries a secret or a hash.
+	HookList(ctx context.Context, stack string) (HookListResult, error)
+	// HookAdd gives the stack a hook. Its answer is the only place the secret path of the hook ever appears. It
+	// needs root, so the interface calls it only as root and after a confirmation.
+	HookAdd(ctx context.Context, stack string) (HookAddResult, error)
+	// HookRemove removes the hook with the id; it needs root like HookAdd.
+	HookRemove(ctx context.Context, id string) error
 
 	// The stack-detail writes. The value of SecretSet travels only in this call.
 	SecretSet(ctx context.Context, stack, key, value string) (control.SecretResult, error)
@@ -165,6 +172,25 @@ type HookServiceInfo struct {
 	Listen  string
 	Hooks   int
 	Problem string
+}
+
+// HookInfo is one hook of a stack. Modified is when the configuration was last written, the same for every hook.
+type HookInfo struct {
+	ID       string
+	Modified time.Time
+}
+
+// HookListResult is the hooks of a stack. Without SetUp there is no receiver and so no hook.
+type HookListResult struct {
+	SetUp bool
+	Hooks []HookInfo
+}
+
+// HookAddResult is a new hook. Path holds its secret and must not be kept beyond the one dialog that shows it.
+type HookAddResult struct {
+	ID     string
+	Listen string
+	Path   string
 }
 
 // HookSetupResult is what a setup of the webhook receiver reports.

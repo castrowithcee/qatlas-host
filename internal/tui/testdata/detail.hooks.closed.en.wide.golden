@@ -1,0 +1,64 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks  [2 ▣ Stack detail]  3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  demo-stack                                                                                                            
+                                                                                                                        
+  mode      automatic, webhook                                                                                          
+  state     deployed                                                                                                    
+  findings  1 warning                                                                                                   
+                                                                                                                        
+╭─ Image versions ─────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ APP_VERSION  example/app                                                                                             │
+│   1.4.2 -> 1.5.0  update available                                                                                   │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Containers ─────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ No containers of this stack.                                                                                         │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Changelog ──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ APP_VERSION  1.4.2 -> 1.5.0                                                                                          │
+│   source example/app                                                                                                 │
+│   1.5.0  Spring release  2026-10-29                                                                                  │
+│     Adds a dark theme.                                                                                               │
+│                                                                                                                      │
+│     - faster start                                                                                                   │
+│     - fixes the upload limit                                                                                         │
+│   1.4.3  2026-10-20                                                                                                  │
+│     Fixes a crash on empty input.                                                                                    │
+│   more at https://example.invalid/app/releases                                                                       │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Secrets ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ API_SIGNING_KEY                                                                                                      │
+│ DB_PASSWORD                                                                                                          │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Webhooks ───────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ h-a1b2c3d0  modified 10-31 09:00                                                                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ 20261030T140100Z-0123abcd                                                                                            │
+│   10-30 14:01  12.0 MiB                                                                                              │
+│ 20261023T031000Z-4567cdef                                                                                            │
+│   10-23 03:10  11.0 MiB                                                                                              │
+│ 20261016T031000Z-89abcdef                                                                                            │
+│   0 B  incomplete                                                                                                    │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Last runs ──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ succeeded  10-30 14:02  update  48s                                                                                  │
+│   20261030T140200Z-0000000c                                                                                          │
+│ failed  10-29 02:00  poll  850ms                                                                                     │
+│   20261029T020000Z-00000010                                                                                          │
+│   compose pull failed: registry unreachable                                                                          │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Functions ──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Deploy  works                                                                                                        │
+│   Compose starts the stack from compose.yaml                                                                         │
+│ Update  works, automatic                                                                                             │
+│   the maintenance window updates APP_VERSION by itself                                                               │
+│ Rollback with data  works                                                                                            │
+│   a failed run goes back to the previous commit and restores the backup it made before the change                    │
+│ Backup  works                                                                                                        │
+│   a backup saves the data directories data/db                                                                        │
+│ Redact secrets  works                                                                                                │
+│   the values of secrets.env (2 key(s)) are redacted in logs and messages                                             │
+│ secrets-env-not-ignored  warning                                                                                     │
+e update rules  b backup  C compose  k checks  E clear settings  o log  a set secret  x delete secret  R restore backup 
+h add hook  U remove hook  r reload  1-7 area  q quit                                                  ↑/↓ scroll  59/62

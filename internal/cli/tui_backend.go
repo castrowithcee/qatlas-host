@@ -14,6 +14,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/diagnose"
+	"github.com/castrowithcee/qatlas-host/internal/hookservice"
 	"github.com/castrowithcee/qatlas-host/internal/tui"
 	"github.com/castrowithcee/qatlas-host/internal/window"
 )
@@ -571,6 +572,57 @@ func (b *engineBackend) HookServiceSetup(ctx context.Context, listen string) (tu
 		return tui.HookSetupResult{}, routeFailure(hookSetupFailure(err, true))
 	}
 	return tui.HookSetupResult{Listen: plan.Listen}, nil
+}
+
+// hookInstance is the name a hook of the stack's engine carries, as 'hook add' stores it.
+func hookInstance(t engineTarget) string {
+	if t.inst == nil {
+		return hookservice.SystemInstance
+	}
+	return t.inst.User()
+}
+
+// HookList reads the hooks of the stack as 'hook list' does, for the instance that has the stack.
+func (b *engineBackend) HookList(ctx context.Context, stack string) (tui.HookListResult, error) {
+	t, err := b.locateTarget(ctx, stackItem(stack))
+	if err != nil {
+		return tui.HookListResult{}, err
+	}
+	cfg, mod, err := deploySetup.host.ReadHooks()
+	if errors.Is(err, deploysetup.ErrHookNotSetUp) {
+		return tui.HookListResult{}, nil
+	}
+	if err != nil {
+		return tui.HookListResult{}, routeFailure(hookFailure(err))
+	}
+	res := tui.HookListResult{SetUp: true}
+	for _, h := range cfg.Hooks {
+		if h.Stack == stack && h.Instance == hookInstance(t) {
+			res.Hooks = append(res.Hooks, tui.HookInfo{ID: h.ID, Modified: mod})
+		}
+	}
+	return res, nil
+}
+
+// HookAdd does what 'sudo qhost hook add' does; the stack must exist in the engine the call names.
+func (b *engineBackend) HookAdd(ctx context.Context, stack string) (tui.HookAddResult, error) {
+	if _, _, err := deploySetup.host.ReadHooks(); err != nil {
+		return tui.HookAddResult{}, routeFailure(hookFailure(err))
+	}
+	t, err := b.locateTarget(ctx, stackItem(stack))
+	if err != nil {
+		return tui.HookAddResult{}, err
+	}
+	id, secret, listen, err := appendHook(stack, hookInstance(t))
+	if err != nil {
+		return tui.HookAddResult{}, routeFailure(err)
+	}
+	return tui.HookAddResult{ID: id, Listen: listen, Path: "/hook/" + secret}, nil
+}
+
+// HookRemove does what 'sudo qhost hook remove' does.
+func (b *engineBackend) HookRemove(_ context.Context, id string) error {
+	return routeFailure(removeHook(id))
 }
 
 func (b *engineBackend) Notifications(ctx context.Context) (control.NotifyListResult, error) {
