@@ -1534,6 +1534,12 @@ stack_settled() {
 	[ -z "$(stack_field "$1" active_run)" ] && [ "$(stack_field "$1" last_run)" = "$2" ]
 }
 
+# stack_deployed_at succeeds when the stack is settled with the given result at the given deployed commit. Right
+# after a restart the last result is still that of an earlier run until the poll starts the new one.
+stack_deployed_at() {
+	stack_settled "$1" "$2" && [ "$(stack_field "$1" deployed)" = "$3" ]
+}
+
 # stack_idle succeeds when the stack has no run in progress and has finished at least one.
 stack_idle() {
 	[ -z "$(stack_field "$1" active_run)" ] && [ -n "$(stack_field "$1" last_run)" ]
@@ -1735,8 +1741,7 @@ $hook_signing_value
 	step 'the engine deploys a new commit it finds by polling'
 	good=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
 	restart_service
-	wait_for 'the run of demo-cache' 240 stack_settled demo-cache succeeded
-	[ "$(stack_field demo-cache deployed)" = "$good" ] || fail "demo-cache is not recorded as deployed at $good: $(qd --output json status)"
+	wait_for 'the run of demo-cache' 240 stack_deployed_at demo-cache succeeded "$good"
 	[ "$(stack_images demo-cache)" = "registry.$domain/demo/app:1.1.0" ] || fail "demo-cache does not run the image 1.1.0: $(stack_images demo-cache)"
 	log "scenario: poll deployed demo-cache at $good"
 
@@ -2226,7 +2231,7 @@ scenario_rollback() {
 	run_log=$(qd stack log "$run")
 	printf '%s' "$run_log" | grep -q ' result rollback-failed' || fail "the run did not end rollback-failed: $run_log"
 	[ "$(log_steps "$run_log")" = "$rollback_failed_steps" ] || fail "unexpected steps of the rollback-failed run: $(log_steps "$run_log")"
-	printf '%s' "$run_log" | grep -q 'rejected by the e2e hook' || fail "the run log does not show the remote refusing the push: $run_log"
+	printf '%s' "$run_log" | grep -q 'the remote refused the push' || fail "the run log does not show the remote refusing the push: $run_log"
 	[ "$(as_admin "git ls-remote $repo refs/heads/main" | cut -f 1)" = "$stuck" ] || fail 'the remote branch moved although the push was refused'
 	[ -z "$(stack_images demo-cache)" ] || fail "demo-cache is still running after the failed rollback: $(stack_images demo-cache)"
 	[ -n "$(stack_field demo-cache paused)" ] || fail "status does not show demo-cache as paused: $(qd --output json status)"
@@ -5308,7 +5313,7 @@ scenario_stack_actions() {
 
 	step 'a new commit does not start a run of the stopped stack, also not after a service restart'
 	count=$(qd stack runs demo-cache | grep -c '[0-9]\{8\}T[0-9]\{6\}Z-')
-	as_admin 'cd ~/stacks &&
+	as_admin 'cd ~/stacks && git pull -q --ff-only &&
 		printf "# stopped-stack marker\n" >>demo-cache/.env &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -am "Touch demo-cache while it is stopped" &&
 		git push -q origin main'
@@ -5506,7 +5511,7 @@ scenario_tui_sudo() {
 	tui_wait "$sa_single" 15
 	tui_send Home
 	i=0
-	until tui_screen | grep -q "^> .*$sa_single "; do
+	until tui_ct_cursor_on "$sa_single"; do
 		i=$((i + 1))
 		[ "$i" -lt 40 ] || fail "the cursor of the Containers area does not reach $sa_single: $(tui_screen)"
 		tui_send Down
@@ -7699,7 +7704,7 @@ scenario_tui() {
 	tui_wait 'own stack demo-stack' 15
 	tui_send Home
 	i=0
-	until tui_screen | grep -q "^> .*$ctname "; do
+	until tui_ct_cursor_on "$ctname"; do
 		i=$((i + 1))
 		[ "$i" -lt 30 ] || fail "the cursor of the Containers area does not reach $ctname: $(tui_screen)"
 		tui_send Down
@@ -7765,7 +7770,7 @@ scenario_tui() {
 	ct_action() {
 		tui_send Home
 		i=0
-		until tui_screen | grep -q "^> .*$foreign "; do
+		until tui_ct_cursor_on "$foreign"; do
 			i=$((i + 1))
 			[ "$i" -lt 40 ] || fail "the cursor of the Containers area does not reach $foreign: $(tui_screen)"
 			tui_send Down
@@ -7937,10 +7942,16 @@ health_is() {
 	[ "$(docker exec "$host" docker inspect -f '{{.State.Health.Status}}' "$1")" = "$2" ]
 }
 
+# tui_ct_cursor_on tells whether the cursor of the Containers list is on the container $1. With engine sections
+# the row sits inside the frame of its section, so it starts with that frame.
+tui_ct_cursor_on() {
+	tui_screen | grep -Eq "^(│ |║ )?> .*$1 "
+}
+
 # tui_ct_cursor_to moves the cursor of the Containers list to the container $1.
 tui_ct_cursor_to() {
 	i=0
-	until tui_screen | grep -q "^> *$1 "; do
+	until tui_screen | grep -Eq "^(│ |║ )?> *$1 "; do
 		i=$((i + 1))
 		[ "$i" -lt 40 ] || fail "the cursor does not reach $1: $(tui_screen)"
 		tui_send Down
