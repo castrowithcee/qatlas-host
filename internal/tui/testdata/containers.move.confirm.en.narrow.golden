@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks 2 Stack detail 3 Runs 4 Settings [5 Containers] 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+  ⚠ Move the project legacy-blog into the source /srv/stacks-example as the     
+    folder /srv/stacks-example/demo-foreign?                                    
+                                                                                
+  The project goes down, its folder is renamed into the source on the same file 
+  system, committed (and pushed when the source has a remote) and deployed      
+  there. Data is never copied or deleted. A failed step takes everything back.  
+                                                                                
+    folder: /srv/demo-foreign                                                   
+    source: /srv/stacks-example                                                 
+    target folder: /srv/stacks-example/demo-foreign                             
+    project: legacy-blog                                                        
+    engine: system                                                              
+                                                                                
+  Files of the first commit (2)                                                 
+    compose.yaml                                                                
+    .env                                                                        
+                                                                                
+  Left out (1), not needed by the stacks, kept out of git by .gitignore         
+    data: bind-mount                                                            
+                                                                                
+  Warning                                                                       
+    downtime: the containers of the project are recreated from the new folder   
+    what to do: Move in a quiet period.                                         
+                                                                                
+    $ sudo qhost source move --into /srv/stacks-example --yes --output json --  
+      /srv/demo-foreign                                                         
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+y yes, do it  n/esc/enter cancel                                      ↑/↓ scroll
