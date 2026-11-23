@@ -26,6 +26,11 @@ type kindEffect struct {
 	// rootless instance changes the own window of that instance.
 	host    bool
 	channel control.ProposalNotifyChannel
+	// grant is the content of a grant proposal; expires is the date the person set for it, empty to keep the one
+	// asked for, and backup and check are what is known of the stack.
+	grant         control.ProposalGrant
+	expires       string
+	backup, check setUp
 	// proposed lists every value of the content in full.
 	proposed []approval.Change
 	// worked is set once the difference to what applies now was worked out.
@@ -51,7 +56,7 @@ func hostWindowEngine(engine string) bool { return engine == "" || engine == con
 // the CLI use.
 func isKindProposal(kind string) bool {
 	return kind == control.ProposalKindStackSettings || kind == control.ProposalKindWindow ||
-		kind == control.ProposalKindNotifyChannel
+		kind == control.ProposalKindNotifyChannel || kind == control.ProposalKindGrant
 }
 
 // loadKind reads the content of a proposal of a settings kind into msg and, while the proposal is open, the
@@ -68,6 +73,14 @@ func loadKind(ctx context.Context, b Backend, msg *proposalMsg) {
 		}
 		eff.stack, eff.settings = c.Stack, c.Settings
 		raw, _ = json.Marshal(c.Settings)
+	case control.ProposalKindGrant:
+		var ok bool
+		if eff.grant, ok = parseGrant(msg.res.Content); !ok {
+			msg.bad = true
+			return
+		}
+		eff.stack = eff.grant.Stack
+		raw, _ = json.Marshal(eff.grant)
 	case control.ProposalKindNotifyChannel:
 		if json.Unmarshal(msg.res.Content, &eff.channel) != nil || !channelNameRe.MatchString(eff.channel.Name) {
 			msg.bad = true
@@ -91,14 +104,7 @@ func loadKind(ctx context.Context, b Backend, msg *proposalMsg) {
 	if msg.res.State != control.ProposalOpen {
 		return
 	}
-	switch msg.res.Kind {
-	case control.ProposalKindStackSettings:
-		msg.effectErr = settingsKindEffect(ctx, b, eff)
-	case control.ProposalKindNotifyChannel:
-		msg.effectErr = notifyKindEffect(ctx, b, eff)
-	default:
-		msg.effectErr = windowKindEffect(ctx, b, eff)
-	}
+	msg.effectErr = kindEffectOf(ctx, b, eff)
 	if msg.effectErr == nil && !eff.taken {
 		sig, _ := json.Marshal(struct {
 			Kind    string
@@ -108,6 +114,19 @@ func loadKind(ctx context.Context, b Backend, msg *proposalMsg) {
 		}{eff.kind, eff.stack, eff.had, eff.changes})
 		eff.worked, eff.sig = true, string(sig)
 	}
+}
+
+// kindEffectOf reads what applies now for the kind of eff.
+func kindEffectOf(ctx context.Context, b Backend, eff *kindEffect) error {
+	switch eff.kind {
+	case control.ProposalKindStackSettings:
+		return settingsKindEffect(ctx, b, eff)
+	case control.ProposalKindGrant:
+		return grantKindEffect(ctx, b, eff)
+	case control.ProposalKindNotifyChannel:
+		return notifyKindEffect(ctx, b, eff)
+	}
+	return windowKindEffect(ctx, b, eff)
 }
 
 // notifyKindEffect looks for a channel of the name of the proposal. It only reads.
@@ -180,6 +199,9 @@ func isBackupCommand(path string) bool {
 // marked and drawn as a warning, because it runs on the host later.
 func (m *Model) kindContentLines(eff *kindEffect, width int) []string {
 	t := m.text
+	if eff.kind == control.ProposalKindGrant {
+		return m.grantContentLines(eff, width)
+	}
 	var lines []string
 	if eff.kind == control.ProposalKindStackSettings {
 		lines = m.wrapped(detailIndent, kittui.StyleText, t.Lookup(textPropStack, eff.stack), width)
@@ -210,6 +232,8 @@ func (m *Model) kindEffectLines(eff *kindEffect, width int) []string {
 	}
 	var lines []string
 	switch {
+	case eff.kind == control.ProposalKindGrant:
+		return m.grantEffectLines(eff, width)
 	case eff.kind == control.ProposalKindNotifyChannel:
 		return m.wrapped(detailIndent, kittui.StyleText, t.Lookup(textPropChannelNew), width)
 	case len(eff.changes) == 0 && eff.kind == control.ProposalKindWindow:
@@ -254,6 +278,7 @@ type kindApplied struct {
 	settings control.StackSettingsSetResult
 	window   control.WindowResult
 	channel  control.NotifyChannelInfo
+	grant    grantResult
 }
 
 // approveKind asks for the approval of the open proposal with the difference shown. Nothing is changed until the
@@ -263,6 +288,10 @@ func (m *Model) approveKind() tea.Cmd {
 	eff := v.kind
 	shown := &proposalCtx{id: v.id, fingerprint: v.info.Fingerprint, effect: eff.sig, gen: v.gen, engine: v.engine}
 	t := m.text
+	if eff.kind == control.ProposalKindGrant {
+		m.askGrantSudo(eff, shown)
+		return nil
+	}
 	if eff.kind == control.ProposalKindNotifyChannel {
 		return m.openForm(m.proposalSecretsForm(eff, shown))
 	}
@@ -328,6 +357,9 @@ func approveKindAndApply(ctx context.Context, b Backend, p *proposalCtx, eff *ki
 // kindDone says what an applied proposal of a settings kind came to.
 func (m *Model) kindDone(res kindApplied, done func(text string, details ...string)) []tea.Cmd {
 	t := m.text
+	if res.eff.kind == control.ProposalKindGrant {
+		return m.grantDone(res, done)
+	}
 	if res.eff.kind == control.ProposalKindNotifyChannel {
 		done(t.Lookup(textDonePropChannel, res.channel.Name))
 		return []tea.Cmd{m.reloadNow()}

@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 5 [6 Vorschläge] 7                                                    
+────────────────────────────────────────────────────────────────────────────────
+  Dauerfreigabe                                                           p-0020
+                                                                                
+  von          ana (1001)                                                       
+  eingereicht  10-30 18:00                                                      
+  läuft ab     11-13 18:00                                                      
+  Zustand      offen                                                            
+                                                                                
+  Vorgeschlagen                                                                 
+    ana (UID 1001) darf ohne sudo den Stack demo aktualisieren, als dauerhafte  
+    Freigabe.                                                                   
+    angefragter Ablauf: nach Ende von 2030-01-31 (UTC)                          
+    Begründung des Einreichers, wie geschrieben                                 
+    > Our deploy bot restarts the demo app after each release.                  
+                                                                                
+  Wirkung bei Anwendung jetzt                                                   
+    Ablauf der Freigabe: nach Ende von 2030-01-31 (UTC)                         
+    Backup des Stacks: eingerichtet                                             
+    Prüfung des Stacks: nicht eingerichtet                                      
+    !! Ein Update, das mit dieser Freigabe startet, committet und pusht in die  
+esc Zurück  A freigeben  e Ablauf  N ablehnen  r Neu laden  1-7 Bereich         
+q Beenden                                                    ↑/↓ Scrollen  19/20
