@@ -70,7 +70,8 @@ type SourceMoveRunning struct {
 // is the Compose project name now, from the running containers, else from the folder; NewProject is the name the
 // target would give it, empty when it cannot be told. PlannedFiles, Excluded and Ignore are what the commit
 // into the source would hold and what it would leave out, as source.inspect lists them for a folder of files,
-// relative to the project folder. SourceKind is SourceKindRemote or SourceKindLocal. Running lists the
+// relative to the project folder; BindMounts are the bind-mount sources of the project below its folder, relative to
+// it, whose group and mode the move leaves alone. SourceKind is SourceKindRemote or SourceKindLocal. Running lists the
 // containers of the folder in the engine of the service; ContainersChecked and ContainersError say whether the
 // engine could be asked. The client adds Engine, the Docker engine of the source, ProjectEngines, the engines in
 // which containers of the folder run, and EnginesNotChecked.
@@ -87,6 +88,7 @@ type SourceMoveResult struct {
 	Blocks            []SourceMoveIssue   `json:"blocks"`
 	Warnings          []SourceMoveIssue   `json:"warnings"`
 	PlannedFiles      []string            `json:"planned_files,omitempty"`
+	BindMounts        []string            `json:"bind_mounts,omitempty"`
 	Excluded          []SourceExcluded    `json:"excluded,omitempty"`
 	Ignore            *SourceIgnore       `json:"ignore,omitempty"`
 	Running           []SourceMoveRunning `json:"running,omitempty"`
@@ -123,4 +125,55 @@ type SourceFolderCommitResult struct {
 	Commit    string        `json:"commit"`
 	Committed []string      `json:"committed"`
 	Ignore    *SourceIgnore `json:"ignore,omitempty"`
+}
+
+// SourceFolderRevertCommand takes back the commit of SourceFolderCommitCommand after the folder was moved out of
+// the source again: a commit on the branch that removes the folder as Commit added it, pushed when the source has
+// a remote, which the working copy then follows. The folder must be gone from the source, so following the revert
+// deletes none of its files; the working copy may have no other change. A branch whose folder changed after
+// Commit gives CodeInvalid and nothing is pushed. Only root may run it.
+const SourceFolderRevertCommand = "source.revert-folder"
+
+// SourceFolderRevertArgs are the arguments of SourceFolderRevertCommand: the folder of the source, the name of
+// the project folder in it and the commit that added it.
+type SourceFolderRevertArgs struct {
+	Path    string `json:"path"`
+	Folder  string `json:"folder"`
+	Commit  string `json:"commit"`
+	SudoUID uint32 `json:"sudo_uid,omitempty"`
+}
+
+// SourceFolderRevertResult answers SourceFolderRevertCommand. Revert is the new commit, empty when the branch did
+// not hold the folder any more; Head is the commit the working copy is at afterwards.
+type SourceFolderRevertResult struct {
+	Path   string `json:"path"`
+	Folder string `json:"folder"`
+	Revert string `json:"revert,omitempty"`
+	Head   string `json:"head"`
+}
+
+// SourceProjectCommand takes a Compose project down or up in its folder outside every source, in the engine of
+// the service: SourceProjectDown runs docker compose down without removing volumes, SourceProjectUp docker
+// compose up -d. The folder must hold one project with its compose file at its root and the name Project. The
+// move of a project into a source uses it at the old folder. Only root may run it.
+const SourceProjectCommand = "source.project"
+
+// The actions of SourceProjectArgs.
+const (
+	SourceProjectDown = "down"
+	SourceProjectUp   = "up"
+)
+
+// SourceProjectArgs are the arguments of SourceProjectCommand.
+type SourceProjectArgs struct {
+	Path    string `json:"path"`
+	Project string `json:"project"`
+	Action  string `json:"action"`
+}
+
+// SourceProjectResult answers SourceProjectCommand.
+type SourceProjectResult struct {
+	Path    string `json:"path"`
+	Project string `json:"project"`
+	Action  string `json:"action"`
 }

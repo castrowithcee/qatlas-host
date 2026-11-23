@@ -24,6 +24,8 @@ func registerSourceCommands(r *control.Registry, s *inspectService) error {
 		control.SourceRemoveCommand:       changing(s.handleRemove),
 		control.SourceMoveCommand:         changing(s.handleMove),
 		control.SourceFolderCommitCommand: changing(s.handleFolderCommit),
+		control.SourceFolderRevertCommand: changing(s.handleFolderRevert),
+		control.SourceProjectCommand:      changing(s.handleProject),
 	}
 	for name, h := range commands {
 		if err := r.Register(name, h); err != nil {

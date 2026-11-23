@@ -55,6 +55,7 @@ var exceptions = []struct{ Source, Reason string }{
 	{"backup/backup.go", "the data files of a backup and its command file; meta.json, which is numbered, names them"},
 	{"cli/folders.go", "a sudoers drop-in, whose format is sudo's"},
 	{"cli/hostproposal.go", "opens the terminal device to ask a question; it stores nothing"},
+	{"cli/source_move_run.go", "puts back the .gitignore of a moved folder as it was, a file in git's format"},
 	{"credentials/credentials.go", "deploy keys in OpenSSH format and raw secret values, which are no document"},
 	{"deploysetup/deploysetup.go", "unit files and rules for systemd, sudo and polkit; the hook configuration it writes is numbered"},
 	{"gitrepo/commit.go", "files of a stack's repository, in their own formats"},

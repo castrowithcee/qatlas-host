@@ -98,6 +98,9 @@ func TestMovePreviewListsTargetFilesAndExclusionsAndChangesNothing(t *testing.T)
 	if want := []string{".env", "compose.yaml"}; !slices.Equal(res.PlannedFiles, want) {
 		t.Fatalf("planned = %q, want %q", res.PlannedFiles, want)
 	}
+	if !slices.Equal(res.BindMounts, []string{"data"}) {
+		t.Fatalf("bind mounts = %q", res.BindMounts)
+	}
 	why := excludedReasons(control.SourceInspectResult{Excluded: res.Excluded})
 	if why["data"] != control.SourceExcludedBindMount || why["notes.txt"] != control.SourceExcludedNotReferenced {
 		t.Fatalf("excluded = %+v", res.Excluded)
@@ -139,6 +142,10 @@ func TestMoveBlocksATargetThatExistsAndAHiddenName(t *testing.T) {
 	res = h.move(project(t, ".hidden", projectFiles()), into)
 	wantBlock(t, res, control.MoveTargetName)
 	wantNoBlock(t, res, control.MoveTargetExists)
+	// A revert of the move commit takes only plain stack folder names.
+	files := projectFiles()
+	files[".env"] += "COMPOSE_PROJECT_NAME=myapp\n"
+	wantBlock(t, h.move(project(t, "my+app", files), into), control.MoveTargetName)
 }
 
 func TestMoveBlocksAProjectNameThatChanges(t *testing.T) {

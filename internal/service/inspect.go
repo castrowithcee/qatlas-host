@@ -42,11 +42,13 @@ const (
 type inspectService struct {
 	repo   *repoService
 	docker Docker
-	log    *slog.Logger
+	// projects is nil without a deployer that takes projects down and up.
+	projects projectRunner
+	log      *slog.Logger
 }
 
-func registerInspectCommands(r *control.Registry, repo *repoService, d Docker, log *slog.Logger) error {
-	s := &inspectService{repo: repo, docker: d, log: log}
+func registerInspectCommands(r *control.Registry, repo *repoService, d Docker, projects projectRunner, log *slog.Logger) error {
+	s := &inspectService{repo: repo, docker: d, projects: projects, log: log}
 	if err := r.Register(control.SourceInspectCommand, changing(s.handle)); err != nil {
 		return err
 	}

@@ -107,6 +107,12 @@ func (x *Executor) Stop(ctx context.Context, st stacks.Stack, log Logger) error 
 	return x.step(ctx, st, log, orDefault(x.StopTimeout, DefaultStopTimeout), "stop", "stop")
 }
 
+// Down removes the containers and networks of the stack, also those of services the compose files no longer
+// have. It never passes -v: named volumes stay.
+func (x *Executor) Down(ctx context.Context, st stacks.Stack, log Logger) error {
+	return x.step(ctx, st, log, orDefault(x.StopTimeout, DefaultStopTimeout), "down", "down", "--remove-orphans")
+}
+
 // Start starts the existing, stopped containers of the stack; it creates none.
 func (x *Executor) Start(ctx context.Context, st stacks.Stack, log Logger) error {
 	return x.step(ctx, st, log, orDefault(x.StartTimeout, DefaultStartTimeout), "start", "start")

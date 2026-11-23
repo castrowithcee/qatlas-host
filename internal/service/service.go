@@ -280,7 +280,8 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 		return err
 	}
 	grantSvc.containerStack = containers.ownStack
-	if err := registerInspectCommands(registry, repo, dock, log); err != nil {
+	projects, _ := cfg.Deployer.(projectRunner)
+	if err := registerInspectCommands(registry, repo, dock, projects, log); err != nil {
 		return err
 	}
 	mon := newContainerMonitor(monitorConfig{

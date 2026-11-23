@@ -45,6 +45,15 @@ func (d *Deployer) Stop(ctx context.Context, st stacks.Stack, log *engine.Log) e
 	return d.Exec.Stop(ctx, st, log)
 }
 
+// ProjectDown and ProjectUp take a Compose project that is no stack down, volumes kept, and up again.
+func (d *Deployer) ProjectDown(ctx context.Context, st stacks.Stack, log Logger) error {
+	return d.Exec.Down(ctx, st, log)
+}
+
+func (d *Deployer) ProjectUp(ctx context.Context, st stacks.Stack, log Logger) error {
+	return d.Exec.Up(ctx, st, log)
+}
+
 // Backup implements engine.Deployer; a stack without backup rules is engine.ErrNoBackup.
 func (d *Deployer) Backup(ctx context.Context, st stacks.Stack, deployed string, log *engine.Log) (string, error) {
 	if d.Backups == nil || st.Rules == nil || st.Rules.Backup == nil {
