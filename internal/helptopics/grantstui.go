@@ -1,0 +1,6 @@
+package helptopics
+
+// grantsTUITail ends the topic on grants: its use in the terminal interface, and what is never grantable.
+const grantsTUITail = `In the terminal interface the Grants section of the stack detail lists the grants of the stack with user, action, expiry and state, and says why a grant is not valid. z opens a form with the user (the users with access to the service), the action in plain words and an optional last day; before the question it says whether the stack has a backup and a check set up, and for an update that it commits and pushes, and it shows the exact command. Y withdraws the grant you choose after a question. Both run sudo qhost grant add or remove and read the list again afterwards. An action a valid grant of yours covers (restart of a stack or one of its containers, the check for updates of a stack that is the only one on the host, update of one stack) runs without sudo, after the usual question; an update then shows no release notes, and an action on several ticked stacks still uses sudo.
+
+Never grantable: changes to the host, secrets and credentials, stack settings, sources, access and administrator rights, and the commands grant add and grant remove themselves.`

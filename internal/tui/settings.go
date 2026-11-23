@@ -595,15 +595,9 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 	case HookAddResult:
 		cmds = append(cmds, m.hookAdded(res, msg.name))
 	case grantAdded:
-		text := textDoneGrantAdded
-		if res.replaced {
-			text = textDoneGrantReplaced
-		}
-		done(t.Lookup(text, kittui.Escape(res.user), m.grantActionText(res.action), res.stack))
-		cmds = append(cmds, m.readGrants())
+		cmds = append(cmds, m.grantAddedDone(res, done))
 	case grantRemoved:
-		done(t.Lookup(textDoneGrantRemoved, kittui.Escape(res.user), m.grantActionText(res.action), res.stack))
-		cmds = append(cmds, m.readGrants())
+		cmds = append(cmds, m.grantRemovedDone(res, done))
 	case hookRemoved:
 		done(t.Lookup(textDoneHookRemoved, res.id))
 		cmds = append(cmds, m.readHooks())
@@ -618,18 +612,7 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		done(text, t.Lookup(textSecretAppliesLater))
 		cmds = append(cmds, m.readSecrets())
 	case control.StackSettingsResult:
-		switch msg.op {
-		case opStackSettingsBackup:
-			cmds = append(cmds, m.backupFormFor(res))
-		case opStackSettingsCompose:
-			cmds = append(cmds, m.composeFormFor(res))
-		case opStackSettingsCheck:
-			cmds = append(cmds, m.checkFormFor(res))
-		case opStackSettingsGrant:
-			cmds = append(cmds, m.grantFormFor(res))
-		default:
-			cmds = append(cmds, m.updateFormFor(res))
-		}
+		cmds = append(cmds, m.settingsFormFor(msg.op, res))
 	case control.StackSettingsSetResult:
 		cmds = append(cmds, m.settingsSaved(res, done))
 	case control.StackSettingsRemoveResult:

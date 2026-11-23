@@ -73,10 +73,8 @@ func (m *Model) detailAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 		return m.askHookAdd(), true
 	case actHookRemove:
 		return m.openHookPick(), true
-	case actGrantAdd:
-		return m.openGrantForm(), true
-	case actGrantRemove:
-		return m.openGrantPick(), true
+	case actGrantAdd, actGrantRemove:
+		return m.grantAction(id), true
 	case actRollback:
 		return m.rollbackFromDetail(), true
 	case actDataDirs:

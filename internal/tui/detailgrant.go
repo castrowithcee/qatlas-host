@@ -316,3 +316,27 @@ func (m *Model) askGrantRemove(stack, id string) {
 			return grantRemoved{user: g.User, action: g.Action, stack: stack}, true
 		})
 }
+
+// grantAction opens the form to grant an action or the list to withdraw a grant from.
+func (m *Model) grantAction(id kittui.ActionID) tea.Cmd {
+	if id == actGrantAdd {
+		return m.openGrantForm()
+	}
+	return m.openGrantPick()
+}
+
+// grantAddedDone tells that a grant is stored, or that it replaced one, and reads the list again.
+func (m *Model) grantAddedDone(res grantAdded, done func(string, ...string)) tea.Cmd {
+	text := textDoneGrantAdded
+	if res.replaced {
+		text = textDoneGrantReplaced
+	}
+	done(m.text.Lookup(text, kittui.Escape(res.user), m.grantActionText(res.action), res.stack))
+	return m.readGrants()
+}
+
+// grantRemovedDone tells that a grant is withdrawn and reads the list again.
+func (m *Model) grantRemovedDone(res grantRemoved, done func(string, ...string)) tea.Cmd {
+	done(m.text.Lookup(textDoneGrantRemoved, kittui.Escape(res.user), m.grantActionText(res.action), res.stack))
+	return m.readGrants()
+}

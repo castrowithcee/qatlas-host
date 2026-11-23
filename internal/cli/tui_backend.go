@@ -390,10 +390,6 @@ func (b *engineBackend) Secrets(ctx context.Context, stack string) (control.Secr
 	return onStack(b, ctx, stack, func(c *tui.ChannelBackend) (control.SecretListResult, error) { return c.Secrets(ctx, stack) })
 }
 
-func (b *engineBackend) GrantList(ctx context.Context, stack string) (control.GrantListResult, error) {
-	return onStack(b, ctx, stack, func(c *tui.ChannelBackend) (control.GrantListResult, error) { return c.GrantList(ctx, stack) })
-}
-
 func (b *engineBackend) Window(ctx context.Context) (control.WindowResult, error) {
 	return onInstance(b, ctx, func(c *tui.ChannelBackend) (control.WindowResult, error) { return c.Window(ctx) })
 }

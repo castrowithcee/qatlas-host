@@ -414,15 +414,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sys.busy = false
 		return m, msg.after(msg.out, msg.err)
 	case tea.PasteMsg:
-		if m.modal != nil {
-			if m.modal.dialog != nil {
-				m.modal.dialog.Paste(msg.Content)
-			}
-		} else if m.set.form != nil {
-			if target := m.set.form.pasteTo(); target != nil {
-				target.Paste(msg.Content)
-			}
-		}
+		m.paste(msg)
 	case logMsg:
 		return m, m.applyLog(msg)
 	case logTickMsg:

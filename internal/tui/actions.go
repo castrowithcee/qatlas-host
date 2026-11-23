@@ -240,42 +240,10 @@ func (m *Model) beginAction(kind actionKind) tea.Cmd {
 			}
 		}
 	}
-	if m.euid() != 0 {
-		// Only an action on one stack can be covered by a grant.
-		engine, stack, one := p.engineAt(0), "", len(p.stacks) == 1
-		if one {
-			stack = p.stacks[0]
-		} else if kind == kindCheck {
-			stack, engine, one = m.onlyStack()
-		}
-		if action, known := grantActions[kind]; known && one {
-			return m.coverThen(engine, stack, action, func(covered bool) tea.Cmd { return m.beginPlan(p, stack, engine, covered) })
-		}
+	if cmd, ok := m.coverPlan(p); ok {
+		return cmd
 	}
 	return m.beginPlan(p, "", "", false)
-}
-
-// beginPlan asks for the confirmation of the plan: a covered action calls the service, an update shows its preview
-// first, and without root and a covering grant the question runs the commands through sudo. stack and engine name
-// the stack of a covered check.
-func (m *Model) beginPlan(p plan, stack, engine string, covered bool) tea.Cmd {
-	if covered && p.kind == kindCheck {
-		p.only, p.engines = stack, []string{engine}
-	}
-	if p.kind == kindUpdate {
-		return m.openPreview(p, covered)
-	}
-	if m.euid() != 0 && !covered {
-		m.askSudoPlan(p)
-		return nil
-	}
-	dialog, err := m.confirmDialog(p, nil)
-	if err != nil {
-		m.failure = m.text.Lookup(kittui.TextError, err.Error())
-		return nil
-	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, plan: p, yes: func() tea.Cmd { return m.start(p) }}
-	return nil
 }
 
 // resumable reports whether the status shows a pause after a rollback or a halted repair for the stack.

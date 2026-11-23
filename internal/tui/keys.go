@@ -104,10 +104,11 @@ const (
 // areaKeys are the keys of actArea, one per area in the order of the tab line.
 var areaKeys = []string{"1", "2", "3", "4", "5", "6", "7"}
 
+func act(id kittui.ActionID, level kittui.KeyLevel, help kittui.TextID, keys ...string) kittui.Action {
+	return kittui.Action{ID: id, Level: level, DefaultKeys: keys, Help: help}
+}
+
 func keyTable() []kittui.Action {
-	act := func(id kittui.ActionID, level kittui.KeyLevel, help kittui.TextID, keys ...string) kittui.Action {
-		return kittui.Action{ID: id, Level: level, DefaultKeys: keys, Help: help}
-	}
 	table := []kittui.Action{
 		act(actHelp, kittui.LevelGlobal, kittui.TextKeyHelp, "?"),
 		act(actBack, kittui.LevelGlobal, kittui.TextKeyBack, "esc"),

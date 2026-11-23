@@ -67,3 +67,23 @@ func (m *Model) onlyStack() (name, engine string, ok bool) {
 	}
 	return name, engine, ok
 }
+
+// coverPlan goes on with a plan a grant may cover, once the grants are read. It reports false when no grant can
+// apply: as root, or for an action on several stacks.
+func (m *Model) coverPlan(p plan) (tea.Cmd, bool) {
+	if m.euid() == 0 {
+		return nil, false
+	}
+	// Only an action on one stack can be covered by a grant.
+	engine, stack, one := p.engineAt(0), "", len(p.stacks) == 1
+	if one {
+		stack = p.stacks[0]
+	} else if p.kind == kindCheck {
+		stack, engine, one = m.onlyStack()
+	}
+	action, known := grantActions[p.kind]
+	if !known || !one {
+		return nil, false
+	}
+	return m.coverThen(engine, stack, action, func(covered bool) tea.Cmd { return m.beginPlan(p, stack, engine, covered) }), true
+}
