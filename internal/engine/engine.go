@@ -700,24 +700,10 @@ func classify(changes []gitrepo.Change, list []stacks.Stack) (byStack map[string
 
 // countedChanges is classify with the status entries kept, so that a caller can tell the kind of a change.
 func countedChanges(changes []gitrepo.Change, list []stacks.Stack) (byStack map[string][]gitrepo.Change, dirty bool) {
-	mounts := map[string][]string{}
-	root := false
-	for _, st := range list {
-		mounts[st.Folder] = st.BindMounts
-		root = root || st.Folder == stacks.RootFolder
-	}
 	byStack = map[string][]gitrepo.Change{}
 	for _, c := range changes {
-		folder, rel, inStack := strings.Cut(c.Path, "/")
-		if root {
-			folder, rel, inStack = stacks.RootFolder, c.Path, folder != stacks.SettingsTop
-		}
-		if inStack && (rel == "secrets.env" || strings.HasPrefix(rel, "data/")) {
-			continue
-		}
-		if inStack && c.Code == "??" && slices.ContainsFunc(mounts[folder], func(m string) bool {
-			return rel == m || strings.HasPrefix(rel, m+"/")
-		}) {
+		folder, inStack, own := gitrepo.ChangeOwner(c, list)
+		if own {
 			continue
 		}
 		dirty = true

@@ -530,6 +530,15 @@ func (r *Repo) PushBranch(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := r.scanUnpublished(ctx, branch, head); err != nil {
+		return err
+	}
+	return r.Push(ctx, head)
+}
+
+// scanUnpublished reads the branch of origin again and scans every commit of head that is not on it; a finding
+// gives a *SecretsError.
+func (r *Repo) scanUnpublished(ctx context.Context, branch, head string) error {
 	base, err := r.remoteBranchCommit(ctx, true, "origin", branch)
 	if err != nil {
 		return err
@@ -549,7 +558,7 @@ func (r *Repo) PushBranch(ctx context.Context) error {
 	if scan.Total > 0 {
 		return &SecretsError{Scan: scan}
 	}
-	return r.Push(ctx, head)
+	return nil
 }
 
 // InitFromRemote turns the folder dir, which has no .git, into a repository on branch with the remote url as
