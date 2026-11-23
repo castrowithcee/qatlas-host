@@ -127,3 +127,31 @@ type GrantListResult struct {
 	Grants  []GrantInfo `json:"grants"`
 	Problem string      `json:"problem,omitempty"`
 }
+
+// ProposalKindGrant proposes a standing grant for the user who submits it; its content is a
+// ProposalGrantRequest, and the stored form is a ProposalGrant. The deploy service keeps these proposals.
+const ProposalKindGrant = "grant"
+
+// ProposalGrantReasonMaxChars is the most characters the reason of a grant proposal may have.
+const ProposalGrantReasonMaxChars = 500
+
+// ProposalGrantRequest is the content a user submits for a proposal of kind ProposalKindGrant. It has no
+// member for a user: the grant is always for the submitter.
+type ProposalGrantRequest struct {
+	Action  string `json:"action"`
+	Stack   string `json:"stack"`
+	Expires string `json:"expires,omitempty"`
+	Reason  string `json:"reason"`
+}
+
+// ProposalGrant is the normalized content of a proposal of kind ProposalKindGrant, the one the fingerprint
+// covers. User and UID are those of the submitter, set by the service. Reason is text of the submitter: it is
+// stored and shown, never interpreted.
+type ProposalGrant struct {
+	User    string `json:"user"`
+	UID     uint32 `json:"uid"`
+	Action  string `json:"action"`
+	Stack   string `json:"stack"`
+	Expires string `json:"expires,omitempty"`
+	Reason  string `json:"reason"`
+}

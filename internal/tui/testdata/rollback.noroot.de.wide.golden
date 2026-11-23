@@ -9,8 +9,8 @@
   demo-stack   10-29 02:00  ║ Danach ist der Stack festgehalten, kein Update und kein      ║010                         
   mail-relay   10-28 03:10  ║ Fenster bewegt ihn weiter. Wähle, was mit seinen Daten       ║00e                         
   wiki         10-27 03:10  ║ geschieht.                                                   ║00f                         
-                            ║ Die Versionen, auf die es zurückgeht, stehen nach dem Lauf   ║                            
-                            ║ im Ergebnis.                                                 ║                            
+                            ║ APP_VERSION: 2.0.0 -> 1.9.0                                  ║                            
+                            ║ DB_VERSION: 16.2 -> 16.1                                     ║                            
                             ║ Mit Daten: Alles seit diesem Update Geschriebene geht        ║                            
                             ║ verloren.                                                    ║                            
                             ║ Nur Version: Die Daten bleiben, die alte Version versteht    ║                            

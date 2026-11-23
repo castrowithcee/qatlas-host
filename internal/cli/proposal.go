@@ -48,7 +48,7 @@ func newProposalCommand(program *cobracli.Program, state *notRunning, secrets *r
 func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var kind, file, engine string
 	c := &cobra.Command{
-		Use:   "submit --kind source-add|stack-settings|window|notify-channel|host-change|command [--engine <id>] [--file <path>|-]",
+		Use:   "submit --kind source-add|stack-settings|window|notify-channel|grant|host-change|command [--engine <id>] [--file <path>|-]",
 		Short: "Submit a proposal read as JSON from a file or standard input",
 		Long: "submit sends the content of a proposal to the service of its kind, which checks and stores it, and prints its id. The\n" +
 			"content is a JSON object in the schema of the kind, read from --file or, without it or with '-', from\n" +
@@ -57,7 +57,10 @@ func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Comm
 			"{\"stack\": \"name\", \"settings\": {\"version\": 1, ...}}, with the settings of 'qhost stack settings'. The kind window takes\n" +
 			"{\"days\": [\"mon\"], \"start\": \"03:00\", \"duration\": \"2h\", \"zone\": \"UTC\"}, at least one part. Nothing\n" +
 			"on the host changes. The kind notify-channel takes the fields of 'qhost notify add' except its secret parts, which a\n" +
-			"proposal may not name: {\"name\": \"ops\", \"type\": \"webhook\", \"events\": [\"failed\"]}. The kind host-change goes to the\n" +
+			"proposal may not name: {\"name\": \"ops\", \"type\": \"webhook\", \"events\": [\"failed\"]}. The kind grant asks for a\n" +
+			"standing grant for yourself, never for another user: {\"action\": \"stack.restart\", \"stack\": \"name\",\n" +
+			"\"expires\": \"2030-01-31\", \"reason\": \"why\"}, expires optional, reason required, at most 500 characters;\n" +
+			"the action is one 'qhost grant' lists, and a valid equal grant refuses the proposal. The kind host-change goes to the\n" +
 			"host service and takes one action of 'qhost help host-admin' with its arguments and, for user.create and\n" +
 			"user.add-key, public SSH keys: {\"action\": \"user.create\", \"args\": [\"anna\", \"group=dev\"], \"keys\": [\"ssh-ed25519 ...\"]}.\n" +
 			"It never holds a password; user.set-password, user.set-admin, user.create with admin and member changes of\n" +
@@ -92,7 +95,7 @@ func newProposalSubmit(program *cobracli.Program, state *notRunning) *cobra.Comm
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: withProposalEngine(c, res.ID, proposalFields(program.Format(), res))})
 		},
 	}
-	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add, stack-settings, window, notify-channel, host-change or command")
+	c.Flags().StringVar(&kind, "kind", "", "kind of the proposal: source-add, stack-settings, window, notify-channel, grant, host-change or command")
 	c.Flags().StringVar(&file, "file", "", "file with the content as JSON, or - for standard input (default)")
 	addEngineFlag(c, &engine, "Docker engine whose deploy service stores the proposal: "+engineIDs+" "+instanceDefault,
 		"The proposal goes to "+instanceRule+" The proposal itself carries no engine: the deploy service that stored it is "+
@@ -331,7 +334,9 @@ func newProposalShow(program *cobracli.Program, state *notRunning) *cobra.Comman
 			"of the host it also prints the sentence and the commands of the change, as 'sudo qhost host apply --proposal'\n" +
 			"would run them, and the type, fingerprint and comment of each proposed SSH key. For a proposal of the kind\n" +
 			"command it prints the commands and the reason word for word as text of the submitter, with control\n" +
-			"characters replaced, and the notice: unchecked, no computed effect, no undo.",
+			"characters replaced, and the notice: unchecked, no computed effect, no undo. For a proposal of the kind grant it\n" +
+			"prints the user, action, stack and expiry, whether the stack has a backup and a check set up, and the reason in\n" +
+			"quotes as text of the submitter, with control characters replaced.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := routeProposal(c, state, engine, args[0]); err != nil {
@@ -349,13 +354,16 @@ func newProposalShow(program *cobracli.Program, state *notRunning) *cobra.Comman
 			if res.Kind == control.ProposalKindCommand {
 				fields = append(fields, commandProposalFields(format, res)...)
 			}
+			if res.Kind == control.ProposalKindGrant {
+				fields = append(fields, grantProposalFields(c, state, format, res)...)
+			}
 			var content map[string]any
 			if err := json.Unmarshal(res.Content, &content); err != nil {
 				content = map[string]any{}
 			}
 			if structuredFormat(format) {
 				fields = append(fields, output.Field{Name: "content", Value: content})
-			} else if res.Kind != control.ProposalKindCommand {
+			} else if res.Kind != control.ProposalKindCommand && res.Kind != control.ProposalKindGrant {
 				keys := make([]string, 0, len(content))
 				for k := range content {
 					keys = append(keys, k)

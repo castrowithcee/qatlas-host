@@ -371,7 +371,7 @@ func (r *Repo) runIO(ctx context.Context, inRepo bool, outLimit int, extraEnv []
 	case ctx.Err() != nil:
 		return "", ctx.Err()
 	case runErr != nil:
-		failure := &runFailure{text: failureText(runErr, stderr.String()), code: -1, stdout: stdout.String()}
+		failure := &runFailure{text: failureText(runErr, stderr.String()), code: -1, stdout: stdout.String(), stderr: stderr.String()}
 		var exit *exec.ExitError
 		if errors.As(runErr, &exit) {
 			failure.code = exit.ExitCode()
@@ -386,6 +386,7 @@ type runFailure struct {
 	text   string
 	code   int
 	stdout string
+	stderr string
 }
 
 func (f *runFailure) Error() string { return f.text }

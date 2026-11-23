@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers  [6 ◈ Proposals]  7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  standing grant                                                                                                  p-0020
+                                                                                                                        
+  from       ana (1001)                                                                                                 
+  submitted  10-30 18:00                                                                                                
+  expires    11-13 18:00                                                                                                
+  state      open                                                                                                       
+                                                                                                                        
+  Proposed                                                                                                              
+    ana (uid 1001) may update the stack demo without sudo, as a standing permission.                                    
+    expiry asked for: after the end of 2030-01-31 (UTC)                                                                 
+    Reason of the submitter, as written                                                                                 
+    > Our deploy bot restarts the demo app after each release.                                                          
+                                                                                                                        
+  Effect if applied now                                                                                                 
+    expiry of the grant: after the end of 2030-01-15 (UTC)                                                              
+    You set this expiry; it is not the one asked for.                                                                   
+    backup of the stack: set up                                                                                         
+    health check of the stack: not set up                                                                               
+    !! An update started with this grant commits and pushes to the source of the stack.                                 
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+esc back  A approve  e expiry  N reject  r reload  1-7 area  q quit                                           ↑/↓ scroll

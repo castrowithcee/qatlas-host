@@ -208,10 +208,14 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitFolderInclude(v)
 	case formFolderEngine:
 		return m.submitFolderEngine(v)
+	case formAdoptTarget:
+		return m.submitAdoptTarget(v)
 	case formProposalReject:
 		return m.submitProposalReject(f, text("reason"))
 	case formProposalSecrets:
 		return m.submitProposalSecrets(f, v)
+	case formGrantExpiry:
+		return m.submitGrantExpiry(f, text("expires"))
 	case formCred:
 		return m.submitCredential(f, string(v["kind"].Choice), text("host"), text("user"), v["token"].Text)
 	case formWindow:

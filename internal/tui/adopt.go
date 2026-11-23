@@ -168,7 +168,8 @@ func (m *Model) adoptHints() []kittui.Hint {
 	return []kittui.Hint{{Action: actAdd, Label: textKeyAdopt, Priority: 3}}
 }
 
-// beginAdopt checks the labels, then only inspects the folder. Nothing changes before the questions of the flow.
+// beginAdopt checks the labels, asks where the project goes when a source of its engine could take it, then only
+// inspects the folder. Nothing changes before the questions of the flow.
 func (m *Model) beginAdopt(src foreignSource) tea.Cmd {
 	switch {
 	case m.busy() || m.settingsBusy():
@@ -182,6 +183,15 @@ func (m *Model) beginAdopt(src foreignSource) tea.Cmd {
 		m.askAdoptRejection(src, p, nil)
 		return nil
 	}
+	if targets := m.moveTargets(src); len(targets) > 0 {
+		m.set.move = &moveFlow{src: src}
+		return m.openForm(m.adoptTargetForm(src, targets))
+	}
+	return m.inspectForeign(src)
+}
+
+// inspectForeign inspects the folder of the project to take it over as a source of its own.
+func (m *Model) inspectForeign(src foreignSource) tea.Cmd {
 	if m.euid() != 0 {
 		return m.inspectSudo(src.dir, &src)
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os/user"
 	"strconv"
 	"strings"
@@ -27,8 +26,8 @@ func committer(uid uint32) string {
 }
 
 // commitAnswer maps an error of the commit to a fixed answer; the text of git or of a path is never passed on,
-// except the reason of a remote that refused and the reason a stack does not load, both of them bounded and
-// cleaned of what a terminal would act on.
+// except the reason and output of a remote that refused and the reason a stack does not load, all of them
+// bounded and cleaned of what a terminal would act on.
 func commitAnswer(err error) error {
 	var secrets *gitrepo.SecretsError
 	var refused *gitrepo.RemoteRejectedError
@@ -47,11 +46,20 @@ func commitAnswer(err error) error {
 	case errors.Is(err, gitrepo.ErrPushRejected):
 		return control.NewError(control.CodePushRejected, "the remote branch moved and the changes could not be pushed on top of it; nothing was committed, read the changes again")
 	case errors.As(err, &refused):
-		return control.NewError(control.CodePushRejected, fmt.Sprintf("the remote refused the push: %s; nothing was committed", printable(refused.Reason)))
+		return control.NewError(control.CodePushRejected, refusedText(refused)+"; nothing was committed")
 	case strings.HasPrefix(err.Error(), "push failed"):
 		return pushFailure(err, "nothing was committed")
 	}
 	return changesAnswer(err)
+}
+
+// refusedText is the answer to a refusing remote: its reason and, when there is one, what its hook printed.
+func refusedText(e *gitrepo.RemoteRejectedError) string {
+	text := "the remote refused the push: " + printable(e.Reason)
+	if e.Output != "" {
+		text += "; remote output: " + printable(e.Output)
+	}
+	return text
 }
 
 // commitHandler commits the confirmed paths of a bound stack folder. Only root reaches it, so a.SudoUID is as

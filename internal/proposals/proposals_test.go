@@ -24,7 +24,7 @@ const (
 )
 
 // normalizeExample is the check of the only kind the tests know: an object with the field name.
-func normalizeExample(kind string, content json.RawMessage) (any, *control.Error) {
+func normalizeExample(_ context.Context, kind string, content json.RawMessage) (any, *control.Error) {
 	if kind != kindExample {
 		return nil, Invalid("unknown proposal kind %q", Printable(kind))
 	}

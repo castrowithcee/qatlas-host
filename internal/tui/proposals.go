@@ -135,6 +135,8 @@ func (m *Model) proposalKindWord(kind string) string {
 		return m.text.Lookup(textPropKindHostChange)
 	case control.ProposalKindCommand:
 		return m.text.Lookup(textPropKindFree)
+	case control.ProposalKindGrant:
+		return m.text.Lookup(textPropKindGrant)
 	}
 	return proposalShort(kind)
 }
@@ -306,6 +308,9 @@ func (m *Model) applyProposal(msg proposalMsg) {
 	v.loading = false
 	if v.err = msg.err; msg.err != nil {
 		return
+	}
+	if old, now := v.kind, msg.kind; v.loaded && old != nil && now != nil && old.kind == control.ProposalKindGrant && v.info.Fingerprint == msg.res.Fingerprint {
+		now.expires = old.expires // the date the person set holds while the proposal is the same
 	}
 	v.loaded, v.info, v.content, v.contentBad = true, msg.res, msg.content, msg.bad
 	v.needsRoot, v.flow, v.effectErr, v.kind = msg.needsRoot, msg.flow, msg.effectErr, msg.kind
