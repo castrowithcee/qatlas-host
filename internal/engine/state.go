@@ -62,8 +62,8 @@ const (
 	// FindingNameCollision is a stack whose name a stack of another source already uses: the one deployed
 	// first, or else the one of the source bound first, keeps the name; this one is never deployed.
 	FindingNameCollision = "name-collision"
-	// FindingTagRejected means the tag of the last finished run could not be set or pushed. The run is not
-	// affected; the finding stays until a later run's tag is pushed.
+	// FindingTagRejected means the tag of the last finished run could not be set or pushed, or its old tags
+	// could not be deleted. The run is not affected; the finding stays until a later run's tags are done.
 	FindingTagRejected = "tag-rejected"
 	// FindingContainerFailed is not stored with the findings of a poll; status derives it from StackState.Failure.
 	FindingContainerFailed = "container-failed"
