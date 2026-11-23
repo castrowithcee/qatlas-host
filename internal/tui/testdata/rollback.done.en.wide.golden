@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks   2 ▣ Stack detail  [3 ▶ Runs]  4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  STACK        STARTED      RESULT           TRIGGER  DURATION  RUN                                                     
+  web-shop     10-30 15:00  running          manual   -         20261030T150000Z-0000000b                               
+> demo-stack   10-30 14:02  succeeded        update   48s       20261030T140200Z-0000000c                               
+  web-shop     10-30 12:00  rolled back      poll     3m35s     20261030T120000Z-0000000d                               
+  photo-album  10-29 03:10  ╔═ Done ═══════════════════════════════════════════════════════╗                            
+  demo-stack   10-29 02:00  ║ Stack demo-stack is back on the versions before the update   ║                            
+  mail-relay   10-28 03:10  ║ run 20261030T140200Z-0000000c.                               ║                            
+  wiki         10-27 03:10  ║                                                              ║                            
+                            ║ Versions: APP_VERSION 2.0.0 -> 1.9.0                         ║                            
+                            ║ The stack is pinned on these versions: the maintenance       ║                            
+                            ║ window, the update check and webhooks leave it alone.        ║                            
+                            ║ Release it with unpin in Stacks.                             ║                            
+                            ║                                                              ║                            
+                            ║ > close <                                                    ║                            
+                            ║ n/esc/enter close                                            ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                     2/7

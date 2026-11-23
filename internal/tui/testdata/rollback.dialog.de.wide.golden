@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details  [3 ▶ Läufe]  4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  STACK        START        ERGEBNIS                 AUSLÖSER  DAUER  LAUF                                              
+  web-shop     10-30 15:00  ╔═ Zurück auf den Stand davor ═════════════════════════════════╗00b                         
+> demo-stack   10-30 14:02  ║ ⚠ demo-stack auf den Stand vor dem Update-Lauf               ║00c                         
+  web-shop     10-30 12:00  ║   20261030T140200Z-0000000c zurücksetzen?                    ║00d                         
+  photo-album  10-29 03:10  ║                                                              ║00a                         
+  demo-stack   10-29 02:00  ║ Danach ist der Stack festgehalten, kein Update und kein      ║010                         
+  mail-relay   10-28 03:10  ║ Fenster bewegt ihn weiter. Wähle, was mit seinen Daten       ║00e                         
+  wiki         10-27 03:10  ║ geschieht.                                                   ║00f                         
+                            ║ APP_VERSION: 2.0.0 -> 1.9.0                                  ║                            
+                            ║ DB_VERSION: 16.2 -> 16.1                                     ║                            
+                            ║ Mit Daten: Alles seit diesem Update Geschriebene geht        ║                            
+                            ║ verloren.                                                    ║                            
+                            ║ Nur Version: Die Daten bleiben, die alte Version versteht    ║                            
+                            ║ migrierte Daten womöglich nicht.                             ║                            
+                            ║                                                              ║                            
+                            ║ [ mit Daten ]  [ nur Version ]  > abbrechen <                ║                            
+                            ║ d mit Daten  v nur Version  n/esc/enter abbrechen            ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                     2/7

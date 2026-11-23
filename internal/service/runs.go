@@ -90,7 +90,7 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 				res.Runs = append(res.Runs, control.RunInfo{
 					ID: printable(rec.ID), Stack: printable(rec.Stack), Commit: printable(rec.Commit),
 					Trigger: printable(rec.Trigger), Started: rec.Started, DurationMS: rec.Duration.Milliseconds(),
-					Result: printable(rec.Result), Error: printable(rec.Error), Tag: printable(rec.Tag), LogUnreadable: unreadable,
+					Result: printable(rec.Result), Error: printable(rec.Error), Tag: printable(rec.Tag), Backup: printable(rec.Backup), LogUnreadable: unreadable,
 				})
 			}
 			return res, nil

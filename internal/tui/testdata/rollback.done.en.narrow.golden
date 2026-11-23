@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed  [esc] back  [?] help
+  1 2 [3 Runs] 4 5 6 7                                  
+────────────────────────────────────────────────────────
+  STACK        STARTED      RESULT           TRIGGER    
+  web-shop     10-30 15:00  running          manual     
+> demo-stack   10-30 14:02  succeeded        update     
+  ╔═ Done ═══════════════════════════════════════════╗  
+  ║ Stack demo-stack is back on the versions before  ║  
+  ║ the update run 20261030T140200Z-0000000c.        ║  
+  ║                                                  ║  
+  ║ Versions: APP_VERSION 2.0.0 -> 1.9.0             ║  
+  ║ The stack is pinned on these versions: the       ║  
+  ║ maintenance window, the update check and         ║  
+  ║ webhooks leave it alone. Release it with unpin   ║  
+  ║ in Stacks.                                       ║  
+  ║                                                  ║  
+  ║ > close <                                        ║  
+  ║ n/esc/enter close                                ║  
+  ╚══════════════════════════════════════════════════╝  
+                                                        
+                                                        
+                                                        
+                                                        
+                                                     2/7

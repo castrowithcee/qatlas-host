@@ -20,5 +20,5 @@
 │   1.5.0  Spring release  2026-10-29                                          │
 warning: The stack demo-stack has no settings. It is already deploy only;       
 nothing was removed.                                                            
-e update rules  b backup  C compose  k checks  E clear settings  o log          
+B back to before update  e update rules  b backup  C compose  k checks  o log   
 a set secret  x delete secret  R restore backup  r reload  1-7 area  q quit     

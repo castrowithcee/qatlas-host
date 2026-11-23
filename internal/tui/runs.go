@@ -25,7 +25,7 @@ const runIDLayout = "20060102T150405Z"
 
 // runRow is one run as the Runs area shows it: a recorded one, or an active one that only the status knows.
 type runRow struct {
-	id, stack, trigger, result, err, tag string
+	id, stack, trigger, result, err, tag, backup string
 	// engine is the engine of the deploy service that has the run; run IDs are only unique within it.
 	engine   string
 	started  time.Time
@@ -40,7 +40,7 @@ func runRows(s snapshot) []runRow {
 	byID := map[stackRef]int{}
 	for _, r := range s.runs.Runs {
 		byID[stackRef{r.Engine, r.ID}] = len(rows)
-		rows = append(rows, runRow{id: r.ID, engine: r.Engine, stack: r.Stack, trigger: r.Trigger, result: r.Result, err: r.Error, tag: r.Tag,
+		rows = append(rows, runRow{id: r.ID, engine: r.Engine, stack: r.Stack, trigger: r.Trigger, result: r.Result, err: r.Error, tag: r.Tag, backup: r.Backup,
 			started: r.Started, duration: time.Duration(r.DurationMS) * time.Millisecond})
 	}
 	for _, st := range s.status.Engine.Stacks {

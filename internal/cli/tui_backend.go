@@ -635,6 +635,14 @@ func (b *engineBackend) BackupRestore(ctx context.Context, stack, id string) (co
 	})
 }
 
+func (b *engineBackend) ReturnCheck(ctx context.Context, args control.ReturnArgs) (control.ReturnCheckResult, error) {
+	return onStack(b, ctx, args.Stack, func(c *tui.ChannelBackend) (control.ReturnCheckResult, error) { return c.ReturnCheck(ctx, args) })
+}
+
+func (b *engineBackend) Return(ctx context.Context, args control.ReturnArgs) (control.ReturnRunResult, error) {
+	return onStack(b, ctx, args.Stack, func(c *tui.ChannelBackend) (control.ReturnRunResult, error) { return c.Return(ctx, args) })
+}
+
 func (b *engineBackend) StackSettings(ctx context.Context, stack string) (control.StackSettingsResult, error) {
 	return onStack(b, ctx, stack, func(c *tui.ChannelBackend) (control.StackSettingsResult, error) { return c.StackSettings(ctx, stack) })
 }

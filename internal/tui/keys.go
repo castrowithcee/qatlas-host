@@ -32,7 +32,12 @@ const (
 	actPin     kittui.ActionID = "pin"
 	actUnpin   kittui.ActionID = "unpin"
 	actResume  kittui.ActionID = "resume"
-	actCheck   kittui.ActionID = "check"
+	// actRollback opens the return to before an update run, from Runs and the stack detail; its two answers choose
+	// whether the data goes back too.
+	actRollback     kittui.ActionID = "rollback"
+	actRollbackData kittui.ActionID = "rollbackdata"
+	actRollbackKeep kittui.ActionID = "rollbackkeep"
+	actCheck        kittui.ActionID = "check"
 	// The actions on the containers of a whole stack.
 	actStackStart   kittui.ActionID = "stackstart"
 	actStackStop    kittui.ActionID = "stackstop"
@@ -138,6 +143,9 @@ func keyTable() []kittui.Action {
 		act(actRemote, kittui.LevelLetter, textKeyRemote, "O"),
 		act(actWithRemote, kittui.LevelConfirm, textAnswerWithRemote, "w"),
 		act(actChoose, kittui.LevelConfirm, textAnswerChoose, "c"),
+		act(actRollback, kittui.LevelLetter, textKeyRollback, "B"),
+		act(actRollbackData, kittui.LevelConfirm, textAnswerRollbackData, "d"),
+		act(actRollbackKeep, kittui.LevelConfirm, textAnswerRollbackKeep, "v"),
 		act(actRestore, kittui.LevelLetter, textKeyRestore, "R"),
 		act(actDataDirs, kittui.LevelLetter, textKeyDataDirs, "m"),
 		act(actContainerLogs, kittui.LevelLetter, textKeyLog, "o"),

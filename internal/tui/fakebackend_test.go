@@ -88,6 +88,10 @@ type fakeBackend struct {
 	secrets    map[string][]string
 	secretSets []control.SecretSetArgs
 	restores   []control.BackupRestoreArgs
+	// returns records the calls of Return; returnRes, when set, is the answer.
+	returns   []control.ReturnArgs
+	checks    []control.ReturnArgs
+	returnRes *control.ReturnRunResult
 
 	// stackSettings holds the settings by stack; a stack without an entry is only deployed. settingsSets and
 	// settingsRemoves record the writes in order; errs "settings:<stack>", "settingsset:<stack>" and
@@ -889,6 +893,36 @@ func (f *fakeBackend) BackupRestore(ctx context.Context, stack, id string) (cont
 	defer f.mu.Unlock()
 	f.restores = append(f.restores, control.BackupRestoreArgs{Stack: stack, ID: id, Confirm: true})
 	return control.BackupRestoreResult{Backup: control.BackupInfo{ID: id, Stack: stack}}, nil
+}
+
+func (f *fakeBackend) ReturnCheck(_ context.Context, args control.ReturnArgs) (control.ReturnCheckResult, error) {
+	if err := f.fail("returncheck", args.Stack+"/"+args.Run); err != nil {
+		return control.ReturnCheckResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.checks = append(f.checks, args)
+	return control.ReturnCheckResult{Stack: args.Stack, Run: args.Run, Data: args.Data,
+		Steps: []control.ReturnStepInfo{{Variable: "APP_VERSION", From: "2.0.0", To: "1.9.0"}, {Variable: "DB_VERSION", From: "16.2", To: "16.1"}}}, nil
+}
+
+func (f *fakeBackend) Return(ctx context.Context, args control.ReturnArgs) (control.ReturnRunResult, error) {
+	if err := f.actCtx(ctx, "return", args.Stack+"/"+args.Run); err != nil {
+		return control.ReturnRunResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.returns = append(f.returns, args)
+	if f.returnRes != nil {
+		return *f.returnRes, nil
+	}
+	for i := range f.status.Engine.Stacks {
+		if st := &f.status.Engine.Stacks[i]; st.Name == args.Stack {
+			st.Pinned = &control.HoldInfo{Since: at(31, 1, 0)}
+		}
+	}
+	return control.ReturnRunResult{ReturnCheckResult: control.ReturnCheckResult{Stack: args.Stack, Run: args.Run, Data: args.Data,
+		Steps: []control.ReturnStepInfo{{Variable: "APP_VERSION", From: "2.0.0", To: "1.9.0"}}}, ReturnRun: "20261101T040000Z-00000001", Result: "succeeded"}, nil
 }
 
 func (f *fakeBackend) StackSettings(ctx context.Context, stack string) (control.StackSettingsResult, error) {

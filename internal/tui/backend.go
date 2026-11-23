@@ -134,6 +134,12 @@ type Backend interface {
 	// SourceRemove releases a stack folder; no file of it is touched.
 	SourceRemove(ctx context.Context, path string) (control.SourceRemoveResult, error)
 
+	// ReturnCheck changes nothing: it refuses as Return would and names the versions the return sets.
+	ReturnCheck(ctx context.Context, args control.ReturnArgs) (control.ReturnCheckResult, error)
+	// Return sets a stack back to the versions before a successful update run and returns when the return's run
+	// has ended; it pins the stack after a success.
+	Return(ctx context.Context, args control.ReturnArgs) (control.ReturnRunResult, error)
+
 	// BackupRestore replaces the data of a stack with a backup and starts the stack again.
 	BackupRestore(ctx context.Context, stack, id string) (control.BackupRestoreResult, error)
 
@@ -492,6 +498,16 @@ func (b *ChannelBackend) SecretDelete(ctx context.Context, stack, key string) (r
 func (b *ChannelBackend) BackupRestore(ctx context.Context, stack, id string) (res control.BackupRestoreResult, err error) {
 	err = client.Do(ctx, b.endpoint, restoreCallLimit, control.BackupRestoreCommand,
 		control.BackupRestoreArgs{Stack: stack, ID: id, Confirm: true}, &res)
+	return res, err
+}
+
+func (b *ChannelBackend) ReturnCheck(ctx context.Context, args control.ReturnArgs) (res control.ReturnCheckResult, err error) {
+	err = client.Do(ctx, b.endpoint, updateCallLimit, control.ReturnCheckCommand, args, &res)
+	return res, err
+}
+
+func (b *ChannelBackend) Return(ctx context.Context, args control.ReturnArgs) (res control.ReturnRunResult, err error) {
+	err = client.Do(ctx, b.endpoint, updateCallLimit, control.ReturnRunCommand, args, &res)
 	return res, err
 }
 
