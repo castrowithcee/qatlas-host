@@ -7,8 +7,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"os"
-	"time"
 )
 
 // NewSecret returns a fresh secret: 32 random bytes as base64url without padding, the form the receiver accepts.
@@ -59,13 +57,4 @@ func (c *Config) Remove(id string) bool {
 		}
 	}
 	return false
-}
-
-// ModTime is when the file at path was last written.
-func ModTime(path string) (time.Time, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("hook configuration: %w", err)
-	}
-	return info.ModTime(), nil
 }

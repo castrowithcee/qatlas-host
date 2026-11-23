@@ -22,7 +22,7 @@ cx internal/cli/diagnose_test.go:TestDiagnosePackageHoldsNoSecretValue 17
 cx internal/cli/engine_router.go:folderHost.locate 23
 cx internal/cli/grant_test.go:TestGrantAddListRemove 32
 cx internal/cli/hook_test.go:TestHookAddStoresTheHashAndShowsTheSecretOnce 17
-cx internal/cli/hook_test.go:TestHookAddTwiceGivesTwoIDsAndListShowsNoHashOrSecret 16
+cx internal/cli/hook_test.go:TestHookAddTwiceGivesTwoIDsAndListShowsNoHashOrSecret 20
 cx internal/cli/hostchange_test.go:TestHostApplyWithoutConfirmShowsThePlanAndChangesNothing 18
 cx internal/cli/hostchange_test.go:TestHostJournalAndUndo 23
 cx internal/cli/hostfile_test.go:TestHostFileListsAFolderAndShowsAFile 19
@@ -330,7 +330,7 @@ file internal/backup/backup.go 710
 file internal/cli/proposal.go 556
 file internal/cli/source_add.go 763
 file internal/cli/source_move_run.go 670
-file internal/cli/tui_backend.go 777
+file internal/cli/tui_backend.go 779
 file internal/compose/datadirs.go 518
 file internal/control/control.go 2212
 file internal/credentials/credentials.go 581
@@ -358,7 +358,7 @@ file internal/stacks/refs.go 504
 file internal/stacks/rules.go 503
 file internal/stacks/stacks.go 545
 file internal/tui/actions.go 915
-file internal/tui/backend.go 639
+file internal/tui/backend.go 642
 file internal/tui/detail.go 670
 file internal/tui/fakebackend_test.go 1296
 file internal/tui/folders.go 855

@@ -63,7 +63,11 @@ func (m *Model) hookSectionLines(r stackRow, width int) []string {
 		out = hint(textHooksNone, kittui.StyleHint)
 	}
 	for _, h := range d.hooks.Hooks {
-		out = append(out, m.line(detailIndent, kittui.StyleText, h.ID, width))
+		created := t.Lookup(textNoValue)
+		if !h.Created.IsZero() {
+			created = h.Created.In(m.loc).Format(polledLayout)
+		}
+		out = append(out, m.line(detailIndent, kittui.StyleText, h.ID+"  "+created, width))
 	}
 	if r.trigger == "window" || r.trigger == "" {
 		out = append(out, hint(textHooksWindow, kittui.StyleWarn)...)

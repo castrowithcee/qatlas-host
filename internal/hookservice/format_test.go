@@ -9,7 +9,7 @@ import (
 )
 
 func TestUnknownFormatNumberIsRefusedAndKept(t *testing.T) {
-	for name, doc := range formatnumtest.Cases("version", configVersion, `"listen":"127.0.0.1:8080","hooks":[]`) {
+	for name, doc := range formatnumtest.Cases("version", ConfigVersion, `"listen":"127.0.0.1:8080","hooks":[]`) {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.json")
 			writeRaw(t, path, doc, 0o644)
@@ -23,7 +23,7 @@ func TestUnknownFormatNumberIsRefusedAndKept(t *testing.T) {
 }
 
 func TestUpdateConfigRefusesMissingAndHigherFormatNumberAndKeepsTheFile(t *testing.T) {
-	for name, doc := range formatnumtest.Cases("version", configVersion, `"listen":"127.0.0.1:8080","hooks":[]`) {
+	for name, doc := range formatnumtest.Cases("version", ConfigVersion, `"listen":"127.0.0.1:8080","hooks":[]`) {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.json")
 			writeRaw(t, path, doc, 0o644)

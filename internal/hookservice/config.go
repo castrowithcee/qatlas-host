@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"syscall"
+	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
@@ -24,7 +25,8 @@ const (
 	// DefaultRunDir holds one folder of markers per deploy instance.
 	DefaultRunDir = "/run/qhost-hook"
 
-	configVersion  = 1
+	// ConfigVersion is the format number written to the file; 1 (hooks without a creation time) is still read.
+	ConfigVersion  = 2
 	maxConfigBytes = 1 << 20
 	// SystemInstance names the deploy instance of the system engine.
 	SystemInstance = "system"
@@ -43,6 +45,8 @@ type Hook struct {
 	Stack    string `json:"stack"`
 	Instance string `json:"instance"`
 	Hash     string `json:"hash"`
+	// Created is when the hook was added, RFC 3339 in UTC. Hooks from before format 2 have none and keep none.
+	Created string `json:"created,omitempty"`
 }
 
 // Config is the content of the configuration file.
@@ -99,7 +103,7 @@ func checkOwnerOnlyWritable(f *os.File, ownerUID uint32) error {
 func ParseConfig(path string, data []byte) (Config, error) { return parseConfig(path, data) }
 
 func parseConfig(path string, data []byte) (Config, error) {
-	if err := formatnum.CheckJSON(path, "version", data, configVersion); err != nil {
+	if err := formatnum.CheckJSON(path, "version", data, ConfigVersion, 1); err != nil {
 		return Config{}, fmt.Errorf("hook configuration: %w", err)
 	}
 	var c Config
@@ -137,6 +141,11 @@ func (h Hook) validate() error {
 		return errors.New("instance is neither system nor a user name")
 	case !hashPattern.MatchString(h.Hash):
 		return errors.New("hash does not match sha256:<64 hex>")
+	}
+	if h.Created != "" {
+		if _, err := time.Parse(time.RFC3339, h.Created); err != nil {
+			return errors.New("created is not an RFC 3339 time")
+		}
 	}
 	return nil
 }
@@ -177,6 +186,7 @@ func UpdateConfig(path string, prepare func(tmp string) error, edit func(*Config
 	if err := edit(&cfg); err != nil {
 		return err
 	}
+	cfg.Version = ConfigVersion
 	if cfg.Hooks == nil {
 		cfg.Hooks = []Hook{}
 	}
