@@ -127,11 +127,90 @@ func TestFileRenameAndUndo(t *testing.T) {
 		t.Fatal(err)
 	}
 	mkfile(t, q, "other\n", 0o644)
+	// Simulate a reused inode number: the recorded device and inode are those of the new file, only its stamp
+	// differs, by a second, which no file system reuse can hide.
+	entry, err := f.runner.Journal.Get(res.Entry.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recorded fileRenameState
+	if err := json.Unmarshal(entry.Previous, &recorded); err != nil {
+		t.Fatal(err)
+	}
+	nq := nodeOf(t, q)
+	recorded.Dev, recorded.Ino, recorded.stamp = nq.dev, nq.ino, nq.born
+	recorded.Sec--
+	if entry.Previous, err = json.Marshal(recorded); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.runner.Journal.Write(entry); err != nil {
+		t.Fatal(err)
+	}
 	undo = f.undo(t, res.Entry.ID)
 	if undo.Entry.Result != ResultFailed || !strings.Contains(undo.Entry.Error, "no longer the entry") || content(t, q) != "other\n" {
 		t.Fatalf("an undo of a replaced target: %+v", undo.Entry)
 	}
 	wantGone(t, p)
+}
+
+func nodeOf(t *testing.T, path string) node {
+	t.Helper()
+	dir, name, err := openParentDir(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(dir)
+	n, err := statxAt(dir, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// TestFileRenameUndoChecksTheStamp builds the states by hand, so that it needs neither a reused inode number nor
+// a file system that reports the birth time.
+func TestFileRenameUndoChecksTheStamp(t *testing.T) {
+	f := newFileFixture(t)
+	p, q := filepath.Join(f.root, "a"), filepath.Join(f.root, "b")
+	mkfile(t, p, "a\n", 0o640)
+	n := nodeOf(t, p)
+	if n.born.Kind == "" {
+		t.Fatal("an entry must carry a stamp")
+	}
+	for _, name := range []string{"same stamp", "later stamp", "other kind", "no stamp"} {
+		n = nodeOf(t, p) // a rename changes the ctime
+		s := n.born
+		switch name {
+		case "later stamp":
+			s.Sec++
+		case "other kind":
+			s.Kind = stampBirth
+			if n.born.Kind == stampBirth {
+				s.Kind = stampChange
+			}
+		case "no stamp":
+			s = stamp{}
+		}
+		ok := name == "same stamp" || name == "no stamp"
+		err := renameEntry(p, q, &fileRenameState{Source: q, Target: p, Dev: n.dev, Ino: n.ino, stamp: s})
+		if ok != (err == nil) || (!ok && !strings.Contains(err.Error(), "is no longer the entry the change renamed")) {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if ok {
+			wantGone(t, p)
+			if err := renameEntry(q, p, nil); err != nil {
+				t.Fatal(err)
+			}
+		} else if content(t, p) != "a\n" {
+			t.Fatalf("%s: the entry must stay", name)
+		}
+	}
+
+	res := f.change(t, ActionFileRename, p, q)
+	var st fileRenameState
+	if err := json.Unmarshal(res.Entry.Previous, &st); err != nil || st.stamp != nodeOf(t, q).born {
+		t.Fatalf("the sealed state %s holds %+v, want the stamp after the rename (%v)", res.Entry.Previous, st.stamp, err)
+	}
 }
 
 // otherFileSystem is a fresh folder on another file system than dir, or skips.
@@ -231,6 +310,47 @@ func TestFileCopyFile(t *testing.T) {
 	}
 	_, err := f.runner.Apply(t.Context(), ActionFileCopy, []string{src, dst}, nil)
 	wantRefusal(t, "existing target", err, "exists already")
+}
+
+func TestFileCopyManifestChecksTheStamp(t *testing.T) {
+	f := newFileFixture(t)
+	p := filepath.Join(f.root, "c")
+	mkfile(t, p, "c\n", 0o644)
+	s, err := scanTree(p, scanOpts{limit: 10, hash: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := manifestOf(p, s)
+	if m.Entries[0].stamp != s.entries[0].born || m.Entries[0].stamp.Kind == "" {
+		t.Fatalf("the manifest holds %+v", m.Entries[0])
+	}
+	dir, name, err := openParentDir(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(dir)
+	same := func(want []manifestEntry) bool {
+		_, ok, err := matchTree(dir, name, p, want, true, scanOpts{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ok
+	}
+	if !same(m.Entries) {
+		t.Fatal("an unchanged copy must match")
+	}
+	later := append([]manifestEntry(nil), m.Entries...)
+	later[0].Sec++
+	if same(later) {
+		t.Error("another stamp with the same inode and content must not match")
+	}
+	if err := removeCopy(treeManifest{Path: p, Dev: m.Dev, Entries: later}); err == nil || !strings.Contains(err.Error(), "changed after the copy") || content(t, p) != "c\n" {
+		t.Errorf("removing a copy with another stamp: %v", err)
+	}
+	later[0].stamp = stamp{}
+	if !same(later) {
+		t.Error("an entry recorded without a stamp must match as before")
+	}
 }
 
 func TestFileCopyFolderKeepsLinksAsLinks(t *testing.T) {
