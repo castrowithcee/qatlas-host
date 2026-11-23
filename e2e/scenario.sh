@@ -1534,6 +1534,12 @@ stack_settled() {
 	[ -z "$(stack_field "$1" active_run)" ] && [ "$(stack_field "$1" last_run)" = "$2" ]
 }
 
+# stack_deployed_at succeeds when the stack is settled with the given result at the given deployed commit. Right
+# after a restart the last result is still that of an earlier run until the poll starts the new one.
+stack_deployed_at() {
+	stack_settled "$1" "$2" && [ "$(stack_field "$1" deployed)" = "$3" ]
+}
+
 # stack_idle succeeds when the stack has no run in progress and has finished at least one.
 stack_idle() {
 	[ -z "$(stack_field "$1" active_run)" ] && [ -n "$(stack_field "$1" last_run)" ]
@@ -1735,8 +1741,7 @@ $hook_signing_value
 	step 'the engine deploys a new commit it finds by polling'
 	good=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
 	restart_service
-	wait_for 'the run of demo-cache' 240 stack_settled demo-cache succeeded
-	[ "$(stack_field demo-cache deployed)" = "$good" ] || fail "demo-cache is not recorded as deployed at $good: $(qd --output json status)"
+	wait_for 'the run of demo-cache' 240 stack_deployed_at demo-cache succeeded "$good"
 	[ "$(stack_images demo-cache)" = "registry.$domain/demo/app:1.1.0" ] || fail "demo-cache does not run the image 1.1.0: $(stack_images demo-cache)"
 	log "scenario: poll deployed demo-cache at $good"
 
