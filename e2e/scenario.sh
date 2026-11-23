@@ -5313,7 +5313,7 @@ scenario_stack_actions() {
 
 	step 'a new commit does not start a run of the stopped stack, also not after a service restart'
 	count=$(qd stack runs demo-cache | grep -c '[0-9]\{8\}T[0-9]\{6\}Z-')
-	as_admin 'cd ~/stacks &&
+	as_admin 'cd ~/stacks && git pull -q --ff-only &&
 		printf "# stopped-stack marker\n" >>demo-cache/.env &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -am "Touch demo-cache while it is stopped" &&
 		git push -q origin main'
