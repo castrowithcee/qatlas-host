@@ -1251,6 +1251,9 @@ scenario_free_command_proposal() {
 	# The commands that apply a proposal need a person at a terminal, so they run under a pseudo terminal; -e passes
 	# the exit code of the command on. The command must not hold a single quote.
 	fc_tty() { as_admin "script -qec '$1' /dev/null"; }
+	# The pseudo terminal may echo characters before the output, so a report read with jq goes to a file instead;
+	# standard input stays the terminal.
+	fc_out=$(as_admin 'mktemp -d') || fail 'cannot create the folder for the report of proposal run'
 
 	step 'a proposal of free commands is refused while the switch is off'
 	content=$(jq -nc --arg c "$fc_text" '{commands: [$c], reason: "e2e: leave a marker file"}')
@@ -1287,7 +1290,10 @@ scenario_free_command_proposal() {
 	docker exec "$host" test ! -e "$fc_dir/ready" || fail 'a refused run created the file'
 
 	step 'sudo qhost proposal run with the fingerprint and --confirm runs the command as root'
-	out=$(fc_tty "sudo qhost --output json proposal run $fc_id --fingerprint $fc_fp --confirm 2>/dev/null") || fail "proposal run failed: $out"
+	fc_status=0
+	fc_tty "sudo qhost --output json proposal run $fc_id --fingerprint $fc_fp --confirm >$fc_out/run.json 2>/dev/null" || fc_status=$?
+	out=$(docker exec "$host" cat "$fc_out/run.json" 2>&1) || fail "the report of proposal run cannot be read: $out"
+	[ "$fc_status" -eq 0 ] || fail "proposal run failed with exit code $fc_status: $out"
 	docker exec "$host" test -e "$fc_dir/ready" || fail "the file was not created: $out"
 	[ "$(docker exec "$host" stat -c %U "$fc_dir/ready")" = root ] || fail 'the command did not run as root'
 	fc_journal=$(printf '%s' "$out" | jq -r '.journal_id // empty')
@@ -1318,7 +1324,7 @@ scenario_free_command_proposal() {
 	printf '%s' "$out" | grep -qF 'proposal commands enable' || fail "the refusal does not name the switch: $out"
 	if printf '%s' "$content" | as_admin 'qhost proposal submit --kind command >/dev/null 2>&1'; then fail 'a proposal was accepted with the switch off'; fi
 	as_admin "qhost proposal withdraw $fc_id2 >/dev/null 2>&1" || true
-	docker exec "$host" rm -rf "$fc_dir"
+	docker exec "$host" rm -rf "$fc_dir" "$fc_out"
 	log "scenario: $fc_id ran as $fc_journal behind the switch and cannot be undone"
 }
 
@@ -7397,8 +7403,26 @@ tui_screen() {
 	tui_tmux capture-pane -p -t qdtui | tee -a "${tui_log:-/dev/null}" 2>/dev/null
 }
 
+# tui_send sends Escape as its CSI u sequence: a lone ESC byte waits for a following key and merges with it into
+# Alt+key, which the interface ignores, while the full sequence reads as Escape at once.
 tui_send() {
-	tui_tmux send-keys -t qdtui "$@"
+	tui_send_esc=
+	case "${1-}" in -*) ;; *)
+		for tui_send_key in "$@"; do
+			[ "$tui_send_key" != Escape ] || tui_send_esc=1
+		done
+	esac
+	if [ -z "$tui_send_esc" ]; then
+		tui_tmux send-keys -t qdtui "$@"
+		return
+	fi
+	for tui_send_key in "$@"; do
+		if [ "$tui_send_key" = Escape ]; then
+			tui_tmux send-keys -t qdtui -l "$(printf '\033[27u')"
+		else
+			tui_tmux send-keys -t qdtui "$tui_send_key"
+		fi
+	done
 }
 
 tui_has() {
