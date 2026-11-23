@@ -7601,13 +7601,13 @@ tui_walk_down() {
 	tw_seen=$tw_sep
 	tw_screen=$(tui_screen)
 	while ! printf '%s\n' "$tw_screen" | "$@"; do
-		tw_cursor=$(printf '%s\n' "$tw_screen" | grep -nE '(^|[│║] )> ')
+		tw_cursor=$(printf '%s\n' "$tw_screen" | grep -nE '(^|[│║] )> ' || true)
 		tui_send Down
 		tw_n=0
 		while :; do
 			sleep 0.1
 			tw_screen=$(tui_screen)
-			tw_now=$(printf '%s\n' "$tw_screen" | grep -nE '(^|[│║] )> ')
+			tw_now=$(printf '%s\n' "$tw_screen" | grep -nE '(^|[│║] )> ' || true)
 			[ "$tw_now" != "$tw_cursor" ] && break
 			tw_n=$((tw_n + 1))
 			[ "$tw_n" -lt 20 ] || fail "the cursor does not reach $tw_target, it stops at '${tw_cursor:-no cursor row}': $tw_screen"
