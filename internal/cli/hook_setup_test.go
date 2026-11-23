@@ -12,10 +12,15 @@ import (
 )
 
 // useHookHostRoot extends the host of useHostRoot with a runner that keeps the group database and the unit state,
-// so that the receiver setup runs through. It returns the root and the commands that ran.
+// so that the receiver setup runs through. The caller of the admin check is euid too, never an administrator
+// unless root, so no test depends on the groups of the real user. It returns the root and the commands that ran.
 func useHookHostRoot(t *testing.T, euid int) (string, *[]string) {
 	t.Helper()
 	root, ran := useHostRoot(t, euid)
+	old := hostEnv
+	t.Cleanup(func() { hostEnv = old })
+	hostEnv.euid = func() int { return euid }
+	hostEnv.admin = func(int) (bool, error) { return false, nil }
 	enabled := false
 	deploySetup.host.Chown = func(string, int, int) error { return nil }
 	deploySetup.host.Run = func(_ context.Context, name string, args ...string) error {
