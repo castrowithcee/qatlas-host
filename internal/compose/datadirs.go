@@ -269,7 +269,41 @@ func (x *Executor) idMaps(ctx context.Context, log Logger, dir string) (idmap.Ma
 	if err != nil {
 		return nil, nil, err
 	}
+	ownUID, ownGID, err := readMaps(ownMapFiles)
+	if err != nil {
+		return nil, nil, fmt.Errorf("the user namespace of the service cannot be read: %w", err)
+	}
+	uid, gid = hostView(uid, gid, ownUID, ownGID)
 	return uid, gid, nil
+}
+
+// ownMapFiles are the UID and GID map files of the namespace this process runs in.
+var ownMapFiles = [2]string{"/proc/self/uid_map", "/proc/self/gid_map"}
+
+// readMaps reads and parses a UID and a GID map file.
+func readMaps(files [2]string) (idmap.Map, idmap.Map, error) {
+	var maps [2]idmap.Map
+	for i, f := range files {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			return nil, nil, err
+		}
+		if maps[i], err = idmap.Parse(string(data)); err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", f, err)
+		}
+	}
+	return maps[0], maps[1], nil
+}
+
+// hostView returns the engine's mappings relative to the namespace of this process. A container lists its
+// mapping against the parent of its namespace. When it shares the namespace of this process, as the containers
+// of a system engine do, that parent lies above the host, which happens on a host that is itself a container,
+// and its IDs already are host IDs.
+func hostView(uid, gid, ownUID, ownGID idmap.Map) (idmap.Map, idmap.Map) {
+	if uid.Equal(ownUID) && gid.Equal(ownGID) {
+		return idmap.Default(), idmap.Default()
+	}
+	return uid, gid
 }
 
 // imageInfo is what is known about an image: the user it runs as, and /etc/passwd and /etc/group once read.

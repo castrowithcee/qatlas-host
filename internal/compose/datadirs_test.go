@@ -311,6 +311,61 @@ func TestMissingDataDirsOwnerIsMappedToTheHost(t *testing.T) {
 	}
 }
 
+func TestHostViewOfTheEngineMapping(t *testing.T) {
+	// The host is itself a container: its root is user 1000 above it, its users 1.. are 524288.. there.
+	host := idmap.Map{{Inside: 0, Outside: 1000, Count: 1}, {Inside: 1, Outside: 524288, Count: 65536}}
+	rootless := idmap.Map{{Inside: 0, Outside: 1001, Count: 1}, {Inside: 1, Outside: 100000, Count: 65536}}
+	cases := []struct {
+		name                      string
+		engineUID, engineGID, own idmap.Map
+		wantUID, wantGID          idmap.Map
+	}{
+		{"system engine on a plain host", idmap.Default(), idmap.Default(), idmap.Default(), idmap.Default(), idmap.Default()},
+		{"system engine on a host in a container", host, host, host, idmap.Default(), idmap.Default()},
+		{"rootless engine on a host in a container", rootless, rootless, host, rootless, rootless},
+		{"rootless engine on a plain host", rootless, rootless, idmap.Default(), rootless, rootless},
+		{"only the uid map is shared", host, rootless, host, host, rootless},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			uid, gid := hostView(tc.engineUID, tc.engineGID, tc.own, tc.own)
+			if !uid.Equal(tc.wantUID) || !gid.Equal(tc.wantGID) {
+				t.Fatalf("got %v / %v, want %v / %v", uid, gid, tc.wantUID, tc.wantGID)
+			}
+		})
+	}
+}
+
+func TestReadMaps(t *testing.T) {
+	dir := t.TempDir()
+	files := [2]string{filepath.Join(dir, "uid_map"), filepath.Join(dir, "gid_map")}
+	if err := os.WriteFile(files[0], []byte("         0       1000          1\n         1     524288      65536\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(files[1], []byte("0 0 4294967295\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	uid, gid, err := readMaps(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (idmap.Map{{Inside: 0, Outside: 1000, Count: 1}, {Inside: 1, Outside: 524288, Count: 65536}}); !uid.Equal(want) {
+		t.Fatalf("uid map %v, want %v", uid, want)
+	}
+	if !gid.Equal(idmap.Default()) {
+		t.Fatalf("gid map %v, want the default", gid)
+	}
+	if err := os.WriteFile(files[1], nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := readMaps(files); err == nil {
+		t.Fatal("an empty gid map was read")
+	}
+	if _, _, err := readMaps([2]string{filepath.Join(dir, "missing"), files[1]}); err == nil {
+		t.Fatal("a missing map file was read")
+	}
+}
+
 func TestMissingDataDirsUnreadableNamespaceProposesNothing(t *testing.T) {
 	dir := t.TempDir()
 	svc := map[string]any{"image": "demo/app:1.0", "user": "1234:1234", "volumes": bindsOf(filepath.Join(dir, "data"))}
