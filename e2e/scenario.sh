@@ -5760,7 +5760,8 @@ scenario_tui_secrets() {
 	tui_send Enter
 	tui_wait "set for the stack demo-stack" 60
 	tui_send Enter
-	docker exec "$host" grep -qxF "$ts_key='$ts_secret'" "$ts_env" || fail "secrets.env does not hold the secret: $(docker exec "$host" cat "$ts_env")"
+	# The expected line goes on standard input: on a command line the watcher would catch the value.
+	printf '%s\n' "$ts_key='$ts_secret'" | docker exec -i "$host" grep -qxF -f - "$ts_env" || fail "secrets.env does not hold the secret: $(docker exec "$host" cat "$ts_env")"
 	[ "$(docker exec "$host" stat -c %U:%a "$ts_env")" = qhost-deploy:600 ] || fail 'secrets.env has the wrong owner or mode'
 	qd stack secret list demo-stack | grep -q "$ts_key" || fail "the key is not listed: $(qd stack secret list demo-stack)"
 	log "scenario: the interface set $ts_key of demo-stack through sudo"
