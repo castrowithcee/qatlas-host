@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/castrowithcee/qatlas-host/internal/hookservice"
 	"github.com/castrowithcee/qatlas-host/packaging"
 )
 
@@ -114,7 +115,7 @@ func TestHookSetupCreatesEverythingAndRepeatsWithoutChange(t *testing.T) {
 		t.Fatalf("listen = %q", plan.Listen)
 	}
 	cfg, err := HookConfig(h.root)
-	if err != nil || cfg.Listen != "127.0.0.1:8480" || len(cfg.Hooks) != 0 || cfg.Version != 1 {
+	if err != nil || cfg.Listen != "127.0.0.1:8480" || len(cfg.Hooks) != 0 || cfg.Version != hookservice.ConfigVersion {
 		t.Fatalf("config = %+v, %v", cfg, err)
 	}
 	if info, err := os.Stat(h.host.path(HookConfigPath)); err != nil || info.Mode().Perm() != 0o644 {

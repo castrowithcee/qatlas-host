@@ -623,7 +623,7 @@ func (b *engineBackend) HookList(ctx context.Context, stack string) (tui.HookLis
 	if err != nil {
 		return tui.HookListResult{}, err
 	}
-	cfg, _, err := deploySetup.host.ReadHooks()
+	cfg, err := deploySetup.host.ReadHooks()
 	if errors.Is(err, deploysetup.ErrHookNotSetUp) {
 		return tui.HookListResult{}, nil
 	}
@@ -633,7 +633,9 @@ func (b *engineBackend) HookList(ctx context.Context, stack string) (tui.HookLis
 	res := tui.HookListResult{SetUp: true}
 	for _, h := range cfg.Hooks {
 		if h.Stack == stack && h.Instance == hookInstance(t) {
-			res.Hooks = append(res.Hooks, tui.HookInfo{ID: h.ID})
+			// Created was validated when the file was read; a hook without one stays zero.
+			created, _ := time.Parse(time.RFC3339, h.Created)
+			res.Hooks = append(res.Hooks, tui.HookInfo{ID: h.ID, Created: created})
 		}
 	}
 	return res, nil
@@ -641,7 +643,7 @@ func (b *engineBackend) HookList(ctx context.Context, stack string) (tui.HookLis
 
 // HookAdd does what 'sudo qhost hook add' does; the stack must exist in the engine the call names.
 func (b *engineBackend) HookAdd(ctx context.Context, stack string) (tui.HookAddResult, error) {
-	if _, _, err := deploySetup.host.ReadHooks(); err != nil {
+	if _, err := deploySetup.host.ReadHooks(); err != nil {
 		return tui.HookAddResult{}, routeFailure(hookFailure(err))
 	}
 	t, err := b.locateTarget(ctx, stackItem(stack))

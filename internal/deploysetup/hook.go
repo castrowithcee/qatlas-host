@@ -169,7 +169,7 @@ func (h Host) PlanHook(ctx context.Context, listen string) (Plan, error) {
 		return Plan{}, err
 	}
 	listenChanged := exists && cfg.Listen != listen
-	cfg.Version, cfg.Listen = 1, listen
+	cfg.Version, cfg.Listen = hookservice.ConfigVersion, listen
 	if cfg.Hooks == nil {
 		cfg.Hooks = []hookservice.Hook{}
 	}

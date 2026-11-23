@@ -69,7 +69,7 @@ func newHookAddCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 			}
 			stack := args[0]
 			// Refuse before anything else when the receiver is missing or its file is damaged.
-			if _, _, err := deploySetup.host.ReadHooks(); err != nil {
+			if _, err := deploySetup.host.ReadHooks(); err != nil {
 				return hookFailure(err)
 			}
 			if err := routeStacks(c, state, engine, stack); err != nil {
@@ -124,7 +124,7 @@ func appendHook(stack, instance string) (id, secret, listen string, err error) {
 		}
 		listen = cfg.Listen
 		cfg.Hooks = append(cfg.Hooks, hookservice.Hook{ID: id, Stack: stack, Instance: instance,
-			Hash: hookservice.HashSecret(secret)})
+			Hash: hookservice.HashSecret(secret), Created: time.Now().UTC().Format(time.RFC3339)})
 		return nil
 	})
 	if err != nil {
@@ -146,15 +146,15 @@ func newHookListCommand(program *cobracli.Program) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List the webhooks of the stacks",
-		Long: "list shows each hook with its id, stack, instance (system or the user of a rootless engine) and modified, the\n" +
-			"time the configuration file was last written, which is the same for every hook. It never shows a hash or a\n" +
-			"secret. Root and the administrators of the group qhost may use it.",
+		Long: "list shows each hook with its id, stack, instance (system or the user of a rootless engine) and created, the\n" +
+			"time the hook was added in UTC, a dash (empty in JSON) for a hook added before the time was kept. It never\n" +
+			"shows a hash or a secret. Root and the administrators of the group qhost may use it.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if err := hostEnv.requireAdmin(); err != nil {
 				return err
 			}
-			r, err := hookListResult()
+			r, err := hookListResult(program.Format() == output.FormatTable)
 			if err != nil {
 				return err
 			}
@@ -163,17 +163,21 @@ func newHookListCommand(program *cobracli.Program) *cobra.Command {
 	}
 }
 
-func hookListResult() (output.Collection, error) {
-	cfg, mod, err := deploySetup.host.ReadHooks()
+// hookListResult builds the list; a table shows a dash for a hook without a time, machine formats keep it empty.
+func hookListResult(table bool) (output.Collection, error) {
+	cfg, err := deploySetup.host.ReadHooks()
 	if err != nil {
 		return output.Collection{}, hookFailure(err)
 	}
 	rows := make([]output.Row, 0, len(cfg.Hooks))
 	for _, h := range cfg.Hooks {
-		rows = append(rows, output.Row{"id": h.ID, "stack": h.Stack, "instance": h.Instance,
-			"modified": mod.UTC().Format(time.RFC3339)})
+		created := h.Created
+		if created == "" && table {
+			created = "-"
+		}
+		rows = append(rows, output.Row{"id": h.ID, "stack": h.Stack, "instance": h.Instance, "created": created})
 	}
-	return output.Collection{Columns: []string{"id", "stack", "instance", "modified"}, Rows: rows}, nil
+	return output.Collection{Columns: []string{"id", "stack", "instance", "created"}, Rows: rows}, nil
 }
 
 func newHookRemoveCommand(program *cobracli.Program) *cobra.Command {

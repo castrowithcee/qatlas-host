@@ -205,6 +205,9 @@ func TestCommitPathsDistinguishesTheRefusalsOfThePush(t *testing.T) {
 	if !strings.Contains(rejected.Reason, "pre-receive hook declined") {
 		t.Fatalf("reason = %q", rejected.Reason)
 	}
+	if rejected.Output != "protected branch" || !strings.HasSuffix(err.Error(), "; remote output: protected branch") {
+		t.Fatalf("output = %q, error = %q", rejected.Output, err)
+	}
 	if h, _ := r.Head(ctx); h != head {
 		t.Fatal("the branch moved after a refused push")
 	}
