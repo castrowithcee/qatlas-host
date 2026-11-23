@@ -31,7 +31,7 @@
 │ DB_PASSWORD               ║                                                              ║                           │
 ╰───────────────────────────║ Seine Adresse wirkt nach spätestens zehn Sekunden nicht      ║───────────────────────────╯
 ╭─ Webhooks ────────────────║ mehr. Das lässt sich nicht rückgängig machen.                ║───────────────────────────╮
-│ h-a1b2c3d0  geändert 10-31║                                                              ║                           │
+│ h-a1b2c3d0                ║                                                              ║                           │
 ╰───────────────────────────║ [ ja, ausführen ]  > abbrechen <                             ║───────────────────────────╯
 ╭─ Backups ─────────────────║ y ja, ausführen  n/esc/enter abbrechen                       ║───────────────────────────╮
 │ 20261030T140100Z-0123abcd ╚══════════════════════════════════════════════════════════════╝                           │

@@ -10,7 +10,6 @@ const (
 	textHooksNone         kittui.TextID = "hooks.none"
 	textHooksWindow       kittui.TextID = "hooks.window"
 	textHooksNoneToRemove kittui.TextID = "hooks.nonetoremove"
-	textHookRow           kittui.TextID = "hook.row"
 	textKeyHookAdd        kittui.TextID = "key.hookadd"
 	textKeyHookRemove     kittui.TextID = "key.hookremove"
 	textColHookID         kittui.TextID = "col.hookid"
@@ -34,7 +33,6 @@ func detailHookEnglish() map[kittui.TextID]string {
 		textHooksNone:         "No webhook for this stack.",
 		textHooksWindow:       "The update trigger is Maintenance window: a hook acts only with the trigger Polling or Webhook only.",
 		textHooksNoneToRemove: "This stack has no webhook to remove.",
-		textHookRow:           "%s  modified %s",
 		textKeyHookAdd:        "add hook",
 		textKeyHookRemove:     "remove hook",
 		textColHookID:         "ID",
@@ -59,7 +57,6 @@ func detailHookGerman() map[kittui.TextID]string {
 		textHooksNone:         "Kein Webhook für diesen Stack.",
 		textHooksWindow:       "Der Auslöser ist Wartungsfenster: Ein Hook wirkt erst mit dem Auslöser Abfrage oder Nur Webhook.",
 		textHooksNoneToRemove: "Dieser Stack hat keinen Webhook zum Entfernen.",
-		textHookRow:           "%s  geändert %s",
 		textKeyHookAdd:        "Hook anlegen",
 		textKeyHookRemove:     "Hook entfernen",
 		textColHookID:         "ID",

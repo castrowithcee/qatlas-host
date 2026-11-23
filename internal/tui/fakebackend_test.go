@@ -1197,7 +1197,7 @@ func (f *fakeBackend) HookServiceSetup(ctx context.Context, listen string) (Hook
 }
 
 // fakeHookPath is the made-up secret path HookAdd answers with; tests look for it where it must not be.
-const fakeHookPath = "/hook/FAKE-SECRET-not-a-real-token-0123456789"
+const fakeHookPath = "/hook/FAKE-SECRET-not-a-real-token-0123456789abcd"
 
 func (f *fakeBackend) HookList(_ context.Context, stack string) (HookListResult, error) {
 	if err := f.fail("hooklist", stack); err != nil {
@@ -1218,7 +1218,7 @@ func (f *fakeBackend) HookAdd(ctx context.Context, stack string) (HookAddResult,
 		f.hooks = map[string][]HookInfo{}
 	}
 	id := "h-a1b2c3d" + strconv.Itoa(len(f.hooks[stack]))
-	f.hooks[stack] = append(f.hooks[stack], HookInfo{ID: id, Modified: at(31, 9, 0)})
+	f.hooks[stack] = append(f.hooks[stack], HookInfo{ID: id})
 	return HookAddResult{ID: id, Listen: "127.0.0.1:8480", Path: fakeHookPath}, nil
 }
 

@@ -63,7 +63,7 @@ func (m *Model) hookSectionLines(r stackRow, width int) []string {
 		out = hint(textHooksNone, kittui.StyleHint)
 	}
 	for _, h := range d.hooks.Hooks {
-		out = append(out, m.line(detailIndent, kittui.StyleText, t.Lookup(textHookRow, h.ID, h.Modified.In(m.loc).Format(lastRunLayout)), width))
+		out = append(out, m.line(detailIndent, kittui.StyleText, h.ID, width))
 	}
 	if r.trigger == "window" || r.trigger == "" {
 		out = append(out, hint(textHooksWindow, kittui.StyleWarn)...)
@@ -130,9 +130,9 @@ func (m *Model) openHookPick() tea.Cmd {
 	}
 	items := make([]kittui.ListItem, len(d.hooks.Hooks))
 	for i, h := range d.hooks.Hooks {
-		items[i] = kittui.ListItem{ID: kittui.ItemID(h.ID), Cells: []string{h.ID, h.Modified.In(m.loc).Format(lastRunLayout)}}
+		items[i] = kittui.ListItem{ID: kittui.ItemID(h.ID), Cells: []string{h.ID}}
 	}
-	m.pick = m.newPicker(pickHook, stack, textTitleHookRemove, []kittui.Column{{Title: textColHookID}, {Title: textColModified, Flex: true}},
+	m.pick = m.newPicker(pickHook, stack, textTitleHookRemove, []kittui.Column{{Title: textColHookID}},
 		textHooksNone, items)
 	return nil
 }
@@ -151,7 +151,8 @@ func (m *Model) askHookRemove(stack, id string) {
 }
 
 // hookAdded shows the address of the new hook once and reads the list again. The dialog is the only holder of the
-// secret: closing it drops the dialog, and no other field, message or log takes a copy.
+// secret: closing it drops the dialog, and no other field, message or log takes a copy. It fills the workspace, as the
+// box of the kit is too narrow for the address, which would break inside the secret.
 func (m *Model) hookAdded(res HookAddResult, stack string) tea.Cmd {
 	t := m.text
 	address := t.Lookup(textHookSecretAddress, kittui.Escape(res.Listen), kittui.Escape(res.Path))
@@ -162,7 +163,7 @@ func (m *Model) hookAdded(res HookAddResult, stack string) tea.Cmd {
 	if err != nil {
 		m.failure = t.Lookup(kittui.TextError, err.Error())
 	} else {
-		m.modal = &modal{kind: modalAsk, dialog: dialog}
+		m.modal = &modal{kind: modalAsk, dialog: dialog, full: true}
 	}
 	return m.readHooks()
 }

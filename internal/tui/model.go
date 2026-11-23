@@ -1340,7 +1340,11 @@ func (m *Model) render() string {
 		}
 	}
 	if m.modal != nil && !m.modal.sheet() {
-		if over, ot, ok := m.modal.dialog.Overlay(m.styles, view, m.width, m.height, room); ok {
+		over, ot, ok := "", []kittui.Target(nil), false
+		if !m.modal.full {
+			over, ot, ok = m.modal.dialog.Overlay(m.styles, view, m.width, m.height, room)
+		}
+		if ok {
 			view, targets = over, ot
 		} else {
 			spec.Footer, spec.Input, spec.Position, spec.Back = m.modal.dialog.Hints(), kittui.InputNavigation, "", nil

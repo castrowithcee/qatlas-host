@@ -13,7 +13,7 @@ import (
 // backend; after its one dialog is closed no part of the model may hold it.
 
 const (
-	hookSecret    = "FAKE-SECRET-not-a-real-token-0123456789"
+	hookSecret    = "FAKE-SECRET-not-a-real-token-0123456789abcd"
 	hookRows      = 64
 	reportHookAdd = `{"id":"h-a1b2c3d0","stack":"demo-stack","instance":"system","path":"` + fakeHookPath + `","listen":"127.0.0.1:8480"}`
 )
@@ -22,8 +22,8 @@ var (
 	toDetail     = keys("enter")
 	hookAddSudo  = []string{"hook", "add", "--output", "json", "--", "demo-stack"}
 	hookDelSudo  = []string{"hook", "remove", "--output", "json", "--", "h-a1b2c3d0"}
-	oneHook      = map[string][]HookInfo{"demo-stack": {{ID: "h-a1b2c3d0", Modified: at(31, 9, 0)}}}
-	twoHooks     = map[string][]HookInfo{"demo-stack": {{ID: "h-a1b2c3d0", Modified: at(31, 9, 0)}, {ID: "h-a1b2c3d1", Modified: at(31, 9, 0)}}}
+	oneHook      = map[string][]HookInfo{"demo-stack": {{ID: "h-a1b2c3d0"}}}
+	twoHooks     = map[string][]HookInfo{"demo-stack": {{ID: "h-a1b2c3d0"}, {ID: "h-a1b2c3d1"}}}
 	hookTrigger  = func(b *fakeBackend, trigger string) *fakeBackend { b.stacks.Stacks[0].Trigger = trigger; return b }
 	hookStackFor = func(info HookServiceInfo, hooks map[string][]HookInfo, trigger string) func() *fakeBackend {
 		return func() *fakeBackend {
@@ -109,7 +109,10 @@ func TestHookSectionListsTheHooksOfTheStack(t *testing.T) {
 	b := hookStackFor(hookRunning, twoHooks, "webhook")()
 	m := newTestModel(t, i18n.English, b, wideWidth, hookRows)
 	send(m, toDetail...)
-	contains(t, m, "Webhooks", "h-a1b2c3d0  modified 10-31 09:00", "h-a1b2c3d1")
+	contains(t, m, "Webhooks", "h-a1b2c3d0", "h-a1b2c3d1")
+	if strings.Contains(m.render(), "modified") {
+		t.Fatalf("a hook shows a time:\n%s", m.render())
+	}
 	if strings.Contains(m.render(), "Maintenance window") {
 		t.Fatalf("the trigger webhook gets the note about the window:\n%s", m.render())
 	}
@@ -134,7 +137,7 @@ func TestHookSectionStates(t *testing.T) {
 	}
 	m := newTestModel(t, i18n.German, hookStackFor(hookRunning, oneHook, "window")(), wideWidth, hookRows)
 	send(m, toDetail...)
-	contains(t, m, "geändert 10-31 09:00", "Der Auslöser ist Wartungsfenster", "Abfrage oder Nur Webhook")
+	contains(t, m, "h-a1b2c3d0", "Der Auslöser ist Wartungsfenster", "Abfrage oder Nur Webhook")
 }
 
 func TestHookSectionErrorLeavesTheOtherSections(t *testing.T) {
@@ -179,7 +182,7 @@ func TestHookAddAsRootAsksThenShowsTheAddressOnceAndForgetsIt(t *testing.T) {
 	}
 	send(m, "esc")
 	assertForgotten(t, m)
-	contains(t, m, "h-a1b2c3d0  modified")
+	contains(t, m, "h-a1b2c3d0")
 }
 
 // assertForgotten fails when the secret is on the screen or anywhere in the model.
@@ -215,7 +218,11 @@ func TestHookAddWithoutRootRunsTheCommandThroughSudoAndForgetsTheAddress(t *test
 	if len(b.actions()) != 0 {
 		t.Fatalf("the service was called directly: %v", b.actions())
 	}
-	contains(t, m, "http://127.0.0.1:8480/hook/FAKE-SECRET", "does not appear again")
+	contains(t, m, "does not appear again")
+	// The address stands whole on one line, so a terminal selection copies it.
+	if !strings.Contains(m.render(), "  http://127.0.0.1:8480"+fakeHookPath+" ") {
+		t.Fatalf("the address is not on one line:\n%s", m.render())
+	}
 	send(m, "enter")
 	assertForgotten(t, m)
 }
@@ -271,8 +278,8 @@ func TestHookRemoveAsksFirstAndCancelChangesNothing(t *testing.T) {
 	if got := b.actions(); !slices.Equal(got, []string{"hookremove:h-a1b2c3d1"}) {
 		t.Fatalf("calls %v", got)
 	}
-	contains(t, m, "h-a1b2c3d0  modified")
-	if strings.Contains(m.render(), "h-a1b2c3d1  modified") {
+	contains(t, m, "h-a1b2c3d0")
+	if strings.Contains(m.render(), "│ h-a1b2c3d1") {
 		t.Fatalf("the removed hook is still listed:\n%s", m.render())
 	}
 }

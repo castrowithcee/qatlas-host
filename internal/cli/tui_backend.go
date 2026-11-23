@@ -588,7 +588,7 @@ func (b *engineBackend) HookList(ctx context.Context, stack string) (tui.HookLis
 	if err != nil {
 		return tui.HookListResult{}, err
 	}
-	cfg, mod, err := deploySetup.host.ReadHooks()
+	cfg, _, err := deploySetup.host.ReadHooks()
 	if errors.Is(err, deploysetup.ErrHookNotSetUp) {
 		return tui.HookListResult{}, nil
 	}
@@ -598,7 +598,7 @@ func (b *engineBackend) HookList(ctx context.Context, stack string) (tui.HookLis
 	res := tui.HookListResult{SetUp: true}
 	for _, h := range cfg.Hooks {
 		if h.Stack == stack && h.Instance == hookInstance(t) {
-			res.Hooks = append(res.Hooks, tui.HookInfo{ID: h.ID, Modified: mod})
+			res.Hooks = append(res.Hooks, tui.HookInfo{ID: h.ID})
 		}
 	}
 	return res, nil

@@ -174,11 +174,8 @@ type HookServiceInfo struct {
 	Problem string
 }
 
-// HookInfo is one hook of a stack. Modified is when the configuration was last written, the same for every hook.
-type HookInfo struct {
-	ID       string
-	Modified time.Time
-}
+// HookInfo is one hook of a stack. The configuration has no creation time, so the ID is all there is.
+type HookInfo struct{ ID string }
 
 // HookListResult is the hooks of a stack. Without SetUp there is no receiver and so no hook.
 type HookListResult struct {
