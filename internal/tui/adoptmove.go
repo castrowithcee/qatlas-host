@@ -99,7 +99,8 @@ func (m *Model) submitAdoptTarget(v map[kittui.FieldID]kittui.FormValue) tea.Cmd
 	return m.previewMove(flow)
 }
 
-// previewArgs are the arguments after qhost of the preview, moveArgs those of the move itself.
+// previewArgs are the arguments after qhost of the preview, moveArgs those of the move itself. They carry no
+// --engine on a host with several engines: source move takes the engine from the folder and has no such flag.
 func (f *moveFlow) previewArgs() []string {
 	return []string{"source", "move", "--into", f.into, "--output", "json", "--", f.src.dir}
 }
@@ -113,7 +114,7 @@ func (f *moveFlow) moveArgs() []string {
 // shows the preview and changes nothing.
 func (m *Model) previewMove(f *moveFlow) tea.Cmd {
 	gen := m.beginSetting()
-	return m.runSudoInput(m.engineArgs(f.src.engine, f.previewArgs()), []byte("\n"), func(r sudoRun) tea.Cmd {
+	return m.runSudoInput(f.previewArgs(), []byte("\n"), func(r sudoRun) tea.Cmd {
 		msg := settingMsg{gen: gen, op: opMovePreview, name: f.src.dir}
 		var got control.SourceMoveResult
 		if !r.decode(&got) || got.Path == "" {
@@ -138,7 +139,7 @@ func (m *Model) showMovePreview(f *moveFlow) {
 		if m.euid() == 0 {
 			return body(width)
 		}
-		return append(body(width), m.commandLines(m.engineArgs(f.src.engine, f.moveArgs()), width)...)
+		return append(body(width), m.commandLines(f.moveArgs(), width)...)
 	}
 	yes := []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}}
 	m.askSheet(textTitleMove, t.Lookup(textAskMove, f.src.project, f.into, res.Target), t.Lookup(textWhatMove), final, yes,
@@ -202,7 +203,7 @@ func (m *Model) moveLines(f *moveFlow, width int) []string {
 // runMove runs the move; yes to its question is the only way here.
 func (m *Model) runMove(f *moveFlow) tea.Cmd {
 	gen := m.beginSetting()
-	return m.runSudo(m.engineArgs(f.src.engine, f.moveArgs()), func(r sudoRun) tea.Cmd {
+	return m.runSudo(f.moveArgs(), func(r sudoRun) tea.Cmd {
 		msg := settingMsg{gen: gen, op: opMove, name: f.src.dir}
 		// A move that was taken back exits with a failure and still prints its result.
 		var got moveOutcome
