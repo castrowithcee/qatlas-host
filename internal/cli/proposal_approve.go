@@ -33,7 +33,7 @@ func newProposalApprove(program *cobracli.Program, state *notRunning, secrets *r
 	var o approveOptions
 	var gate *cobracli.Gate
 	c := &cobra.Command{
-		Use:   "approve <id> [--url <ssh-url>] [--fingerprint <fingerprint> [--confirm]]",
+		Use:   "approve <id> [--url <ssh-url>] [--expires YYYY-MM-DD] [--fingerprint <fingerprint> [--confirm]]",
 		Short: "Review an open proposal with its effect and apply it after you confirm",
 		Long: "approve shows the proposal and, below it, what applying it would change. For a source-add proposal it is\n" +
 			"worked out with the same check as 'qhost source add'; for a stack-settings proposal it is the difference to\n" +
@@ -70,7 +70,13 @@ func newProposalApprove(program *cobracli.Program, state *notRunning, secrets *r
 			"source add' for source-add, proposal, stack, changed and commit for stack-settings, proposal and the fields\n" +
 			"of 'qhost window set' for window, and proposal, name, type, events and settings for notify-channel.\n" +
 			"A proposal of the kind window sets the host window, as 'sudo qhost window set' does, unless --engine is given:\n" +
-			"then it sets the own window of that engine's deploy service, as 'qhost window set --engine' does.",
+			"then it sets the own window of that engine's deploy service, as 'qhost window set --engine' does.\n" +
+			"A proposal of the kind grant shows the user, action, stack, expiry, the reason as text of the submitter and\n" +
+			"whether the stack has a backup and a check set up. It adds the grant the way 'sudo qhost grant add' does, for\n" +
+			"the user ID of the submitter, with the same checks again. It is refused when the stack or the access of the user\n" +
+			"is gone, when the name belongs to another user ID now, and when an equal grant exists, which it never replaces.\n" +
+			"--expires sets the last day, YYYY-MM-DD: with a requested expiry it may keep or shorten it, never extend or drop it.\n" +
+			"The result has the fields of 'qhost grant add' and proposal.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			// Without --confirm a run with --fingerprint shows the proposal and this error then ends it.
@@ -88,6 +94,7 @@ func newProposalApprove(program *cobracli.Program, state *notRunning, secrets *r
 	c.Flags().StringVar(&o.expectEffect, "expect-effect", "",
 		"source-add with --fingerprint: effect fingerprint from 'source inspect'; refuses with state-changed when it differs now")
 	remoteFlags(c, &o.expectState, &o.expectCommit)
+	c.Flags().StringVar(&o.expires, "expires", "", "grant: last day the grant holds, YYYY-MM-DD (UTC); may keep or shorten the requested expiry, never extend it")
 	c.Flags().StringArrayVar(&o.include, "include", nil, "source-add: "+includeUsage)
 	gate = program.AddGate(c, cobracli.Gates{Change: true})
 	return c
@@ -151,6 +158,7 @@ var proposalApprovers = map[string]func(c *cobra.Command, program *cobracli.Prog
 	control.ProposalKindStackSettings: approveStackSettings,
 	control.ProposalKindWindow:        approveWindow,
 	control.ProposalKindNotifyChannel: approveNotifyChannel,
+	control.ProposalKindGrant:         approveGrant,
 }
 
 func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notRunning, secrets *redact.Redactor, id string, o approveOptions) error {
@@ -179,6 +187,9 @@ func runProposalApprove(c *cobra.Command, program *cobracli.Program, state *notR
 	}
 	if !o.asks() && o.reviewed != shown.Fingerprint {
 		return notReviewed(id)
+	}
+	if o.expires != "" && shown.Kind != control.ProposalKindGrant {
+		return usageFailure("--expires applies to proposals of the kind grant only", "Run 'sudo qhost proposal approve "+id+"' without it.")
 	}
 	approve, ok := proposalApprovers[shown.Kind]
 	if !ok {

@@ -1501,8 +1501,8 @@ type UpdateStepInfo struct {
 
 // The commands that set a stack back to the versions before an update run. ReturnCheckCommand changes
 // nothing: it refuses as ReturnRunCommand would and tells which versions the return sets. ReturnRunCommand
-// runs the return as a secured run and, after a success, pins the stack. Both need the right to change the
-// stack, so a caller who may not return it learns nothing about its runs.
+// runs the return as a secured run and, after a success, pins the stack. ReturnCheckCommand reads only image
+// versions of the .env, so it needs no right to change; ReturnRunCommand does.
 const (
 	ReturnCheckCommand = "return.check"
 	ReturnRunCommand   = "return.run"

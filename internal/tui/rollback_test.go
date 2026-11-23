@@ -226,16 +226,27 @@ func TestRollbackRefusedByTheCheckRunsNothing(t *testing.T) {
 	}
 }
 
-func TestRollbackWithoutRootSaysTheVersionsComeLater(t *testing.T) {
-	for lang, want := range map[i18n.Lang]string{i18n.English: "shown in the result after the run", i18n.German: "auf die es zurückgeht"} {
+func TestRollbackWithoutRootShowsTheVersionsOfTheCheck(t *testing.T) {
+	for lang, want := range map[i18n.Lang]string{i18n.English: "APP_VERSION: 2.0.0 -> 1.9.0", i18n.German: "APP_VERSION: 2.0.0 -> 1.9.0"} {
 		b := returnBackend()
 		m, _ := sudoDetailModel(t, lang, b, wideWidth, 40)
 		send(m, rollbackFromRuns...)
 		contains(t, m, want)
-		if len(b.checks) != 0 {
+		if len(b.checks) != 1 {
 			t.Fatalf("checks %v without root", b.checks)
 		}
 	}
+}
+
+func TestRollbackRefusedByTheCheckWithoutRootOpensNoDialog(t *testing.T) {
+	b := returnBackend()
+	b.errs["returncheck:demo-stack/"+updateRun] = control.NewError(control.CodeBusy, "an update is running")
+	m, _ := sudoDetailModel(t, i18n.English, b, wideWidth, 40)
+	send(m, rollbackFromRuns...)
+	if m.modal != nil {
+		t.Fatal("the dialog opened for a refused check")
+	}
+	contains(t, m, "an update is running")
 }
 
 func TestGoldenRollbackDialogWithoutRoot(t *testing.T) {
