@@ -2744,6 +2744,8 @@ scenario_stacks_repo() {
 
 	scenario_source_move
 
+	scenario_tui_move
+
 	scenario_tui_remote
 
 	scenario_repair_end
@@ -3504,7 +3506,8 @@ bkr_containers() {
 # scenario_backup_rootless proves backup, restore and rollback with data in the rootless engine of $rootless_user, for
 # the stack demo-rootless that scenario_source_rootless bound to the instance. The instance gets the local helper image
 # in its own image store and a drop-in that names it; the drop-in is removed at the end, because the uninstall
-# removes the folder of the drop-ins only when it is empty. The stack keeps its rules and runs at the end.
+# removes the folder of the drop-ins only when it is empty. At the end the stack runs with the settings it had before,
+# without backup rules.
 scenario_backup_rootless() {
 	bk_base=/srv/qd-rootless
 	bk_dir=$bk_base/demo-rootless
@@ -3723,11 +3726,18 @@ EOF2
 	sr_stack_runs || fail 'demo-rootless does not run after demo-rootless-dirs left'
 
 	step 'the drop-in of the helper image is removed again and the instance answers'
+	bkr_settings 'version: 1
+check:
+  containers: false
+'
+	printf '%s' "$bkr_out" | jq -e '.changed == true' >/dev/null || fail "settings set reports no change: $bkr_out"
 	docker exec "$host" sh -ec "rm -f '$bk_dropin' && systemctl daemon-reload" || fail 'cannot remove the drop-in of the instance'
 	docker exec "$host" test -f "/etc/systemd/system/$bk_unit.d/10-stack-folders.conf" || fail 'the drop-in of the stack folders is gone'
 	bkr_restart
 	wait_for 'the instance to be idle' 180 sr_idle
 	sr_stack_runs || fail 'demo-rootless does not run after the drop-in is removed'
+	qd --output json stack settings demo-rootless | jq -e '.configured == true and .settings.backup == null' >/dev/null ||
+		fail "demo-rootless still has backup rules: $(qd --output json stack settings demo-rootless)"
 }
 
 # te_new_run succeeds when the instance lists a run of demo-rootless that is not in $te_old, and sets te_run to it.
@@ -3756,14 +3766,7 @@ scenario_tui_engine() {
 	tui_wait "Engine $te_engine" 30
 	tui_wait 'demo-rootless' 30
 	tui_send Home
-	# The rootless section comes after every row of the system section, more rows than tui_cursor_to walks.
-	i=0
-	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] demo-rootless "; do
-		i=$((i + 1))
-		[ "$i" -lt 40 ] || fail "the cursor does not reach demo-rootless: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_cursor_to demo-rootless
 	tui_excerpt 'demo-rootless' 12
 
 	step 'a deploy from the section runs through sudo in the instance'
@@ -3793,6 +3796,13 @@ tc_cursor_engine() {
 		/^(│ |║ )?> / { if (index($0, " " name " ")) print eng }'
 }
 
+# tc_cursor_in_engine tells whether the marked row of the screen on its input is $tc_ct in the section of $tc_engine.
+tc_cursor_in_engine() {
+	[ "$(awk -v name="$tc_ct" '
+		/ Engine / { match($0, /Engine [^ ]+/); eng = substr($0, RSTART + 7, RLENGTH - 7) }
+		/^(│ |║ )?> / { if (index($0, " " name " ")) print eng }')" = "$tc_engine" ]
+}
+
 # scenario_tui_containers_engine proves the Containers area with two engines for the interface of $admin started
 # without sudo: the container of demo-rootless stands in the section of the rootless engine, a container of the same
 # name in the system engine in the other, and a restart of the marked row goes through sudo with --engine and
@@ -3819,13 +3829,7 @@ scenario_tui_containers_engine() {
 	tui_wait "Engine $tc_engine" 30
 	tui_wait 'Engine system' 30
 	tui_send Home
-	i=0
-	until [ "$(tc_cursor_engine "$tc_ct")" = "$tc_engine" ]; do
-		i=$((i + 1))
-		[ "$i" -lt 60 ] || fail "the cursor of the Containers area does not reach $tc_ct in $tc_engine: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "$tc_ct in $tc_engine" tc_cursor_in_engine
 	tui_excerpt "Engine $tc_engine" 12
 
 	step 'a restart from the section runs through sudo with --engine and restarts the container of that engine only'
@@ -4952,6 +4956,106 @@ scenario_source_move() {
 	log 'scenario: source move previewed, moved a running project into a source with a remote and took a failed move back, and the source followed the remote'
 }
 
+# scenario_tui_move proves the move of a foreign Compose project into a source that exists, in the Containers area of
+# the interface started under sudo, so the command runs directly as root. A person runs the project tuimove from
+# /opt/qd-tmove/tuimove, outside every source, with a data folder and a file in a named volume. The takeover offers the
+# source of its own and the sources of the engine that are no root stack; choosing /opt/stacks shows the preview with
+# the target folder, the files and the downtime warning, and nothing changes before yes. After yes the folder lies in
+# the source, the commit is in the remote, the project is a stack of the source and runs from the new folder on the same
+# data folder and the same named volume with its file. The project is removed from the source again at the end.
+scenario_tui_move() {
+	tbase=/opt/qd-tmove/tuimove
+	tinto=/opt/stacks
+	tmove_url=git.$domain:stacks.git
+
+	step 'a person starts a foreign Compose project with a data folder and a named volume outside every source'
+	docker exec "$host" rm -rf /opt/qd-tmove || fail 'cannot clear /opt/qd-tmove'
+	move_project "$tbase" 1.0.0
+	docker exec "$host" docker run --rm --network none -v tuimove_state:/state "$backup_image" sh -ec "printf 'invented state\n' >/state/note.txt" ||
+		fail 'cannot write a file into the named volume'
+	tids_before=$(docker exec "$host" docker ps -q --no-trunc --filter label=com.docker.compose.project=tuimove | sort)
+	[ -n "$tids_before" ] || fail 'the project to move has no running container'
+	tsums=$(tree_sums "$tbase")
+	tdata_inode=$(docker exec "$host" stat -c %i "$tbase/data/records.txt")
+	tvolume_created=$(docker exec "$host" docker volume inspect -f '{{.CreatedAt}}' tuimove_state)
+	tsource_status=$(folder_git "$tinto" status --porcelain)
+	tremote_before=$(remote_head "$tmove_url")
+	[ -n "$tremote_before" ] || fail 'the remote of the source has no head'
+
+	step 'the takeover offers a source of its own and the source to move into; the preview changes nothing'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 5
+	tui_wait 'foreign project tuimove' 30
+	tui_ct_cursor_to tuimove-app-1
+	tui_send a
+	tui_wait 'Take over as' 30
+	tui_wait 'a source of its own' 10
+	tui_send Enter
+	tui_wait "moved into the source $tinto" 10
+	i=0
+	until tui_screen | grep -Eq "║ > *moved into the source $tinto +║"; do
+		i=$((i + 1))
+		[ "$i" -lt 12 ] || fail "the cursor does not reach the source $tinto: $(tui_screen)"
+		tui_send Down
+		sleep 0.2
+	done
+	tui_send Enter
+	tui_send F2
+	tui_wait "Move the project tuimove into the source $tinto as the folder $tinto/tuimove?" 60
+	tui_wait "target folder: $tinto/tuimove" 10
+	tui_wait 'compose.yaml' 10
+	tui_wait 'data: bind-mount' 10
+	tui_wait 'downtime:' 10
+	if tui_has '$ sudo qhost'; then fail "the question shows a sudo command although the interface runs as root: $(tui_screen)"; fi
+	[ "$(docker exec "$host" docker ps -q --no-trunc --filter label=com.docker.compose.project=tuimove | sort)" = "$tids_before" ] ||
+		fail 'the question changed the containers'
+	[ "$(tree_sums "$tbase")" = "$tsums" ] || fail 'the question changed the project folder'
+	if docker exec "$host" test -e "$tinto/tuimove"; then fail 'the question made the target folder'; fi
+	[ "$(remote_head "$tmove_url")" = "$tremote_before" ] || fail 'the question changed the remote'
+
+	step 'yes moves the project into the source and it runs there on its data'
+	tui_send y
+	tui_wait "The project tuimove is moved to $tinto/tuimove and deployed there." 180
+	tui_send Enter
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	wait_for 'the deploy service to answer' 30 qd status
+	tmove_head=$(remote_head "$tmove_url")
+	[ -n "$tmove_head" ] && [ "$tmove_head" != "$tremote_before" ] || fail 'the move pushed no commit'
+	[ "$(remote_git ls-tree -r --name-only "$tmove_head" tuimove)" = "$(printf 'tuimove/.env\ntuimove/.gitignore\ntuimove/compose.yaml')" ] ||
+		fail "the remote holds the wrong files of tuimove: $(remote_git ls-tree -r --name-only "$tmove_head" tuimove)"
+	if docker exec "$host" test -e "$tbase"; then fail 'the old folder is still there'; fi
+	docker exec "$host" test -f "$tinto/tuimove/compose.yaml" || fail 'the folder is not in the source'
+	wait_for 'the source at the commit of the move' 60 source_head_is "$tinto" "$tmove_head"
+	qd --output json stack list | jq -e '[.[] | select(.stack == "tuimove")] | length == 1' >/dev/null ||
+		fail "stack list does not show the stack tuimove: $(qd --output json stack list)"
+	wait_for 'the moved project' 60 stack_healthy tuimove
+	[ "$(docker exec "$host" docker ps --filter label=com.docker.compose.project=tuimove --format '{{.Label "com.docker.compose.project.working_dir"}}' | sort -u)" = "$tinto/tuimove" ] ||
+		fail 'the containers do not run in the new folder'
+	[ "$(docker exec "$host" stat -c %i "$tinto/tuimove/data/records.txt")" = "$tdata_inode" ] || fail 'the data file is not the same file'
+	[ "$(docker exec "$host" cat "$tinto/tuimove/data/records.txt")" = 'invented record 1' ] || fail 'the data file changed'
+	[ "$(docker exec "$host" docker volume inspect -f '{{.CreatedAt}}' tuimove_state)" = "$tvolume_created" ] || fail 'the named volume is not the same'
+	[ "$(docker exec "$host" docker run --rm --network none -v tuimove_state:/state:ro "$backup_image" cat /state/note.txt)" = 'invented state' ] ||
+		fail 'the file in the named volume is gone'
+	[ "$(stack_field tuimove deployed)" = "$tmove_head" ] || fail "tuimove is not recorded as deployed at $tmove_head: $(stack_field tuimove deployed)"
+	[ "$(folder_git "$tinto" status --porcelain)" = "$tsource_status" ] || fail "the move left changes in the source: $(folder_git "$tinto" status --porcelain)"
+
+	step 'the moved project is removed from the source again'
+	docker exec "$host" docker compose -p tuimove down -v >/dev/null 2>&1 || fail 'cannot remove the containers of tuimove'
+	as_admin "cd ~/stacks && git pull -q --ff-only && git rm -rq tuimove &&
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -m 'Remove the moved project' && git push -q origin main" ||
+		fail 'cannot remove the moved project from the remote'
+	tcleaned=$(remote_head "$tmove_url")
+	restart_service
+	source_follows 'the source to drop the moved project' "$tinto" "$tcleaned" 180
+	# The data folder is not versioned, so it stays behind.
+	docker exec "$host" rm -rf "$tinto/tuimove" /opt/qd-tmove
+	[ "$(folder_git "$tinto" status --porcelain)" = "$tsource_status" ] || fail "the clean-up left changes in the source: $(folder_git "$tinto" status --porcelain)"
+	log 'scenario: the interface moved a foreign project into a source that exists, and it runs there on its data'
+}
+
 # scenario_tui_remote proves the remote of a local stack folder in the Stacks area of the interface. A local folder
 # below /srv/qd-tr-a has no deploy key: the interface leads to the key view, the generated key is entered at the git
 # server, and the folder then pushes its history to an empty repository after the confirmation. A local folder below
@@ -5572,6 +5676,10 @@ scenario_tui_sudo() {
 	tui_wait 'Deploy demo-cache?' 15
 	tui_send y
 	tui_wait "[sudo] password for $admin" 30
+	tui_wait_noecho 30
+	# The handover cleared the screen: only the new prompt shows, not the one of the Ctrl-C before.
+	tui_wait "[sudo] password for $admin" 10
+	[ "$(tui_screen | grep -cF "[sudo] password for $admin")" = 1 ] || fail "an old sudo prompt shows after the handover: $(tui_screen)"
 	tui_type "$sa_login"
 	tui_send Enter
 	tui_wait 'deploy finished: 1 ok, 0 failed' 240
@@ -5592,18 +5700,13 @@ scenario_tui_sudo() {
 	tui_wait "5 $tui_icon_containers Containers" 10
 	tui_wait "$sa_single" 15
 	tui_send Home
-	i=0
-	until tui_ct_cursor_on "$sa_single"; do
-		i=$((i + 1))
-		[ "$i" -lt 40 ] || fail "the cursor of the Containers area does not reach $sa_single: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "$sa_single" tui_ct_cursor_on "$sa_single"
 	tui_send Z
 	tui_wait "Restart container $sa_single" 15
 	tui_has 'sudo qhost container restart' || fail "the question does not show the command: $(tui_screen)"
 	tui_send y
 	tui_wait "[sudo] password for $admin" 30
+	tui_wait_noecho 30
 	tui_type "$sa_login"
 	tui_send Enter
 	tui_wait 'restart finished: 1 ok, 0 failed' 60
@@ -5637,6 +5740,7 @@ scenario_tui_sudo() {
 	tui_has 'sudo qhost window set' || fail "the question does not show the command: $(tui_screen)"
 	tui_send y
 	tui_wait "[sudo] password for $admin" 30
+	tui_wait_noecho 30
 	tui_type "$sa_login"
 	tui_send Enter
 	tui_wait 'The maintenance window is changed' 30
@@ -5809,13 +5913,7 @@ EOF2
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_wait "[ ] $ds_stack" 30
 	tui_send Home
-	i=0
-	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] $ds_stack "; do
-		i=$((i + 1))
-		[ "$i" -lt 40 ] || fail "the cursor does not reach $ds_stack: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_cursor_to "$ds_stack"
 	tui_send Enter
 	tui_wait 'Missing data directories' 15
 	tui_wait 'owner 1000:1000' 10
@@ -6410,6 +6508,23 @@ no_finding() {
 	! has_finding "$1" "$2"
 }
 
+# stack_removed succeeds when qhost status marks the stack as removed from the repository.
+stack_removed() {
+	qd --output json status | jq -e --arg k "stack.$1.removed" '.[$k] == true' >/dev/null
+}
+
+# stack_leftovers_clean makes the service poll at once and waits until it has noticed that the stack $1 left the
+# repository, which it only records: it stops no container and deletes no folder. Then it removes the containers
+# and the unversioned folder $2 (data and the like) and proves that nothing of the stack is left on the host.
+stack_leftovers_clean() {
+	restart_service
+	wait_for "the service to report $1 as removed" 120 stack_removed "$1"
+	docker exec "$host" sh -c "docker ps -aq --filter label=com.docker.compose.project=$1 | xargs -r docker rm -f" >/dev/null ||
+		fail "cannot remove the containers of $1"
+	docker exec "$host" rm -rf "$2" || fail "cannot remove $2"
+	if docker exec "$host" test -e "$2"; then fail "$2 is left on the host"; fi
+}
+
 # scenario_container_monitor proves that the failure monitor reports a container of demo-stack that dies outside
 # qhost and then repairs it: the webhook hears container-failed and qhost status shows the finding; qhost
 # restarts the container after a minute, and the webhook hears recovered with restarted. The same for a container
@@ -6534,6 +6649,7 @@ scenario_repair_end() {
 	out=$(qd notify remove rep) || fail "notify remove rep failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q repair-demo &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the repair-demo stack" && git push -q origin main'
+	stack_leftovers_clean repair-demo /opt/stacks/repair-demo
 	log 'scenario: resume released the repair; repair-demo is fixed and removed'
 }
 
@@ -6634,6 +6750,8 @@ scenario_observe_end() {
 	out=$(qd notify remove obs) || fail "notify remove obs failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q observe-demo .qatlas/qhost/observe-demo.yaml &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the observe-demo stack" && git push -q origin main'
+	stack_leftovers_clean observe-demo /opt/stacks/observe-demo
+	if docker exec "$host" test -e /opt/stacks/.qatlas/qhost/observe-demo.yaml; then fail 'the settings of observe-demo are left on the host'; fi
 	log 'scenario: the update of observe-demo was rolled back by qhost; observe-demo is removed'
 }
 
@@ -7355,8 +7473,26 @@ tui_screen() {
 	tui_tmux capture-pane -p -t qdtui | tee -a "${tui_log:-/dev/null}" 2>/dev/null
 }
 
+# tui_send sends Escape as its CSI u sequence: a lone ESC byte waits for a following key and merges with it into
+# Alt+key, which the interface ignores, while the full sequence reads as Escape at once.
 tui_send() {
-	tui_tmux send-keys -t qdtui "$@"
+	tui_send_esc=
+	case "${1-}" in -*) ;; *)
+		for tui_send_key in "$@"; do
+			[ "$tui_send_key" != Escape ] || tui_send_esc=1
+		done
+	esac
+	if [ -z "$tui_send_esc" ]; then
+		tui_tmux send-keys -t qdtui "$@"
+		return
+	fi
+	for tui_send_key in "$@"; do
+		if [ "$tui_send_key" = Escape ]; then
+			tui_tmux send-keys -t qdtui -l "$(printf '\033[27u')"
+		else
+			tui_tmux send-keys -t qdtui "$tui_send_key"
+		fi
+	done
 }
 
 tui_has() {
@@ -7392,29 +7528,46 @@ tui_wait() {
 	done
 }
 
+# tui_walk_down presses Down until the command $2..., which reads the screen on its input, succeeds; $1 names the
+# target in the failure. The cursor rows count with their screen lines, so rows of the same text stay apart. After
+# each key it waits up to two seconds for them to change, as a pending redraw cannot be told from the end of the list
+# otherwise. The end of the list ends the walk with a failure, and so do cursor rows seen twice: a list that wraps.
+tui_walk_down() {
+	tw_target=$1
+	shift
+	tw_sep=$(printf '\037')
+	tw_seen=$tw_sep
+	tw_screen=$(tui_screen)
+	while ! printf '%s\n' "$tw_screen" | "$@"; do
+		tw_cursor=$(printf '%s\n' "$tw_screen" | grep -nE '^(│ |║ )?> ')
+		tui_send Down
+		tw_n=0
+		while :; do
+			sleep 0.1
+			tw_screen=$(tui_screen)
+			tw_now=$(printf '%s\n' "$tw_screen" | grep -nE '^(│ |║ )?> ')
+			[ "$tw_now" != "$tw_cursor" ] && break
+			tw_n=$((tw_n + 1))
+			[ "$tw_n" -lt 20 ] || fail "the cursor does not reach $tw_target, it stops at '${tw_cursor:-no cursor row}': $tw_screen"
+		done
+		case $tw_seen in
+		*"$tw_sep$tw_now$tw_sep"*) fail "the cursor does not reach $tw_target, the list wraps around at '$tw_now': $tw_screen" ;;
+		esac
+		tw_seen=$tw_seen$tw_now$tw_sep
+	done
+}
+
 # tui_cursor_to moves the cursor of the Stacks list to the stack $1. The list draws no cursor without the focus, so
 # the focus must be in the list.
 tui_cursor_to() {
-	i=0
-	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] $1 "; do
-		i=$((i + 1))
-		[ "$i" -lt 12 ] || fail "the cursor does not reach $1: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "$1" grep -Eq "^(│ |║ )?> .*\[.\] $1 "
 }
 
 # tui_folder_to moves the cursor of the Stacks list to the group row of the stack folder $1. The mark before the path
 # is a symbol in a terminal.
 tui_folder_to() {
 	tui_send Home
-	i=0
-	until tui_screen | grep -q "^\(│ \|║ \)\{0,1\}> .*\[.\] [^ ]* $1 ("; do
-		i=$((i + 1))
-		[ "$i" -lt 40 ] || fail "the cursor does not reach the folder $1: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "the folder $1" grep -Eq "^(│ |║ )?> .*\[.\] [^ ]* $1 \("
 }
 
 # tui_click presses and releases the left mouse button at the first cell of the text $1 on the screen, as a
@@ -7785,13 +7938,7 @@ scenario_tui() {
 	tui_send 5
 	tui_wait 'own stack demo-stack' 15
 	tui_send Home
-	i=0
-	until tui_ct_cursor_on "$ctname"; do
-		i=$((i + 1))
-		[ "$i" -lt 30 ] || fail "the cursor of the Containers area does not reach $ctname: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "$ctname" tui_ct_cursor_on "$ctname"
 	tui_send o
 	tui_wait 'demo tick' 10
 	# The log opens following at its end, so an older container shows its start line, the only one with the
@@ -7851,13 +7998,7 @@ scenario_tui() {
 	# command $3. The dialog wraps the question, so only its first words are matched whole.
 	ct_action() {
 		tui_send Home
-		i=0
-		until tui_ct_cursor_on "$foreign"; do
-			i=$((i + 1))
-			[ "$i" -lt 40 ] || fail "the cursor of the Containers area does not reach $foreign: $(tui_screen)"
-			tui_send Down
-			sleep 0.2
-		done
+		tui_walk_down "$foreign" tui_ct_cursor_on "$foreign"
 		tui_send "$1"
 		tui_wait "$2 container $foreign" 15
 		tui_has 'demo-foreign-tui)?' || fail "the question of $3 does not name the foreign project: $(tui_screen)"
@@ -8032,13 +8173,7 @@ tui_ct_cursor_on() {
 
 # tui_ct_cursor_to moves the cursor of the Containers list to the container $1.
 tui_ct_cursor_to() {
-	i=0
-	until tui_screen | grep -Eq "^(│ |║ )?> *$1 "; do
-		i=$((i + 1))
-		[ "$i" -lt 40 ] || fail "the cursor does not reach $1: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "$1" grep -Eq "^(│ |║ )?> *$1 "
 }
 
 # scenario_adopt proves that the interface takes over a foreign Compose project: a person starts the project app
@@ -8419,6 +8554,18 @@ tui_type() {
 	tui_tmux send-keys -t qdtui -l -- "$1"
 }
 
+# tui_wait_noecho waits up to $1 seconds until the terminal of the interface no longer echoes, as sudo turns the echo
+# off for its password prompt; text typed before would show on the screen.
+tui_wait_noecho() {
+	tui_pane_tty=$(tui_tmux display -p -t qdtui '#{pane_tty}') || fail 'cannot read the terminal of the interface'
+	i=0
+	until docker exec -u "$admin" "$host" stty -F "$tui_pane_tty" -a 2>/dev/null | grep -qw -- -echo; do
+		i=$((i + 1))
+		[ "$i" -lt $(($1 * 4)) ] || fail "the terminal of the interface still echoes after $1 seconds: $(tui_screen)"
+		sleep 0.25
+	done
+}
+
 # tui_clear empties the text field that has the focus.
 tui_clear() {
 	tui_send BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace BSpace
@@ -8454,13 +8601,7 @@ tui_key_generate() {
 
 # tui_pick_to moves the cursor of an open choice to the row that starts with the text $1.
 tui_pick_to() {
-	i=0
-	until tui_screen | grep -q "^> *$1"; do
-		i=$((i + 1))
-		[ "$i" -lt 12 ] || fail "the cursor does not reach $1: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "$1" grep -Eq "^> *$1"
 }
 
 # first_setup_reset gives the service a fresh state: no key, credentials, channels, repository or runs, and

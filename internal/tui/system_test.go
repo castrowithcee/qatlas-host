@@ -96,7 +96,8 @@ func (f *fakeRoot) run(req HostRequest) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
-func (f *fakeRoot) exec(cmd *exec.Cmd, fn tea.ExecCallback) tea.Cmd {
+func (f *fakeRoot) exec(c tea.ExecCommand, fn tea.ExecCallback) tea.Cmd {
+	cmd := c.(*handover).cmd
 	f.execs = append(f.execs, cmd)
 	if slices.Contains(cmd.Args, "-v") {
 		// The password check succeeds; only the command itself ends as the test says.

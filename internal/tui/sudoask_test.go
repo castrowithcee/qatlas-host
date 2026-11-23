@@ -1,7 +1,9 @@
 package tui
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"os/exec"
 	"slices"
 	"strings"
@@ -163,6 +165,39 @@ func TestContainerActionWithoutRootReadsTheAnswerOfAFailedCommand(t *testing.T) 
 	}
 }
 
+// Handing the terminal to sudo clears the main screen first: an old prompt left there must not invite typing the
+// password while the terminal still echoes. The clearing goes to the terminal, not into the report of the command.
+func TestHandoverClearsTheScreenBeforeTheCommand(t *testing.T) {
+	m, f := sudoCtModel(t, containersBackend(), ctReport("demo-stack-app-1"))
+	var term bytes.Buffer
+	var atStart []string
+	m.root.exec = func(c tea.ExecCommand, fn tea.ExecCallback) tea.Cmd {
+		c.(*handover).start = func(cmd *exec.Cmd) error {
+			atStart = append(atStart, term.String())
+			f.execs = append(f.execs, cmd)
+			_, _ = io.WriteString(cmd.Stdout, f.reportOf(cmd))
+			return nil
+		}
+		// As bubbletea does: the terminal is handed over, then the command runs.
+		c.SetStdin(strings.NewReader(""))
+		c.SetStdout(&term)
+		c.SetStderr(io.Discard)
+		err := c.Run()
+		return func() tea.Msg { return fn(err) }
+	}
+	selectContainer(t, m, "demo-stack-app-1")
+	send(m, "Z", "y")
+	if len(atStart) != 1 || atStart[0] != clearScreen {
+		t.Fatalf("the terminal before the command: %q", atStart)
+	}
+	if f.execs[0].Stdout == io.Writer(&term) {
+		t.Fatal("the command writes its report to the terminal")
+	}
+	if !strings.Contains(m.render(), "1 ok, 0 failed") {
+		t.Fatalf("the run failed:\n%s", m.render())
+	}
+}
+
 // sudo remembers the password only for a while. Every action hands the terminal to sudo again, without -n, so sudo
 // asks again once that time is over, as in the System area.
 func TestContainerActionWithoutRootLetsSudoAskAgain(t *testing.T) {
@@ -170,12 +205,12 @@ func TestContainerActionWithoutRootLetsSudoAskAgain(t *testing.T) {
 	m, f := sudoCtModel(t, b, ctReport("demo-stack-app-1"))
 	held := false
 	prompts := 0
-	m.root.exec = func(cmd *exec.Cmd, fn tea.ExecCallback) tea.Cmd {
+	m.root.exec = func(c tea.ExecCommand, fn tea.ExecCallback) tea.Cmd {
 		if !held {
 			prompts++
 			held = true
 		}
-		return f.exec(cmd, fn)
+		return f.exec(c, fn)
 	}
 	selectContainer(t, m, "demo-stack-app-1")
 	send(m, "Z", "y", "esc")
@@ -262,7 +297,8 @@ func TestSudoWithInputTellsHeldPasswordFromInterruptedPrompt(t *testing.T) {
 	t.Run("password check", func(t *testing.T) {
 		m, f := sudoDetailModel(t, i18n.English, updateBackend(), wideWidth, 40)
 		abort := exitCode(t, "1")
-		m.root.exec = func(cmd *exec.Cmd, fn tea.ExecCallback) tea.Cmd {
+		m.root.exec = func(c tea.ExecCommand, fn tea.ExecCallback) tea.Cmd {
+			cmd := c.(*handover).cmd
 			f.execs = append(f.execs, cmd)
 			_, _ = cmd.Stderr.Write([]byte(stderr))
 			return func() tea.Msg { return fn(abort) }

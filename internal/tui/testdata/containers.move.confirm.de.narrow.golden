@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
+  1 2 3 4 [5 Container] 6 7                                                     
+────────────────────────────────────────────────────────────────────────────────
+  ⚠ Das Projekt legacy-blog in die Quelle /srv/stacks-example verschieben, als  
+    Ordner /srv/stacks-example/demo-foreign?                                    
+                                                                                
+  Das Projekt wird heruntergefahren, sein Ordner im selben Dateisystem in die   
+  Quelle umbenannt, committet (und gepusht, wenn die Quelle ein Remote hat) und 
+  dort deployt. Daten werden nie kopiert oder gelöscht. Scheitert ein Schritt,  
+  wird alles zurückgenommen.                                                    
+                                                                                
+    Ordner: /srv/demo-foreign                                                   
+    Quelle: /srv/stacks-example                                                 
+    Zielordner: /srv/stacks-example/demo-foreign                                
+    Projekt: legacy-blog                                                        
+    Engine: system                                                              
+                                                                                
+  Dateien des ersten Commits (2)                                                
+    compose.yaml                                                                
+    .env                                                                        
+                                                                                
+  Ausgelassen (1), von den Stacks nicht gebraucht, per .gitignore von Git ausge…
+    data: bind-mount                                                            
+                                                                                
+  Warnung                                                                       
+    downtime: the containers of the project are recreated from the new folder   
+    Lösung: Move in a quiet period.                                             
+                                                                                
+    $ sudo qhost source move --into /srv/stacks-example --yes --output json --  
+      /srv/demo-foreign                                                         
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+y ja, ausführen  n/esc/enter abbrechen                              ↑/↓ Scrollen

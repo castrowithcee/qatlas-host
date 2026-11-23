@@ -16,7 +16,7 @@ import (
 )
 
 // formGrantExpiry asks for the expiry date of a grant the person is about to approve.
-const formGrantExpiry formKind = formHookListen + 1
+const formGrantExpiry formKind = formAdoptTarget + 1
 
 // setUp is what is known of a part of a stack: a stack that cannot be read has neither answer.
 type setUp int

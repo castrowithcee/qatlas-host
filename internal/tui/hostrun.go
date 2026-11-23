@@ -56,8 +56,8 @@ type hostRoot struct {
 	run HostRunner
 	// in is the terminal a command that takes the screen over reads from.
 	in io.Reader
-	// exec hands the terminal to a command; nil takes tea.ExecProcess.
-	exec func(*exec.Cmd, tea.ExecCallback) tea.Cmd
+	// exec hands the terminal to a command; nil takes tea.Exec.
+	exec func(tea.ExecCommand, tea.ExecCallback) tea.Cmd
 	// bg runs a command without the terminal; nil takes (*exec.Cmd).Run.
 	bg func(*exec.Cmd) error
 }
@@ -100,14 +100,60 @@ func (m *Model) runHost(req HostRequest, after func(out []byte, err error) tea.C
 	}
 	run := m.root.exec
 	if run == nil {
-		run = tea.ExecProcess
+		run = tea.Exec
 	}
-	return run(cmd, func(err error) tea.Msg {
+	return run(&handover{cmd: cmd}, func(err error) tea.Msg {
 		if err != nil && errOut.Len() > 0 {
 			err = &hostRunError{err: err, stderr: errOut.String()}
 		}
 		return hostRanMsg{after: after, out: out.Bytes(), err: err}
 	})
+}
+
+// clearScreen moves the cursor to the top left and clears the screen.
+const clearScreen = ansi.CursorHomePosition + ansi.EraseEntireScreen
+
+// handover hands the terminal to a command. Leaving the interface shows the main screen with what earlier commands
+// left there, such as an old sudo prompt, and the terminal echoes again until sudo turns the echo off: a password
+// typed at the old prompt would show in plain text. So the main screen is cleared before the command starts.
+type handover struct {
+	cmd  *exec.Cmd
+	term io.Writer
+	// start runs the command; nil takes (*exec.Cmd).Run. Tests replace it so nothing real runs.
+	start func(*exec.Cmd) error
+}
+
+func (h *handover) SetStdin(r io.Reader) {
+	if h.cmd.Stdin == nil {
+		h.cmd.Stdin = r
+	}
+}
+
+// SetStdout takes the terminal; the command writes there only where it has no standard output of its own.
+func (h *handover) SetStdout(w io.Writer) {
+	h.term = w
+	if h.cmd.Stdout == nil {
+		h.cmd.Stdout = w
+	}
+}
+
+func (h *handover) SetStderr(w io.Writer) {
+	if h.cmd.Stderr == nil {
+		h.cmd.Stderr = w
+	}
+}
+
+func (h *handover) Run() error {
+	if h.term != nil {
+		if _, err := io.WriteString(h.term, clearScreen); err != nil {
+			return err
+		}
+	}
+	start := h.start
+	if start == nil {
+		start = (*exec.Cmd).Run
+	}
+	return start(h.cmd)
 }
 
 // hostRunError is the error of a run: the failure, and what the command wrote to standard error with the
@@ -129,10 +175,11 @@ func zeroAll(bufs ...[]byte) {
 	}
 }
 
-// scrub takes every secret out of text.
+// scrub takes every secret out of text. A blank one, as the empty line a command gets as its standard input only
+// so that it does not read the terminal, hides nothing and would only break the text apart.
 func scrub(text string, secrets ...[]byte) string {
 	for _, s := range secrets {
-		if len(s) > 0 {
+		if len(bytes.TrimSpace(s)) > 0 {
 			text = strings.ReplaceAll(text, string(s), "<hidden>")
 		}
 	}
