@@ -27,3 +27,7 @@ test-ext:
 # Rewrites the golden files of the terminal interface; review the diff like code.
 snap-update:
     @{{run}} go test -count=1 ./internal/tui/ -update
+
+# Lowers the frozen size list to the current values and drops resolved entries; never adds one.
+size-update:
+    @{{run}} go test -count=1 -run '^TestSizeLimits$' . -update
