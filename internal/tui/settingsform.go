@@ -210,6 +210,8 @@ func (m *Model) submitForm() tea.Cmd {
 		return m.submitFolderInclude(v)
 	case formFolderEngine:
 		return m.submitFolderEngine(v)
+	case formAdoptTarget:
+		return m.submitAdoptTarget(v)
 	case formProposalReject:
 		return m.submitProposalReject(f, text("reason"))
 	case formProposalSecrets:

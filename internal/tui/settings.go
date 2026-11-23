@@ -62,6 +62,8 @@ type settingsState struct {
 	// folderData are the bound stack folders by path; add is the one being added, nil while none is.
 	folderData map[stackRef]control.SourceStatus
 	add        *addFlow
+	// move is the foreign project being moved into a source that exists; nil while none is.
+	move *moveFlow
 
 	// keyOpen says the Stacks area shows the deploy key of the folder keyFor.
 	keyOpen bool
@@ -140,6 +142,8 @@ const (
 	opGrantAdd
 	opGrantRemove
 	opReturn
+	opMovePreview
+	opMove
 )
 
 // settingMsg carries the answer of a write. A write answers with the name it concerned, never with a value.
@@ -483,6 +487,13 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 	case control.ProposalInfo:
 		done(t.Lookup(textDonePropRejected, kittui.Escape(proposalShort(res.ID))))
 		cmds = append(cmds, m.reloadNow(), m.readProposal())
+	case movePreviewed:
+		s.form = nil
+		m.showMovePreview(res.flow)
+		return nil
+	case moveOutcome:
+		s.move = nil
+		cmds = append(cmds, m.moveDone(res, done)...)
 	case inspected:
 		s.form, s.add = nil, res.flow
 		if m.askEngine(res.flow) {

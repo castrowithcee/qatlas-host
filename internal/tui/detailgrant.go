@@ -16,7 +16,7 @@ import (
 // The Grants section of the stack detail lists the standing grants of the stack, grants one and withdraws one. Both
 // writes need root, so they run as `sudo qhost grant …`. The list is read by the deploy service and needs no root.
 
-const formGrant formKind = formHookListen + 1
+const formGrant formKind = formAdoptTarget + 1
 
 // grantSetup is what the stack has set up, as the confirmation of a new grant says it.
 type grantSetup struct{ backup, check bool }
