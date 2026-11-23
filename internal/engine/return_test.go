@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -91,6 +92,23 @@ func TestReturnTakesTheVersionsFromTheParentOfTheRunCommit(t *testing.T) {
 	}
 	if v, _ := r.eng.WindowEligibility("web"); v.Allowed || !slices.Contains(v.Reasons, BlockPin) {
 		t.Fatalf("verdict = %+v", v)
+	}
+}
+
+func TestReturnCheckNamesOnlyImageVersions(t *testing.T) {
+	other := "example-other-value-" + t.Name()
+	r, a, _, _ := returnRig(t)
+	// The value differs from the one the update's parent has, so an unfiltered plan would carry it.
+	env := strings.Replace(r.env(), "OTHER=kept", "OTHER="+other, 1)
+	if err := os.WriteFile(filepath.Join(r.wc, "web", ".env"), []byte(env), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := r.eng.CheckReturn(context.Background(), "web", a, DataKeep)
+	if err != nil || len(plan.Steps) != 1 || plan.Steps[0].Variable != "APP_VERSION" {
+		t.Fatalf("plan = %+v, %v", plan, err)
+	}
+	if got := fmt.Sprintf("%+v", plan); strings.Contains(got, other) {
+		t.Fatalf("plan holds the value: %s", got)
 	}
 }
 

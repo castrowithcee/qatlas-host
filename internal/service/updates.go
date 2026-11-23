@@ -57,7 +57,7 @@ func registerUpdateCommands(r *control.Registry, repo *repoService, eng *sourceS
 	for name, h := range map[string]control.Command{
 		control.UpdatesListCommand: list, control.UpdateRunCommand: inStack(changing(s.handleRun), stackList),
 		control.ChangelogShowCommand: inStack(changing(s.handleChangelog), stackField),
-		control.ReturnCheckCommand:   inStack(changing(s.handleReturnCheck), stackField),
+		control.ReturnCheckCommand:   inStack(reading(s.handleReturnCheck), stackField),
 		control.ReturnRunCommand:     inStack(changing(s.handleReturn), stackField),
 	} {
 		if err := r.Register(name, h); err != nil {

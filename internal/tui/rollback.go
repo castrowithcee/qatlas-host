@@ -79,14 +79,10 @@ type rollbackCheckMsg struct {
 	err error
 }
 
-// askRollback opens the choice of what happens to the data. As root the service is asked first which versions the
-// return sets and whether it is refused; without root only sudo may ask, so the dialog says the versions come later.
+// askRollback opens the choice of what happens to the data. The service is asked first which versions the
+// return sets and whether it is refused.
 func (m *Model) askRollback(r runRow) tea.Cmd {
 	if m.detailBusy() {
-		return nil
-	}
-	if m.euid() != 0 {
-		m.openRollbackDialog(r, nil)
 		return nil
 	}
 	m.rollbackGen++
@@ -110,13 +106,10 @@ func (m *Model) applyRollbackCheck(msg rollbackCheckMsg) {
 	m.openRollbackDialog(msg.row, msg.res.Steps)
 }
 
-// openRollbackDialog shows the choice; steps are the versions the return sets, none without root.
+// openRollbackDialog shows the choice; steps are the versions the return sets.
 func (m *Model) openRollbackDialog(r runRow, steps []control.ReturnStepInfo) {
 	t := m.text
 	var details []kittui.DialogLine
-	if len(steps) == 0 {
-		details = append(details, kittui.DialogLine{Text: t.Lookup(textRollbackVersionsLater), Style: kittui.StyleHint})
-	}
 	for _, s := range steps {
 		details = append(details, kittui.DialogLine{Text: t.Lookup(textRollbackStep, s.Variable, s.From, s.To)})
 	}
