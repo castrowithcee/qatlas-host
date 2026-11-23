@@ -6318,6 +6318,7 @@ scenario_hook() {
 		restart_service
 		run=$(next_run demo-stack "$prev") || fail 'no run of demo-stack started for the reset to 1.0.1'
 		wait_for "the run $run" 240 run_finished demo-stack "$run"
+		qd stack log "$run" | grep -q ' result succeeded' || fail "the reset of demo-stack to 1.0.1 did not succeed: $(qd stack log "$run")"
 	fi
 	settings_set demo-stack "$(demo_stack_settings 'update:\n  mode: automatic\n')"
 	[ "$(stack_images demo-stack)" = "$image:1.0.1" ] || fail "demo-stack does not run 1.0.1: $(stack_images demo-stack)"
