@@ -3924,6 +3924,8 @@ EOF2
 	prev=$(newest_run demo-local)
 	docker exec "$host" sh -ec "cd '$base/demo-local' && printf '# edited by hand\n' >>.env && printf 'scratch\n' >scratch.txt" ||
 		fail 'cannot edit the stack folder by hand'
+	# A hand edit wakes no poll; the restart starts the one that judges the findings.
+	restart_service
 	i=0
 	until stack_field demo-local findings | grep -q local-changes; do
 		i=$((i + 1))
