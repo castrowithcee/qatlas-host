@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -23,6 +24,8 @@ type proposalHooks struct {
 	stackKnown func(name string) bool
 	// channelKnown tells whether a notification channel of that name exists, like the check of notify.add.
 	channelKnown func(name string) (bool, error)
+	// grants checks a proposal of kind grant like grant.add does; kinds of grants are refused without it.
+	grants *grantService
 }
 
 // registerProposalCommands keeps the proposals of the service in a store below stateDir and registers its
@@ -44,7 +47,10 @@ var proposalNormalizers = map[string]func(p *proposalHooks, content json.RawMess
 	control.ProposalKindNotifyChannel: (*proposalHooks).normalizeNotifyChannel,
 }
 
-func (p *proposalHooks) normalize(kind string, content json.RawMessage) (any, *control.Error) {
+func (p *proposalHooks) normalize(ctx context.Context, kind string, content json.RawMessage) (any, *control.Error) {
+	if kind == control.ProposalKindGrant {
+		return p.normalizeGrant(ctx, content)
+	}
 	if n, ok := proposalNormalizers[kind]; ok {
 		return n(p, content)
 	}

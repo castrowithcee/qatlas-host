@@ -49,8 +49,9 @@ const (
 var prefixRe = regexp.MustCompile(`^[a-z]+-$`)
 
 // Normalizer checks the content of one kind of proposal and returns it in its canonical form, the one the
-// fingerprint covers. It refuses an unknown kind and never runs, evaluates or expands the content.
-type Normalizer func(kind string, content json.RawMessage) (any, *control.Error)
+// fingerprint covers. It refuses an unknown kind and never runs, evaluates or expands the content. The context
+// carries the peer of the submission (control.PeerUID) for a kind whose content is about the submitter.
+type Normalizer func(ctx context.Context, kind string, content json.RawMessage) (any, *control.Error)
 
 // record is the file of one proposal. Content is the normalized content of its kind, the one the fingerprint
 // covers.
@@ -200,7 +201,7 @@ func (s *Store) Submit(ctx context.Context, raw json.RawMessage) (any, error) {
 	if err := decodeArgs(raw, &a); err != nil {
 		return nil, err
 	}
-	content, cerr := s.normalize(a.Kind, a.Content)
+	content, cerr := s.normalize(ctx, a.Kind, a.Content)
 	if cerr != nil {
 		return nil, cerr
 	}
