@@ -50,7 +50,7 @@ func proposalCommands(add func(name, action string, class control.Class, h contr
 // reads nothing from the host and runs nothing. ProposalKindCommand is accepted only while commandsEnabled
 // says the switch is on.
 func normalizeProposal(check hostproposal.Checker, commandsEnabled func() (bool, error)) proposals.Normalizer {
-	return func(kind string, content json.RawMessage) (any, *control.Error) {
+	return func(_ context.Context, kind string, content json.RawMessage) (any, *control.Error) {
 		if kind == control.ProposalKindCommand {
 			return normalizeCommandProposal(content, commandsEnabled)
 		}

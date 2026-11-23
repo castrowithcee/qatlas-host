@@ -231,13 +231,6 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 	if cfg.Clock != nil {
 		proposalNow = cfg.Clock.Now
 	}
-	hooks := &proposalHooks{log: log, stackKnown: eng.hasStack, channelKnown: notifier.hasChannel}
-	if err := registerProposalCommands(registry, cfg.StateDir, db.passwd, proposalNow, hooks); err != nil {
-		return err
-	}
-	if err := registerSettingsCommands(registry, eng, secrets.Apply, log); err != nil {
-		return err
-	}
 	grantNow := proposalNow
 	if grantNow == nil {
 		grantNow = time.Now
@@ -249,6 +242,13 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) (err error) {
 	grantSvc := &grantService{
 		store: grantStore, users: admins.Database{Group: db.group, Passwd: db.passwd}, now: grantNow,
 		stackKnown: eng.hasStack, stackSetup: eng.stackSetup, log: log,
+	}
+	hooks := &proposalHooks{log: log, stackKnown: eng.hasStack, channelKnown: notifier.hasChannel, grants: grantSvc}
+	if err := registerProposalCommands(registry, cfg.StateDir, db.passwd, proposalNow, hooks); err != nil {
+		return err
+	}
+	if err := registerSettingsCommands(registry, eng, secrets.Apply, log); err != nil {
+		return err
 	}
 	if err := registerGrantCommands(registry, grantSvc); err != nil {
 		return err

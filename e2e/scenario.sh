@@ -2636,6 +2636,7 @@ scenario_stacks_repo() {
 	scenario_deploy_audit
 
 	scenario_grants
+	scenario_grant_proposal
 
 	scenario_tui_sudo
 
@@ -5461,6 +5462,59 @@ scenario_grants() {
 	if out=$(as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1'); then fail "stack restart after the removal of the grant succeeded: $out"; fi
 	printf '%s' "$out" | grep -q 'only root may use the service' || fail "the refusal of stack restart after the removal is unclear: $out"
 	log "scenario: grant $grant_id for e2e-grantee was planned, added, listed without sudo and removed"
+}
+
+# scenario_grant_proposal proves a proposal of a standing grant. e2e-grantee submits a request for stack.restart of
+# demo-stack without sudo, restarting without a grant is refused, proposal show marks the reason as text of the
+# submitter and shows the backup state, sudo qhost proposal approve with the fingerprint and --confirm at a terminal
+# adds the grant, and then e2e-grantee restarts demo-stack without sudo. The grant is removed at the end.
+scenario_grant_proposal() {
+	gp_dir=$(as_admin 'mktemp -d') || fail 'cannot make the folder for the approval output'
+	# The approval needs a person at a terminal, so it runs under a pseudo terminal with its output in a file; the
+	# command must not hold a single quote.
+	gp_tty() { as_admin "script -qec '$1' /dev/null"; }
+
+	step 'without a grant e2e-grantee cannot restart demo-stack'
+	if out=$(as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1'); then fail "stack restart without a grant succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'only root may use the service' || fail "the refusal of stack restart without a grant is unclear: $out"
+
+	step 'e2e-grantee submits the request without sudo and proposal show marks the reason'
+	content=$(jq -nc '{action: "stack.restart", stack: "demo-stack", reason: "e2e: restart after the nightly import"}')
+	out=$(printf '%s' "$content" | docker exec -i -u e2e-grantee "$host" sh -c 'qhost --output json proposal submit --kind grant 2>&1') || fail "submit --kind grant failed: $out"
+	gp_id=$(printf '%s' "$out" | sed -n 's/.*"id": *"\(p-[0-9a-f]*\)".*/\1/p' | head -n 1)
+	[ -n "$gp_id" ] || fail "proposal submit printed no id: $out"
+	out=$(as_user e2e-grantee "qhost proposal show $gp_id 2>&1") || fail "proposal show failed: $out"
+	printf '%s' "$out" | grep -qi 'untrusted_reason' || fail "proposal show does not mark the reason as text of the submitter: $out"
+	printf '%s' "$out" | grep -q 'e2e: restart after the nightly import' || fail "proposal show lacks the reason: $out"
+	printf '%s' "$out" | grep -qi 'backup' || fail "proposal show lacks the backup state: $out"
+	gp_fp=$(as_user e2e-grantee "qhost --output json proposal show $gp_id" | jq -r .fingerprint)
+	[ -n "$gp_fp" ] && [ "$gp_fp" != null ] || fail 'proposal show gave no fingerprint'
+	if out=$(as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1'); then fail "stack restart worked while the proposal was only open: $out"; fi
+
+	step 'approving needs sudo, a terminal and the right fingerprint'
+	if out=$(as_user e2e-grantee "qhost proposal approve $gp_id --fingerprint $gp_fp --confirm 2>&1"); then fail "approve worked without sudo: $out"; fi
+	if out=$(as_admin "sudo qhost proposal approve $gp_id --fingerprint $gp_fp --confirm 2>&1"); then fail "approve worked without a terminal: $out"; fi
+	if out=$(gp_tty "sudo qhost proposal approve $gp_id --fingerprint wrong --confirm 2>&1"); then fail "approve took a wrong fingerprint: $out"; fi
+	if out=$(as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1'); then fail "a refused approval allowed the restart: $out"; fi
+
+	step 'sudo qhost proposal approve with the fingerprint and --confirm adds the grant'
+	gp_tty "sudo qhost --output json proposal approve $gp_id --fingerprint $gp_fp --confirm >$gp_dir/out 2>/dev/null" >/dev/null || fail 'proposal approve failed'
+	out=$(as_admin "cat $gp_dir/out") || fail 'proposal approve printed no result'
+	grant_id=$(printf '%s' "$out" | jq -er '.id') || fail "proposal approve printed no grant id: $out"
+	printf '%s' "$out" | jq -e --arg p "$gp_id" '.proposal == $p and .user == "e2e-grantee" and .action == "stack.restart" and .stack == "demo-stack"' >/dev/null ||
+		fail "the result of proposal approve is not the grant of e2e-grantee: $out"
+	[ "$(prop_state "$gp_id")" = applied ] || fail "the proposal is $(prop_state "$gp_id"), want applied"
+	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list failed: $out"
+	printf '%s' "$out" | jq -e --arg id "$grant_id" '[.[] | select(.id == $id and .user == "e2e-grantee" and .state == "valid")] | length == 1' >/dev/null ||
+		fail "qhost grant list does not show the grant $grant_id: $out"
+
+	step 'e2e-grantee restarts demo-stack without sudo'
+	as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1' >/dev/null || fail 'stack restart under the approved grant failed'
+	stack_healthy demo-stack || fail 'demo-stack is not healthy after the restart under the approved grant'
+
+	as_admin "sudo qhost grant remove $grant_id --confirm 2>&1 </dev/null" >/dev/null || fail "grant remove failed for $grant_id"
+	as_admin "rm -rf $gp_dir"
+	log "scenario: $gp_id was approved as the grant $grant_id and e2e-grantee restarted demo-stack without sudo"
 }
 
 # scenario_tui_sudo proves the actions of the interface started without sudo that need no secret: the interface asks
