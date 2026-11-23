@@ -277,9 +277,7 @@ func (s *inspectService) decideRepo(ctx context.Context, a control.SourceInspect
 }
 
 func (s *inspectService) decideFiles(ctx context.Context, a control.SourceInspectArgs) (verdict, error) {
-	// The plan needs the stacks for what they refer to; a folder whose stacks cannot be read has none.
-	list, loadErr := stacks.Load(a.Path)
-	plan, err := planFiles(ctx, a.Path, list, loadErr != nil, nil, a.Include)
+	plan, list, loadErr, err := planFolder(ctx, a.Path, a.Include)
 	var bad *gitrepo.IgnoreError
 	if errors.As(err, &bad) {
 		return rejected(printable(bad.Error()), ignoreFix), nil
@@ -288,6 +286,15 @@ func (s *inspectService) decideFiles(ctx context.Context, a control.SourceInspec
 		return verdict{}, err
 	}
 	return verdict{kase: control.SourceCaseFiles, url: a.URL, view: plan, plan: plan, include: a.Include, list: list, loadErr: loadErr, loaded: true}, nil
+}
+
+// planFolder plans the files a commit of the folder takes, as the preview of a move shows them and a commit of
+// the folder into a source takes them. The plan needs the stacks for what they refer to; a folder whose stacks
+// cannot be read has none (loadErr).
+func planFolder(ctx context.Context, root string, include []string) (plan *filePlan, list []stacks.Stack, loadErr error, err error) {
+	list, loadErr = stacks.Load(root)
+	plan, err = planFiles(ctx, root, list, loadErr != nil, nil, include)
+	return plan, list, loadErr, err
 }
 
 // filePlan is what a first commit of a folder without a repository would hold, and the git view of it: the

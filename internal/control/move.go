@@ -95,3 +95,32 @@ type SourceMoveResult struct {
 	ContainersError   string              `json:"containers_error,omitempty"`
 	EnginesNotChecked []EngineNotChecked  `json:"engines_not_checked,omitempty"`
 }
+
+// SourceFolderCommitCommand commits a project folder that lies in a source and is not versioned yet, with a
+// push when the source has a remote. The service plans the files of the folder as the preview of SourceMoveCommand
+// does and refuses unless Files is exactly that plan, and unless Head is still the head of the working copy
+// (CodeHeadMoved). It writes the lines of the plan into the .gitignore of the folder, which the commit holds.
+// The folder is a plain name below the source. A push the remote did not take gives CodePushRejected and
+// secret-like files CodeSecrets; a refusal leaves the folder as it was. Only root may run it.
+const SourceFolderCommitCommand = "source.commit-folder"
+
+// SourceFolderCommitArgs are the arguments of SourceFolderCommitCommand. Path is the folder of the source,
+// Folder the name of the project folder in it, Files the planned files relative to Folder, as the preview lists
+// them. SudoUID is the person behind the sudo call, named in the commit message.
+type SourceFolderCommitArgs struct {
+	Path    string   `json:"path"`
+	Folder  string   `json:"folder"`
+	Files   []string `json:"files"`
+	Head    string   `json:"head"`
+	SudoUID uint32   `json:"sudo_uid,omitempty"`
+}
+
+// SourceFolderCommitResult answers SourceFolderCommitCommand with the new commit, the committed files relative
+// to the source, and the change to the .gitignore of the folder, nil when there was none.
+type SourceFolderCommitResult struct {
+	Path      string        `json:"path"`
+	Folder    string        `json:"folder"`
+	Commit    string        `json:"commit"`
+	Committed []string      `json:"committed"`
+	Ignore    *SourceIgnore `json:"ignore,omitempty"`
+}

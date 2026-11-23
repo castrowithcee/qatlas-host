@@ -81,6 +81,8 @@ var entries = []Entry{
 	deployCmd("source.list", ClassRead, ScopeDeploy, "List the bound stack folders.", none, "source list"),
 	deployCmd("source.move", ClassChange, ScopeDeploy, "Preview the move of a project folder into a source; changes nothing.",
 		object([]string{"path", "into"}, props{"path": str(), "into": str()}), "source move"),
+	deployCmd("source.commit-folder", ClassChange, ScopeDeploy, "Commit a project folder that lies in a source and is not versioned yet, with a push when the source has a remote.",
+		object([]string{"path", "folder", "files", "head"}, props{"path": str(), "folder": str(), "files": strList(), "head": str()})),
 	deployCmd("source.changes", ClassRead, ScopeDeploy, "List the local changes of a bound stack folder that keep its stacks out of a run.",
 		pathArg, "source changes"),
 	deployCmd("source.diff", ClassChange, ScopeDeploy, "Show the diff of one local change of a stack folder; shows file contents, so only root.",

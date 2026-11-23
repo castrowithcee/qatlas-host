@@ -194,6 +194,23 @@ func (r *Repo) putIgnore(ctx context.Context, p IgnorePlan) error {
 	return nil
 }
 
+// Apply writes the planned IgnoreName into dir, which must still hold what PlanIgnore read; nothing is written
+// without Write.
+func (p IgnorePlan) Apply(dir string) error {
+	if !p.Write {
+		return nil
+	}
+	return p.write(dir)
+}
+
+// Revert puts back what dir held before Apply.
+func (p IgnorePlan) Revert(dir string) error {
+	if !p.Write {
+		return nil
+	}
+	return p.restore(dir)
+}
+
 // write puts the planned content into the file in place, so its owner, group and mode stay.
 func (p IgnorePlan) write(dir string) error {
 	name := filepath.Join(dir, IgnoreName)
