@@ -1251,6 +1251,9 @@ scenario_free_command_proposal() {
 	# The commands that apply a proposal need a person at a terminal, so they run under a pseudo terminal; -e passes
 	# the exit code of the command on. The command must not hold a single quote.
 	fc_tty() { as_admin "script -qec '$1' /dev/null"; }
+	# The pseudo terminal may echo characters before the output, so a report read with jq goes to a file instead;
+	# standard input stays the terminal.
+	fc_out=$(as_admin 'mktemp -d') || fail 'cannot create the folder for the report of proposal run'
 
 	step 'a proposal of free commands is refused while the switch is off'
 	content=$(jq -nc --arg c "$fc_text" '{commands: [$c], reason: "e2e: leave a marker file"}')
@@ -1287,7 +1290,10 @@ scenario_free_command_proposal() {
 	docker exec "$host" test ! -e "$fc_dir/ready" || fail 'a refused run created the file'
 
 	step 'sudo qhost proposal run with the fingerprint and --confirm runs the command as root'
-	out=$(fc_tty "sudo qhost --output json proposal run $fc_id --fingerprint $fc_fp --confirm 2>/dev/null") || fail "proposal run failed: $out"
+	fc_status=0
+	fc_tty "sudo qhost --output json proposal run $fc_id --fingerprint $fc_fp --confirm >$fc_out/run.json 2>/dev/null" || fc_status=$?
+	out=$(docker exec "$host" cat "$fc_out/run.json" 2>&1) || fail "the report of proposal run cannot be read: $out"
+	[ "$fc_status" -eq 0 ] || fail "proposal run failed with exit code $fc_status: $out"
 	docker exec "$host" test -e "$fc_dir/ready" || fail "the file was not created: $out"
 	[ "$(docker exec "$host" stat -c %U "$fc_dir/ready")" = root ] || fail 'the command did not run as root'
 	fc_journal=$(printf '%s' "$out" | jq -r '.journal_id // empty')
@@ -1318,7 +1324,7 @@ scenario_free_command_proposal() {
 	printf '%s' "$out" | grep -qF 'proposal commands enable' || fail "the refusal does not name the switch: $out"
 	if printf '%s' "$content" | as_admin 'qhost proposal submit --kind command >/dev/null 2>&1'; then fail 'a proposal was accepted with the switch off'; fi
 	as_admin "qhost proposal withdraw $fc_id2 >/dev/null 2>&1" || true
-	docker exec "$host" rm -rf "$fc_dir"
+	docker exec "$host" rm -rf "$fc_dir" "$fc_out"
 	log "scenario: $fc_id ran as $fc_journal behind the switch and cannot be undone"
 }
 
@@ -2630,6 +2636,7 @@ scenario_stacks_repo() {
 	scenario_deploy_audit
 
 	scenario_grants
+	scenario_grant_proposal
 
 	scenario_tui_sudo
 
@@ -5457,6 +5464,59 @@ scenario_grants() {
 	log "scenario: grant $grant_id for e2e-grantee was planned, added, listed without sudo and removed"
 }
 
+# scenario_grant_proposal proves a proposal of a standing grant. e2e-grantee submits a request for stack.restart of
+# demo-stack without sudo, restarting without a grant is refused, proposal show marks the reason as text of the
+# submitter and shows the backup state, sudo qhost proposal approve with the fingerprint and --confirm at a terminal
+# adds the grant, and then e2e-grantee restarts demo-stack without sudo. The grant is removed at the end.
+scenario_grant_proposal() {
+	gp_dir=$(as_admin 'mktemp -d') || fail 'cannot make the folder for the approval output'
+	# The approval needs a person at a terminal, so it runs under a pseudo terminal with its output in a file; the
+	# command must not hold a single quote.
+	gp_tty() { as_admin "script -qec '$1' /dev/null"; }
+
+	step 'without a grant e2e-grantee cannot restart demo-stack'
+	if out=$(as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1'); then fail "stack restart without a grant succeeded: $out"; fi
+	printf '%s' "$out" | grep -q 'only root may use the service' || fail "the refusal of stack restart without a grant is unclear: $out"
+
+	step 'e2e-grantee submits the request without sudo and proposal show marks the reason'
+	content=$(jq -nc '{action: "stack.restart", stack: "demo-stack", reason: "e2e: restart after the nightly import"}')
+	out=$(printf '%s' "$content" | docker exec -i -u e2e-grantee "$host" sh -c 'qhost --output json proposal submit --kind grant 2>&1') || fail "submit --kind grant failed: $out"
+	gp_id=$(printf '%s' "$out" | sed -n 's/.*"id": *"\(p-[0-9a-f]*\)".*/\1/p' | head -n 1)
+	[ -n "$gp_id" ] || fail "proposal submit printed no id: $out"
+	out=$(as_user e2e-grantee "qhost proposal show $gp_id 2>&1") || fail "proposal show failed: $out"
+	printf '%s' "$out" | grep -qi 'untrusted_reason' || fail "proposal show does not mark the reason as text of the submitter: $out"
+	printf '%s' "$out" | grep -q 'e2e: restart after the nightly import' || fail "proposal show lacks the reason: $out"
+	printf '%s' "$out" | grep -qi 'backup' || fail "proposal show lacks the backup state: $out"
+	gp_fp=$(as_user e2e-grantee "qhost --output json proposal show $gp_id" | jq -r .fingerprint)
+	[ -n "$gp_fp" ] && [ "$gp_fp" != null ] || fail 'proposal show gave no fingerprint'
+	if out=$(as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1'); then fail "stack restart worked while the proposal was only open: $out"; fi
+
+	step 'approving needs sudo, a terminal and the right fingerprint'
+	if out=$(as_user e2e-grantee "qhost proposal approve $gp_id --fingerprint $gp_fp --confirm 2>&1"); then fail "approve worked without sudo: $out"; fi
+	if out=$(as_admin "sudo qhost proposal approve $gp_id --fingerprint $gp_fp --confirm 2>&1"); then fail "approve worked without a terminal: $out"; fi
+	if out=$(gp_tty "sudo qhost proposal approve $gp_id --fingerprint wrong --confirm 2>&1"); then fail "approve took a wrong fingerprint: $out"; fi
+	if out=$(as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1'); then fail "a refused approval allowed the restart: $out"; fi
+
+	step 'sudo qhost proposal approve with the fingerprint and --confirm adds the grant'
+	gp_tty "sudo qhost --output json proposal approve $gp_id --fingerprint $gp_fp --confirm >$gp_dir/out 2>/dev/null" >/dev/null || fail 'proposal approve failed'
+	out=$(as_admin "cat $gp_dir/out") || fail 'proposal approve printed no result'
+	grant_id=$(printf '%s' "$out" | jq -er '.id') || fail "proposal approve printed no grant id: $out"
+	printf '%s' "$out" | jq -e --arg p "$gp_id" '.proposal == $p and .user == "e2e-grantee" and .action == "stack.restart" and .stack == "demo-stack"' >/dev/null ||
+		fail "the result of proposal approve is not the grant of e2e-grantee: $out"
+	[ "$(prop_state "$gp_id")" = applied ] || fail "the proposal is $(prop_state "$gp_id"), want applied"
+	out=$(as_user e2e-grantee 'qhost --output json grant list 2>&1') || fail "qhost grant list failed: $out"
+	printf '%s' "$out" | jq -e --arg id "$grant_id" '[.[] | select(.id == $id and .user == "e2e-grantee" and .state == "valid")] | length == 1' >/dev/null ||
+		fail "qhost grant list does not show the grant $grant_id: $out"
+
+	step 'e2e-grantee restarts demo-stack without sudo'
+	as_user e2e-grantee 'qhost stack restart demo-stack --yes 2>&1' >/dev/null || fail 'stack restart under the approved grant failed'
+	stack_healthy demo-stack || fail 'demo-stack is not healthy after the restart under the approved grant'
+
+	as_admin "sudo qhost grant remove $grant_id --confirm 2>&1 </dev/null" >/dev/null || fail "grant remove failed for $grant_id"
+	as_admin "rm -rf $gp_dir"
+	log "scenario: $gp_id was approved as the grant $grant_id and e2e-grantee restarted demo-stack without sudo"
+}
+
 # scenario_tui_sudo proves the actions of the interface started without sudo that need no secret: the interface asks
 # with the exact command and hands the terminal to the real sudo, which asks for the password itself. The rule of
 # $admin lets sudo run a command without the password, so for this scenario it is put aside, and sudo keeps no
@@ -5512,6 +5572,10 @@ scenario_tui_sudo() {
 	tui_wait 'Deploy demo-cache?' 15
 	tui_send y
 	tui_wait "[sudo] password for $admin" 30
+	tui_wait_noecho 30
+	# The handover cleared the screen: only the new prompt shows, not the one of the Ctrl-C before.
+	tui_wait "[sudo] password for $admin" 10
+	[ "$(tui_screen | grep -cF "[sudo] password for $admin")" = 1 ] || fail "an old sudo prompt shows after the handover: $(tui_screen)"
 	tui_type "$sa_login"
 	tui_send Enter
 	tui_wait 'deploy finished: 1 ok, 0 failed' 240
@@ -5544,6 +5608,7 @@ scenario_tui_sudo() {
 	tui_has 'sudo qhost container restart' || fail "the question does not show the command: $(tui_screen)"
 	tui_send y
 	tui_wait "[sudo] password for $admin" 30
+	tui_wait_noecho 30
 	tui_type "$sa_login"
 	tui_send Enter
 	tui_wait 'restart finished: 1 ok, 0 failed' 60
@@ -5577,6 +5642,7 @@ scenario_tui_sudo() {
 	tui_has 'sudo qhost window set' || fail "the question does not show the command: $(tui_screen)"
 	tui_send y
 	tui_wait "[sudo] password for $admin" 30
+	tui_wait_noecho 30
 	tui_type "$sa_login"
 	tui_send Enter
 	tui_wait 'The maintenance window is changed' 30
@@ -7295,8 +7361,26 @@ tui_screen() {
 	tui_tmux capture-pane -p -t qdtui | tee -a "${tui_log:-/dev/null}" 2>/dev/null
 }
 
+# tui_send sends Escape as its CSI u sequence: a lone ESC byte waits for a following key and merges with it into
+# Alt+key, which the interface ignores, while the full sequence reads as Escape at once.
 tui_send() {
-	tui_tmux send-keys -t qdtui "$@"
+	tui_send_esc=
+	case "${1-}" in -*) ;; *)
+		for tui_send_key in "$@"; do
+			[ "$tui_send_key" != Escape ] || tui_send_esc=1
+		done
+	esac
+	if [ -z "$tui_send_esc" ]; then
+		tui_tmux send-keys -t qdtui "$@"
+		return
+	fi
+	for tui_send_key in "$@"; do
+		if [ "$tui_send_key" = Escape ]; then
+			tui_tmux send-keys -t qdtui -l "$(printf '\033[27u')"
+		else
+			tui_tmux send-keys -t qdtui "$tui_send_key"
+		fi
+	done
 }
 
 tui_has() {
@@ -8357,6 +8441,18 @@ tui_stack_value=tuivalue-e2e-0451
 # tui_type types text into the interface.
 tui_type() {
 	tui_tmux send-keys -t qdtui -l -- "$1"
+}
+
+# tui_wait_noecho waits up to $1 seconds until the terminal of the interface no longer echoes, as sudo turns the echo
+# off for its password prompt; text typed before would show on the screen.
+tui_wait_noecho() {
+	tui_pane_tty=$(tui_tmux display -p -t qdtui '#{pane_tty}') || fail 'cannot read the terminal of the interface'
+	i=0
+	until docker exec -u "$admin" "$host" stty -F "$tui_pane_tty" -a 2>/dev/null | grep -qw -- -echo; do
+		i=$((i + 1))
+		[ "$i" -lt $(($1 * 4)) ] || fail "the terminal of the interface still echoes after $1 seconds: $(tui_screen)"
+		sleep 0.25
+	done
 }
 
 # tui_clear empties the text field that has the focus.

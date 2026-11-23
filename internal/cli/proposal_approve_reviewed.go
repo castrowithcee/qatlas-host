@@ -32,6 +32,8 @@ type approveOptions struct {
 	hostKey, expectEffect, expectState, expectCommit string
 	// include is the choice of unclear files of a source-add proposal.
 	include []string
+	// expires is the expiry the person sets for a grant proposal.
+	expires string
 }
 
 // asks says the person is asked at the terminal.
