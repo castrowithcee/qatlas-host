@@ -113,6 +113,10 @@ func (m *Model) askEngine(flow *addFlow) bool {
 		return false
 	}
 	flow.engine = suggestEngine(flow.res, offered)
+	// A project taken over from the Containers area starts with the engine it runs in.
+	if f := flow.foreign; f != nil && slices.Contains(offered, f.engine) {
+		flow.engine = f.engine
+	}
 	m.set.form = m.folderEngineForm(flow, offered)
 	return m.set.form != nil
 }

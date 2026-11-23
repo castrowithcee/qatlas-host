@@ -389,3 +389,50 @@ func TestEngineBackendContainersWithoutRootSayEnginesAreUnread(t *testing.T) {
 		t.Fatalf("result %+v, err %v", res, err)
 	}
 }
+
+func TestEngineBackendContainerCallsGoToTheNamedEngineOnly(t *testing.T) {
+	d := useFolderHost(t)
+	eps := engineHost(t, d, "alice")
+	restarted := map[string]int{}
+	handlers := func(engine string) fakeHandlers {
+		h := engineContainers{engine: engine, groups: []control.ContainerGroup{single("shared")}, names: []string{"shared"}}.handlers()
+		h[control.ContainerRestartCommand] = func(json.RawMessage) any {
+			restarted[engine]++
+			return control.ContainerActionResult{ContainerSummary: control.ContainerSummary{Name: "shared", State: control.ContainerOK, EngineState: "running"},
+				Kind: control.ContainerKindSingle}
+		}
+		return h
+	}
+	startFakeService(t, handlers("system"))
+	serveFake(t, eps["alice"], handlers("rootless:alice"))
+	b := newEngineBackend()
+	alice := tui.WithEngine(context.Background(), "rootless:alice")
+
+	got, err := b.Container(alice, "shared")
+	if err != nil || got.Engine != "rootless:alice" {
+		t.Fatalf("detail %+v, err %v", got, err)
+	}
+	logs, err := b.ContainerLogs(alice, control.ContainerLogsArgs{Name: "shared"})
+	if err != nil || len(logs.Lines) != 1 || logs.Lines[0].Text != "from rootless:alice" {
+		t.Fatalf("logs %+v, err %v", logs, err)
+	}
+	if _, err := b.ContainerRestart(alice, "shared"); err != nil || restarted["rootless:alice"] != 1 || restarted["system"] != 0 {
+		t.Fatalf("restarted %v, err %v", restarted, err)
+	}
+	if _, err := b.ContainerRestart(tui.WithEngine(context.Background(), "system"), "shared"); err != nil || restarted["system"] != 1 {
+		t.Fatalf("restarted %v, err %v", restarted, err)
+	}
+}
+
+func TestEngineBackendContainerActionOnAnEngineThatIsDownFailsWithoutFallback(t *testing.T) {
+	d := useFolderHost(t)
+	engineHost(t, d, "alice") // set up, not running
+	restarted := 0
+	h := engineContainers{engine: "system", groups: []control.ContainerGroup{single("shared")}, names: []string{"shared"}}.handlers()
+	h[control.ContainerRestartCommand] = func(json.RawMessage) any { restarted++; return control.ContainerActionResult{} }
+	startFakeService(t, h)
+
+	if _, err := newEngineBackend().ContainerRestart(tui.WithEngine(context.Background(), "rootless:alice"), "shared"); err == nil || restarted != 0 {
+		t.Fatalf("err %v, system restarted %d times", err, restarted)
+	}
+}

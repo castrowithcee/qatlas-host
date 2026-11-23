@@ -25,9 +25,11 @@ type containerLog struct {
 	area kittui.AreaID
 	// name is the container, stack the stack whose containers are merged; exactly one is set.
 	name, stack string
-	view        *heldLogView
-	loaded      bool
-	err         error
+	// engine is where the container or stack runs, empty while one engine is shown.
+	engine string
+	view   *heldLogView
+	loaded bool
+	err    error
 	// cursor is where the next read continues; zero until a line has arrived.
 	cursor time.Time
 	// busy is set while a read is under way, pending while the timer of the next read runs.
@@ -58,14 +60,14 @@ func (m *Model) clogShown() bool { return m.clog.open && m.area == m.clog.area }
 func (m *Model) openContainerLogs() (cmd tea.Cmd, ok bool) {
 	switch {
 	case m.area == areaContainers && m.ctv.open:
-		return m.showContainerLog(m.ctv.name, ""), true
+		return m.showContainerLog(m.ctv.name, "", m.ctv.engine), true
 	case m.area == areaContainers:
 		if ref, found := m.ctSelected(); found {
-			return m.showContainerLog(ref.name, ""), true
+			return m.showContainerLog(ref.name, "", ref.engine), true
 		}
 	case m.area == areaDetail && m.pick == nil:
 		if stack, found := m.detailStack(); found {
-			return m.showContainerLog("", stack), true
+			return m.showContainerLog("", stack, m.chosenEngine()), true
 		}
 	}
 	return nil, false
@@ -127,13 +129,13 @@ func serviceLogText(e control.ServiceLogEntry) string {
 }
 
 // showContainerLog opens the log view and asks for the last lines.
-func (m *Model) showContainerLog(name, stack string) tea.Cmd {
+func (m *Model) showContainerLog(name, stack, engine string) tea.Cmd {
 	view, err := m.newLogView(kittui.LogFilter{})
 	if err != nil {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return nil
 	}
-	m.clog = containerLog{open: true, area: m.area, name: name, stack: stack, view: view, gen: m.clog.gen + 1}
+	m.clog = containerLog{open: true, area: m.area, name: name, stack: stack, engine: engine, view: view, gen: m.clog.gen + 1}
 	return m.readContainerLog()
 }
 
@@ -157,7 +159,7 @@ func (m *Model) containerLogArgs() control.ContainerLogsArgs {
 func (m *Model) readContainerLog() tea.Cmd {
 	l := &m.clog
 	l.busy = true
-	ctx, b, gen := m.ctx, m.backend, l.gen
+	ctx, b, gen := m.engineCtx(l.engine), m.backend, l.gen
 	if l.service {
 		args := m.serviceLogArgs()
 		return func() tea.Msg {

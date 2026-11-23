@@ -19,6 +19,8 @@ const rootStackFolder = "."
 // foreignSource is what the Compose labels of a foreign project say about where it lives.
 type foreignSource struct {
 	project, dir string
+	// engine is the engine the project runs in, empty while one engine is shown; the flow preselects it.
+	engine       string
 	composeFiles []string
 	envFiles     []string
 }
@@ -123,7 +125,7 @@ func (m *Model) foreignTarget() (foreignSource, bool) {
 	if m.ctv.open {
 		if g, found = m.groupOf(m.ctv.name, m.ctv.engine); !found && m.ctv.loaded && m.ctv.detail.Kind == control.ContainerKindForeign {
 			d := m.ctv.detail
-			return foreignSource{project: d.Project, dir: d.WorkingDir, composeFiles: d.ConfigFiles, envFiles: d.EnvFiles}, true
+			return foreignSource{project: d.Project, engine: m.ctv.engine, dir: d.WorkingDir, composeFiles: d.ConfigFiles, envFiles: d.EnvFiles}, true
 		}
 	} else if id, ok := m.ctList.Selected(); ok {
 		ref := m.ctRows[id]
@@ -139,7 +141,11 @@ func (m *Model) foreignTarget() (foreignSource, bool) {
 	if !found || g.Kind != control.ContainerKindForeign || g.ReadOnly {
 		return foreignSource{}, false
 	}
-	return foreignSource{project: g.Name, dir: g.WorkingDir, composeFiles: g.ConfigFiles, envFiles: g.EnvFiles}, true
+	src := foreignSource{project: g.Name, dir: g.WorkingDir, composeFiles: g.ConfigFiles, envFiles: g.EnvFiles}
+	if len(m.ct.secs) > 0 {
+		src.engine = ctGroupEngine(g)
+	}
+	return src, true
 }
 
 // adoptAction takes the key to add in the Containers area; ok is false when it points at no foreign project.

@@ -116,6 +116,8 @@ type fakeBackend struct {
 	ctLogLines []control.ContainerLogLine
 	ctLogPage  int
 	ctLogArgs  []control.ContainerLogsArgs
+	// ctLogEngines is the engine each of those calls was addressed to.
+	ctLogEngines []string
 	// svcLog are the entries of the service log in time order, svcPage the most entries one answer holds (zero:
 	// no limit) and svcArgs the arguments of the calls made.
 	svcLog  []control.ServiceLogEntry
@@ -327,8 +329,8 @@ func (f *fakeBackend) StackRestart(_ context.Context, stack string) (control.Sta
 
 // containerAction records "<call>:<id>", where id is what the interface passed (the container ID), and answers
 // with the container as it is afterwards: running after a start or restart, exited after a stop.
-func (f *fakeBackend) containerAction(call, id string) (control.ContainerActionResult, error) {
-	if err := f.act(call, id); err != nil {
+func (f *fakeBackend) containerAction(ctx context.Context, call, id string) (control.ContainerActionResult, error) {
+	if err := f.actCtx(ctx, call, id); err != nil {
 		return control.ContainerActionResult{}, err
 	}
 	f.mu.Lock()
@@ -351,16 +353,16 @@ func (f *fakeBackend) containerAction(call, id string) (control.ContainerActionR
 	return res, nil
 }
 
-func (f *fakeBackend) ContainerStart(_ context.Context, id string) (control.ContainerActionResult, error) {
-	return f.containerAction("ctstart", id)
+func (f *fakeBackend) ContainerStart(ctx context.Context, id string) (control.ContainerActionResult, error) {
+	return f.containerAction(ctx, "ctstart", id)
 }
 
-func (f *fakeBackend) ContainerStop(_ context.Context, id string) (control.ContainerActionResult, error) {
-	return f.containerAction("ctstop", id)
+func (f *fakeBackend) ContainerStop(ctx context.Context, id string) (control.ContainerActionResult, error) {
+	return f.containerAction(ctx, "ctstop", id)
 }
 
-func (f *fakeBackend) ContainerRestart(_ context.Context, id string) (control.ContainerActionResult, error) {
-	return f.containerAction("ctrestart", id)
+func (f *fakeBackend) ContainerRestart(ctx context.Context, id string) (control.ContainerActionResult, error) {
+	return f.containerAction(ctx, "ctrestart", id)
 }
 
 func (f *fakeBackend) Window(ctx context.Context) (control.WindowResult, error) {
@@ -967,7 +969,7 @@ func (f *fakeBackend) Container(ctx context.Context, name string) (control.Conta
 // starts with "<stack>-"), by time and cursor, keeps the last Tail lines and cuts a page at ctLogPage lines.
 // The arguments of every call are kept in ctLogArgs; an error set in errs under "containerlogs:<name or stack>"
 // fails the call.
-func (f *fakeBackend) ContainerLogs(_ context.Context, a control.ContainerLogsArgs) (control.ContainerLogsResult, error) {
+func (f *fakeBackend) ContainerLogs(ctx context.Context, a control.ContainerLogsArgs) (control.ContainerLogsResult, error) {
 	f.count("containerlogs")
 	if err := f.fail("containerlogs", a.Name+a.Stack); err != nil {
 		return control.ContainerLogsResult{}, err
@@ -975,6 +977,7 @@ func (f *fakeBackend) ContainerLogs(_ context.Context, a control.ContainerLogsAr
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.ctLogArgs = append(f.ctLogArgs, a)
+	f.ctLogEngines = append(f.ctLogEngines, EngineOf(ctx))
 	var sel []control.ContainerLogLine
 	for _, l := range f.ctLogLines {
 		switch {

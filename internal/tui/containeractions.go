@@ -38,10 +38,11 @@ var ctNotReadyTexts = map[string]kittui.TextID{
 
 // ctReadMsg carries the detail read before the question, so the question names what is there now.
 type ctReadMsg struct {
-	gen  int
-	kind actionKind
-	res  control.ContainerDetail
-	err  error
+	gen    int
+	kind   actionKind
+	engine string
+	res    control.ContainerDetail
+	err    error
 }
 
 // ctDoneMsg carries the answer of the confirmed action. problem is the plain words of a run through sudo that gave
@@ -64,15 +65,16 @@ func (m *Model) containerAction(id kittui.ActionID) (cmd tea.Cmd, ok bool) {
 	return m.beginContainerAction(kind), true
 }
 
-// containerTarget is the name of the container the open detail shows or the list marks; a group row has none.
-func (m *Model) containerTarget() string {
+// containerTarget is the name and the engine of the container the open detail shows or the list marks; a group
+// row and a row of an engine without a deploy service have none. The engine is empty while one engine is shown.
+func (m *Model) containerTarget() (name, engine string) {
 	if m.ctv.open {
-		return m.ctv.name
+		return m.ctv.name, m.ctv.engine
 	}
 	if ref, ok := m.ctSelected(); ok {
-		return ref.name
+		return ref.name, ref.engine
 	}
-	return ""
+	return "", ""
 }
 
 // beginContainerAction reads the container, then asks. Nothing reaches the service before the answer.
@@ -81,15 +83,15 @@ func (m *Model) beginContainerAction(kind actionKind) tea.Cmd {
 		m.warn(m.text.Lookup(textActionBusy))
 		return nil
 	}
-	name := m.containerTarget()
+	name, engine := m.containerTarget()
 	if name == "" {
 		return nil
 	}
 	m.ct.actGen++
-	ctx, b, gen := m.ctx, m.backend, m.ct.actGen
+	ctx, b, gen := m.engineCtx(engine), m.backend, m.ct.actGen
 	return func() tea.Msg {
 		res, err := b.Container(ctx, name)
-		return ctReadMsg{gen: gen, kind: kind, res: res, err: err}
+		return ctReadMsg{gen: gen, kind: kind, engine: engine, res: res, err: err}
 	}
 }
 
@@ -102,7 +104,7 @@ func (m *Model) applyContainerRead(msg ctReadMsg) {
 		return
 	}
 	if m.euid() != 0 {
-		m.askSudo(m.containerSudo(msg.kind, msg.res))
+		m.askSudo(m.containerSudo(msg.kind, msg.engine, msg.res))
 		return
 	}
 	dialog, err := m.containerDialog(msg.kind, msg.res)
@@ -110,7 +112,7 @@ func (m *Model) applyContainerRead(msg ctReadMsg) {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, yes: func() tea.Cmd { return m.startContainerAction(msg.kind, msg.res) }}
+	m.modal = &modal{kind: modalAsk, dialog: dialog, yes: func() tea.Cmd { return m.startContainerAction(msg.kind, msg.engine, msg.res) }}
 }
 
 // containerKindText names the kind and the project of a container in the question.
@@ -160,13 +162,13 @@ func (m *Model) containerDialog(kind actionKind, d control.ContainerDetail) (*ki
 		Default: actNo, Keys: kittui.DialogKeys{Enter: actEnter}}, m.keys, m.text)
 }
 
-// containerSudo is the question of an interface without root, which runs `sudo qhost container <verb>`; the answer
-// is read as the service gives it.
-func (m *Model) containerSudo(kind actionKind, d control.ContainerDetail) sudoAsk {
+// containerSudo is the question of an interface without root, which runs `sudo qhost container <verb>`, with
+// --engine when an engine is told apart; the answer is read as the service gives it.
+func (m *Model) containerSudo(kind actionKind, engine string, d control.ContainerDetail) sudoAsk {
 	question, consequence, lead := m.containerQuestion(kind, d)
 	var gen int
 	return sudoAsk{title: kindTexts[kind].word, question: question, consequence: consequence, lead: lead,
-		args:  []string{"container", ctVerbs[kind], "--yes", "--output", "json", "--", containerRef(d)},
+		args:  withEngineFlag([]string{"container", ctVerbs[kind], "--yes", "--output", "json", "--", containerRef(d)}, engine),
 		begin: func() { gen = m.beginContainerRun(kind, d) },
 		done: func(r sudoRun) tea.Cmd {
 			msg := ctDoneMsg{gen: gen, kind: kind, detail: d}
@@ -194,9 +196,9 @@ func (m *Model) beginContainerRun(kind actionKind, d control.ContainerDetail) in
 }
 
 // startContainerAction makes the confirmed call.
-func (m *Model) startContainerAction(kind actionKind, d control.ContainerDetail) tea.Cmd {
+func (m *Model) startContainerAction(kind actionKind, engine string, d control.ContainerDetail) tea.Cmd {
 	gen := m.beginContainerRun(kind, d)
-	ctx, b, target := m.ctx, m.backend, containerRef(d)
+	ctx, b, target := m.engineCtx(engine), m.backend, containerRef(d)
 	return func() tea.Msg {
 		var res control.ContainerActionResult
 		var err error

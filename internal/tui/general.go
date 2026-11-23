@@ -227,6 +227,6 @@ func (m *Model) relocalizeLogs() tea.Cmd {
 		m.closeContainerLog()
 		return nil
 	}
-	*l = containerLog{open: true, area: l.area, name: l.name, stack: l.stack, service: l.service, level: l.level, view: view, gen: l.gen + 1}
+	*l = containerLog{open: true, area: l.area, name: l.name, stack: l.stack, engine: l.engine, service: l.service, level: l.level, view: view, gen: l.gen + 1}
 	return m.readContainerLog()
 }
