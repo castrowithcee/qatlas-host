@@ -5031,7 +5031,10 @@ scenario_tui_move() {
 
 	step 'yes moves the project into the source and it runs there on its data'
 	tui_send y
-	tui_wait "The project tuimove is moved to $tinto/tuimove and deployed there." 180
+	# The dialog wraps the sentence, so its parts are matched apart.
+	tui_wait "The project tuimove is moved to $tinto/tuimove" 180
+	tui_wait 'deployed there.' 10
+	tui_wait "the folder is now in: $tinto/tuimove" 10
 	tui_send Enter
 	tui_tmux kill-server >/dev/null 2>&1 || true
 	wait_for 'the deploy service to answer' 30 qd status
