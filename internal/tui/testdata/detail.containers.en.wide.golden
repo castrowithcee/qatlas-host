@@ -37,4 +37,4 @@
 │ No webhook receiver is set up. Set it up under Settings, Webhooks.                                                   │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 B back to before update  e update rules  b backup  C compose  k checks  E clear settings  o log  a set secret           
-x delete secret  R restore backup  r reload  1-7 area  q quit                                          ↑/↓ scroll  35/65
+x delete secret  R restore backup  z grant  r reload  1-7 area  q quit                                 ↑/↓ scroll  35/69

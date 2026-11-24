@@ -7,6 +7,13 @@
 # Needs deploy: the bound /opt/stacks, the admin clone and demo-stack running with its data folder.
 # scenario_repair_start sets repair_demo_broken and scenario_observe_start sets observe_from, observe_update and
 # observe_update_at for the end units of this section.
+# Restarts of the deploy service delay the repair (see scenario_repair_start), so the order of the register is part
+# of the proof. Up to scenario_repair_attempt nothing restarts the service; the restarts from scenario_tui_deploy_sudo
+# to scenario_tui_folder_sudo take about a minute, too early to delay the second attempt, which falls into
+# scenario_container_monitor or the wait of scenario_repair_second. The third attempt comes 15 minutes after the
+# second and with the halt after it falls into the wait of scenario_observe_end for the rollback, which restarts
+# nothing; the restarts before that wait end more than three minutes before the attempt. The source sections after
+# demo_leftovers_clean restart the service often.
 # Sourced by run.sh; defines only functions and constants.
 
 # stack_removed succeeds when qhost status marks the stack as removed from the repository.
@@ -14,11 +21,11 @@ stack_removed() {
 	qd --output json status | jq -e --arg k "stack.$1.removed" '.[$k] == true' >/dev/null
 }
 
-# stack_leftovers_clean makes the service poll at once and waits until it has noticed that the stack $1 left the
-# repository, which it only records: it stops no container and deletes no folder. Then it removes the containers
-# and the unversioned folder $2 (data and the like) and proves that nothing of the stack is left on the host.
+# stack_leftovers_clean waits until the service has noticed that the stack $1 left the repository, which it only
+# records: it stops no container and deletes no folder. Then it removes the containers and the unversioned folder
+# $2 (data and the like) and proves that nothing of the stack is left on the host. The caller makes the service
+# poll first.
 stack_leftovers_clean() {
-	restart_service
 	wait_for "the service to report $1 as removed" 120 stack_removed "$1"
 	docker exec "$host" sh -c "docker ps -aq --filter label=com.docker.compose.project=$1 | xargs -r docker rm -f" >/dev/null ||
 		fail "cannot remove the containers of $1"
@@ -26,10 +33,22 @@ stack_leftovers_clean() {
 	if docker exec "$host" test -e "$2"; then fail "$2 is left on the host"; fi
 }
 
-# scenario_container_monitor proves that the failure monitor reports a container of demo-stack that dies outside
-# qhost and then repairs it: the webhook hears container-failed and qhost status shows the finding; qhost
-# restarts the container after a minute, and the webhook hears recovered with restarted. The same for a container
-# that turns unhealthy. The restart policy is switched off for the kill, so only qhost can bring the container
+# demo_leftovers_clean removes what observe-demo and repair-demo leave on the host once scenario_observe_end and
+# scenario_repair_end took them out of the repository. It runs after both, as its restart of the deploy service
+# would delay the rollback or the halt that the other one still waits for.
+demo_leftovers_clean() {
+	restart_service
+	stack_leftovers_clean observe-demo /opt/stacks/observe-demo
+	if docker exec "$host" test -e /opt/stacks/.qatlas/qhost/observe-demo.yaml; then fail 'the settings of observe-demo are left on the host'; fi
+	stack_leftovers_clean repair-demo /opt/stacks/repair-demo
+}
+
+# scenario_container_monitor proves that the failure monitor reports a container that dies outside qhost and then
+# repairs it: the webhook hears container-failed and qhost status shows the finding; qhost restarts the container
+# after a minute, and the webhook hears recovered with restarted. The same for a container that turns unhealthy.
+# The two cases run at once on two stacks, demo-cache is killed and demo-stack turns unhealthy, so their real-time
+# waits overlap; a stack's first failure in an hour is repaired after one minute, a later one only five minutes
+# after the restart before. The restart policy is switched off for the kill, so only qhost can bring the container
 # back; the monitor reads every 30 seconds and ends a failure after two clean readings.
 scenario_container_monitor() {
 	step 'a channel for the failure monitor events is added'
@@ -39,35 +58,39 @@ $hook_signing_value
 	qd notify list | grep -q 'mon *webhook *container-failed,recovered' || fail "notify list does not show the channel: $(qd notify list)"
 
 	step 'a container killed outside qhost is reported and shown in status'
-	wait_for 'demo-stack idle' 120 stack_idle demo-stack
-	stack_healthy demo-stack || fail 'demo-stack is not healthy before the kill'
-	no_finding demo-stack container-failed || fail "demo-stack shows a failure before the kill: $(qd --output json status)"
-	victim=$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=demo-stack | head -n 1)
-	[ -n "$victim" ] || fail 'demo-stack has no container to kill'
+	for stack in demo-cache demo-stack; do
+		wait_for "$stack idle" 120 stack_idle "$stack"
+		stack_healthy "$stack" || fail "$stack is not healthy before its failure"
+		no_finding "$stack" container-failed || fail "$stack shows a failure before its failure: $(qd --output json status)"
+	done
+	victim=$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=demo-cache | head -n 1)
+	[ -n "$victim" ] || fail 'demo-cache has no container to kill'
 	docker exec "$host" docker update --restart=no "$victim" >/dev/null || fail 'cannot switch off the restart policy'
 	docker exec "$host" docker kill "$victim" >/dev/null || fail 'cannot kill the container'
-	wait_for 'the webhook for the failed container' 120 hook_seen /notify container-failed demo-stack
-	wait_for 'the finding container-failed in status' 60 has_finding demo-stack container-failed
-	stack_field demo-stack findings | grep -q 'exited' || fail "the finding does not name the kind exited: $(qd --output json status)"
+	docker exec "$host" touch /opt/stacks/demo-stack/data/break-once || fail 'cannot break the health of demo-stack'
+	wait_for 'the webhook for the failed container' 120 hook_seen /notify container-failed demo-cache
+	wait_for 'the finding container-failed in status' 60 has_finding demo-cache container-failed
+	stack_field demo-cache findings | grep -q 'exited' || fail "the finding does not name the kind exited: $(qd --output json status)"
 	log 'scenario: the killed container was reported and shown as a finding'
 
-	step 'qhost restarts the container: recovered is reported with restarted and the finding ends'
-	wait_for 'demo-stack healthy again' 150 stack_healthy demo-stack
-	wait_for 'the webhook for the recovered container' 240 hook_has /notify recovered '\"stack\":\"demo-stack\"' '\"kind\":\"exited\"' '\"restarted\":true'
-	wait_for 'the finding to end' 60 no_finding demo-stack container-failed
-	docker exec "$host" docker update --restart=unless-stopped "$victim" >/dev/null || fail 'cannot restore the restart policy'
-	log 'scenario: qhost restarted the killed container and the finding ended'
-
+	# The unhealthy finding of demo-stack lasts only until one restart ends it, so it is checked before the
+	# recovery of demo-cache, which stays recorded.
 	step 'a container that turns unhealthy is restarted by qhost'
-	docker exec "$host" touch /opt/stacks/demo-stack/data/break-once || fail 'cannot break the health of demo-stack'
 	wait_for 'the webhook for the unhealthy container' 240 hook_has /notify container-failed '\"stack\":\"demo-stack\"' '\"kind\":\"unhealthy\"'
 	wait_for 'the finding container-failed in status' 60 has_finding demo-stack unhealthy
 	wait_for 'the webhook for the recovered container' 360 hook_has /notify recovered '\"stack\":\"demo-stack\"' '\"kind\":\"unhealthy\"' '\"restarted\":true'
 	wait_for 'the finding to end' 60 no_finding demo-stack container-failed
 	stack_healthy demo-stack || fail 'demo-stack is not healthy after the repair'
 	if docker exec "$host" test -e /opt/stacks/demo-stack/data/break-once; then fail 'the restart did not clear the break'; fi
-	out=$(qd notify remove mon) || fail "notify remove failed: $out"
 	log 'scenario: the unhealthy container was restarted by qhost and recovered'
+
+	step 'qhost restarts the container: recovered is reported with restarted and the finding ends'
+	wait_for 'demo-cache healthy again' 150 stack_healthy demo-cache
+	wait_for 'the webhook for the recovered container' 240 hook_has /notify recovered '\"stack\":\"demo-cache\"' '\"kind\":\"exited\"' '\"restarted\":true'
+	wait_for 'the finding to end' 60 no_finding demo-cache container-failed
+	docker exec "$host" docker update --restart=unless-stopped "$victim" >/dev/null || fail 'cannot restore the restart policy'
+	out=$(qd notify remove mon) || fail "notify remove failed: $out"
+	log 'scenario: qhost restarted the killed container and the finding ended'
 }
 
 # repair_text prints the repair line of a stack in qhost status.
@@ -79,14 +102,20 @@ repair_first_attempt() {
 	repair_text repair-demo | grep -q '^1 of 3 attempts, next '
 }
 
+repair_second_attempt() {
+	repair_text repair-demo | grep -q '^2 of 3 attempts, next '
+}
+
 repair_halted() {
 	repair_text "$1" | grep -q '^halted since '
 }
 
 # scenario_repair_start adds the stack repair-demo and breaks it for good: its health check fails while the file
 # data/break exists, which a restart does not remove. qhost restarts it 1, 5 and 15 minutes after the failure
-# began and then halts. The delays run in real time; scenario_repair_end checks the outcome at the end of the
-# run, so they overlap with the other scenarios.
+# began and then halts. The delays run in real time; scenario_repair_attempt and scenario_repair_end check them
+# later, so they overlap with the other scenarios. The monitor keeps the time a container has been unhealthy in
+# memory only: a restart of the deploy service ends the failure for two readings and starts it anew, which delays
+# the next attempt or the halt when the restart falls in the three minutes before it.
 scenario_repair_start() {
 	step 'the stack repair-demo is deployed and a channel for recovery-failed is added'
 	as_admin 'cd ~/stacks && git pull -q --ff-only && mkdir repair-demo'
@@ -113,8 +142,20 @@ $hook_signing_value
 	step 'repair-demo turns unhealthy for good; the first attempt shows in status'
 	docker exec "$host" touch /opt/stacks/repair-demo/data/break || fail 'cannot break repair-demo'
 	repair_demo_broken=$(date +%s)
+}
+
+# scenario_repair_attempt waits for the first repair attempt of repair-demo. No scenario between
+# scenario_repair_start and this one restarts the deploy service, so the attempt comes on time.
+scenario_repair_attempt() {
 	wait_for 'the finding container-failed of repair-demo' 240 has_finding repair-demo container-failed
 	wait_for 'the first repair attempt' 240 repair_first_attempt
+	log "scenario: repair-demo $(repair_text repair-demo)"
+}
+
+# scenario_repair_second waits for the second repair attempt of repair-demo. The failure monitor scenario before it
+# restarts no deploy service, while the scenarios after it do so often and would delay the attempt.
+scenario_repair_second() {
+	wait_for 'the second repair attempt' 420 repair_second_attempt
 	log "scenario: repair-demo $(repair_text repair-demo)"
 }
 
@@ -126,9 +167,6 @@ scenario_repair_end() {
 	log "scenario: repair-demo halted after $(($(date +%s) - repair_demo_broken)) seconds: $(repair_text repair-demo)"
 	repair_text repair-demo | grep -q 'after 3 of 3 attempts' || fail "status does not name the attempts: $(repair_text repair-demo)"
 	wait_for 'the webhook for the failed recovery' 60 hook_has /notify recovery-failed '\"stack\":\"repair-demo\"' '\"attempts\":3'
-	sleep 35
-	[ "$(docker exec "$prefix-hooks" cat /data/requests.jsonl | grep -F '"path":"/notify"' | grep -F '"X-Qhost-Event":"recovery-failed"' | grep -cF '\"stack\":\"repair-demo\"')" = 1 ] ||
-		fail 'recovery-failed was not sent exactly once'
 	tui_tmux kill-server >/dev/null 2>&1 || true
 	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
 		fail 'cannot start tmux for the interface'
@@ -147,10 +185,14 @@ scenario_repair_end() {
 	step 'repair-demo is healthy again and leaves the repository'
 	wait_for 'repair-demo healthy' 120 stack_healthy repair-demo
 	wait_for 'the finding of repair-demo to end' 120 no_finding repair-demo container-failed
+	# A repeated recovery-failed could only come from a monitor cycle (every 30 seconds) after the halt. The finding
+	# ended and recovered was sent by such cycles, so the count is final here.
+	wait_for 'the webhook for the recovery of repair-demo' 60 hook_has /notify recovered '\"stack\":\"repair-demo\"'
+	[ "$(docker exec "$prefix-hooks" cat /data/requests.jsonl | grep -F '"path":"/notify"' | grep -F '"X-Qhost-Event":"recovery-failed"' | grep -cF '\"stack\":\"repair-demo\"')" = 1 ] ||
+		fail 'recovery-failed was not sent exactly once'
 	out=$(qd notify remove rep) || fail "notify remove rep failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q repair-demo &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the repair-demo stack" && git push -q origin main'
-	stack_leftovers_clean repair-demo /opt/stacks/repair-demo
 	log 'scenario: resume released the repair; repair-demo is fixed and removed'
 }
 
@@ -251,7 +293,5 @@ scenario_observe_end() {
 	out=$(qd notify remove obs) || fail "notify remove obs failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q observe-demo .qatlas/qhost/observe-demo.yaml &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the observe-demo stack" && git push -q origin main'
-	stack_leftovers_clean observe-demo /opt/stacks/observe-demo
-	if docker exec "$host" test -e /opt/stacks/.qatlas/qhost/observe-demo.yaml; then fail 'the settings of observe-demo are left on the host'; fi
 	log 'scenario: the update of observe-demo was rolled back by qhost; observe-demo is removed'
 }

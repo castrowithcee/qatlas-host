@@ -221,6 +221,19 @@ window_open() {
 	[ "$(window_field open)" = true ]
 }
 
+# window_start_soon prints a window start (HH:MM, UTC) for a window that opens soon. --start has minute granularity,
+# so the window opens at that minute's start: in 60 - S seconds when the clock reads S seconds, after "+1 minute".
+# That leaves the checks between window set and the opening (several qhost calls) enough time only while S is
+# at most 30; later in the minute the start is one minute further out.
+window_start_soon() {
+	t=$(date -u -d '+1 minute' +%H:%M:%S)
+	if [ "${t##*:}" -le 30 ]; then
+		printf '%s\n' "${t%:*}"
+	else
+		date -u -d '+2 minutes' +%H:%M
+	fi
+}
+
 # window_far_away opens the window daily at the time twelve hours from now, for one minute, and prints the answer.
 window_far_away() {
 	qd --output json window set --days daily --zone UTC --start "$(date -u -d '+12 hours' +%H:%M)" --duration 1m

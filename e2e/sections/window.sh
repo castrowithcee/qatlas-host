@@ -67,8 +67,7 @@ scenario_window() {
 	step 'window set takes effect in the running service without a restart'
 	started=$(status_field started_at)
 	[ -n "$started" ] || fail 'status shows no start time of the service'
-	# --start has minute granularity: two minutes ahead opens the window between one and two minutes from now.
-	start=$(date -u -d '+2 minutes' +%H:%M)
+	start=$(window_start_soon)
 	out=$(qd --output json window set --days daily --zone UTC --start "$start" --duration 5m) || fail "window set failed: $out"
 	log "scenario: window set: $out"
 	[ "$(window_field start)" = "$start" ] && [ "$(window_field duration)" = 5m ] && [ "$(window_field zone)" = UTC ] ||

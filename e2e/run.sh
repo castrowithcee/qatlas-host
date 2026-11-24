@@ -337,14 +337,16 @@ start_services() {
 		"$(base_image host)" >/dev/null
 }
 
+# wait_for polls every quarter second. The limit $2 counts seconds of pause between tries, so a slow probe stretches
+# it as it did with one try per second and no wait times out earlier than before.
 wait_for() {
-	what=$1 tries=$2
+	what=$1 tries=$(($2 * 4))
 	shift 2
 	i=0
 	until "$@" >/dev/null 2>&1; do
 		i=$((i + 1))
 		[ "$i" -lt "$tries" ] || fail "timeout waiting for $what"
-		sleep 1
+		sleep 0.25
 	done
 }
 
@@ -663,6 +665,7 @@ main() {
 		source_lib
 		. "$here/sections.sh"
 		for section in "$here"/sections/*.sh; do . "$section"; done
+		scenario_t0=$(date +%s)
 		run_scenario "$@"
 		;;
 	acceptance)
@@ -670,6 +673,7 @@ main() {
 		source_lib
 		. "$here/acceptance.sh"
 		prepare_real_images
+		scenario_t0=$(date +%s)
 		run_acceptance
 		;;
 	exec)

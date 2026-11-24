@@ -19,8 +19,11 @@ ensure_user() {
 		fail "cannot create the test user $1"
 }
 
+# step logs the elapsed time since scenario_t0 as [+MM:SS] before the step name, so the name follows the first "] ".
+# run.sh sets scenario_t0 before the first step of the scenario and of the acceptance run.
 step() {
-	log "scenario: $*"
+	scenario_elapsed=$(($(date +%s) - scenario_t0))
+	log "scenario: [+$(printf '%02d:%02d' $((scenario_elapsed / 60)) $((scenario_elapsed % 60)))] $*"
 }
 
 # as_rootless runs a command on the host as $rootless_user, with the environment of its rootless Docker engine.

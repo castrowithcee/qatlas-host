@@ -554,8 +554,7 @@ EOF2
 		eval "runs_$(printf '%s' "$stack" | tr - _)=$(stack_run_count "$stack")"
 		eval "images_$(printf '%s' "$stack" | tr - _)=$(stack_images "$stack")"
 	done
-	# --start has minute granularity: two minutes ahead opens the window between one and two minutes from now.
-	start=$(date -u -d '+2 minutes' +%H:%M)
+	start=$(window_start_soon)
 	out=$(qd --output json window set --days daily --zone UTC --start "$start" --duration 5m) || fail "window set failed: $out"
 	[ "$(window_field open)" = false ] || fail "the window is open before its start: $(qd --output json window show)"
 	window_last_before=$(window_field last_run)

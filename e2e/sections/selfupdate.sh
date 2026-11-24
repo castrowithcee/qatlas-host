@@ -147,7 +147,10 @@ scenario_hook() {
 	step 'a wrong secret gets 404 and starts no run'
 	runs_before=$(stack_run_count demo-stack)
 	hook_rejects "/hook/$wrong" || fail 'a wrong secret was not answered with 404'
-	sleep 12
+	# The receiver leaves a marker only after the 404 branch, and the deploy service takes markers on every pass over
+	# its folder (every two seconds), which also removes a foreign entry: once the probe is gone, a pass has run.
+	docker exec "$host" touch /run/qhost-hook/system/Probe || fail 'cannot lay a probe in the marker folder'
+	wait_for 'the service to pass over the marker folder' 30 docker exec "$host" test ! -e /run/qhost-hook/system/Probe
 	[ "$(stack_run_count demo-stack)" = "$runs_before" ] || fail 'a wrong secret started a run'
 	[ -z "$(stack_field demo-stack active_run)" ] || fail 'a wrong secret started a run in progress'
 

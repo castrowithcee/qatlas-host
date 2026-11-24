@@ -33,15 +33,15 @@
 ╭─ Webhooks ───────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Kein Webhook-Empfänger eingerichtet. Richte ihn unter Einstellungen, Webhooks ein.                                   │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Freigaben ──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Eine Freigabe gilt für den Benutzer und für jeden Agenten, der unter seinem Konto arbeitet.                          │
+│ Keine Freigaben für diesen Stack.                                                                                    │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                                                                                            │
 │   10-30 14:01  12.0 MiB                                                                                              │
 │ 20261023T031000Z-4567cdef                                                                                            │
 │   10-23 03:10  11.0 MiB                                                                                              │
 │ 20261016T031000Z-89abcdef                                                                                            │
-│   0 B  unvollständig                                                                                                 │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Letzte Läufe ───────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ erfolgreich  10-30 14:02  update  48s                                                                                │
 B zurück auf Stand davor  e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log             
-a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  r Neu laden  1-7 Bereich  q Beenden    ↑/↓ Scrollen  42/62
+a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  z freigeben  r Neu laden  1-7 Bereich  q Beenden     42/66

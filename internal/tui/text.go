@@ -258,13 +258,20 @@ func catalog() i18n.Catalogs[kittui.TextID] {
 	maps.Copy(c[i18n.German], folderEngineGerman())
 	maps.Copy(c[i18n.English], rollbackEnglish())
 	maps.Copy(c[i18n.German], rollbackGerman())
+	addLateCatalogs(c)
+	return c
+}
+
+// addLateCatalogs adds the texts of the later areas to the catalog.
+func addLateCatalogs(c i18n.Catalogs[kittui.TextID]) {
 	maps.Copy(c[i18n.English], freeEnglish())
 	maps.Copy(c[i18n.German], freeGerman())
 	maps.Copy(c[i18n.English], hookEnglish())
 	maps.Copy(c[i18n.German], hookGerman())
 	maps.Copy(c[i18n.English], detailHookEnglish())
 	maps.Copy(c[i18n.German], detailHookGerman())
-	return c
+	maps.Copy(c[i18n.English], detailGrantEnglish())
+	maps.Copy(c[i18n.German], detailGrantGerman())
 }
 
 func baseCatalog() i18n.Catalogs[kittui.TextID] {

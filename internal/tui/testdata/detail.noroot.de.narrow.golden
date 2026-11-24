@@ -26,6 +26,11 @@
 │ Kein Webhook-Empfänger eingerichtet. Richte ihn      │
 │ unter Einstellungen, Webhooks ein.                   │
 ╰──────────────────────────────────────────────────────╯
+╭─ Freigaben ──────────────────────────────────────────╮
+│ Eine Freigabe gilt für den Benutzer und für jeden    │
+│ Agenten, der unter seinem Konto arbeitet.            │
+│ Keine Freigaben für diesen Stack.                    │
+╰──────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                            │
 │   10-30 14:01  12.0 MiB                              │
@@ -38,10 +43,5 @@
 │ erfolgreich  10-30 14:02  update  48s                │
 │   20261030T140200Z-0000000c                          │
 │ fehlgeschlagen  10-29 02:00  poll  850ms             │
-│   20261029T020000Z-00000010                          │
-│   compose pull failed: registry unreachable          │
-╰──────────────────────────────────────────────────────╯
-╭─ Funktionen ─────────────────────────────────────────╮
-│ Deploy  geht                                         │
 B zurück auf Stand davor  e Update-Regeln  b Backup     
 C Compose  o Log  r Neu laden  q Beenden                

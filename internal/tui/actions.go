@@ -65,6 +65,8 @@ type plan struct {
 	stacks []string
 	// engines is the engine of each stack, one per entry of stacks; empty where the backend names none.
 	engines []string
+	// only limits a check to that stack; it is set only for a check a grant covers.
+	only string
 }
 
 // engineAt is the engine of the stack at index i.
@@ -238,20 +240,10 @@ func (m *Model) beginAction(kind actionKind) tea.Cmd {
 			}
 		}
 	}
-	if kind == kindUpdate {
-		return m.openPreview(p)
+	if cmd, ok := m.coverPlan(p); ok {
+		return cmd
 	}
-	if m.euid() != 0 {
-		m.askSudoPlan(p)
-		return nil
-	}
-	dialog, err := m.confirmDialog(p, nil)
-	if err != nil {
-		m.failure = m.text.Lookup(kittui.TextError, err.Error())
-		return nil
-	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, plan: p}
-	return nil
+	return m.beginPlan(p, "", "", false)
 }
 
 // resumable reports whether the status shows a pause after a rollback or a halted repair for the stack.
@@ -314,13 +306,17 @@ func (m *Model) targetDetails(stacks []string) []string {
 
 // openPreview shows what an update would change and reads the changelog of the stacks that have an update.
 // The yes answer exists once every changelog is read or has failed.
-func (m *Model) openPreview(p plan) tea.Cmd {
+// A covered update reads no changelog, since the service asks GitHub for root only, and calls the service on yes.
+func (m *Model) openPreview(p plan, covered bool) tea.Cmd {
 	md := &modal{kind: modalPreview, plan: p, changelogs: map[string]*changelogEntry{}}
+	if covered {
+		md.yes = func() tea.Cmd { return m.start(p) }
+	}
 	m.modalGen++
 	md.gen = m.modalGen
 	var wanted []string
 	for i, name := range p.stacks {
-		if m.hasUpdate(p.engineAt(i), name) {
+		if !covered && m.hasUpdate(p.engineAt(i), name) {
 			md.changelogs[name] = &changelogEntry{}
 			wanted = append(wanted, name)
 		}
@@ -515,9 +511,9 @@ func (m *Model) step() tea.Cmd {
 	if r.plan.kind != kindCheck {
 		stack = r.plan.stacks[index]
 	}
-	engine := ""
-	if r.plan.kind != kindCheck {
-		engine = r.plan.engineAt(index)
+	engine := r.plan.engineAt(index)
+	if r.plan.kind == kindCheck {
+		stack = r.plan.only
 	}
 	ctx, b, kind, gen := m.engineCtx(engine), m.backend, r.plan.kind, r.gen
 	if r.sudo {
@@ -552,7 +548,7 @@ func callService(ctx context.Context, b Backend, kind actionKind, stack string) 
 	case kindRestart:
 		return b.StackRestart(ctx, stack)
 	}
-	return b.Updates(ctx, control.UpdatesArgs{Refresh: true})
+	return b.Updates(ctx, control.UpdatesArgs{Refresh: true, Stack: stack})
 }
 
 // applyStep takes the answer of a call, goes on with the next stack, and ends the sequence with the summary.

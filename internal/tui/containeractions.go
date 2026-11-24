@@ -43,6 +43,8 @@ type ctReadMsg struct {
 	engine string
 	res    control.ContainerDetail
 	err    error
+	// covered is set when a grant covers the action, so it runs without sudo.
+	covered bool
 }
 
 // ctDoneMsg carries the answer of the confirmed action. problem is the plain words of a run through sudo that gave
@@ -88,10 +90,16 @@ func (m *Model) beginContainerAction(kind actionKind) tea.Cmd {
 		return nil
 	}
 	m.ct.actGen++
-	ctx, b, gen := m.engineCtx(engine), m.backend, m.ct.actGen
+	ctx, b, gen, uid := m.engineCtx(engine), m.backend, m.ct.actGen, m.humanUID()
+	if m.euid() == 0 {
+		uid = 0
+	}
 	return func() tea.Msg {
 		res, err := b.Container(ctx, name)
-		return ctReadMsg{gen: gen, kind: kind, engine: engine, res: res, err: err}
+		covered := err == nil && kind == kindRestart && res.Kind == control.ContainerKindOwn && res.Project != "" &&
+			uid != 0 && grantCovers(b, uid, func(b Backend) (control.GrantListResult, error) { return b.GrantList(ctx, res.Project) },
+			control.GrantActionContainerRestart, res.Project)
+		return ctReadMsg{gen: gen, kind: kind, engine: engine, res: res, err: err, covered: covered}
 	}
 }
 
@@ -103,7 +111,7 @@ func (m *Model) applyContainerRead(msg ctReadMsg) {
 		m.warn(m.containerActionError(msg.err))
 		return
 	}
-	if m.euid() != 0 {
+	if m.euid() != 0 && !msg.covered {
 		m.askSudo(m.containerSudo(msg.kind, msg.engine, msg.res))
 		return
 	}

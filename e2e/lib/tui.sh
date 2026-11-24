@@ -100,13 +100,13 @@ tui_walk_down() {
 	tw_seen=$tw_sep
 	tw_screen=$(tui_screen)
 	while ! printf '%s\n' "$tw_screen" | "$@"; do
-		tw_cursor=$(printf '%s\n' "$tw_screen" | grep -nE '^(│ |║ )?> ')
+		tw_cursor=$(printf '%s\n' "$tw_screen" | grep -nE '(^|[│║] )> ' || true)
 		tui_send Down
 		tw_n=0
 		while :; do
 			sleep 0.1
 			tw_screen=$(tui_screen)
-			tw_now=$(printf '%s\n' "$tw_screen" | grep -nE '^(│ |║ )?> ')
+			tw_now=$(printf '%s\n' "$tw_screen" | grep -nE '(^|[│║] )> ' || true)
 			[ "$tw_now" != "$tw_cursor" ] && break
 			tw_n=$((tw_n + 1))
 			[ "$tw_n" -lt 20 ] || fail "the cursor does not reach $tw_target, it stops at '${tw_cursor:-no cursor row}': $tw_screen"
@@ -116,6 +116,14 @@ tui_walk_down() {
 		esac
 		tw_seen=$tw_seen$tw_now$tw_sep
 	done
+}
+
+# tui_adopt_own answers the first question of a takeover, which the interface asks while a source of the engine of
+# the project could take it in: the project becomes a source of its own.
+tui_adopt_own() {
+	tui_wait 'Take over as' 30
+	tui_wait 'a source of its own' 10
+	tui_send F2
 }
 
 # tui_cursor_to moves the cursor of the Stacks list to the stack $1. The list draws no cursor without the focus, so

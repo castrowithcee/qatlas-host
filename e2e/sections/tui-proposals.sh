@@ -57,6 +57,7 @@ EOF2
 
 	step 'a opens the takeover; it shows the labels, no warning, and changes nothing before the answer'
 	tui_send a
+	tui_adopt_own
 	tui_keep_engine 30
 	tui_wait 'Start a git repository in /srv/qd-foreign/app and take it over?' 30
 	tui_wait 'Foreign project' 10

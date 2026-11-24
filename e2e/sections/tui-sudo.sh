@@ -838,6 +838,7 @@ EOF2
 	tui_send Enter
 	tui_wait 'Compose files' 15
 	tui_send a
+	tui_adopt_own
 	fs_password
 	tui_keep_engine 60
 	tui_wait "Start a git repository in $fs_base and take it over?" 60

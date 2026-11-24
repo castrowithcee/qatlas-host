@@ -1,0 +1,48 @@
+◆ qhost  maintenance window closed                          [esc] back  [?] help
+  1 Stacks [2 Stack detail] 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+  demo-stack                                                                    
+                                                                                
+  mode      automatic                                                           
+  state     deployed                                                            
+  findings  1 warning                                                           
+                                                                                
+╭─ Image versions ─────────────────────────────────────────────────────────────╮
+│ APP_VERSION  example/app                                                     │
+│   1.4.2 -> 1.5.0  update available                                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Containers ─────────────────────────────────────────────────────────────────╮
+│ No containers of this stack.                                                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Changelog ──────────────────────────────────────────────────────────────────╮
+│ APP_VERSION  1.4.2 -> 1.5.0                                                  │
+│   source example/app                                                         │
+│   1.5.0  Spring release  2026-10-29                                          │
+│     Adds a dark theme.                                                       │
+│                                                                              │
+│     - faster start                                                           │
+│     - fixes the upload limit                                                 │
+│   1.4.3  2026-10-20                                                          │
+│     Fixes a crash on empty input.                                            │
+│   more at https://example.invalid/app/releases                               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Secrets ────────────────────────────────────────────────────────────────────╮
+│ API_SIGNING_KEY                                                              │
+│ DB_PASSWORD                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Webhooks ───────────────────────────────────────────────────────────────────╮
+│ No webhook receiver is set up. Set it up under Settings, Webhooks.           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Grants ─────────────────────────────────────────────────────────────────────╮
+│ A grant applies to the user and to every agent working under the account of  │
+│ the user.                                                                    │
+│ ada   restart the stack  until 2027-03-31  valid                             │
+│ cleo  update the stack   no expiry         invalid: the account changed      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Backups ────────────────────────────────────────────────────────────────────╮
+│ 20261030T140100Z-0123abcd                                                    │
+│   10-30 14:01  12.0 MiB                                                      │
+│ 20261023T031000Z-4567cdef                                                    │
+│   10-23 03:10  11.0 MiB                                                      │
+B back to before update  e update rules  b backup  C compose  k checks  o log   
+a set secret  x delete secret  R restore backup  r reload  1-7 area  q quit     

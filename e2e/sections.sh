@@ -28,16 +28,18 @@ deploy         scenario_read_access
 deploy         scenario_proposals
 deploy         scenario_container_actions
 deploy         scenario_stack_actions
+heal           scenario_repair_start
 access         scenario_deploy_audit
 access         scenario_grants
 access         scenario_grant_proposal
 tui-sudo       scenario_tui_sudo
+heal           scenario_repair_attempt
 tui-sudo       scenario_tui_deploy_sudo
 tui-sudo       scenario_datadir_nested
 tui-sudo       scenario_tui_secrets
 tui-sudo       scenario_tui_folder_sudo
-heal           scenario_repair_start
 heal           scenario_container_monitor
+heal           scenario_repair_second
 update         scenario_backup
 update         scenario_updates
 update         scenario_rollback
@@ -61,6 +63,8 @@ rootless       scenario_proposal_engine
 rootless       scenario_tui_engine_choice
 sources        scenario_key_set
 heal           scenario_observe_end
+heal           scenario_repair_end
+heal           demo_leftovers_clean
 source-local   scenario_source_local
 source-local   scenario_private_registry
 source-local   scenario_source_files
@@ -68,7 +72,6 @@ source-git     scenario_source_remote
 source-git     scenario_source_move
 source-git     scenario_tui_move
 source-git     scenario_tui_remote
-heal           scenario_repair_end
 tui-proposals  scenario_adopt
 tui-proposals  scenario_tui_proposals
 tui-proposals  scenario_tui_proposal_kinds

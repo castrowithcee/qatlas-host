@@ -35,6 +35,11 @@
 │ The update trigger is Maintenance window: a hook     │
 │ acts only with the trigger Polling or Webhook only.  │
 ╰──────────────────────────────────────────────────────╯
+╭─ Grants ─────────────────────────────────────────────╮
+│ A grant applies to the user and to every agent       │
+│ working under the account of the user.               │
+│ No grants for this stack.                            │
+╰──────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                            │
 │   10-30 14:01  12.0 MiB                              │
@@ -55,10 +60,5 @@
 │   Compose starts the stack from compose.yaml         │
 │ Update  works, automatic                             │
 │   the maintenance window updates APP_VERSION by      │
-│   itself                                             │
-│ Rollback with data  works                            │
-│   a failed run goes back to the previous commit and  │
-│   restores the backup it made before the change      │
-│ Backup  works                                        │
 B back to before update  e update rules  b backup       
 C compose  o log  a set secret  r reload  q quit        

@@ -179,6 +179,25 @@ func TestMovePreviewRunsWithoutATerminalAndTheMoveHasTheExactCommand(t *testing.
 	}
 }
 
+func TestMoveCommandHasNoEngineFlagOnAHostWithSeveralEngines(t *testing.T) {
+	outcome := jsonOf(t, map[string]any{"target": moveTarget, "project": "legacy-blog", "result": "moved", "location": moveTarget, "commit": "0123456789abcdef"})
+	b := moveBackend()
+	b.engines = []string{control.EngineSystem, aliceEngine}
+	for i := range b.status.Engine.Sources {
+		b.status.Engine.Sources[i].Engine = control.EngineSystem
+	}
+	m, f := moveModel(t, i18n.English, b, false, wideWidth, 50, jsonOf(t, movePreview(nil)), outcome)
+	toMoveChoice(m)
+	send(m, "right", "f2")
+	if !shows(m.render(), "sudo qhost source move --into "+moveSource+" --yes --output json -- "+foreignDir) {
+		t.Fatalf("the command without --engine is not shown:\n%s", m.render())
+	}
+	send(m, "y")
+	wantCommands(t, m, f,
+		[]string{"source", "move", "--into", moveSource, "--output", "json", "--", foreignDir},
+		[]string{"source", "move", "--into", moveSource, "--yes", "--output", "json", "--", foreignDir})
+}
+
 func TestMoveShowsTheWayBackAndWhatRemains(t *testing.T) {
 	for name, c := range map[string]struct {
 		outcome map[string]any

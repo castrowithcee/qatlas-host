@@ -440,13 +440,7 @@ scenario_tui_move() {
 	tui_wait 'a source of its own' 10
 	tui_send Enter
 	tui_wait "moved into the source $tinto" 10
-	i=0
-	until tui_screen | grep -Eq "║ > *moved into the source $tinto +║"; do
-		i=$((i + 1))
-		[ "$i" -lt 12 ] || fail "the cursor does not reach the source $tinto: $(tui_screen)"
-		tui_send Down
-		sleep 0.2
-	done
+	tui_walk_down "the source $tinto" grep -Eq "[│║] > *moved into the source $tinto +[│║]"
 	tui_send Enter
 	tui_send F2
 	tui_wait "Move the project tuimove into the source $tinto as the folder $tinto/tuimove?" 60
@@ -463,7 +457,10 @@ scenario_tui_move() {
 
 	step 'yes moves the project into the source and it runs there on its data'
 	tui_send y
-	tui_wait "The project tuimove is moved to $tinto/tuimove and deployed there." 180
+	# The dialog wraps the sentence, so its parts are matched apart.
+	tui_wait "The project tuimove is moved to $tinto/tuimove" 180
+	tui_wait 'deployed there.' 10
+	tui_wait "the folder is now in: $tinto/tuimove" 10
 	tui_send Enter
 	tui_tmux kill-server >/dev/null 2>&1 || true
 	wait_for 'the deploy service to answer' 30 qd status
