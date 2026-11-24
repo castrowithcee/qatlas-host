@@ -7,7 +7,7 @@
 # each, after the changelog was shown; a later update to the test tags with a failing healthcheck ends with the
 # data restored, a revert commit and a message at the webhook; an older backup is restored with owners and modes
 # of the data kept; a stack command must not wait more than 5 seconds during a deliberately slow fetch or poll.
-# Sourced by run.sh acceptance after scenario.sh, whose helpers it uses.
+# Sourced by run.sh acceptance after the helpers in e2e/lib/, which it uses.
 
 # The stack folder is the administrator's free choice; it does not exist until the setup creates it.
 acc_stacks=/srv/services/stacks

@@ -16,9 +16,10 @@ test-fast *args:
 test *args:
     @if [ $# -eq 0 ]; then set -- ./...; fi; {{run}} sh -ec 'f=$(gofmt -l .); [ -z "$f" ] || { echo "gofmt: $f" >&2; exit 1; }; go vet "$@"; go test -count=1 "$@"' sh "$@"
 
-# The e2e scenario on a fresh simulated host, without the internet.
-test-e2e:
-    @TEST_KIND=e2e {{run}} e2e/run.sh check scenario
+# The e2e scenario on a fresh simulated host, without the internet. Optional section filter; a section brings the
+# sections it needs.
+test-e2e *args:
+    @TEST_KIND=e2e {{run}} e2e/run.sh check scenario "$@"
 
 # The acceptance scenario with real third-party images; copies them from the internet.
 test-ext:
