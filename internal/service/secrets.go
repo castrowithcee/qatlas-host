@@ -70,6 +70,16 @@ func (d redactingDeployer) MissingDataDirs(ctx context.Context, st stacks.Stack,
 	return c.MissingDataDirs(ctx, st, versioned, log)
 }
 
+// ImageFingerprints implements engine.ImageFingerprinter; a deployer without it reads none.
+func (d redactingDeployer) ImageFingerprints(ctx context.Context, st stacks.Stack, log *engine.Log) ([]engine.ImageFingerprint, error) {
+	c, ok := d.next.(engine.ImageFingerprinter)
+	if !ok {
+		return nil, nil
+	}
+	registerStackSecrets(d.r, st)
+	return c.ImageFingerprints(ctx, st, log)
+}
+
 // WillBackup implements engine.BackupPlanner; a deployer that cannot tell is assumed to back up.
 func (d redactingDeployer) WillBackup(st stacks.Stack) bool {
 	p, ok := d.next.(engine.BackupPlanner)
