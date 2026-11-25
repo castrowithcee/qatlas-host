@@ -199,10 +199,9 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		control.ProposalListCommand:     {nil},
 		control.ProposalShowCommand:     {control.ProposalIDArgs{ID: prop.ID}},
 		control.GrantListCommand:        {nil, control.GrantListArgs{Stack: "plain-stack"}},
-		// The deploy run is no update run, so the check refuses; the refusal is checked for secrets as well.
-		control.ReturnCheckCommand:   {control.ReturnArgs{Stack: "plain-stack", Run: dep.ID, Data: control.ReturnKeepData}},
-		control.ContainerLogsCommand: {control.ContainerLogsArgs{Stack: "plain-stack"}, control.ContainerLogsArgs{Name: app.Name}},
+		control.ContainerLogsCommand:    {control.ContainerLogsArgs{Stack: "plain-stack"}, control.ContainerLogsArgs{Name: app.Name}},
 	}
+	maps.Copy(reads, promoteReads(dep.ID))
 	if got, want := slices.Sorted(maps.Keys(reads)), commandsOf(reg, control.ClassRead); !slices.Equal(got, want) {
 		t.Fatalf("the test covers %v, the service reads with %v", got, want)
 	}
@@ -212,7 +211,7 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		for _, args := range list {
 			var raw json.RawMessage
 			if err := h.call(name, args, &raw); err != nil {
-				if name != control.ReturnCheckCommand {
+				if !slices.Contains(refusingReads, name) {
 					t.Errorf("%s %+v = %v", name, args, err)
 					continue
 				}
@@ -280,4 +279,17 @@ func TestProposalsOverTheChannelUseThePeerOfTheRequest(t *testing.T) {
 	}
 	// A proposal changes nothing else: an administrator still cannot write.
 	wantCode(t, h.call(control.SourceAddCommand, control.SourceAddArgs{Path: "/srv/example-stacks"}, nil), control.CodeNotRoot)
+}
+
+// refusingReads are the reads whose answer here is a refusal, which is checked for secrets as well.
+var refusingReads = []string{control.ReturnCheckCommand, control.PromoteCheckCommand}
+
+// promoteReads are the calls of the reads that refuse here: the return check, and the promotion's; the target has no settings, so its check refuses.
+func promoteReads(depID string) map[string][]any {
+	return map[string][]any{
+		// The deploy run is no update run, so the check refuses.
+		control.ReturnCheckCommand:   {control.ReturnArgs{Stack: "plain-stack", Run: depID, Data: control.ReturnKeepData}},
+		control.PromoteSourceCommand: {control.PromoteSourceArgs{Stack: "demo-stack"}},
+		control.PromoteCheckCommand:  {control.PromoteArgs{Stack: "plain-stack", Source: control.PromoteSource{Stack: "demo-stack"}}},
+	}
 }

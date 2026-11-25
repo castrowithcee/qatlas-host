@@ -2,6 +2,7 @@ package updates
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 
@@ -35,6 +36,52 @@ func (e *PlanError) Error() string {
 	return clip(e.Variable) + ": " + e.Text
 }
 
+// updatable refuses a stack that has no readable files or no settings, whatever the version.
+func updatable(st stacks.Stack) error {
+	refuse := func(text string) error { return &PlanError{Kind: PlanRefused, Text: text} }
+	switch {
+	case st.Err != nil:
+		return refuse("the stack cannot be read")
+	case st.EnvErr != nil:
+		return refuse("the stack is deploy-only: " + st.EnvErr.Error())
+	case st.Rules == nil:
+		return refuse("the stack has no settings and is never updated; set them in the qhost TUI or with 'qhost stack settings set'")
+	}
+	return nil
+}
+
+// PromoteCheck returns the judge for moving one image variable of the stack to a version taken from another
+// stack: it asks the registry as Plan does for a chosen version, in one jump, under the stack's variant filter.
+// A version that is not higher gives version.ErrNotHigher. The stack is refused as Plan refuses it. The judge
+// keeps the tag lists it fetched and is not for concurrent use.
+func (d *Detector) PromoteCheck(st stacks.Stack) (engine.VersionCheck, error) {
+	if err := updatable(st); err != nil {
+		return nil, err
+	}
+	run := &run{d: d, clients: map[string]*registry.Client{}, creds: map[string]error{}, tags: map[string]tagResult{}}
+	return func(ctx context.Context, img stacks.ImageVar, to string) error {
+		repo, err := registry.ParseRepo(img.Image)
+		if err != nil {
+			return &PlanError{Kind: PlanRefused, Variable: img.Var, Text: textBadImage}
+		}
+		res := run.list(ctx, repo)
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if res.text != "" {
+			return &PlanError{Kind: PlanRegistry, Variable: img.Var, Text: res.text}
+		}
+		in := version.Input{Current: img.Value, Candidates: res.tags, Ceiling: st.Rules.Update.Ceiling, Filter: st.Rules.Update.Tags[img.Var]}
+		if _, err := version.Path(in, to, false); err != nil {
+			if errors.Is(err, version.ErrNotHigher) {
+				return err
+			}
+			return &PlanError{Kind: PlanVersion, Variable: img.Var, Text: err.Error()}
+		}
+		return nil
+	}, nil
+}
+
 // Plan returns the steps that update the stack, from the tags the registries list now. Without target, every
 // image version variable whose rules allow a newer version moves to the version detection would select; with
 // target, one image version variable moves to target, which may lie above the ceiling: the one named by
@@ -49,14 +96,8 @@ func (d *Detector) Plan(ctx context.Context, st stacks.Stack, target, variable s
 	refuse := func(variable, text string) error {
 		return &PlanError{Kind: PlanRefused, Variable: variable, Text: text}
 	}
-	if st.Err != nil {
-		return nil, refuse("", "the stack cannot be read")
-	}
-	if st.EnvErr != nil {
-		return nil, refuse("", "the stack is deploy-only: "+st.EnvErr.Error())
-	}
-	if st.Rules == nil {
-		return nil, refuse("", "the stack has no settings and is never updated; set them in the qhost TUI or with 'qhost stack settings set'")
+	if err := updatable(st); err != nil {
+		return nil, err
 	}
 	var vars []stacks.ImageVar
 	for _, img := range st.Images {

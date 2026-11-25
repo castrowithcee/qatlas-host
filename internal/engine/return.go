@@ -49,6 +49,8 @@ type ReturnResult struct {
 type returnJob struct {
 	changes []VersionStep
 	restore string
+	// message, when set, is the commit message instead of the return's.
+	message string
 }
 
 // CheckReturn tells whether the stack can be returned as Return would, refusing it as Return does, and returns
@@ -177,7 +179,7 @@ func (e *Engine) returnPlan(ctx context.Context, b Binding, st stacks.Stack, run
 		return ReturnPlan{}, ErrNoSuchRun
 	}
 	target := runs[i]
-	if target.Trigger != TriggerUpdate || target.Result != ResultSucceeded {
+	if !changesVersions(target.Trigger) || target.Result != ResultSucceeded {
 		return ReturnPlan{}, ErrNotReturnable
 	}
 	steps, err := e.returnSteps(ctx, b, st, target.Commit)

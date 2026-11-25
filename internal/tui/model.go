@@ -176,11 +176,11 @@ type Model struct {
 	propByID  map[kittui.ItemID]control.ProposalInfo
 	// modal is the question or result that takes every key; run the sequence of calls under way. stale is set
 	// when a refresh must follow the one under way.
-	set                           *settingsState
-	modal                         *modal
-	run                           *running
-	modalGen, runGen, rollbackGen int
-	stale                         bool
+	set                                       *settingsState
+	modal                                     *modal
+	run                                       *running
+	modalGen, runGen, rollbackGen, promoteGen int
+	stale                                     bool
 	// after starts a timer; tests replace it.
 	after func(time.Duration, func(time.Time) tea.Msg) tea.Cmd
 	// euid and makeDirs are the user the interface runs as and the creation of data directories; tests replace them.
@@ -372,8 +372,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.applyStep(msg)
 	case previewMsg:
 		return m, m.applyPreview(msg)
-	case rollbackCheckMsg:
-		m.applyRollbackCheck(msg)
+	case interface{ applyTo(*Model) }:
+		msg.applyTo(m)
 	case changelogMsg:
 		m.applyChangelog(msg)
 	case backupsMsg:
@@ -709,7 +709,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			if m.saveOpenLog() {
 				return nil
 			}
-		case actFetch, actAdd, actRemove, actEdit, actRename, actTest, actEnter, actRestore, actRollback, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actGrantAdd, actGrantRemove, actRemote, actApprove, actReject:
+		case actFetch, actAdd, actRemove, actEdit, actRename, actTest, actEnter, actRestore, actRollback, actPromote, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actGrantAdd, actGrantRemove, actRemote, actApprove, actReject:
 			switch m.area {
 			case areaSystem:
 				if cmd, handled := m.systemAction(id); handled {

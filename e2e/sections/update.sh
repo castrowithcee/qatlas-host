@@ -414,6 +414,8 @@ scenario_update() {
 	[ -n "$(update_run_backup "$run_log")" ] || fail "the update run made no backup: $run_log"
 	log "scenario: direct update: run $run, commit $commit, demo-stack runs 3.0.0"
 
+	scenario_promote
+
 	step 'a stepwise major jump takes one step per major version, each with its own commit and backup'
 	update_reset 1.1.0 stepwise
 	head_before=$(as_admin 'cd ~/stacks && git pull -q --ff-only && git rev-parse HEAD')
@@ -495,6 +497,48 @@ scenario_update() {
 	[ "$(stack_images demo-stack)" = "$image:1.1.0" ] || fail "demo-stack does not run 1.1.0 again: $(stack_images demo-stack)"
 
 	scenario_return
+}
+
+# scenario_promote takes the version of demo-stack, which runs 3.0.0, over to demo-cache, which has the same image
+# repository and runs 1.1.0: the preview changes nothing, the confirmed command is a run with the trigger promote
+# and one commit that names the source, and the return of that run leaves demo-cache on 1.1.0 without settings.
+scenario_promote() {
+	image=registry.$domain/demo/app
+
+	step 'promote shows the versions of demo-stack for demo-cache without --confirm and changes nothing'
+	wait_for 'demo-cache to be idle' 120 stack_idle demo-cache
+	settings_set demo-cache "$(printf 'version: 1\nupdate:\n  major: direct\n')"
+	[ "$(stack_images demo-cache)" = "$image:1.1.0" ] || fail "demo-cache does not run 1.1.0 before the promotion: $(stack_images demo-cache)"
+	out=$(qd_fails --output json stack promote demo-stack demo-cache) || fail "promote without --confirm succeeded: $out"
+	printf '%s' "$out" | grep -q '"to": *"3.0.0"' || fail "the preview does not show 3.0.0: $out"
+	[ "$(stack_images demo-cache)" = "$image:1.1.0" ] || fail "the preview changed demo-cache: $(stack_images demo-cache)"
+	source_commit=$(json_values "$out" source_commit | head -n 1)
+	[ -n "$source_commit" ] || fail "the preview names no source commit: $out"
+
+	step 'promote --confirm is a run of demo-cache with the trigger promote and a commit that names demo-stack'
+	out=$(qd --output json stack promote demo-stack demo-cache --confirm --source-commit "$source_commit") || fail "promote failed: $out"
+	[ "$(json_values "$out" result)" = succeeded ] || fail "the promotion did not succeed: $out"
+	run=$(json_values "$out" run | head -n 1)
+	commit=$(json_values "$out" commit | head -n 1)
+	[ -n "$run" ] && [ -n "$commit" ] || fail "promote reported no run and commit: $out"
+	qd --output json stack runs demo-cache | jq -e --arg r "$run" 'any(.[]; .run == $r and .trigger == "promote" and .result == "succeeded")' >/dev/null ||
+		fail "the run $run of demo-cache has no trigger promote: $(qd --output json stack runs demo-cache)"
+	as_admin 'cd ~/stacks && git pull -q --ff-only'
+	[ "$(as_admin "git ls-remote $repo refs/heads/main" | cut -f 1)" = "$commit" ] || fail "the promotion commit $commit is not the head of the remote branch"
+	as_admin "cd ~/stacks && git log -1 --format=%s $commit" | grep -q 'from demo-stack' || fail "the commit does not name demo-stack: $(as_admin "cd ~/stacks && git log -1 --format=%s $commit")"
+	[ "$(as_admin "cd ~/stacks && git show --format= --numstat $commit")" = "$(printf '1\t1\tdemo-cache/.env')" ] || fail 'the promotion commit touches more than one line of demo-cache/.env'
+	[ "$(stack_images demo-cache)" = "$image:3.0.0" ] || fail "demo-cache does not run 3.0.0: $(stack_images demo-cache)"
+	stack_healthy demo-cache || fail 'demo-cache is not healthy after the promotion'
+	out=$(qd stack promote demo-stack demo-cache --confirm --source-commit "$source_commit") || fail "promote of the same version failed: $out"
+	printf '%s' "$out" | grep -q 'Nothing to promote' || fail "the same version is not reported as nothing to do: $out"
+
+	step 'the return of the promotion and the removal of the settings leave demo-cache as it was'
+	out=$(qd --output json stack rollback demo-cache "$run" --keep-data --yes) || fail "rollback of the promotion failed: $out"
+	printf '%s' "$out" | jq -e '.result == "succeeded"' >/dev/null || fail "unexpected answer of the rollback: $out"
+	out=$(qd stack unpin demo-cache) || fail "unpin failed: $out"
+	out=$(qd --output json stack settings remove demo-cache) || fail "settings remove failed: $out"
+	[ "$(stack_images demo-cache)" = "$image:1.1.0" ] || fail "demo-cache does not run 1.1.0 again: $(stack_images demo-cache)"
+	log "scenario: promote: run $run, commit $commit"
 }
 
 # scenario_return sets demo-stack back with 'qhost stack rollback' after an update by qhost, which has backup rules:

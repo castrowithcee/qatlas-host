@@ -594,10 +594,8 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		cmds = append(cmds, m.loadPage(true))
 	case HookAddResult:
 		cmds = append(cmds, m.hookAdded(res, msg.name))
-	case grantAdded:
-		cmds = append(cmds, m.grantAddedDone(res, done))
-	case grantRemoved:
-		cmds = append(cmds, m.grantRemovedDone(res, done))
+	case settingDone:
+		cmds = append(cmds, res.finish(m, done))
 	case hookRemoved:
 		done(t.Lookup(textDoneHookRemoved, res.id))
 		cmds = append(cmds, m.readHooks())

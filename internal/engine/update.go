@@ -311,7 +311,7 @@ func (r *run) advance(ctx context.Context) error {
 	}
 	r.pushed, r.rec.Commit = true, at
 	what := "update"
-	if r.back != nil {
+	if r.back != nil && r.back.message == "" {
 		what = "return"
 	}
 	return r.follow(ctx, at, what)
@@ -329,6 +329,9 @@ func (r *run) commitEdit() (string, func([]byte) ([]byte, error)) {
 		parts[i] = fmt.Sprintf("%s from %s to %s", s.Variable, s.From, s.To)
 	}
 	message := fmt.Sprintf("%s %s %s", verb, r.st.Name, strings.Join(parts, "; "))
+	if r.back != nil && r.back.message != "" {
+		message = r.back.message
+	}
 	edit := func(old []byte) ([]byte, error) {
 		var err error
 		for _, s := range steps {

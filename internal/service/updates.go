@@ -64,6 +64,9 @@ func registerUpdateCommands(r *control.Registry, repo *repoService, eng *sourceS
 			return nil, err
 		}
 	}
+	if err := registerPromoteCommands(r, s); err != nil {
+		return nil, err
+	}
 	return s, nil
 }
 

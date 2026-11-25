@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+   1 ▤ Stacks  [2 ▣ Stack detail]  3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  demo-stack                                                                                                            
+                                                                                                                        
+  mode      automatic       ╔═ Take over versions ═════════════════════════════════════════╗                            
+  state     deployed        ║ ⚠ Set the image versions of demo-stack to those mail-relay   ║                            
+  findings  1 warning       ║   runs?                                                      ║                            
+                            ║                                                              ║                            
+╭─ Image versions ──────────║ The stack is stopped, backed up if it has backup rules, its  ║───────────────────────────╮
+│ APP_VERSION  example/app  ║ .env gets the new versions in one commit, which is pushed,   ║                           │
+│   1.4.2 -> 1.5.0  update a║ and the stack starts and is checked. A failing run is rolled ║                           │
+╰───────────────────────────║ back. Only the images both stacks run are set.               ║───────────────────────────╯
+╭─ Containers ──────────────║ Source mail-relay at commit 89abcdef0123: last run           ║───────────────────────────╮
+│ No containers of this stac║ succeeded, healthy.                                          ║                           │
+╰───────────────────────────║ APP_VERSION: 1.4.2 -> 1.5.0                                  ║───────────────────────────╯
+╭─ Changelog ───────────────║                                                              ║───────────────────────────╮
+│ APP_VERSION  1.4.2 -> 1.5.║ [ yes, do it ]  > cancel <                                   ║                           │
+│   source example/app      ║ y yes, do it  n/esc/enter cancel                             ║                           │
+│   1.5.0  Spring release  2╚══════════════════════════════════════════════════════════════╝                           │
+│     Adds a dark theme.                                                                                               │
+│                                                                                                                      │
+│     - faster start                                                                                                   │
+                                                                                                                   20/66

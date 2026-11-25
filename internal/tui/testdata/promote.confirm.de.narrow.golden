@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  1 [2 Stack-Details] 3 4 5 6 7                         
+────────────────────────────────────────────────────────
+  demo-stack                                            
+  ╔═ Versionen übernehmen ═══════════════════════════╗  
+  ║ ⚠ Die Image-Versionen von demo-stack auf die     ║  
+  ║   setzen, die mail-relay betreibt?               ║  
+  ║                                                  ║  
+  ║ Der Stack wird gestoppt, gesichert, wenn er      ║  
+╭─║ Backup-Regeln hat, seine .env bekommt die neuen  ║─╮
+│ ║ Versionen in einem Commit, der gepusht wird, und ║ │
+│ ║ der Stack startet und wird geprüft. Ein          ║ │
+╰─║ fehlschlagender Lauf wird zurückgenommen.        ║─╯
+╭─║ Gesetzt werden nur die Images, die beide Stacks  ║─╮
+│ ║ betreiben.                                       ║ │
+╰─║ Quelle mail-relay bei Commit 89abcdef0123:       ║─╯
+╭─║ letzter Lauf erfolgreich, gesund.                ║─╮
+│ ║ APP_VERSION: 1.4.2 -> 1.5.0                      ║ │
+│ ║                                                  ║ │
+│ ║ [ ja, ausführen ]  > abbrechen <                 ║ │
+│ ║ y ja, ausführen  n/esc/enter abbrechen           ║ │
+│ ╚══════════════════════════════════════════════════╝ │
+│     - faster start                                   │
+                                                   20/72

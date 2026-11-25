@@ -15,8 +15,11 @@ import (
 // newest successful update run of the stack. The dialog chooses what happens to the data, then the confirmation shows
 // the command. The service checks every other condition.
 
-// returnable reports whether a run is a successful update run, the only kind a return applies to.
-func returnable(r runRow) bool { return r.trigger == "update" && r.result == "succeeded" && !r.active }
+// returnable reports whether a run is a successful run that set image versions, an update or a promotion, the only
+// kinds a return applies to.
+func returnable(r runRow) bool {
+	return (r.trigger == "update" || r.trigger == "promote") && r.result == "succeeded" && !r.active
+}
 
 // lastUpdateRun is the newest returnable run of the stack, as runData is newest first.
 func (m *Model) lastUpdateRun(stack, engine string) (runRow, bool) {
@@ -94,6 +97,8 @@ func (m *Model) askRollback(r runRow) tea.Cmd {
 		return rollbackCheckMsg{gen: gen, row: r, res: res, err: err}
 	}
 }
+
+func (msg rollbackCheckMsg) applyTo(m *Model) { m.applyRollbackCheck(msg) }
 
 func (m *Model) applyRollbackCheck(msg rollbackCheckMsg) {
 	if msg.gen != m.rollbackGen || m.modal != nil {

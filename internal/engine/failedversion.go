@@ -59,7 +59,7 @@ func (r *run) trackVersions(cur *StackState, rec RunRecord, now time.Time) {
 	case rec.Result == ResultRolledBack && r.change != nil && r.back == nil:
 		cur.lockVersion(r.change.Variable, r.change.To)
 	}
-	if d := r.st.ObserveTime(); rec.Result == ResultSucceeded && rec.Trigger == TriggerUpdate && d > 0 {
+	if d := r.st.ObserveTime(); rec.Result == ResultSucceeded && changesVersions(rec.Trigger) && d > 0 {
 		cur.Observe = &Observation{Run: rec.ID, From: r.deployed, Commit: rec.Commit, Backup: rec.Backup,
 			Since: now, Until: now.Add(d)}
 		if r.change != nil {

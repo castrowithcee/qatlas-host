@@ -335,6 +335,14 @@ func (m *Model) grantAddedDone(res grantAdded, done func(string, ...string)) tea
 	return m.readGrants()
 }
 
+func (g grantAdded) finish(m *Model, done func(string, ...string)) tea.Cmd {
+	return m.grantAddedDone(g, done)
+}
+
+func (g grantRemoved) finish(m *Model, done func(string, ...string)) tea.Cmd {
+	return m.grantRemovedDone(g, done)
+}
+
 // grantRemovedDone tells that a grant is withdrawn and reads the list again.
 func (m *Model) grantRemovedDone(res grantRemoved, done func(string, ...string)) tea.Cmd {
 	done(m.text.Lookup(textDoneGrantRemoved, kittui.Escape(res.user), m.grantActionText(res.action), res.stack))
