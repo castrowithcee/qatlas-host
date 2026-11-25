@@ -101,7 +101,7 @@ func TestHookSetupCreatesEverythingAndRepeatsWithoutChange(t *testing.T) {
 	want := []string{
 		"groupadd --system qhost-hook",
 		"useradd --system --gid qhost-hook --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin qhost-hook",
-		"systemd-tmpfiles --create /etc/tmpfiles.d/qhost-hook.conf",
+		"systemd-tmpfiles --create /etc/tmpfiles.d/qhost-hook.conf", "systemctl try-restart qhost-deploy",
 		"systemctl daemon-reload",
 		"systemctl enable --now qhost-hook",
 	}
@@ -169,7 +169,8 @@ func TestHookSetupContinuesAfterAnAbort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"systemd-tmpfiles --create /etc/tmpfiles.d/qhost-hook.conf", "systemctl daemon-reload", "systemctl enable --now qhost-hook"}
+	want := []string{"systemd-tmpfiles --create /etc/tmpfiles.d/qhost-hook.conf", "systemctl try-restart qhost-deploy",
+		"systemctl daemon-reload", "systemctl enable --now qhost-hook"}
 	if !slices.Equal(h.calls, want) {
 		t.Fatalf("the continued setup ran %v, want %v", h.calls, want)
 	}
@@ -375,5 +376,104 @@ func TestHookUnitPassesItsOwnValidationAndRefusesWeakening(t *testing.T) {
 	}
 	if err := validateHookUnit([]byte("[Service]\nUser=qhost-hook\n")); err == nil {
 		t.Error("accepted a unit without its sandbox")
+	}
+}
+
+// after returns the commands of plan that follow the step first; a missing step fails the test.
+func after(t *testing.T, plan Plan, first string) []string {
+	t.Helper()
+	cmds := plan.Commands()
+	i := slices.Index(cmds, first)
+	if i < 0 {
+		t.Fatalf("no step %q in %v", first, cmds)
+	}
+	return cmds[i+1:]
+}
+
+const hookTmpfilesCreate = "systemd-tmpfiles --create /etc/tmpfiles.d/qhost-hook.conf"
+
+func TestHookSetupRestartsTheRunningDeployServicesWhoseFolderItCreates(t *testing.T) {
+	h := newHookHost(t)
+	h.setUpDeploy()
+	if _, err := h.setUpInstanceOf("alice"); err != nil {
+		t.Fatal(err)
+	}
+	h.calls = nil
+	plan, err := h.setUpHook("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rest := after(t, plan, hookTmpfilesCreate)
+	want := []string{"systemctl try-restart qhost-deploy", "systemctl try-restart " + instanceUnit("alice")}
+	if len(rest) < 2 || !slices.Equal(rest[:2], want) {
+		t.Fatalf("steps after the folders: %v, want %v first", rest, want)
+	}
+	for _, w := range want {
+		if !slices.Contains(h.calls, w) {
+			t.Errorf("%q did not run: %v", w, h.calls)
+		}
+	}
+	h.calls = nil
+	again, err := h.setUpHook("")
+	if err != nil || !again.Empty() || len(h.calls) != 0 {
+		t.Fatalf("a repeated setup restarts something: %v %v %v", again.Commands(), h.calls, err)
+	}
+}
+
+func TestHookSetupLeavesAStoppedDeployServiceStopped(t *testing.T) {
+	h := newHookHost(t)
+	h.setUpDeploy()
+	h.running["qhost-deploy"] = false
+	plan, err := h.setUpHook("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range plan.Commands() {
+		if strings.HasPrefix(c, "systemctl") && strings.Contains(c, "qhost-deploy") {
+			t.Errorf("the plan touches the stopped deploy service: %q", c)
+		}
+	}
+	if h.running["qhost-deploy"] {
+		t.Fatal("the stopped deploy service was started")
+	}
+}
+
+func TestDeploySetupMakesItsFolderBeforeItStarts(t *testing.T) {
+	for _, tc := range []struct {
+		name, unit, folder string
+		setUp              func(h *hookHost) (Plan, error)
+	}{
+		{"system", "qhost-deploy", "/run/qhost-hook/system", func(h *hookHost) (Plan, error) { return h.fakeHost.setUp() }},
+		{"rootless", instanceUnit("alice"), "/run/qhost-hook/alice",
+			func(h *hookHost) (Plan, error) { return h.setUpInstanceOf("alice") }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHookHost(t)
+			if _, err := h.setUpHook(""); err != nil {
+				t.Fatal(err)
+			}
+			plan, err := tc.setUp(h)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if rest := after(t, plan, hookTmpfilesCreate); !slices.Contains(rest, "systemctl enable --now "+tc.unit) {
+				t.Fatalf("the service starts before its folder exists: %v", plan.Commands())
+			}
+			if slices.Contains(plan.Commands(), "systemctl try-restart "+tc.unit) {
+				t.Fatalf("a service that did not run is restarted: %v", plan.Commands())
+			}
+
+			// A running service whose folder the setup makes again restarts after it.
+			if err := os.Remove(h.host.path(tc.folder)); err != nil {
+				t.Fatal(err)
+			}
+			plan, err = tc.setUp(h)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := after(t, plan, hookTmpfilesCreate); !slices.Equal(got, []string{"systemctl try-restart " + tc.unit}) {
+				t.Fatalf("steps after the folder: %v", got)
+			}
+		})
 	}
 }
