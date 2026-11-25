@@ -28,7 +28,8 @@ const settingsFields = "The settings are one object with these members, each opt
 	"  update.interval: seconds from 30 to 86400 between two registry queries (60), only with update.trigger: interval;\n" +
 	"  update.ceiling: patch, minor or major (minor);\n" +
 	"  update.major: direct or stepwise (stepwise); update.observe: minutes, 0 off, at most 1440 (60); update.tags: image version variable to a regular\n" +
-	"  expression its tags must match; update.changelog: image version variable to a GitHub repository\n" +
+	"  expression its tags must match; update.changelog: image version variable to a GitHub repository;\n" +
+	"  update.promote_source: the stack whose versions 'qhost stack promote <stack>' takes over\n" +
 	"  backup.paths, backup.volumes, backup.command: data directories below the stack folder, named volumes\n" +
 	"  and an argument vector; backup.retention.keep and backup.retention.max_age_days (keep 7)\n" +
 	"  check.containers: true or false (true); check.http.url, check.http.status (200), check.http.timeout (10s)\n\n" +
@@ -215,20 +216,7 @@ func settingsOutput(format output.Format, s control.StackSettings) []output.Fiel
 		add("compose.files", list(c.Files))
 	}
 	if u := s.Update; u != nil {
-		add("update.mode", u.Mode)
-		if u.Trigger != "" {
-			add("update.trigger", u.Trigger)
-		}
-		if u.Interval != nil {
-			add("update.interval", *u.Interval)
-		}
-		add("update.ceiling", u.Ceiling)
-		add("update.major", u.Major)
-		if u.Observe != nil {
-			add("update.observe", *u.Observe)
-		}
-		byKey("update.tags", u.Tags)
-		byKey("update.changelog", u.Changelog)
+		updateOutput(u, add, byKey)
 	}
 	if b := s.Backup; b != nil {
 		add("backup.paths", list(b.Paths))
@@ -257,4 +245,25 @@ func settingsOutput(format output.Format, s control.StackSettings) []output.Fiel
 		}
 	}
 	return fields
+}
+
+// updateOutput adds the update settings to the text form of the settings.
+func updateOutput(u *control.StackUpdateSettings, add func(string, any), byKey func(string, map[string]string)) {
+	add("update.mode", u.Mode)
+	if u.Trigger != "" {
+		add("update.trigger", u.Trigger)
+	}
+	if u.Interval != nil {
+		add("update.interval", *u.Interval)
+	}
+	add("update.ceiling", u.Ceiling)
+	add("update.major", u.Major)
+	if u.Observe != nil {
+		add("update.observe", *u.Observe)
+	}
+	byKey("update.tags", u.Tags)
+	byKey("update.changelog", u.Changelog)
+	if u.PromoteSource != "" {
+		add("update.promote_source", u.PromoteSource)
+	}
 }

@@ -118,7 +118,9 @@ type stackRow struct {
 	mode      string
 	trigger   string
 	interval  int
-	state     stackState
+	// promoteSource is the stack the settings name as the source of a promotion; empty when none.
+	promoteSource string
+	state         stackState
 	// lastResult is the result of the last finished run, lastAt its start; zero when only the status knew it.
 	lastResult string
 	lastAt     time.Time
@@ -182,7 +184,7 @@ func buildRows(s snapshot) []stackRow {
 		if _, ok := source[k]; !ok {
 			source[k] = si.Source
 		}
-		r.mode, r.trigger, r.interval = si.Update, si.Trigger, si.Interval
+		r.mode, r.trigger, r.interval, r.promoteSource = si.Update, si.Trigger, si.Interval, si.PromoteSource
 		if si.Error != "" {
 			unreadable[k] = true
 		}
@@ -312,13 +314,6 @@ func applyUpdates(r *stackRow, su control.StackUpdates) {
 	default:
 		r.avail = availUpToDate
 	}
-}
-
-func appendDistinct(list []string, v string) []string {
-	if v == "" || slices.Contains(list, v) {
-		return list
-	}
-	return append(list, v)
 }
 
 // stackColumns are the columns of the Stacks area; tones colours a cell by its text.
@@ -453,13 +448,6 @@ func cells(r stackRow, t kittui.Translator, loc *time.Location, tones map[string
 		}
 	}
 	return []string{r.name, current, available, mode, state, last, findings}
-}
-
-func plural(t kittui.Translator, n int, one, many kittui.TextID) string {
-	if n == 1 {
-		return t.Lookup(one, n)
-	}
-	return t.Lookup(many, n)
 }
 
 // itemIDs gives every row a list ID that holds no control character. Names that escape to the same text get a

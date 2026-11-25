@@ -311,7 +311,7 @@ func loadStack(root, folder string, settingsOf func(name string) (*Rules, error)
 		return fail(nameErr)
 	}
 	// The settings' own error is reported where it always was, after the compose files and images.
-	rules, rulesErr := settingsOf(base)
+	rules, rulesErr := ownSettings(settingsOf, base)
 	files := own
 	switch {
 	case rulesErr == nil && rules != nil && rules.ComposeFiles != nil:

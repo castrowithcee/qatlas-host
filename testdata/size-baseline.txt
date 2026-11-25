@@ -46,7 +46,6 @@ cx internal/cli/repo_test.go:TestRepoSetWithFingerprintBindsAndStacksLists 18
 cx internal/cli/rollback_test.go:TestRollbackReturnsAndPinsTheStack 16
 cx internal/cli/secret_test.go:TestSecretRoundTripNeverShowsTheValue 27
 cx internal/cli/selfupdate.go:runSelfUpdate 16
-cx internal/cli/settings.go:settingsOutput 18
 cx internal/cli/settings_test.go:TestStackListShowsTheUpdateTrigger 16
 cx internal/cli/settings_test.go:TestStackSettingsRemove 19
 cx internal/cli/settings_test.go:TestStackSettingsSetFromFileAndStdin 16
@@ -276,7 +275,7 @@ cx internal/stackcheck/stackcheck.go:updateFunction 26
 cx internal/stacks/compose.go:splitImage 18
 cx internal/stacks/env.go:parseEnvValue 16
 cx internal/stacks/refs.go:expandBraces 19
-cx internal/stacks/rules.go:validateRules 46
+cx internal/stacks/rules.go:validateRules 37
 cx internal/stacks/stacks.go:composeFiles 19
 cx internal/stacks/stacks.go:loadStack 32
 cx internal/tools/tools_test.go:TestEveryEntryIsWellFormed 19
@@ -304,7 +303,7 @@ cx internal/tui/model_test.go:TestRowsShowTheMostPressingState 17
 cx internal/tui/mouse.go:Model.mouse 31
 cx internal/tui/proposals.go:Model.proposalLines 17
 cx internal/tui/pty_test.go:TestSecretSetAtATerminalLeavesTheValueOnlyInTheSecretsFile 19
-cx internal/tui/settings.go:Model.applySetting 66
+cx internal/tui/settings.go:Model.applySetting 65
 cx internal/tui/settings.go:Model.settingsAction 24
 cx internal/tui/settingsform.go:Model.submitForm 29
 cx internal/tui/stacks.go:buildRows 29
@@ -321,7 +320,7 @@ cx internal/tui/systemusers.go:Model.pickChange 16
 cx internal/tui/updateform.go:Model.submitUpdate 16
 cx internal/uninstall/uninstall.go:Host.Plan 71
 cx internal/uninstall/uninstall_test.go:TestUninstallRemovesServicesAndKeepsStateAndStacks 17
-cx internal/updates/plan.go:Detector.Plan 22
+cx internal/updates/plan.go:Detector.Plan 20
 cx internal/version/version.go:Path 21
 cx internal/version/version.go:Select 23
 cx internal/window/window_test.go:TestParseStartDurationZone 16
@@ -331,7 +330,7 @@ file internal/cli/source_add.go 763
 file internal/cli/source_move_run.go 670
 file internal/cli/tui_backend.go 779
 file internal/compose/datadirs.go 518
-file internal/control/control.go 2166
+file internal/control/control.go 2118
 file internal/credentials/credentials.go 581
 file internal/diagnose/diagnose.go 625
 file internal/engine/engine.go 1184
@@ -348,12 +347,11 @@ file internal/proposals/proposals.go 569
 file internal/registry/client.go 706
 file internal/service/inspect.go 852
 file internal/service/monitor.go 655
-file internal/service/repo.go 600
+file internal/service/repo.go 569
 file internal/service/servicetest/servicetest.go 572
 file internal/service/sourceremote.go 639
 file internal/service/sources.go 842
 file internal/stacks/refs.go 504
-file internal/stacks/rules.go 503
 file internal/stacks/stacks.go 545
 file internal/tui/actions.go 911
 file internal/tui/backend.go 610
@@ -361,10 +359,9 @@ file internal/tui/detail.go 649
 file internal/tui/fakebackend_test.go 1260
 file internal/tui/folders.go 855
 file internal/tui/model.go 1559
-file internal/tui/settings.go 940
+file internal/tui/settings.go 938
 file internal/tui/settingsform.go 544
 file internal/tui/settingstext.go permanent: text catalog of the terminal interface, pure data
-file internal/tui/stacks.go 505
 file internal/tui/system.go 644
 file internal/tui/systemproposals.go 617
 file internal/tui/systemtext.go permanent: text catalog of the terminal interface, pure data
@@ -404,7 +401,6 @@ len internal/cli/rollback.go:newRollbackCommand 66
 len internal/cli/secret.go:newSecretCommand 100
 len internal/cli/selfupdate.go:runSelfUpdate 68
 len internal/cli/settings.go:newSettingsCommand 105
-len internal/cli/settings.go:settingsOutput 64
 len internal/cli/source.go:newSourceCommand 66
 len internal/cli/source.go:sourceResult 122
 len internal/cli/source_add.go:executeSourceFiles 61
@@ -500,7 +496,7 @@ len internal/service/monitor.go:containerMonitor.evaluate 112
 len internal/service/monitor_repair_test.go:TestMonitorRepairRestartsContainersThenTheStackAndHaltsAfterThree 79
 len internal/service/monitor_service_test.go:TestMonitorInServiceQhostStopIsNoFailureButAnExitIs 63
 len internal/service/notify_test.go:TestNotifyChannelCommands 103
-len internal/service/read_access_test.go:TestReadAnswersHoldNoSecretValue 122
+len internal/service/read_access_test.go:TestReadAnswersHoldNoSecretValue 121
 len internal/service/repo.go:repoService.handleCheck 68
 len internal/service/repo.go:repoService.handleSet 78
 len internal/service/repo_test.go:TestCheckReportsFindingsPerStack 61
@@ -524,7 +520,7 @@ len internal/service/updates.go:updatesService.handleRun 61
 len internal/stackcheck/stackcheck.go:checkStack 91
 len internal/stackcheck/stackcheck.go:updateFunction 88
 len internal/stackcheck/stackcheck_test.go:TestFunctions 67
-len internal/stacks/rules.go:validateRules 148
+len internal/stacks/rules.go:validateRules 115
 len internal/stacks/settings_test.go:TestEncodeSettingsIsCanonicalBlockYAML 62
 len internal/stacks/stacks.go:loadStack 116
 len internal/tui/backend_test.go:TestChannelBackendSpeaksTheServiceCommands 76
@@ -547,7 +543,7 @@ len internal/tui/model.go:newModel 63
 len internal/tui/mouse.go:Model.mouse 68
 len internal/tui/proposals.go:Model.proposalLines 68
 len internal/tui/pty_test.go:TestSecretSetAtATerminalLeavesTheValueOnlyInTheSecretsFile 72
-len internal/tui/settings.go:Model.applySetting 199
+len internal/tui/settings.go:Model.applySetting 197
 len internal/tui/settingsform.go:Model.submitForm 63
 len internal/tui/settingstext.go:settingsEnglish permanent: text catalog of the terminal interface, pure data
 len internal/tui/settingstext.go:settingsGerman permanent: text catalog of the terminal interface, pure data
@@ -561,5 +557,5 @@ len internal/tui/text.go:baseCatalog permanent: text catalog of the terminal int
 len internal/tui/updatetext.go:updateEnglish permanent: text catalog of the terminal interface, pure data
 len internal/tui/updatetext.go:updateGerman permanent: text catalog of the terminal interface, pure data
 len internal/uninstall/uninstall.go:Host.Plan 219
-len internal/updates/plan.go:Detector.Plan 76
+len internal/updates/plan.go:Detector.Plan 70
 len internal/version/version_test.go:TestSelect 63

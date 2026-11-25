@@ -81,6 +81,9 @@ func (m *Model) openPromotePick() tea.Cmd {
 		items[i] = kittui.ListItem{ID: kittui.ItemID(r.name), Cells: []string{cell}}
 	}
 	m.pick = m.newPicker(pickPromote, stack, textTitlePromotePick, []kittui.Column{{Title: textColStack}}, textPromoteNoSource, items)
+	if m.pick != nil {
+		m.pick.list.Select(kittui.ItemID(m.rowOf(m.stackEngineOf(stack), stack).promoteSource)) // no-op when unset or the stack is gone
+	}
 	return nil
 }
 

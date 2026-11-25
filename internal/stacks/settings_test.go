@@ -275,3 +275,34 @@ func mustEncode(t *testing.T, r *Rules) []byte {
 	}
 	return data
 }
+
+func TestPromoteSourceIsAStackNameButNeedNotExist(t *testing.T) {
+	r, err := ParseSettings([]byte(`{"version":1,"update":{"promote_source":"stage-app"}}`))
+	if err != nil || r.Update.PromoteSource != "stage-app" || r.Settings().Update.PromoteSource != "stage-app" {
+		t.Fatalf("rules = %+v, err = %v", r, err)
+	}
+	data, err := EncodeSettings(r)
+	if err != nil || !strings.Contains(string(data), "  promote_source: stage-app\n") {
+		t.Fatalf("encoded %q, err %v", data, err)
+	}
+	if r, err := ParseSettings([]byte("version: 1\n")); err != nil || r.Update.PromoteSource != "" || r.Settings().Update.PromoteSource != "" {
+		t.Fatalf("default: %+v, %v", r, err)
+	}
+	for _, bad := range []string{"Stage", "-x", "a/b", "a b"} {
+		if _, err := ParseSettings([]byte(`{"version":1,"update":{"promote_source":"` + bad + `"}}`)); err == nil || !strings.Contains(err.Error(), "update.promote_source") {
+			t.Errorf("%q: err = %v", bad, err)
+		}
+	}
+	// A source that does not exist leaves the stack readable.
+	if s := one(t, map[string]string{"compose.yaml": appCompose, settingsKey: "version: 1\nupdate:\n  promote_source: gone-stack\n"}); s.Err != nil {
+		t.Fatalf("err = %v", s.Err)
+	}
+}
+
+func TestPromoteSourceMustNotBeTheStackItself(t *testing.T) {
+	s := one(t, map[string]string{"compose.yaml": appCompose, settingsKey: "version: 1\nupdate:\n  promote_source: demo-stack\n"})
+	wantErr(t, s, "promote_source", "its own source")
+	if !IsSettingsError(s.Err) {
+		t.Errorf("not a settings error: %v", s.Err)
+	}
+}

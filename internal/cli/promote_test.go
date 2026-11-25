@@ -16,6 +16,9 @@ const promoteCommit = "0123456789abcdef0123456789abcdef01234567"
 
 // promoteHosts has the source in the rootless engine of alice and the target in the system engine; steps are
 // the versions the check offers and result the answer of the run.
+// promoteStored is the update.promote_source the target answers with; empty for none.
+var promoteStored string
+
 func promoteHosts(t *testing.T, steps []control.PromoteStepInfo, result control.PromoteRunResult, refuseOtherCommit ...bool) (system, alice *fakeService, runArgs func() control.PromoteArgs) {
 	t.Helper()
 	d := useFolderHost(t)
@@ -27,6 +30,10 @@ func promoteHosts(t *testing.T, steps []control.PromoteStepInfo, result control.
 			Versions: []control.PromoteVersion{{Variable: "APP_TAG", Image: "registry.example.test/demo/app", Version: "1.3.0"}}}
 	}}
 	target := fakeHandlers{
+		control.StackSettingsGetCommand: func(json.RawMessage) any {
+			return control.StackSettingsResult{Stack: "prod", Settings: &control.StackSettings{Version: 1,
+				Update: &control.StackUpdateSettings{PromoteSource: promoteStored}}}
+		},
 		control.PromoteCheckCommand: func(raw json.RawMessage) any {
 			var a control.PromoteArgs
 			_ = json.Unmarshal(raw, &a)
@@ -154,9 +161,9 @@ func TestPromoteWithNothingToDoSucceeds(t *testing.T) {
 	}
 }
 
-func TestPromoteTakesTwoDifferentStacks(t *testing.T) {
+func TestPromoteChecksItsArguments(t *testing.T) {
 	startUpdate(t, okDeployer{})
-	if code, _, stderr := run(t, "stack", "promote", "demo-stack"); code == 0 || !strings.Contains(stderr, "exactly two arguments") {
+	if code, _, stderr := run(t, "stack", "promote", "demo-stack"); code == 0 || !strings.Contains(stderr, "no source set") {
 		t.Fatalf("one stack: %d %q", code, stderr)
 	}
 	if code, _, stderr := run(t, "stack", "promote", "demo-stack", "demo-stack"); code == 0 || !strings.Contains(stderr, "same stack") {
@@ -174,5 +181,42 @@ func TestPromoteForwardsTheRefusalsOfTheService(t *testing.T) {
 	}
 	if code, _, stderr := run(t, "stack", "promote", "plain-stack", "demo-stack", "--confirm"); code == 0 || !strings.Contains(stderr, "tag list") {
 		t.Fatalf("lower version: %d %q", code, stderr)
+	}
+}
+
+func TestPromoteWithOneArgumentUsesTheStoredSource(t *testing.T) {
+	promoteStored = "stage"
+	t.Cleanup(func() { promoteStored = "" })
+	steps := []control.PromoteStepInfo{{Variable: "APP_VERSION", From: "1.2.0", To: "1.3.0"}}
+	system, alice, runArgs := promoteHosts(t, steps, control.PromoteRunResult{
+		PromoteCheckResult: control.PromoteCheckResult{Stack: "prod", Steps: steps}, Run: "20260102T030405Z-0123abcd", Result: "succeeded"})
+	if code, _, stderr := run(t, "stack", "promote", "prod", "--confirm", "--output", "json"); code != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if got := runArgs(); got.Stack != "prod" || got.Source.Stack != "stage" || alice.count(control.PromoteSourceCommand) != 1 || system.count(control.PromoteSourceCommand) != 0 {
+		t.Fatalf("run arguments = %+v", got)
+	}
+}
+
+func TestPromoteWithOneArgumentNeedsAStoredSource(t *testing.T) {
+	promoteStored = ""
+	system, _, _ := promoteHosts(t, nil, control.PromoteRunResult{})
+	code, _, stderr := run(t, "stack", "promote", "prod")
+	if code != 2 || !strings.Contains(stderr, "no source set") || system.count(control.PromoteCheckCommand) != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+}
+
+func TestPromoteNamedSourceOverrulesTheStoredOne(t *testing.T) {
+	promoteStored = "other"
+	t.Cleanup(func() { promoteStored = "" })
+	steps := []control.PromoteStepInfo{{Variable: "APP_VERSION", From: "1.2.0", To: "1.3.0"}}
+	system, _, runArgs := promoteHosts(t, steps, control.PromoteRunResult{
+		PromoteCheckResult: control.PromoteCheckResult{Stack: "prod", Steps: steps}, Run: "20260102T030405Z-0123abcd", Result: "succeeded"})
+	if code, _, stderr := run(t, "stack", "promote", "stage", "prod", "--confirm", "--output", "json"); code != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if got := runArgs(); got.Source.Stack != "stage" || system.count(control.StackSettingsGetCommand) != 0 {
+		t.Fatalf("run arguments = %+v", got)
 	}
 }
