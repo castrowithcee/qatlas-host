@@ -336,59 +336,11 @@ type StackStatus struct {
 	Repair *RepairInfo `json:"repair,omitempty"`
 	// Observe is the update by qhost whose observation time is running; nil when none is.
 	Observe *ObserveInfo `json:"observe,omitempty"`
-}
-
-// ObserveInfo is a running observation time: the update commit and when the time ends.
-type ObserveInfo struct {
-	Commit string    `json:"commit"`
-	Until  time.Time `json:"until"`
-}
-
-// RepairInfo is the state of the automatic repair: the attempts made of Max, when the last was made and the
-// next is due (zero when none is due), and since when the repair is halted after Max failed attempts.
-type RepairInfo struct {
-	Attempts int       `json:"attempts"`
-	Max      int       `json:"max"`
-	Last     time.Time `json:"last,omitzero"`
-	Next     time.Time `json:"next,omitzero"`
-	Halted   *HoldInfo `json:"halted,omitempty"`
-}
-
-// FailureInfo is a failure of a stack's containers: exited, unhealthy, restart-loop or missing, the container
-// (the service for a missing one) and since when.
-type FailureInfo struct {
-	Kind      string    `json:"kind"`
-	Container string    `json:"container,omitempty"`
-	Since     time.Time `json:"since"`
-}
-
-// HoldInfo says since when an operator mark is set.
-type HoldInfo struct {
-	Since time.Time `json:"since"`
-}
-
-// PauseInfo says since when a stack is paused, after which run and why.
-type PauseInfo struct {
-	Since  time.Time `json:"since"`
-	Run    string    `json:"run"`
-	Reason string    `json:"reason,omitempty"`
-}
-
-// FindingInfo is one finding of the engine about a stack.
-type FindingInfo struct {
-	Kind   string `json:"kind"`
-	Detail string `json:"detail,omitempty"`
-	// Dirs lists the missing data directories of a finding of kind "data-dir-missing".
-	Dirs []DirInfo `json:"dirs,omitempty"`
-}
-
-// DirInfo is a missing data directory: Path relative to the stack folder, Container the "UID:GID" of the
-// container's user, Owner the proposed host "UID:GID" (empty when unknown) and Warning why there is none.
-type DirInfo struct {
-	Path      string `json:"path"`
-	Owner     string `json:"owner,omitempty"`
-	Container string `json:"container,omitempty"`
-	Warning   string `json:"warning,omitempty"`
+	// FailedVersions maps an image version variable to the version whose update failed; automatic updates skip
+	// it. It is empty when none is locked.
+	FailedVersions map[string]string `json:"failed_versions,omitempty"`
+	// Images are the fingerprints of the images the stack runs since its last successful run or rollback.
+	Images []FingerprintInfo `json:"images,omitempty"`
 }
 
 // The commands that control runs. ResumeCommand clears the pause of a stack and starts no run.
@@ -608,6 +560,8 @@ type RunInfo struct {
 	LogUnreadable string `json:"log_unreadable,omitempty"`
 	// Engine is the engine of the deploy service that recorded the run; empty as in StackStatus.Engine.
 	Engine string `json:"engine,omitempty"`
+	// Images are the fingerprints of the images the stack ran after the run; empty when the run recorded none.
+	Images []FingerprintInfo `json:"images,omitempty"`
 }
 
 // RunsResult answers RunsCommand, newest run first. NotChecked is set as in StatusResult.

@@ -124,11 +124,14 @@ setup_service() {
 	if docker exec "$host" test -e /usr/local/lib/systemd/system/qhost-deploy.service; then fail 'a refused setup installed the unit'; fi
 	out=$(as_admin 'sudo qhost --output json deploy-service setup --confirm --yes 2>&1') || fail "the setup failed: $out"
 	printf '%s' "$out" | grep -q '"changed": *true' || fail "the first setup did not report a change: $out"
-	# The backup helper image is a local one, so a drop-in (which an update keeps) names it.
+	# The backup helper image is a local one, so a drop-in (which an update keeps) names it. It also shortens the
+	# waits of the container monitor with the hidden flags (the product values are 30 s reading, unhealthy after
+	# 1 min, repair after 1, 5 and 15 min), so the heal scenarios wait seconds, not minutes. Every wait stays at
+	# least three readings, and a container needs about 120 s to turn unhealthy again after a restart (observe-demo).
 	if [ "${1:-}" != default-backup-image ]; then
 		docker exec "$host" sh -ec '
 			install -d /etc/systemd/system/qhost-deploy.service.d
-			printf "[Service]\nExecStart=\nExecStart=/usr/local/bin/qhost deploy-service run --backup-image '"$backup_image"'\n" >/etc/systemd/system/qhost-deploy.service.d/e2e.conf
+			printf "[Service]\nExecStart=\nExecStart=/usr/local/bin/qhost deploy-service run --backup-image '"$backup_image"' --monitor-interval 5s --unhealthy-after 15s --repair-delays 15s,45s,150s\n" >/etc/systemd/system/qhost-deploy.service.d/e2e.conf
 			systemctl daemon-reload' || fail 'cannot write the drop-in'
 		docker exec "$host" systemctl restart qhost-deploy || fail 'cannot restart the deploy service'
 	fi
@@ -186,6 +189,11 @@ host_audit_rows() {
 # restart_service restarts the deploy service, which makes the engine poll at once.
 restart_service() {
 	docker exec "$host" systemctl restart qhost-deploy || fail 'cannot restart the deploy service'
+	wait_service
+}
+
+# wait_service waits for the channel of the deploy service and its answer after a start.
+wait_service() {
 	wait_for 'the deploy service channel' 20 docker exec "$host" sh -c 'ls /run/qhost-deploy | grep -q sock'
 	wait_for 'the deploy service to answer' 20 qd status
 }

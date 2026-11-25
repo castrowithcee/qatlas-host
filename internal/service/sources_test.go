@@ -316,7 +316,7 @@ func TestLegacyBindingBecomesTheFirstSource(t *testing.T) {
 	legacy, _ := json.Marshal(map[string]any{"version": 1, "url": h.url, "dir": h.dir})
 	head := h.git.Head
 	writeFile(t, filepath.Join(h.state, "stacks-repo.json"), string(legacy))
-	writeFile(t, filepath.Join(h.state, "deploy", "state.json"), `{"schema":1,"head":"`+head+
+	writeFile(t, filepath.Join(h.state, "deploy", "state.json"), `{"schema":2,"head":"`+head+
 		`","stacks":{"demo-stack":{"deployed":"`+head+`"}},"runs":[{"id":"`+runID+`","stack":"demo-stack","commit":"`+head+
 		`","trigger":"poll","started":"2026-01-01T00:00:00Z","duration":0,"result":"succeeded"},{"id":"`+bareID+`","stack":"demo-stack","commit":"`+head+
 		`","trigger":"poll","started":"2025-12-31T00:00:00Z","duration":0,"result":"succeeded"}]}`)

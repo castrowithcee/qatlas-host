@@ -387,10 +387,10 @@ type fakeDeployer struct {
 	// backedUp lists the deployed commit of every backup.
 	backedUp   []string
 	backupTags []string // the tag each backup got through its context
-	// gone are the backup ids HasBackup reports missing.
-	gone []string
-	// backupName, when set, names the backup of a deployed commit instead of the default.
+	gone       []string // the backup ids HasBackup reports missing
+	// backupName, when set, names the backup of a deployed commit.
 	backupName func(deployed string) string
+	fingerprintFake
 }
 
 func (d *fakeDeployer) do(ctx context.Context, step string, st stacks.Stack) error {

@@ -215,7 +215,7 @@ func (s *updatesService) handleRun(ctx context.Context, raw json.RawMessage) (an
 	for i, name := range a.Stacks {
 		st, err := s.eng.CheckUpdate(pctx, name)
 		if err == nil {
-			plans[i], err = s.detector.Plan(pctx, st, a.Version, a.Variable)
+			plans[i], err = s.detector.Plan(pctx, st, a.Version, a.Variable, nil)
 		}
 		if err != nil {
 			return nil, forStack(name, updateAnswer(pctx, err))

@@ -32,6 +32,7 @@
 ╰──────────────────────────────────────────────────────╯
 ╭─ Webhooks ───────────────────────────────────────────╮
 │ h-a1b2c3d0  2026-01-02 03:04                         │
+│ h-a1b2c3d1  -                                        │
 ╰──────────────────────────────────────────────────────╯
 ╭─ Grants ─────────────────────────────────────────────╮
 │ A grant applies to the user and to every agent       │
@@ -59,6 +60,5 @@
 │ Update  works, automatic                             │
 │   the maintenance window updates APP_VERSION by      │
 │   itself                                             │
-│ Rollback with data  works                            │
 B back to before update  e update rules  b backup       
 C compose  o log  a set secret  r reload  q quit        

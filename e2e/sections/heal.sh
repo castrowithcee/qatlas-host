@@ -3,16 +3,17 @@
 # restarts a dead or unhealthy container, and an update that fails after its start is rolled back in its observation
 # time. The repair and the observation run in real time: in the full run their start units run early and their end
 # units late, so the delays overlap with other sections; in a run of this section the end units follow at once and
-# wait the time themselves, scenario_repair_end up to 30 minutes and scenario_observe_end up to 20 minutes.
+# wait the time themselves, scenario_repair_end up to 7 minutes and scenario_observe_end up to 10 minutes.
 # Needs deploy: the bound /opt/stacks, the admin clone and demo-stack running with its data folder.
 # scenario_repair_start sets repair_demo_broken and scenario_observe_start sets observe_from, observe_update and
 # observe_update_at for the end units of this section.
 # Restarts of the deploy service delay the repair (see scenario_repair_start), so the order of the register is part
 # of the proof. Up to scenario_repair_attempt nothing restarts the service; the restarts from scenario_tui_deploy_sudo
 # to scenario_tui_folder_sudo take about a minute, too early to delay the second attempt, which falls into
-# scenario_container_monitor or the wait of scenario_repair_second. The third attempt comes 15 minutes after the
-# second and with the halt after it falls into the wait of scenario_observe_end for the rollback, which restarts
-# nothing; the restarts before that wait end more than three minutes before the attempt. The source sections after
+# scenario_container_monitor or the wait of scenario_repair_second. The waits are shortened for the test (see
+# setup_service): attempts 15, 45 and 150 seconds apart, so in a run of this section the second attempt shows
+# from the 60th to the 210th second of the failure. The third attempt and the halt after it fall into the wait
+# of scenario_observe_end for the rollback or into scenario_repair_end; the source sections after
 # demo_leftovers_clean restart the service often.
 # Sourced by run.sh; defines only functions and constants.
 
@@ -45,11 +46,11 @@ demo_leftovers_clean() {
 
 # scenario_container_monitor proves that the failure monitor reports a container that dies outside qhost and then
 # repairs it: the webhook hears container-failed and qhost status shows the finding; qhost restarts the container
-# after a minute, and the webhook hears recovered with restarted. The same for a container that turns unhealthy.
+# after seconds, and the webhook hears recovered with restarted. The same for a container that turns unhealthy.
 # The two cases run at once on two stacks, demo-cache is killed and demo-stack turns unhealthy, so their real-time
-# waits overlap; a stack's first failure in an hour is repaired after one minute, a later one only five minutes
+# waits overlap; a stack's first failure in an hour is repaired after 15 seconds, a later one only 45 seconds
 # after the restart before. The restart policy is switched off for the kill, so only qhost can bring the container
-# back; the monitor reads every 30 seconds and ends a failure after two clean readings.
+# back; the monitor reads every 5 seconds and ends a failure after two clean readings.
 scenario_container_monitor() {
 	step 'a channel for the failure monitor events is added'
 	out=$(qd_in "$hook_url
@@ -76,17 +77,17 @@ $hook_signing_value
 	# The unhealthy finding of demo-stack lasts only until one restart ends it, so it is checked before the
 	# recovery of demo-cache, which stays recorded.
 	step 'a container that turns unhealthy is restarted by qhost'
-	wait_for 'the webhook for the unhealthy container' 240 hook_has /notify container-failed '\"stack\":\"demo-stack\"' '\"kind\":\"unhealthy\"'
+	wait_for 'the webhook for the unhealthy container' 90 hook_has /notify container-failed '\"stack\":\"demo-stack\"' '\"kind\":\"unhealthy\"'
 	wait_for 'the finding container-failed in status' 60 has_finding demo-stack unhealthy
-	wait_for 'the webhook for the recovered container' 360 hook_has /notify recovered '\"stack\":\"demo-stack\"' '\"kind\":\"unhealthy\"' '\"restarted\":true'
+	wait_for 'the webhook for the recovered container' 150 hook_has /notify recovered '\"stack\":\"demo-stack\"' '\"kind\":\"unhealthy\"' '\"restarted\":true'
 	wait_for 'the finding to end' 60 no_finding demo-stack container-failed
 	stack_healthy demo-stack || fail 'demo-stack is not healthy after the repair'
 	if docker exec "$host" test -e /opt/stacks/demo-stack/data/break-once; then fail 'the restart did not clear the break'; fi
 	log 'scenario: the unhealthy container was restarted by qhost and recovered'
 
 	step 'qhost restarts the container: recovered is reported with restarted and the finding ends'
-	wait_for 'demo-cache healthy again' 150 stack_healthy demo-cache
-	wait_for 'the webhook for the recovered container' 240 hook_has /notify recovered '\"stack\":\"demo-cache\"' '\"kind\":\"exited\"' '\"restarted\":true'
+	wait_for 'demo-cache healthy again' 90 stack_healthy demo-cache
+	wait_for 'the webhook for the recovered container' 90 hook_has /notify recovered '\"stack\":\"demo-cache\"' '\"kind\":\"exited\"' '\"restarted\":true'
 	wait_for 'the finding to end' 60 no_finding demo-cache container-failed
 	docker exec "$host" docker update --restart=unless-stopped "$victim" >/dev/null || fail 'cannot restore the restart policy'
 	out=$(qd notify remove mon) || fail "notify remove failed: $out"
@@ -111,11 +112,11 @@ repair_halted() {
 }
 
 # scenario_repair_start adds the stack repair-demo and breaks it for good: its health check fails while the file
-# data/break exists, which a restart does not remove. qhost restarts it 1, 5 and 15 minutes after the failure
+# data/break exists, which a restart does not remove. qhost restarts it 15, 45 and 150 seconds after the failure
 # began and then halts. The delays run in real time; scenario_repair_attempt and scenario_repair_end check them
 # later, so they overlap with the other scenarios. The monitor keeps the time a container has been unhealthy in
 # memory only: a restart of the deploy service ends the failure for two readings and starts it anew, which delays
-# the next attempt or the halt when the restart falls in the three minutes before it.
+# the next attempt or the halt when the restart falls shortly before it.
 scenario_repair_start() {
 	step 'the stack repair-demo is deployed and a channel for recovery-failed is added'
 	as_admin 'cd ~/stacks && git pull -q --ff-only && mkdir repair-demo'
@@ -147,15 +148,15 @@ $hook_signing_value
 # scenario_repair_attempt waits for the first repair attempt of repair-demo. No scenario between
 # scenario_repair_start and this one restarts the deploy service, so the attempt comes on time.
 scenario_repair_attempt() {
-	wait_for 'the finding container-failed of repair-demo' 240 has_finding repair-demo container-failed
-	wait_for 'the first repair attempt' 240 repair_first_attempt
+	wait_for 'the finding container-failed of repair-demo' 90 has_finding repair-demo container-failed
+	wait_for 'the first repair attempt' 90 repair_first_attempt
 	log "scenario: repair-demo $(repair_text repair-demo)"
 }
 
 # scenario_repair_second waits for the second repair attempt of repair-demo. The failure monitor scenario before it
 # restarts no deploy service, while the scenarios after it do so often and would delay the attempt.
 scenario_repair_second() {
-	wait_for 'the second repair attempt' 420 repair_second_attempt
+	wait_for 'the second repair attempt' 150 repair_second_attempt
 	log "scenario: repair-demo $(repair_text repair-demo)"
 }
 
@@ -163,7 +164,7 @@ scenario_repair_second() {
 # once and released by resume; then it fixes the stack and removes it from the repository.
 scenario_repair_end() {
 	step 'after three attempts the repair is halted, shown in status and the TUI, and reported once'
-	wait_for 'the repair of repair-demo to halt' 1800 repair_halted repair-demo
+	wait_for 'the repair of repair-demo to halt' 420 repair_halted repair-demo
 	log "scenario: repair-demo halted after $(($(date +%s) - repair_demo_broken)) seconds: $(repair_text repair-demo)"
 	repair_text repair-demo | grep -q 'after 3 of 3 attempts' || fail "status does not name the attempts: $(repair_text repair-demo)"
 	wait_for 'the webhook for the failed recovery' 60 hook_has /notify recovery-failed '\"stack\":\"repair-demo\"' '\"attempts\":3'
@@ -199,7 +200,9 @@ scenario_repair_end() {
 # scenario_observe_start deploys the stack observe-demo, whose image 1.1.0 turns unhealthy for good 100 seconds
 # after it starts, and updates it to 1.1.0 with a marker in its data before and one after the update. The
 # observation time of the update (60 minutes by default) is running; qhost restarts the container once after
-# the failure began and, if it lasts 5 more minutes, rolls the update back. The delays run in real time;
+# the failure began and, if it lasts 45 more seconds, rolls the update back (a failure that ended with the
+# restart counts again once the container is unhealthy for 15 seconds, about 2 minutes after the restart).
+# The delays run in real time;
 # scenario_observe_end checks the outcome after the source scenarios, so they overlap with them. observe-demo is
 # set up after the terminal interface scenario on purpose: its row and containers stay out of the screens there.
 # Every update by qhost starts an observation time, also for the other stacks, and none of them needs
@@ -253,7 +256,7 @@ $hook_signing_value
 # the stack from the repository.
 scenario_observe_end() {
 	step 'the failing update of observe-demo is rolled back in its observation time'
-	wait_for 'the webhook for the rolled-back update' 1200 hook_has /notify rolled-back '\"stack\":\"observe-demo\"' '\"cause\":\"observation\"' "\\\"commit\\\":\\\"$observe_update\\\""
+	wait_for 'the webhook for the rolled-back update' 600 hook_has /notify rolled-back '\"stack\":\"observe-demo\"' '\"cause\":\"observation\"' "\\\"commit\\\":\\\"$observe_update\\\""
 	log "scenario: observe-demo rolled back $(($(date +%s) - observe_update_at)) seconds after its update"
 	wait_for 'the rollback run of observe-demo' 120 stack_settled observe-demo rolled-back
 	runs=$(qd stack runs observe-demo) || fail "stack runs observe-demo failed: $runs"
@@ -288,6 +291,25 @@ scenario_observe_end() {
 	if docker exec "$host" test -e /opt/stacks/observe-demo/data/late-failed; then fail 'the failure state of the update survived the rollback'; fi
 	[ -z "$(stack_field observe-demo observe)" ] || fail "status still shows an observation after the rollback: $(stack_field observe-demo observe)"
 	wait_for 'the finding of observe-demo to end' 120 no_finding observe-demo container-failed
+
+	step 'the rolled-back version is locked: the status shows it and an automatic check starts no second run'
+	[ "$(stack_field observe-demo failed_versions)" = DEMO_APP_VERSION=1.1.0 ] ||
+		fail "status does not show the locked version: $(stack_field observe-demo failed_versions)"
+	settings_set observe-demo 'version: 1
+update:
+  mode: automatic
+  trigger: interval
+  interval: 30
+backup:
+  paths:
+    - data
+'
+	runs_before=$(stack_run_count observe-demo)
+	# One check per 30 seconds finds 1.1.0 in the registry; the lock keeps it from planning that version again.
+	sleep 35
+	[ "$(stack_run_count observe-demo)" = "$runs_before" ] || fail "a check started a run for the locked version: $(qd stack runs observe-demo)"
+	[ "$(stack_images observe-demo)" = "registry.$domain/demo/late:1.0.0" ] || fail "observe-demo left 1.0.0: $(stack_images observe-demo)"
+	[ "$(stack_field observe-demo failed_versions)" = DEMO_APP_VERSION=1.1.0 ] || fail 'the lock is gone after the check'
 
 	step 'observe-demo leaves the repository'
 	out=$(qd notify remove obs) || fail "notify remove obs failed: $out"

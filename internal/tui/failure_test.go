@@ -131,3 +131,21 @@ func TestDetailShowsARunningObservationInBothLanguages(t *testing.T) {
 		}
 	}
 }
+
+func TestDetailShowsSkippedVersions(t *testing.T) {
+	for _, tt := range []struct {
+		lang i18n.Lang
+		want string
+	}{
+		{i18n.English, "APP_VERSION=1.1.0 failed"},
+		{i18n.German, "APP_VERSION=1.1.0 gescheitert"},
+	} {
+		b := demoBackend()
+		b.status.Engine.Stacks[1].FailedVersions = map[string]string{"APP_VERSION": "1.1.0"}
+		m := newTestModel(t, tt.lang, b, wideWidth, detailRows)
+		send(m, "down", "enter")
+		if got := m.render(); !strings.Contains(got, tt.want) {
+			t.Errorf("%s: no %q in\n%s", tt.lang, tt.want, got)
+		}
+	}
+}

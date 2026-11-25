@@ -32,10 +32,11 @@
 ╰─║ Seine Adresse wirkt nach spätestens zehn         ║─╯
 ╭─║ Sekunden nicht mehr. Das lässt sich nicht        ║─╮
 │ ║ rückgängig machen.                               ║ │
-╰─║                                                  ║─╯
-╭─║ [ ja, ausführen ]  > abbrechen <                 ║─╮
-│ ║ y ja, ausführen  n/esc/enter abbrechen           ║ │
+│ ║                                                  ║ │
+╰─║ [ ja, ausführen ]  > abbrechen <                 ║─╯
+╭─║ y ja, ausführen  n/esc/enter abbrechen           ║─╮
 │ ╚══════════════════════════════════════════════════╝ │
+│ Agenten, der unter seinem Konto arbeitet.            │
 │ Keine Freigaben für diesen Stack.                    │
 ╰──────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────╮
@@ -60,5 +61,4 @@
 │   the maintenance window updates APP_VERSION by      │
 │   itself                                             │
 │ Rollback mit Daten  geht                             │
-│   a failed run goes back to the previous commit and  │
-                                                   60/71
+                                                   60/72

@@ -29,11 +29,23 @@ var (
 	hookStackFor = func(info HookServiceInfo, hooks map[string][]HookInfo, trigger string) func() *fakeBackend {
 		return func() *fakeBackend {
 			b := settingsBackend()
-			b.hook, b.hooks = info, hooks
+			b.hook, b.hooks = info, cloneHooks(hooks)
 			return hookTrigger(b, trigger)
 		}
 	}
 )
+
+// cloneHooks copies the map and its slices so a test that removes a hook never alters the shared fixture.
+func cloneHooks(m map[string][]HookInfo) map[string][]HookInfo {
+	if m == nil {
+		return nil
+	}
+	c := make(map[string][]HookInfo, len(m))
+	for k, v := range m {
+		c[k] = slices.Clone(v)
+	}
+	return c
+}
 
 // holds reports whether any string or byte slice reachable from v, through unexported fields too, contains needle.
 func holds(v reflect.Value, needle string, seen map[uintptr]bool) bool {

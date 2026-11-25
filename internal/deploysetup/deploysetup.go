@@ -199,12 +199,12 @@ func (h Host) Plan(ctx context.Context) (Plan, error) {
 		add("write "+UnitPath()+" (mode 0644)", func(context.Context) error { return h.write(UnitPath(), packaging.DeployUnit) })
 		command("systemctl", "daemon-reload")
 	}
+	if err := h.planHookInstances(ctx, &plan, hookservice.SystemInstance); err != nil {
+		return Plan{}, err
+	}
 	if unitChanged || h.run(ctx, "systemctl", "is-enabled", "--quiet", Service) != nil ||
 		h.run(ctx, "systemctl", "is-active", "--quiet", Service) != nil {
 		command("systemctl", "enable", "--now", Service)
-	}
-	if err := h.planHookInstances(&plan, hookservice.SystemInstance); err != nil {
-		return Plan{}, err
 	}
 	return plan, nil
 }
