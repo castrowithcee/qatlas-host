@@ -19,6 +19,13 @@ Rules at the target, the same as for qhost stack update <target> --version:
 - The same version is nothing to do: the command succeeds and says so, and no run is made.
 - A lower version is refused, with the hint to use qhost stack rollback to go back to the state before an update run.
 
+Comparing the images, promote.compare_images in the settings of the target (qhost stack settings set, or the form Check in the terminal interface; default off):
+- A version number does not prove the same image runs, because a tag can be overwritten in the registry. With the setting on, the promotion compares the fingerprints the source stored at its last deploy with what the target would run.
+- Before the commit it compares the repository digest of the source with the manifest digest the registry reports for the tag, and refuses with image, tag and both fingerprints when they differ. After the pull, before the start, it compares the loaded image with the source's fingerprint; a difference fails the run, which is rolled back like any failed run.
+- A source without a repository digest, a local image, is compared by the image ID, because source and target are on the same host.
+- A source without a stored fingerprint is refused: roll the source out again, then promote.
+- Without the setting the promotion compares nothing. The preview says whether it compares, in --output json in the column compare_images.
+
 Rules at the source:
 - The source is refused when its last run did not succeed, when it has a commit its last run failed at, or when it is not healthy: a failure, a halted repair, paused or stopped.
 - An observation time that still runs after the source's update does not stop the promotion. The preview names it, because the update of the source is not settled yet.
@@ -29,4 +36,4 @@ Preview and run:
 - With --confirm --source-commit <commit> the command runs with exactly that commit, the one of the preview. When the source has deployed another commit since, it refuses and a new preview is needed. Without --source-commit, --confirm reads the source commit when it runs and binds the run to that.
 - The run has the trigger promote in qhost stack runs. Like an update it stops the stack, backs up its data if it has backup rules, commits all new versions to .env in one commit whose message names the source and the versions, pushes it, then pulls, starts and checks the stack. A failing run is rolled back; qhost stack rollback goes back afterwards. The command exits with 1 when the run did not succeed.
 
-In the terminal interface the stack detail has the key M. It asks for the source among the other stacks of the host, shows the same preview with the versions, the source and its observation time, and asks for the confirmation before the run. Without sudo the interface shows the command sudo qhost stack promote and runs it after y; that command carries --source-commit with the commit of the preview.`
+In the terminal interface the stack detail has the key M. It asks for the source among the other stacks of the host, shows the same preview with the versions, the source, its observation time and whether the images are compared, and asks for the confirmation before the run. Without sudo the interface shows the command sudo qhost stack promote and runs it after y; that command carries --source-commit with the commit of the preview.`

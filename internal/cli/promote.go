@@ -14,7 +14,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 )
 
-var promotePreviewColumns = []string{"stack", "variable", "from", "to", "result", "source_commit"}
+var promotePreviewColumns = []string{"stack", "variable", "from", "to", "result", "source_commit", "compare_images"}
 
 // sourceCommitForm is the form of a full commit id, SHA-1 or SHA-256.
 var sourceCommitForm = regexp.MustCompile(`^(?:[0-9a-f]{40}|[0-9a-f]{64})$`)
@@ -84,6 +84,11 @@ func showPromoteSource(c *cobra.Command, p control.PromoteCheckResult, s promote
 	if o := p.Observe; o != nil {
 		_, _ = fmt.Fprintf(c.ErrOrStderr(), "The source is under observation until %s: its update is not settled yet.\n", o.Until.Local().Format(time.DateTime))
 	}
+	if p.Compare {
+		_, _ = fmt.Fprintln(c.ErrOrStderr(), "The image fingerprints are compared with the source's, before the commit and after the pull.")
+	} else {
+		_, _ = fmt.Fprintln(c.ErrOrStderr(), "The image fingerprints are not compared (promote.compare_images is off).")
+	}
 	confirm := "sudo qhost stack promote " + s.source + " " + s.target
 	if s.sourceEngine != "" {
 		confirm += " --source-engine " + s.sourceEngine
@@ -99,16 +104,16 @@ func promoteRows(p control.PromoteCheckResult) []output.Row {
 	commit := p.SourceCommit
 	rows := make([]output.Row, 0, len(p.Steps)+len(p.Unchanged)+len(p.Kept))
 	for _, s := range p.Steps {
-		rows = append(rows, output.Row{"stack": p.Stack, "variable": s.Variable, "from": s.From, "to": s.To, "result": previewSet, "source_commit": commit})
+		rows = append(rows, output.Row{"stack": p.Stack, "variable": s.Variable, "from": s.From, "to": s.To, "result": previewSet, "source_commit": commit, "compare_images": p.Compare})
 	}
 	for _, v := range p.Unchanged {
-		rows = append(rows, output.Row{"stack": p.Stack, "variable": v, "result": previewUnchanged, "source_commit": commit})
+		rows = append(rows, output.Row{"stack": p.Stack, "variable": v, "result": previewUnchanged, "source_commit": commit, "compare_images": p.Compare})
 	}
 	for _, v := range p.Kept {
-		rows = append(rows, output.Row{"stack": p.Stack, "variable": v, "result": previewKept, "source_commit": commit})
+		rows = append(rows, output.Row{"stack": p.Stack, "variable": v, "result": previewKept, "source_commit": commit, "compare_images": p.Compare})
 	}
 	if len(p.Steps) == 0 {
-		return []output.Row{{"stack": p.Stack, "result": resultCurrent}}
+		return []output.Row{{"stack": p.Stack, "result": resultCurrent, "compare_images": p.Compare}}
 	}
 	return rows
 }

@@ -131,6 +131,7 @@ func (m *Model) askPromote(msg promoteCheckMsg) {
 	if o := res.Observe; o != nil {
 		details = append(details, t.Lookup(textPromoteObserve, o.Until.In(m.loc).Format(lastRunLayout)))
 	}
+	details = append(details, t.Lookup(map[bool]kittui.TextID{true: textPromoteCompare, false: textPromoteNoCompare}[res.Compare]))
 	for _, s := range res.Steps {
 		details = append(details, t.Lookup(textRollbackStep, s.Variable, s.From, s.To))
 	}

@@ -4,20 +4,20 @@
   Prüfung eines Stacks                                                          
                                                                                 
   Prüfung des Stacks demo-stack. Update-Regeln, Backup und Compose-Dateien      
-  bleiben unverändert.                                                          
-        ╔═ Prüfung eines Stacks ═══════════════════════════════════════╗        
-        ║ ⚠ Die Prüfung des Stacks demo-stack speichern?               ║═══════╗
-> Contai║                                                              ║     ▾ ║
-        ║ Im lokalen Stack-Ordner entsteht ein Commit mit den neuen    ║═══════╝
-        ║ Einstellungen. Die Prüfung wirkt beim nächsten Deploy.       ║e       
+  bleibe╔═ Prüfung eines Stacks ═══════════════════════════════════════╗        
+        ║ ⚠ Die Prüfung des Stacks demo-stack speichern?               ║        
+        ║                                                              ║═══════╗
+> Contai║ Im lokalen Stack-Ordner entsteht ein Commit mit den neuen    ║     ▾ ║
+        ║ Einstellungen. Die Prüfung wirkt beim nächsten Deploy, der   ║═══════╝
+        ║ Vergleich bei der nächsten Übernahme.                        ║alle    
         ║ Container-Prüfung: an                                        ║        
         ║ HTTP-Prüfung: http://localhost:8080/health antwortet mit 200 ║───────╮
   HTTP-P║ innerhalb von 10s                                            ║     ▾ │
-        ║                                                              ║───────╯
-        ║ [ ja, ausführen ]  > abbrechen <                             ║───────╮
-  Adress║ y ja, ausführen  n/esc/enter abbrechen                       ║       │
-        ╚══════════════════════════════════════════════════════════════╝───────╯
-  …                                                                             
+        ║ Images bei Übernahme vergleichen: aus                        ║───────╯
+        ║                                                              ║───────╮
+  Adress║ [ ja, ausführen ]  > abbrechen <                             ║       │
+        ║ y ja, ausführen  n/esc/enter abbrechen                       ║───────╯
+  …     ╚══════════════════════════════════════════════════════════════╝        
                                                                                 
                                                                                 
 [ F2 speichern ]  [ esc Verwerfen ]                                             

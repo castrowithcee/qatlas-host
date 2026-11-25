@@ -120,13 +120,19 @@ func TestPromoteChecksTheShapeOfAHandedOverSource(t *testing.T) {
 	h := updateHarness(t, &fakeDeployer{})
 	good := h.promoteSource("demo-stack")
 	for name, change := range map[string]func(*control.PromoteSource){
-		"stack name":   func(s *control.PromoteSource) { s.Stack = "../x" },
-		"commit":       func(s *control.PromoteSource) { s.Commit = "main" },
-		"result":       func(s *control.PromoteSource) { s.LastResult = "succeeded\n" },
-		"variable":     func(s *control.PromoteSource) { s.Versions[0].Variable = "A=B" },
-		"image":        func(s *control.PromoteSource) { s.Versions[0].Image = "a b" },
-		"version":      func(s *control.PromoteSource) { s.Versions[0].Version = "1.0\nX=1" },
-		"observe":      func(s *control.PromoteSource) { s.Observe = &control.ObserveInfo{Commit: "x"} },
+		"stack name": func(s *control.PromoteSource) { s.Stack = "../x" },
+		"commit":     func(s *control.PromoteSource) { s.Commit = "main" },
+		"result":     func(s *control.PromoteSource) { s.LastResult = "succeeded\n" },
+		"variable":   func(s *control.PromoteSource) { s.Versions[0].Variable = "A=B" },
+		"image":      func(s *control.PromoteSource) { s.Versions[0].Image = "a b" },
+		"version":    func(s *control.PromoteSource) { s.Versions[0].Version = "1.0\nX=1" },
+		"observe":    func(s *control.PromoteSource) { s.Observe = &control.ObserveInfo{Commit: "x"} },
+		"fingerprint ref": func(s *control.PromoteSource) {
+			s.Fingerprints = []control.PromoteFingerprint{{Image: "a b"}}
+		},
+		"fingerprint digest": func(s *control.PromoteSource) {
+			s.Fingerprints = []control.PromoteFingerprint{{Image: "demo/app:1", RepoDigest: "sha256:xyz"}}
+		},
 		"long version": func(s *control.PromoteSource) { s.Versions[0].Version = strings.Repeat("1", 129) },
 		"many versions": func(s *control.PromoteSource) {
 			s.Versions = make([]control.PromoteVersion, control.MaxPromoteVersions+1)

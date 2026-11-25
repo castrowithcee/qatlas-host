@@ -128,3 +128,24 @@ func TestPickDigest(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadedImage(t *testing.T) {
+	ref := "registry.example.test/demo/web:1.0"
+	r := &dockerRunner{digests: map[string]string{ref: idA, "demo-db:local": idB, "bad:1": "sha256:xyz",
+		idA: `["registry.example.test/demo/web@` + digC + `"]`, idB: `[]`}}
+	x := &Executor{Runner: r, Env: []string{"PATH=/bin"}}
+	for in, want := range map[string]engine.ImageFingerprint{
+		ref:             {Image: ref, ImageID: idA, RepoDigest: digC},
+		"demo-db:local": {Image: "demo-db:local", ImageID: idB},
+	} {
+		got, err := x.LoadedImage(context.Background(), in, &fakeLog{})
+		if err != nil || got != want {
+			t.Errorf("%q: got %+v, %v, want %+v", in, got, err, want)
+		}
+	}
+	for _, in := range []string{"bad:1", "missing:1", "--help", ""} {
+		if _, err := x.LoadedImage(context.Background(), in, &fakeLog{}); err == nil {
+			t.Errorf("%q was accepted", in)
+		}
+	}
+}

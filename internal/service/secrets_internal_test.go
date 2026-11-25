@@ -1,12 +1,16 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/castrowithcee/qatlas-kit/redact"
 
+	"github.com/castrowithcee/qatlas-host/internal/engine"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
@@ -36,5 +40,33 @@ func TestSecretLikeEnvValuesAreRedacted(t *testing.T) {
 	want := "a=[redacted] b=[redacted] c=[redacted] d=host-is-not-secret e=1.2.3"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+type loadedDeployer struct {
+	engine.Deployer
+	got string
+}
+
+func (l *loadedDeployer) LoadedImage(_ context.Context, ref string, _ *engine.Log) (engine.ImageFingerprint, error) {
+	l.got = ref
+	return engine.ImageFingerprint{ImageID: "sha256:" + strings.Repeat("a", 64)}, nil
+}
+
+func TestRedactingDeployerPassesLoadedImageThrough(t *testing.T) {
+	inner := &loadedDeployer{}
+	var r redact.Redactor
+	var d engine.Deployer = redactingDeployer{next: inner, r: &r}
+	reader, ok := d.(engine.LoadedImageReader)
+	if !ok {
+		t.Fatal("the wrapper is not an engine.LoadedImageReader")
+	}
+	fp, err := reader.LoadedImage(context.Background(), "demo/app:1", nil)
+	if err != nil || inner.got != "demo/app:1" || fp.ImageID == "" {
+		t.Errorf("got %+v, %v, ref %q", fp, err, inner.got)
+	}
+	_, err = redactingDeployer{next: nil, r: &r}.LoadedImage(context.Background(), "demo/app:1", nil)
+	if !errors.Is(err, engine.ErrNoImageCheck) {
+		t.Errorf("a deployer without the reader: got %v", err)
 	}
 }

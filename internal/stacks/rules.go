@@ -58,9 +58,10 @@ const (
 
 // Rules are the validated settings of a stack with defaults applied.
 type Rules struct {
-	Update Update
-	Backup *Backup // nil: no backup configured
-	Check  Check
+	Update         Update
+	Backup         *Backup // nil: no backup configured
+	Check          Check
+	PromoteCompare bool // a promotion into the stack compares the image fingerprints with the source's
 	// ComposeFiles are the compose files in merge order from compose.files; nil leaves the choice to
 	// COMPOSE_FILE and the default names.
 	ComposeFiles []string
@@ -123,6 +124,7 @@ type Settings struct {
 	Update  *UpdateSettings  `yaml:"update,omitempty" json:"update,omitempty"`
 	Backup  *BackupSettings  `yaml:"backup,omitempty" json:"backup,omitempty"`
 	Check   *CheckSettings   `yaml:"check,omitempty" json:"check,omitempty"`
+	Promote *PromoteSettings `yaml:"promote,omitempty" json:"promote,omitempty"`
 }
 
 // ComposeSettings is the compose section of Settings.
@@ -148,25 +150,6 @@ type BackupSettings struct {
 	Volumes   []string           `yaml:"volumes,omitempty" json:"volumes,omitempty"`
 	Command   []string           `yaml:"command,omitempty" json:"command,omitempty"`
 	Retention *RetentionSettings `yaml:"retention,omitempty" json:"retention,omitempty"`
-}
-
-// RetentionSettings is the retention of BackupSettings.
-type RetentionSettings struct {
-	Keep       *int `yaml:"keep,omitempty" json:"keep,omitempty"`
-	MaxAgeDays *int `yaml:"max_age_days,omitempty" json:"max_age_days,omitempty"`
-}
-
-// CheckSettings is the check section of Settings.
-type CheckSettings struct {
-	Containers *bool         `yaml:"containers,omitempty" json:"containers,omitempty"`
-	HTTP       *HTTPSettings `yaml:"http,omitempty" json:"http,omitempty"`
-}
-
-// HTTPSettings is the HTTP probe of CheckSettings.
-type HTTPSettings struct {
-	URL     string  `yaml:"url" json:"url"`
-	Status  *int    `yaml:"status,omitempty" json:"status,omitempty"`
-	Timeout *string `yaml:"timeout,omitempty" json:"timeout,omitempty"`
 }
 
 const (
@@ -278,6 +261,7 @@ func (r *Rules) Settings() Settings {
 		}
 		s.Backup = bs
 	}
+	s.Promote = r.promoteSettings()
 	s.Check = &CheckSettings{Containers: ptr(r.Check.Containers)}
 	if h := r.Check.HTTP; h != nil {
 		s.Check.HTTP = &HTTPSettings{URL: h.URL, Status: ptr(h.Status), Timeout: ptr(h.Timeout.String())}
@@ -316,7 +300,7 @@ func validateRules(raw Settings) (*Rules, error) {
 		return nil, errors.New("version: must be 1")
 	}
 	r := &Rules{Update: Update{Mode: ModeManual, Trigger: TriggerWindow, Interval: DefaultIntervalSeconds * time.Second, Ceiling: CeilingMinor, Major: MajorStepwise, Observe: DefaultObserveMinutes * time.Minute},
-		Check: Check{Containers: true}}
+		Check: Check{Containers: true}, PromoteCompare: raw.Promote.compare()}
 
 	if c := raw.Compose; c != nil {
 		if len(c.Files) == 0 {

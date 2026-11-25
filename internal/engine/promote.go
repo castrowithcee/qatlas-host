@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
-	"github.com/castrowithcee/qatlas-host/internal/version"
 )
 
 // TriggerPromote is the takeover of the image versions of another stack, see Engine.Promote.
@@ -55,6 +54,10 @@ type PromotePreview struct {
 	Unchanged []string
 	Kept      []string
 	Observe   *Observation
+	// Compare says the target compares the fingerprints of the images with the source's, see
+	// stacks.Rules.PromoteCompare.
+	Compare bool
+	expect  []imageExpect
 }
 
 // PromoteResult is the outcome of Promote. With no steps nothing was to do and no run was made. Commit is the
@@ -161,7 +164,7 @@ func sourceVersions(src PromoteSource) (map[string]string, error) {
 // refused as an update by hand to a chosen version refuses it. Every variable of the target whose image the
 // source runs in another version moves to the source's version; check judges each such move. A higher
 // version is taken, the same one is left, and a lower one is refused with ErrLowerVersion.
-func (e *Engine) PreviewPromote(ctx context.Context, target string, src PromoteSource, check VersionCheck) (PromotePreview, error) {
+func (e *Engine) PreviewPromote(ctx context.Context, target string, src PromoteSource, check VersionCheck, digest ManifestDigest) (PromotePreview, error) {
 	if err := checkSource(src.State); err != nil {
 		return PromotePreview{}, err
 	}
@@ -173,7 +176,7 @@ func (e *Engine) PreviewPromote(ctx context.Context, target string, src PromoteS
 	if err != nil {
 		return PromotePreview{}, err
 	}
-	prev := PromotePreview{Source: src.Name, Commit: src.State.Deployed}
+	prev := PromotePreview{Source: src.Name, Commit: src.State.Deployed, Compare: st.ComparesPromotion()}
 	if o := src.State.Observe; o != nil && o.Until.After(e.cfg.Clock.Now()) {
 		prev.Observe = o
 	}
@@ -198,14 +201,8 @@ func (e *Engine) PreviewPromote(ctx context.Context, target string, src PromoteS
 			prev.Unchanged = append(prev.Unchanged, img.Var)
 			continue
 		}
-		if err := check(ctx, img, to); err != nil {
-			if errors.Is(err, version.ErrNotHigher) {
-				err = fmt.Errorf("%w (%s)", ErrLowerVersion, err)
-			}
+		if err := prev.judge(ctx, img, to, src, check, digest); err != nil {
 			return PromotePreview{}, fmt.Errorf("%s: %w", img.Var, err)
-		}
-		if img.Source != stacks.SourceEnv {
-			return PromotePreview{}, fmt.Errorf("%s: %w", img.Var, ErrNotInEnv)
 		}
 		prev.Steps = append(prev.Steps, VersionStep{Variable: img.Var, From: img.Value, To: to})
 	}
@@ -219,13 +216,16 @@ func (e *Engine) PreviewPromote(ctx context.Context, target string, src PromoteS
 // another one) nothing is done and the answer is ErrSourceChanged. The target is refused as in PreviewPromote
 // and as Update refuses it; with no variable to set no run is made. The run goes on in the caller's goroutine
 // under the run time limit and independent of ctx.
-func (e *Engine) Promote(ctx context.Context, target string, src PromoteSource, commit string, check VersionCheck) (PromoteResult, error) {
+func (e *Engine) Promote(ctx context.Context, target string, src PromoteSource, commit string, check VersionCheck, digest ManifestDigest) (PromoteResult, error) {
 	if commit == "" || src.State.Deployed != commit {
 		return PromoteResult{}, ErrSourceChanged
 	}
-	prev, err := e.PreviewPromote(ctx, target, src, check)
+	prev, err := e.PreviewPromote(ctx, target, src, check, digest)
 	if err != nil || len(prev.Steps) == 0 {
 		return PromoteResult{PromotePreview: prev}, err
+	}
+	if _, ok := e.cfg.Deployer.(LoadedImageReader); prev.Compare && !ok {
+		return PromoteResult{PromotePreview: prev}, ErrNoImageCheck
 	}
 	b, err := e.cfg.Source()
 	if err != nil {
@@ -255,6 +255,7 @@ func (e *Engine) Promote(ctx context.Context, target string, src PromoteSource, 
 		parts[i] = fmt.Sprintf("%s from %s to %s", s.Variable, s.From, s.To)
 	}
 	message := fmt.Sprintf("Promote %s from %s: %s", target, src.Name, strings.Join(parts, "; "))
+	r.expect = prev.expect
 	r.held, r.change, r.back = held, &prev.Steps[0], &returnJob{changes: prev.Steps, message: message}
 	out := r.perform()
 	held = r.held

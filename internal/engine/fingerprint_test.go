@@ -18,6 +18,8 @@ var (
 type fingerprintFake struct {
 	prints   []ImageFingerprint
 	printErr error
+	// loaded is what LoadedImage answers, by image reference.
+	loaded map[string]ImageFingerprint
 }
 
 func (f *fingerprintFake) ImageFingerprints(context.Context, stacks.Stack, *Log) ([]ImageFingerprint, error) {
