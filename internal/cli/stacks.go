@@ -20,7 +20,9 @@ func newStacksCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 		Long: "list reads the working copy of the bound stacks repository and lists each stack with the image\n" +
 			"version variables of its compose files, their current values, its update mode (none without stack\n" +
 			"settings) and its update trigger (window, interval or webhook), with the interval in seconds for\n" +
-			"interval. A stack that cannot be read shows its problem and does not hide the others. Run it\n" +
+			"interval. A stack with a promote source (update.promote_source) shows it and, beside its own versions, the\n" +
+			"versions the source runs, or that the source is missing or not proven (see 'qhost help promote'). A\n" +
+			"stack that cannot be read shows its problem and does not hide the others. Run it\n" +
 			"after 'qhost repo set'; it reads the working copy as it is and does not fetch.\n\n" + wrapHelp(overviewEngineNote),
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
@@ -29,20 +31,21 @@ func newStacksCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 				return err
 			}
 			var rows []output.Row
+			promoted := promoteVersions(c.Context(), replies)
 			for _, r := range replies {
-				rows = append(rows, stackRows(r.target.id(), r.value.Stacks)...)
+				rows = append(rows, stackRows(r.target.id(), r.value.Stacks, promoted)...)
 			}
 			if rows == nil {
 				rows = []output.Row{}
 			}
 			return output.Encode(c.OutOrStdout(), program.Format(),
-				output.Collection{Columns: []string{"stack", "engine", "source", "state", "update", "trigger", "interval", "versions", "findings", "error"}, Rows: rows})
+				output.Collection{Columns: []string{"stack", "engine", "source", "state", "update", "trigger", "interval", "versions", "promote_source", "promote_versions", "findings", "error"}, Rows: rows})
 		},
 	}
 }
 
 // stackRows is one row per stack of the deploy service of the engine.
-func stackRows(engine string, stacks []control.StackInfo) []output.Row {
+func stackRows(engine string, stacks []control.StackInfo, promoted map[engineStack]string) []output.Row {
 	rows := make([]output.Row, 0, len(stacks))
 	for _, s := range stacks {
 		versions := make([]string, 0, len(s.Images))
@@ -65,6 +68,9 @@ func stackRows(engine string, stacks []control.StackInfo) []output.Row {
 		row := output.Row{
 			"stack": s.Name, "engine": engine, "source": s.Source, "state": state, "update": s.Update, "trigger": s.Trigger,
 			"versions": strings.Join(versions, ", "), "findings": int64(s.Findings), "error": errText,
+		}
+		if s.PromoteSource != "" {
+			row["promote_source"], row["promote_versions"] = s.PromoteSource, promoted[engineStack{engine, s.Name}]
 		}
 		if s.Interval > 0 {
 			row["interval"] = int64(s.Interval)

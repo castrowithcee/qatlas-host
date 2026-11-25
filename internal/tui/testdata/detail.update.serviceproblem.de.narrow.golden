@@ -15,9 +15,9 @@
                          [!] der Dienst hat die Anfrage abgelehnt: stack        
                          settings: update.tags.APP_VERSION: not an image        
                          variable of the stack - Korrigiere das Feld.           
-                         ╭─────────────────────────────────────────────────────╮
-  Changelog-Repositories │ APP_VERSION → example/app                           │
-                         ╰─────────────────────────────────────────────────────╯
+  …                                                                             
+                                                                                
+                                                                                
                                                                                 
 [ F2 speichern ]  [ esc Verwerfen ]                                             
 enter Bearbeiten  F2 Speichern  esc verwerfen                                   

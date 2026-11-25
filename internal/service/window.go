@@ -20,6 +20,9 @@ import (
 type UpdateNotice struct {
 	Stack string
 	Items []engine.UpdateItem
+	// Promote are the variables whose version runs proven in the stack's promote source and is higher than the
+	// stack's own, each reported once per version of the source.
+	Promote []engine.UpdateItem
 }
 
 // windowService runs the work of each opening of the maintenance window: a registry check of every stack,
@@ -36,10 +39,12 @@ type stackUpdater struct {
 	log    *slog.Logger
 	label  string
 	notify func(UpdateNotice)
+	// promoted is shared by the copies of the updater, so the window and the regular check report a version once.
+	promoted *promoteSeen
 }
 
 func newWindowService(stateDir, hostFile string, hostPoll time.Duration, upd *updatesService, clock window.Clock, log *slog.Logger, notify func(UpdateNotice)) (*windowService, error) {
-	w := &windowService{stackUpdater: stackUpdater{upd: upd, log: log, label: "maintenance window", notify: notify}}
+	w := &windowService{stackUpdater: stackUpdater{upd: upd, log: log, label: "maintenance window", notify: notify, promoted: &promoteSeen{}}}
 	sched, err := window.New(window.Config{StateDir: stateDir, HostFile: hostFile, HostPoll: hostPoll, Job: w.run, Clock: clock, Logger: log})
 	if err != nil {
 		return nil, err
@@ -179,7 +184,7 @@ func (w *windowService) run(ctx context.Context, open func() bool) {
 			w.skip(st.Name, "the stack is deploy-only because its .env cannot be read")
 			continue
 		case st.UpdateMode() == stacks.ModeManual:
-			w.report(st.Name, fresh[st.Name])
+			w.report(ctx, st, fresh[st.Name])
 			continue
 		case st.UpdateMode() != stacks.ModeAutomatic:
 			continue
@@ -200,7 +205,8 @@ func (u stackUpdater) skip(name, reason string) {
 }
 
 // report emits the notice of a stack in manual mode with an available update. It sends nothing anywhere.
-func (u stackUpdater) report(name string, check engine.UpdateCheck) {
+func (u stackUpdater) report(ctx context.Context, st stacks.Stack, check engine.UpdateCheck) {
+	name := st.Name
 	var items []engine.UpdateItem
 	var failed map[string]string
 	if cur, _, err := u.upd.eng.Stack(name); err == nil {
@@ -213,8 +219,13 @@ func (u stackUpdater) report(name string, check engine.UpdateCheck) {
 				"variable", it.Variable, "current", it.Current, "available", it.Selected)
 		}
 	}
-	if len(items) > 0 && u.notify != nil {
-		u.notify(UpdateNotice{Stack: name, Items: items})
+	promote := u.promoteNotice(ctx, st)
+	for _, it := range promote {
+		u.log.Info("update available in the source", "event", "update-available", "stack", name, "mode", stacks.ModeManual,
+			"source", st.Rules.Update.PromoteSource, "variable", it.Variable, "current", it.Current, "available", it.Selected)
+	}
+	if (len(items) > 0 || len(promote) > 0) && u.notify != nil {
+		u.notify(UpdateNotice{Stack: name, Items: items, Promote: promote})
 	}
 }
 

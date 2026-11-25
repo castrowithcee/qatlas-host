@@ -118,6 +118,7 @@ func TestPromoteChoiceStartsOnTheStoredSource(t *testing.T) {
 	b := settingsBackend()
 	b.stacks.Stacks[0].PromoteSource = "photo-album"
 	m := newSettingsModel(t, b)
+	b.promoteReads = nil // the refresh read the stored source for the display
 	send(m, promoteFromDetail...)
 	send(m, "enter")
 	if !slices.Equal(b.promoteReads, []string{"photo-album"}) {

@@ -275,7 +275,7 @@ func (p *pollService) check(ctx context.Context, now time.Time, list []stacks.St
 		}
 		switch st.UpdateMode() {
 		case stacks.ModeManual:
-			p.report(st.Name, engine.UpdateCheck{Checked: check.Checked, Items: p.newlyAvailable(st.Name, check)})
+			p.report(ctx, st, engine.UpdateCheck{Checked: check.Checked, Items: p.newlyAvailable(st.Name, check)})
 		case stacks.ModeAutomatic:
 			if ctx.Err() != nil {
 				return

@@ -20,6 +20,7 @@ type snapshot struct {
 	engines []string
 	status  control.StatusResult
 	stacks  control.StacksResult
+	sources map[stackRef]sourceRead // the promote sources of the stacks that name one
 	// noRepo is set when no stacks repository is bound; check and updates are not asked then.
 	noRepo  bool
 	check   control.StacksCheckResult
@@ -61,6 +62,7 @@ func fetch(ctx context.Context, b Backend) refreshMsg {
 		keep(err)
 	}
 	if !msg.snap.noRepo {
+		msg.snap.sources = readSources(ctx, b, msg.snap.stacks)
 		msg.snap.check, err = b.Check(ctx, "")
 		keep(err)
 		msg.snap.updates, err = b.Updates(ctx, control.UpdatesArgs{})
@@ -120,6 +122,7 @@ type stackRow struct {
 	interval  int
 	// promoteSource is the stack the settings name as the source of a promotion; empty when none.
 	promoteSource string
+	promote       promoteView // what the row shows of the promote source
 	state         stackState
 	// lastResult is the result of the last finished run, lastAt its start; zero when only the status knew it.
 	lastResult string
@@ -184,7 +187,7 @@ func buildRows(s snapshot) []stackRow {
 		if _, ok := source[k]; !ok {
 			source[k] = si.Source
 		}
-		r.mode, r.trigger, r.interval, r.promoteSource = si.Update, si.Trigger, si.Interval, si.PromoteSource
+		r.setRules(si, s.sources[k])
 		if si.Error != "" {
 			unreadable[k] = true
 		}
@@ -382,10 +385,7 @@ var modeTexts = map[string]kittui.TextID{
 // cells translates a row into the cells of stackColumns and records the tone of the cells that carry one.
 func cells(r stackRow, t kittui.Translator, loc *time.Location, tones map[string]kittui.TextStyle) []string {
 	none := t.Lookup(textNoValue)
-	current := none
-	if len(r.current) > 0 {
-		current = strings.Join(r.current, ", ")
-	}
+	current := r.currentCell(t)
 	var available string
 	switch r.avail {
 	case availNone:

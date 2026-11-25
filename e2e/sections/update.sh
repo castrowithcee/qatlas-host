@@ -499,7 +499,8 @@ scenario_update() {
 	scenario_return
 }
 
-# scenario_promote takes the version of demo-stack, which runs 3.0.0, over to demo-cache, which has the same image
+# scenario_promote stores demo-stack as the source of demo-cache and takes the version of demo-stack, which runs
+# 3.0.0, over to demo-cache, which has the same image
 # repository and runs 1.1.0: the preview changes nothing, the confirmed command is a run with the trigger promote
 # and one commit that names the source, and the return of that run leaves demo-cache on 1.1.0 without settings.
 scenario_promote() {
@@ -507,16 +508,19 @@ scenario_promote() {
 
 	step 'promote shows the versions of demo-stack for demo-cache without --confirm and changes nothing'
 	wait_for 'demo-cache to be idle' 120 stack_idle demo-cache
-	settings_set demo-cache "$(printf 'version: 1\nupdate:\n  major: direct\n')"
+	settings_set demo-cache "$(printf 'version: 1\nupdate:\n  major: direct\n  promote_source: demo-stack\n')"
 	[ "$(stack_images demo-cache)" = "$image:1.1.0" ] || fail "demo-cache does not run 1.1.0 before the promotion: $(stack_images demo-cache)"
-	out=$(qd_fails --output json stack promote demo-stack demo-cache) || fail "promote without --confirm succeeded: $out"
+	out=$(qd --output json stack list) || fail "stack list failed: $out"
+	printf '%s' "$out" | jq -e '.[] | select(.stack == "demo-cache") | .promote_source == "demo-stack" and (.promote_versions | endswith("=3.0.0"))' >/dev/null ||
+		fail "the list does not show the version 3.0.0 of the source beside demo-cache: $out"
+	out=$(qd_fails --output json stack promote demo-cache) || fail "promote without --confirm succeeded: $out"
 	printf '%s' "$out" | grep -q '"to": *"3.0.0"' || fail "the preview does not show 3.0.0: $out"
 	[ "$(stack_images demo-cache)" = "$image:1.1.0" ] || fail "the preview changed demo-cache: $(stack_images demo-cache)"
 	source_commit=$(json_values "$out" source_commit | head -n 1)
 	[ -n "$source_commit" ] || fail "the preview names no source commit: $out"
 
 	step 'promote --confirm is a run of demo-cache with the trigger promote and a commit that names demo-stack'
-	out=$(qd --output json stack promote demo-stack demo-cache --confirm --source-commit "$source_commit") || fail "promote failed: $out"
+	out=$(qd --output json stack promote demo-cache --confirm --source-commit "$source_commit") || fail "promote failed: $out"
 	[ "$(json_values "$out" result)" = succeeded ] || fail "the promotion did not succeed: $out"
 	run=$(json_values "$out" run | head -n 1)
 	commit=$(json_values "$out" commit | head -n 1)

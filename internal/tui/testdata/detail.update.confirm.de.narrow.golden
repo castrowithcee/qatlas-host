@@ -12,13 +12,13 @@
         ║ Modus: automatisch, Obergrenze: patch, Major-Sprung: direct  ║nuell   
         ║ Beobachtung: 15 Min.                                         ║        
         ║ Auslöser: Wartungsfenster                                    ║───────╮
-  Obergr║ Tag-Filter APP_VERSION: ^1\.[0-9.]+$                         ║     ▾ │
-        ║ Changelog APP_VERSION: example/app                           ║───────╯
-        ║                                                              ║───────╮
-  Major-║ [ ja, ausführen ]  > abbrechen <                             ║     ▾ │
-        ║ y ja, ausführen  n/esc/enter abbrechen                       ║───────╯
-  …     ╚══════════════════════════════════════════════════════════════╝        
-                                                                                
+  Obergr║ Übernahme-Quelle: mail-relay                                 ║     ▾ │
+        ║ Tag-Filter APP_VERSION: ^1\.[0-9.]+$                         ║───────╯
+        ║ Changelog APP_VERSION: example/app                           ║───────╮
+  Major-║                                                              ║     ▾ │
+        ║ [ ja, ausführen ]  > abbrechen <                             ║───────╯
+  …     ║ y ja, ausführen  n/esc/enter abbrechen                       ║        
+        ╚══════════════════════════════════════════════════════════════╝        
                                                                                 
 [ F2 speichern ]  [ esc Verwerfen ]                                             
                                                                                 

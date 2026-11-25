@@ -35,7 +35,7 @@ var (
 	repoOwnerRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9-]{0,38}$`)
 	repoNameRe  = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)
 	// fieldPathRe finds the field path the service names in a refusal, such as "update.tags.APP_VERSION:".
-	fieldPathRe = regexp.MustCompile(`update\.(mode|ceiling|major|observe|trigger|interval|tags|changelog)(?:\.([A-Za-z0-9_.-]+?))?:`)
+	fieldPathRe = regexp.MustCompile(`update\.(mode|ceiling|major|observe|trigger|interval|tags|changelog|promote_source)(?:\.([A-Za-z0-9_.-]+?))?:`)
 )
 
 // Defaults of a stack's rules when it has none, as the service applies them.
@@ -182,7 +182,7 @@ func (m *Model) updateFormFor(res control.StackSettingsResult) tea.Cmd {
 		if cur.Interval != nil {
 			interval = *cur.Interval
 		}
-		u.Tags, u.Changelog = cur.Tags, cur.Changelog
+		u.Tags, u.Changelog, u.PromoteSource = cur.Tags, cur.Changelog, cur.PromoteSource
 	}
 	tags, logs := entriesOf(u.Tags), entriesOf(u.Changelog)
 	vars := m.stackVars(stack)
@@ -213,6 +213,7 @@ func (m *Model) updateFormFor(res control.StackSettingsResult) tea.Cmd {
 		textField("interval", textFieldInterval, textHintInterval, strconv.Itoa(interval)),
 		list(tagEd, textFieldTags, textHintTags),
 		list(logEd, textFieldChangelog, textHintChangelog),
+		textField("promote_source", textFieldPromoteSource, textHintPromoteSource, u.PromoteSource),
 	})
 	if f == nil {
 		return nil
@@ -232,6 +233,7 @@ func cmpOr(v, def string) string {
 // updateRules are the values a saved form came to.
 type updateRules struct {
 	mode, ceiling, major string
+	promoteSource        string
 	observe              int
 	trigger              string
 	interval             int
@@ -242,13 +244,14 @@ type updateRules struct {
 // confirmation. Nothing is sent before its yes.
 func (m *Model) submitUpdate(f *settingsForm, v map[kittui.FieldID]kittui.FormValue) tea.Cmd {
 	r := updateRules{mode: string(v["mode"].Choice), ceiling: string(v["ceiling"].Choice), major: string(v["major"].Choice),
-		trigger: string(v["trigger"].Choice), tags: f.lists["tags"].entries, changelog: f.lists["changelog"].entries}
+		trigger: string(v["trigger"].Choice), promoteSource: strings.TrimSpace(v["promote_source"].Text), tags: f.lists["tags"].entries, changelog: f.lists["changelog"].entries}
 	var ps []kittui.FormProblem
 	n, err := strconv.Atoi(strings.TrimSpace(v["observe"].Text))
 	if err != nil || n < 0 || n > maxObserveMinutes {
 		ps = append(ps, m.bad("observe", textProblemObserve, maxObserveMinutes))
 	}
 	r.observe = n
+	ps = append(ps, m.checkPromoteSource(r.promoteSource, f.stack)...)
 	if r.trigger == "interval" {
 		iv, err := strconv.Atoi(strings.TrimSpace(v["interval"].Text))
 		if err != nil || iv < minIntervalSecs || iv > maxIntervalSecs {
@@ -274,6 +277,7 @@ func (m *Model) submitUpdate(f *settingsForm, v map[kittui.FieldID]kittui.FormVa
 	t := m.text
 	stack := f.stack
 	details := []string{t.Lookup(textDetailRuleModes, t.Lookup(ruleTexts[r.mode]), t.Lookup(ruleTexts[r.ceiling]), t.Lookup(ruleTexts[r.major])), t.Lookup(textDetailRuleObserve, observeText(t, r.observe)), t.Lookup(textDetailRuleTrigger, triggerText(t, r))}
+	details = append(details, promoteDetails(t, r)...)
 	for _, e := range r.tags {
 		details = append(details, t.Lookup(textDetailRuleTag, e.key, e.value))
 	}
@@ -311,7 +315,7 @@ func observeText(t kittui.Translator, minutes int) string {
 func updateEdit(r updateRules) settingsEdit {
 	return func(s *control.StackSettings) {
 		u := &control.StackUpdateSettings{Mode: r.mode, Ceiling: r.ceiling, Major: r.major, Observe: &r.observe,
-			Tags: mapOf(r.tags), Changelog: mapOf(r.changelog)}
+			Tags: mapOf(r.tags), Changelog: mapOf(r.changelog), PromoteSource: r.promoteSource}
 		if r.trigger == "interval" {
 			u.Trigger, u.Interval = r.trigger, &r.interval
 		} else if r.trigger != defaultTrigger {
@@ -339,4 +343,19 @@ func (m *Model) updateProblems(err error) (kittui.FormProblem, bool) {
 func (m *Model) formUpdateLines(f *settingsForm, width int) []string {
 	lines := m.wrapped(detailMargin, kittui.StyleHint, m.text.Lookup(textUpdateIntro, f.stack), width)
 	return append(lines, "")
+}
+
+// checkPromoteSource refuses a source that is not the name of a stack or is the stack itself, as the service does.
+func (m *Model) checkPromoteSource(source, stack string) []kittui.FormProblem {
+	if source != "" && (!stackNameRe.MatchString(source) || source == stack) {
+		return []kittui.FormProblem{m.bad("promote_source", textProblemPromoteSource)}
+	}
+	return nil
+}
+
+func promoteDetails(t kittui.Translator, r updateRules) []string {
+	if r.promoteSource == "" {
+		return nil
+	}
+	return []string{t.Lookup(textDetailRulePromote, r.promoteSource)}
 }

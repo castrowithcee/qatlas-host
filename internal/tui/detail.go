@@ -265,7 +265,7 @@ func (m *Model) detailLines(r stackRow, width int) []string {
 	section := func(key kittui.TextID, build func(width int) []string) {
 		lines = append(lines, m.framed(m.text.Lookup(key), "", width, 0, build)...)
 	}
-	section(textDetailVersions, func(w int) []string { return m.versionLines(r.engine, r.name, w) })
+	section(textDetailVersions, func(w int) []string { return m.versionAndSourceLines(r, w) })
 	if images := m.fingerprintsOf(r.engine, r.name); len(images) > 0 {
 		section(textDetailImages, func(w int) []string { return m.imageLines(images, w) })
 	}

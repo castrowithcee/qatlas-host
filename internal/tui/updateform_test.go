@@ -18,6 +18,7 @@ var (
 	toTags       = seq(toUpdateForm, keys("down", "down", "down", "down", "down", "down"))
 	toTrigger    = seq(toUpdateForm, keys("down", "down", "down", "down"))
 	toChangelog  = seq(toTags, keys("down"))
+	toPromote    = seq(toChangelog, keys("down"))
 )
 
 func intp(n int) *int { return &n }
@@ -40,7 +41,7 @@ func updateBackend() *fakeBackend {
 		Version: 1,
 		Compose: &control.StackComposeSettings{Files: []string{"compose.yaml", "compose.prod.yaml"}},
 		Update: &control.StackUpdateSettings{Mode: "automatic", Ceiling: "patch", Major: "direct", Observe: intp(15),
-			Tags: map[string]string{"APP_VERSION": `^1\.[0-9.]+$`}, Changelog: map[string]string{"APP_VERSION": "example/app"}},
+			Tags: map[string]string{"APP_VERSION": `^1\.[0-9.]+$`}, Changelog: map[string]string{"APP_VERSION": "example/app"}, PromoteSource: "mail-relay"},
 		Backup: &control.StackBackupSettings{Paths: []string{"data/db"}, Retention: &control.StackRetentionSettings{Keep: 3}},
 		Check:  &control.StackCheckSettings{HTTP: &control.StackHTTPSettings{URL: "http://localhost:8080/health"}},
 	}}
@@ -79,7 +80,7 @@ func TestUpdateRulesAreSavedAfterConfirmationAndKeepTheRest(t *testing.T) {
 	old := updateBackend().stackSettings["demo-stack"]
 	want := old
 	want.Update = &control.StackUpdateSettings{Mode: "manual", Ceiling: "major", Major: "stepwise", Observe: intp(0),
-		Tags: old.Update.Tags, Changelog: old.Update.Changelog}
+		Tags: old.Update.Tags, Changelog: old.Update.Changelog, PromoteSource: "mail-relay"}
 	if got.Stack != "demo-stack" || !reflect.DeepEqual(got.Settings, want) {
 		t.Fatalf("set %+v\nwant %+v", got.Settings.Update, want.Update)
 	}
@@ -307,4 +308,40 @@ func TestUpdateFormWritesNoIntervalForOtherTriggers(t *testing.T) {
 func TestStackOverviewShowsTheTrigger(t *testing.T) {
 	m := newTestModel(t, goldenLangs["en"], updateBackend(), 120, 40)
 	contains(t, m, "automatic, polling 120s", "manual, webhook")
+}
+
+func TestUpdateFormSetsAndClearsThePromoteSource(t *testing.T) {
+	b := updateBackend()
+	m := newSettingsModel(t, b)
+	send(m, toPromote...)
+	send(m, "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace")
+	send(m, typed("wiki")...)
+	send(m, "f2")
+	contains(t, m, "promote source: wiki")
+	send(m, "y")
+	if len(b.settingsSets) != 1 || b.settingsSets[0].Settings.Update.PromoteSource != "wiki" {
+		t.Fatalf("sets %+v", b.settingsSets)
+	}
+
+	b = updateBackend()
+	m = newSettingsModel(t, b)
+	send(m, toPromote...)
+	send(m, "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace")
+	send(m, "f2", "y")
+	if len(b.settingsSets) != 1 || b.settingsSets[0].Settings.Update.PromoteSource != "" {
+		t.Fatalf("sets %+v", b.settingsSets)
+	}
+}
+
+func TestUpdateFormRefusesTheStackAsItsOwnPromoteSource(t *testing.T) {
+	b := updateBackend()
+	m := newSettingsModel(t, b)
+	send(m, toPromote...)
+	send(m, "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace", "backspace")
+	send(m, typed("demo-stack")...)
+	send(m, "f2")
+	contains(t, m, "name of another stack, not this one")
+	if m.modal != nil || len(b.settingsSets) != 0 {
+		t.Fatal("a refused form reached the confirmation or the service")
+	}
 }
