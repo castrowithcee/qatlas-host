@@ -246,6 +246,18 @@ func TestObservationInStatusFields(t *testing.T) {
 	}
 }
 
+func TestFailedVersionsInStatusFields(t *testing.T) {
+	got := map[string]any{}
+	for _, f := range engineFields(control.EngineSystem, control.EngineStatus{Stacks: []control.StackStatus{
+		{Name: "web", Source: "srv", FailedVersions: map[string]string{"B_VERSION": "2.0.0", "A_VERSION": "1.1.0"}},
+	}}) {
+		got[f.Name] = f.Value
+	}
+	if want := "A_VERSION=1.1.0, B_VERSION=2.0.0"; got["stack.web.failed_versions"] != want {
+		t.Errorf("failed_versions = %v, want %q", got["stack.web.failed_versions"], want)
+	}
+}
+
 func TestStatusShowsTheWebhookReceiverAsNotSetUp(t *testing.T) {
 	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 	code, stdout, _ := run(t, "status", "--output", "json")

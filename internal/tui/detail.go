@@ -324,6 +324,11 @@ func (m *Model) summaryLines(r stackRow, width int) []string {
 	if observe != nil {
 		labelWidth = max(labelWidth, lipgloss.Width(observeLabel))
 	}
+	failedLabel := kittui.Escape(m.text.Lookup(textDetailFailedVersions))
+	failedVersions := m.failedVersionsOf(r.engine, r.name)
+	if failedVersions != "" {
+		labelWidth = max(labelWidth, lipgloss.Width(failedLabel))
+	}
 	row := func(label string, style kittui.TextStyle, value string) string {
 		return "  " + m.styles.Render(kittui.StyleHint, kittui.Pad(label, labelWidth)) + "  " +
 			m.styles.Render(style, m.styles.Truncate(kittui.Escape(value), max(width-labelWidth-4, 1)))
@@ -343,7 +348,20 @@ func (m *Model) summaryLines(r stackRow, width int) []string {
 		out = append(out, row(observeLabel, kittui.StyleWarn,
 			m.text.Lookup(textObserveUntil, short(observe.Commit), observe.Until.In(m.loc).Format(lastRunLayout))))
 	}
+	if failedVersions != "" {
+		out = append(out, row(failedLabel, kittui.StyleWarn, m.text.Lookup(textFailedVersionsLine, failedVersions)))
+	}
 	return out
+}
+
+// failedVersionsOf is the locked versions the status reports for a stack as text, empty when it reports none.
+func (m *Model) failedVersionsOf(engine, stack string) string {
+	for i, st := range m.snap.status.Engine.Stacks {
+		if st.Name == stack && inEngine(st.Engine, engine) && primary(m.snap.status.Engine.Stacks, i) {
+			return control.FailedVersionsText(st.FailedVersions)
+		}
+	}
+	return ""
 }
 
 // observeOf is the running observation time the status reports for a stack, nil when it reports none.

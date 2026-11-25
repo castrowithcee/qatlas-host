@@ -3,6 +3,8 @@ package engine
 import (
 	"errors"
 	"time"
+
+	"github.com/castrowithcee/qatlas-host/internal/version"
 )
 
 // Observation is an update by qhost and its observation time: a failure of the stack from Since until before
@@ -49,7 +51,9 @@ func (r *run) trackVersions(cur *StackState, rec RunRecord, now time.Time) {
 	cur.Observe = nil
 	switch {
 	case rec.Result == ResultSucceeded && r.change != nil && r.back == nil:
-		delete(cur.FailedVersions, r.change.Variable)
+		if liftsLock(cur.FailedVersions[r.change.Variable], r.change.To) {
+			delete(cur.FailedVersions, r.change.Variable)
+		}
 	case rec.Result == ResultRolledBack && r.undo != nil:
 		cur.lockVersion(r.undo.Variable, r.undo.Version)
 	case rec.Result == ResultRolledBack && r.change != nil && r.back == nil:
@@ -57,8 +61,25 @@ func (r *run) trackVersions(cur *StackState, rec RunRecord, now time.Time) {
 	}
 	if d := r.st.ObserveTime(); rec.Result == ResultSucceeded && rec.Trigger == TriggerUpdate && d > 0 {
 		cur.Observe = &Observation{Run: rec.ID, From: r.deployed, Commit: rec.Commit, Backup: rec.Backup,
-			Variable: r.change.Variable, Version: r.change.To, Since: now, Until: now.Add(d)}
+			Since: now, Until: now.Add(d)}
+		if r.change != nil {
+			cur.Observe.Variable, cur.Observe.Version = r.change.Variable, r.change.To
+		}
 	}
+}
+
+// liftsLock reports whether a successful update to version lifts the lock on locked: only the locked version
+// itself or a higher one does. Versions that cannot be compared lift it only when equal.
+func liftsLock(locked, to string) bool {
+	if locked == "" {
+		return false
+	}
+	if locked == to {
+		return true
+	}
+	a, ok1 := version.ParseCore(to)
+	b, ok2 := version.ParseCore(locked)
+	return ok1 && ok2 && a.Compare(b) > 0
 }
 
 // lockVersion records version as failed for variable; an empty variable, from an observation made before

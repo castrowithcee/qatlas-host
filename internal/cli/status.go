@@ -279,9 +279,19 @@ func entryFields(prefix, engine string, e control.EngineStatus) []output.Field {
 		if r := s.Repair; r != nil {
 			out = append(out, output.Field{Name: p + "repair", Value: repairText(r)})
 		}
-		if o := s.Observe; o != nil {
-			out = append(out, output.Field{Name: p + "observe", Value: "until " + o.Until.UTC().Format(time.RFC3339) + ", update " + o.Commit})
-		}
+		out = append(out, updateFields(p, s)...)
+	}
+	return out
+}
+
+// updateFields are the observation time and the locked versions of a stack, as far as it has them.
+func updateFields(p string, s control.StackStatus) []output.Field {
+	var out []output.Field
+	if o := s.Observe; o != nil {
+		out = append(out, output.Field{Name: p + "observe", Value: "until " + o.Until.UTC().Format(time.RFC3339) + ", update " + o.Commit})
+	}
+	if len(s.FailedVersions) > 0 {
+		out = append(out, output.Field{Name: p + "failed_versions", Value: control.FailedVersionsText(s.FailedVersions)})
 	}
 	return out
 }

@@ -54,6 +54,16 @@ func TestSuccessfulUpdateLiftsTheLock(t *testing.T) {
 	}
 }
 
+func TestSuccessfulUpdateToALowerVersionKeepsTheLock(t *testing.T) {
+	r := updateRig(t)
+	r.dep.fail("check", errBoom)
+	r.update(step("1.0.0", "1.2.0"))
+	r.update(step("1.0.0", "1.1.0"))
+	if st := r.stack("web"); st.LastRun.Result != ResultSucceeded || st.FailedVersions["APP_VERSION"] != "1.2.0" {
+		t.Fatalf("%+v / %v", st.LastRun, st.FailedVersions)
+	}
+}
+
 func TestValidateFailedVersions(t *testing.T) {
 	ok := State{Schema: stateSchema, Stacks: map[string]StackState{"web": {FailedVersions: map[string]string{"APP_VERSION": "1.1.0"}}}}
 	if err := validateState(ok); err != nil {

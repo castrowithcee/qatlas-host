@@ -289,6 +289,25 @@ scenario_observe_end() {
 	[ -z "$(stack_field observe-demo observe)" ] || fail "status still shows an observation after the rollback: $(stack_field observe-demo observe)"
 	wait_for 'the finding of observe-demo to end' 120 no_finding observe-demo container-failed
 
+	step 'the rolled-back version is locked: the status shows it and an automatic check starts no second run'
+	[ "$(stack_field observe-demo failed_versions)" = DEMO_APP_VERSION=1.1.0 ] ||
+		fail "status does not show the locked version: $(stack_field observe-demo failed_versions)"
+	settings_set observe-demo 'version: 1
+update:
+  mode: automatic
+  trigger: interval
+  interval: 30
+backup:
+  paths:
+    - data
+'
+	runs_before=$(stack_run_count observe-demo)
+	# One check per 30 seconds finds 1.1.0 in the registry; the lock keeps it from planning that version again.
+	sleep 35
+	[ "$(stack_run_count observe-demo)" = "$runs_before" ] || fail "a check started a run for the locked version: $(qd stack runs observe-demo)"
+	[ "$(stack_images observe-demo)" = "registry.$domain/demo/late:1.0.0" ] || fail "observe-demo left 1.0.0: $(stack_images observe-demo)"
+	[ "$(stack_field observe-demo failed_versions)" = DEMO_APP_VERSION=1.1.0 ] || fail 'the lock is gone after the check'
+
 	step 'observe-demo leaves the repository'
 	out=$(qd notify remove obs) || fail "notify remove obs failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q observe-demo .qatlas/qhost/observe-demo.yaml &&
