@@ -17,6 +17,12 @@ const (
 	textPromoteNoCompare kittui.TextID = "promote.nocompare"
 	textPromoteFailed    kittui.TextID = "promote.failed"
 	textDonePromote      kittui.TextID = "done.promote"
+	// The source a stack takes versions over from, shown beside its own versions.
+	textCellSource       kittui.TextID = "cell.source"
+	textDetailSource     kittui.TextID = "detail.source"
+	textSourceMissing    kittui.TextID = "source.missing"
+	textSourceUnproven   kittui.TextID = "source.unproven"
+	textSourceUnreadable kittui.TextID = "source.unreadable"
 )
 
 func promoteEnglish() map[kittui.TextID]string {
@@ -34,6 +40,11 @@ func promoteEnglish() map[kittui.TextID]string {
 		textPromoteNoCompare: "The image fingerprints are not compared (setting promote.compare_images is off).",
 		textPromoteFailed:    "The promotion to %s did not succeed (%s). Run %s has the log.",
 		textDonePromote:      "Stack %s took over the versions, run %s.",
+		textCellSource:       "(source %s)",
+		textDetailSource:     "Source stack for promotion: %s",
+		textSourceMissing:    "missing",
+		textSourceUnproven:   "not proven",
+		textSourceUnreadable: "unreadable",
 	}
 }
 
@@ -52,5 +63,10 @@ func promoteGerman() map[kittui.TextID]string {
 		textPromoteNoCompare: "Die Fingerabdrücke der Images werden nicht verglichen (Einstellung promote.compare_images ist aus).",
 		textPromoteFailed:    "Die Übernahme für %s ist nicht gelungen (%s). Der Lauf %s hat das Log.",
 		textDonePromote:      "Stack %s hat die Versionen übernommen, Lauf %s.",
+		textCellSource:       "(Quelle %s)",
+		textDetailSource:     "Quell-Stack für die Übernahme: %s",
+		textSourceMissing:    "fehlt",
+		textSourceUnproven:   "nicht bewährt",
+		textSourceUnreadable: "nicht lesbar",
 	}
 }

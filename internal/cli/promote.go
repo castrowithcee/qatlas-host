@@ -30,7 +30,7 @@ func newPromoteCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 	var engineName, sourceEngine, sourceCommit string
 	var gate *cobracli.Gate
 	cmd := &cobra.Command{
-		Use:   "promote <source> <target> [--confirm]",
+		Use:   "promote [source] <target> [--confirm]",
 		Short: "Set the image versions of a stack to those another stack runs, as one secured run",
 		Long: "promote sets every image version variable of <target> whose image <source> also runs to the version the\n" +
 			"source runs. The versions come from the commit the source deployed last, not from its working copy, and\n" +
@@ -38,7 +38,8 @@ func newPromoteCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 			"are. The run is an update of the target: it stops the stack and backs up its data if it has backup rules,\n" +
 			"commits all new versions to its .env in one commit, pushes it, then pulls, starts and checks the stack,\n" +
 			"and a failing run is rolled back; 'qhost stack rollback' goes back afterwards.\n\n" +
-			"The target is refused as for 'qhost stack update <target> --version': no settings, never deployed,\n" +
+			"With one argument the source is the one in the update.promote_source setting of the target; naming\n" +
+			"a source overrules it. The target is refused as for 'qhost stack update <target> --version': no settings, never deployed,\n" +
 			"local changes, paused, stopped, pinned, or a run in progress. Each version must be in the registry's tag\n" +
 			"list, of the same variant and higher than the target's; a lower version is refused. The same version\n" +
 			"is nothing to do and succeeds. The source is refused when its last run did not succeed, when it has a\n" +
@@ -50,11 +51,11 @@ func newPromoteCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 			"--source-commit <commit> runs with exactly that commit; without it --confirm reads the source commit\n" +
 			"when it runs. It exits with 1 when the run did not succeed. Needs sudo.",
 		Args: func(_ *cobra.Command, args []string) error {
-			if len(args) != 2 {
-				return usageFailure("promote takes exactly two arguments, the source and the target stack",
-					"Run 'qhost stack promote <source> <target>'.")
+			if len(args) != 1 && len(args) != 2 {
+				return usageFailure("promote takes the target stack, or the source and the target stack",
+					"Run 'qhost stack promote <target>' or 'qhost stack promote <source> <target>'.")
 			}
-			if args[0] == args[1] {
+			if len(args) == 2 && args[0] == args[1] {
 				return usageFailure("the source and the target are the same stack", "Name two different stacks.")
 			}
 			return nil
@@ -64,8 +65,12 @@ func newPromoteCommand(program *cobracli.Program, state *notRunning) *cobra.Comm
 				return usageFailure("--source-commit is not a full commit id: "+sourceCommit,
 					"Use the 40 or 64 hex digits of the commit the preview showed.")
 			}
-			return runPromote(c, program, state, gate, promoteSides{source: args[0], target: args[1], sourceEngine: sourceEngine,
-				targetEngine: engineName, commit: sourceCommit})
+			sides := promoteSides{target: args[len(args)-1], sourceEngine: sourceEngine,
+				targetEngine: engineName, commit: sourceCommit}
+			if len(args) == 2 {
+				sides.source = args[0]
+			}
+			return runPromote(c, program, state, gate, sides)
 		},
 	}
 	addEngineFlag(cmd, &engineName, stackEngineUsage, stackEngineNote+" The source and the target may be in different engines on the same host: "+
@@ -146,6 +151,13 @@ type promoteSides struct{ source, target, sourceEngine, targetEngine, commit str
 func runPromote(c *cobra.Command, program *cobracli.Program, state *notRunning, gate *cobracli.Gate, p promoteSides) error {
 	// Without --confirm this is the error that ends the command after the preview.
 	unconfirmed := gate.Run(cobracli.Request{Changes: true}, func() error { return nil })
+	if p.source == "" {
+		src, err := storedPromoteSource(c, state, p)
+		if err != nil {
+			return err
+		}
+		p.source = src
+	}
 	// The source is read at the deploy service that has it, the check and the run reach the one of the
 	// target, which applies every rule itself.
 	if err := routeStacks(c, state, p.sourceEngine, p.source); err != nil {
@@ -183,4 +195,20 @@ func runPromote(c *cobra.Command, program *cobracli.Program, state *notRunning, 
 		return err
 	}
 	return showPromote(c, program, res)
+}
+
+// storedPromoteSource reads the source set for the target in its settings; without one the command is refused.
+func storedPromoteSource(c *cobra.Command, state *notRunning, p promoteSides) (string, error) {
+	if err := routeStacks(c, state, p.targetEngine, p.target); err != nil {
+		return "", err
+	}
+	var res control.StackSettingsResult
+	if err := remoteCall(c, state, remoteCallLimit, control.StackSettingsGetCommand, control.StackSettingsArgs{Stack: p.target}, &res); err != nil {
+		return "", err
+	}
+	if s := res.Settings; s != nil && s.Update != nil && s.Update.PromoteSource != "" {
+		return s.Update.PromoteSource, nil
+	}
+	return "", usageFailure(p.target+" has no source set for promote",
+		"Name the source with 'qhost stack promote <source> "+p.target+"' or set update.promote_source with 'qhost stack settings set'.")
 }

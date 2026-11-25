@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -114,6 +115,13 @@ func (n *notifyService) updateAvailable(notice UpdateNotice) {
 	var items []notifier.Item
 	for _, it := range notice.Items {
 		if it.Status == engine.UpdateAvailable && it.Selected != "" {
+			items = append(items, notifier.Item{Variable: it.Variable, Current: it.Current, Available: it.Selected})
+		}
+	}
+	// The record keeps one version per variable: a version of the source counts only where the registry offers
+	// none, so the two never replace each other.
+	for _, it := range notice.Promote {
+		if !slices.ContainsFunc(items, func(i notifier.Item) bool { return i.Variable == it.Variable }) {
 			items = append(items, notifier.Item{Variable: it.Variable, Current: it.Current, Available: it.Selected})
 		}
 	}

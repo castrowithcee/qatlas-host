@@ -58,6 +58,45 @@ type PromoteSource struct {
 	Fingerprints []PromoteFingerprint `json:"fingerprints,omitempty"`
 }
 
+// The reasons a source is not proven, as Unproven names them. A proven source is the one a promotion accepts: its
+// last run succeeded, it has no failed commit and it is healthy.
+const (
+	UnprovenNotDeployed  = "not-deployed"
+	UnprovenRun          = "run"
+	UnprovenFailedCommit = "failed-commit"
+	UnprovenNotHealthy   = "unhealthy"
+)
+
+// Unproven returns why the source cannot be promoted from, or "" when it is proven.
+func (p PromoteSource) Unproven() string {
+	switch {
+	case p.Commit == "" || p.LastResult == "":
+		return UnprovenNotDeployed
+	case p.LastResult != "succeeded":
+		return UnprovenRun
+	case p.FailedCommit != "":
+		return UnprovenFailedCommit
+	case p.Unhealthy:
+		return UnprovenNotHealthy
+	}
+	return ""
+}
+
+// VersionsFor returns for each of the images of a target the version the source runs of the same image
+// repository, with the target's variable; images the source does not run are left out.
+func (p PromoteSource) VersionsFor(images []ImageInfo) []PromoteVersion {
+	var out []PromoteVersion
+	for _, img := range images {
+		for _, v := range p.Versions {
+			if v.Image == img.Image {
+				out = append(out, PromoteVersion{Variable: img.Var, Image: img.Image, Version: v.Version})
+				break
+			}
+		}
+	}
+	return out
+}
+
 // PromoteArgs are the arguments of PromoteCheckCommand and PromoteRunCommand. Stack is the target. Source
 // is the answer of PromoteSourceCommand. Commit is for PromoteRunCommand only: the source commit of the check
 // the run follows.

@@ -6,17 +6,14 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"net/url"
 	"os"
 	"regexp"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/castrowithcee/qatlas-host/internal/changelog"
 	"github.com/castrowithcee/qatlas-host/internal/formatnum"
 )
 
@@ -86,6 +83,9 @@ type Update struct {
 	// Changelog names the GitHub repository ("owner/name") whose releases describe the versions of an image
 	// variable. It takes precedence over the image label.
 	Changelog map[string]string
+	// PromoteSource names the stack this one takes its versions over from; "" when none. Nothing follows it
+	// by itself, and the stack need not exist.
+	PromoteSource string
 }
 
 // Backup describes what is saved before an update. Nothing here is executed by this package.
@@ -142,6 +142,8 @@ type UpdateSettings struct {
 	Observe   *int              `yaml:"observe,omitempty" json:"observe,omitempty"`
 	Tags      map[string]string `yaml:"tags,omitempty" json:"tags,omitempty"`
 	Changelog map[string]string `yaml:"changelog,omitempty" json:"changelog,omitempty"`
+	// PromoteSource is the name of the stack whose versions promote takes over by default.
+	PromoteSource string `yaml:"promote_source,omitempty" json:"promote_source,omitempty"`
 }
 
 // BackupSettings is the backup section of Settings.
@@ -158,6 +160,7 @@ const (
 )
 
 var (
+	stackName    = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,62}$`) // as backup.ValidStack
 	volumeName   = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`)
 	unknownField = regexp.MustCompile(`field (\S+) not found in type \S+`)
 )
@@ -250,6 +253,7 @@ func (r *Rules) Settings() Settings {
 	if len(r.Update.Changelog) > 0 {
 		s.Update.Changelog = maps.Clone(r.Update.Changelog)
 	}
+	s.Update.PromoteSource = r.Update.PromoteSource
 	if b := r.Backup; b != nil {
 		bs := &BackupSettings{Paths: slices.Clone(b.Paths), Volumes: slices.Clone(b.Volumes), Command: slices.Clone(b.Command),
 			Retention: &RetentionSettings{}}
@@ -365,41 +369,8 @@ func validateRules(raw Settings) (*Rules, error) {
 			}
 			r.Update.Observe = time.Duration(*o) * time.Minute
 		}
-		keys := make([]string, 0, len(u.Tags))
-		for k := range u.Tags {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			if !envKey.MatchString(k) {
-				return nil, fmt.Errorf("update.tags.%s: not a variable name", k)
-			}
-			re, err := regexp.Compile(u.Tags[k])
-			if err != nil {
-				return nil, fmt.Errorf("update.tags.%s: invalid regular expression: %v", k, err)
-			}
-			if r.Update.Tags == nil {
-				r.Update.Tags = map[string]*regexp.Regexp{}
-			}
-			r.Update.Tags[k] = re
-		}
-		keys = keys[:0]
-		for k := range u.Changelog {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			if !envKey.MatchString(k) {
-				return nil, fmt.Errorf("update.changelog.%s: not a variable name", k)
-			}
-			src := changelog.ParseSource(u.Changelog[k])
-			if !src.GitHub {
-				return nil, fmt.Errorf("update.changelog.%s: must be a GitHub repository as owner/name or a github.com address", k)
-			}
-			if r.Update.Changelog == nil {
-				r.Update.Changelog = map[string]string{}
-			}
-			r.Update.Changelog[k] = src.Repo.String()
+		if err := validateUpdateMaps(u, &r.Update); err != nil {
+			return nil, err
 		}
 	}
 
@@ -442,46 +413,4 @@ func validateRules(raw Settings) (*Rules, error) {
 		}
 	}
 	return r, nil
-}
-
-func validateBackup(paths, volumes, command []string) (*Backup, error) {
-	if len(paths) == 0 && len(volumes) == 0 && len(command) == 0 {
-		return nil, errors.New("backup: needs at least one of paths, volumes, command")
-	}
-	for i, p := range paths {
-		if err := checkRelative(p); err != nil {
-			return nil, fmt.Errorf("backup.paths[%d]: %w", i, err)
-		}
-	}
-	for i, v := range volumes {
-		if !volumeName.MatchString(v) {
-			return nil, fmt.Errorf("backup.volumes[%d]: %q is not a volume name", i, v)
-		}
-	}
-	if len(command) > 0 && command[0] == "" {
-		return nil, errors.New("backup.command[0]: the program must not be empty")
-	}
-	return &Backup{Paths: paths, Volumes: volumes, Command: command}, nil
-}
-
-func validateHTTP(rawURL string, status *int, timeout *string) (*HTTPCheck, error) {
-	u, err := url.Parse(rawURL)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return nil, fmt.Errorf("check.http.url: must be an absolute http or https URL (got %q)", rawURL)
-	}
-	hc := &HTTPCheck{URL: rawURL, Status: 200, Timeout: defaultTimeout}
-	if status != nil {
-		if *status < 100 || *status > 599 {
-			return nil, fmt.Errorf("check.http.status: must be between 100 and 599 (got %d)", *status)
-		}
-		hc.Status = *status
-	}
-	if timeout != nil {
-		d, err := time.ParseDuration(*timeout)
-		if err != nil || d < time.Second || d > 10*time.Minute {
-			return nil, fmt.Errorf("check.http.timeout: must be a duration between 1s and 10m (got %q)", *timeout)
-		}
-		hc.Timeout = d
-	}
-	return hc, nil
 }

@@ -259,6 +259,47 @@ func TestRegularCheckReportsAManualStackOncePerVersion(t *testing.T) {
 	}
 }
 
+func TestRegularCheckReportsTheVersionOfThePromoteSourceOnce(t *testing.T) {
+	rules := intervalRules("manual", 30) + "  promote_source: demo-stack\n"
+	r, dep := pollHarness(t, map[string]string{servicetest.Settings("plain-stack"): rules})
+	promoted := func() (out []string) {
+		for _, n := range r.notices.all() {
+			if n.Stack != "plain-stack" {
+				t.Fatalf("notice = %+v", n)
+			}
+			for _, it := range n.Promote {
+				out = append(out, it.Variable+" "+it.Current+" "+it.Selected)
+			}
+		}
+		return out
+	}
+
+	r.step(t)
+	r.step(t)
+	// a new registry version makes a notice of its own, which does not repeat the version of the source
+	r.reg.addTag("1.4.0")
+	r.step(t)
+	r.step(t)
+	if got := promoted(); !slices.Equal(got, []string{"DEMO_APP_VERSION 0.9.1 1.2.3"}) {
+		t.Fatalf("source versions reported = %q", got)
+	}
+	if pulls, _ := dep.pulled(); len(pulls) != 0 || len(r.git.Pushed()) != 0 {
+		t.Fatalf("manual stack updated: pulls %v, pushed %q", pulls, r.git.Pushed())
+	}
+}
+
+func TestRegularCheckReportsNothingForAMissingPromoteSource(t *testing.T) {
+	rules := intervalRules("manual", 30) + "  promote_source: nowhere\n"
+	r, _ := pollHarness(t, map[string]string{servicetest.Settings("plain-stack"): rules})
+	r.step(t)
+	r.step(t)
+	for _, n := range r.notices.all() {
+		if len(n.Promote) != 0 {
+			t.Fatalf("notice = %+v", n)
+		}
+	}
+}
+
 func TestRegularCheckWaitsLongerForABusyRegistry(t *testing.T) {
 	r, _ := pollHarness(t, map[string]string{servicetest.Settings("demo-stack"): intervalRules("manual", 30)})
 	var at []time.Duration

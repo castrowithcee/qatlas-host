@@ -46,7 +46,6 @@ cx internal/cli/repo_test.go:TestRepoSetWithFingerprintBindsAndStacksLists 18
 cx internal/cli/rollback_test.go:TestRollbackReturnsAndPinsTheStack 16
 cx internal/cli/secret_test.go:TestSecretRoundTripNeverShowsTheValue 27
 cx internal/cli/selfupdate.go:runSelfUpdate 16
-cx internal/cli/settings.go:settingsOutput 18
 cx internal/cli/settings_test.go:TestStackListShowsTheUpdateTrigger 16
 cx internal/cli/settings_test.go:TestStackSettingsRemove 19
 cx internal/cli/settings_test.go:TestStackSettingsSetFromFileAndStdin 16
@@ -276,7 +275,7 @@ cx internal/stackcheck/stackcheck.go:updateFunction 26
 cx internal/stacks/compose.go:splitImage 18
 cx internal/stacks/env.go:parseEnvValue 16
 cx internal/stacks/refs.go:expandBraces 19
-cx internal/stacks/rules.go:validateRules 46
+cx internal/stacks/rules.go:validateRules 37
 cx internal/stacks/stacks.go:composeFiles 19
 cx internal/stacks/stacks.go:loadStack 32
 cx internal/tools/tools_test.go:TestEveryEntryIsWellFormed 19
@@ -308,7 +307,7 @@ cx internal/tui/settings.go:Model.applySetting 65
 cx internal/tui/settings.go:Model.settingsAction 24
 cx internal/tui/settingsform.go:Model.submitForm 29
 cx internal/tui/stacks.go:buildRows 29
-cx internal/tui/stacks.go:cells 21
+cx internal/tui/stacks.go:cells 20
 cx internal/tui/stacks80_test.go:TestStacks80NoCutWords 18
 cx internal/tui/sudoactions_test.go:TestSettingsSaveWithoutRootHandsTheSettingsOnStandardInput 16
 cx internal/tui/sudoactions_test.go:TestStackActionWithoutRootRunsTheCommandThroughSudo 16
@@ -331,7 +330,7 @@ file internal/cli/source_add.go 763
 file internal/cli/source_move_run.go 670
 file internal/cli/tui_backend.go 779
 file internal/compose/datadirs.go 518
-file internal/control/control.go 2146
+file internal/control/control.go 2104
 file internal/credentials/credentials.go 581
 file internal/diagnose/diagnose.go 625
 file internal/engine/engine.go 1184
@@ -348,7 +347,7 @@ file internal/proposals/proposals.go 569
 file internal/registry/client.go 706
 file internal/service/inspect.go 852
 file internal/service/monitor.go 655
-file internal/service/repo.go 600
+file internal/service/repo.go 569
 file internal/service/servicetest/servicetest.go 572
 file internal/service/sourceremote.go 639
 file internal/service/sources.go 842
@@ -363,7 +362,6 @@ file internal/tui/model.go 1559
 file internal/tui/settings.go 938
 file internal/tui/settingsform.go 544
 file internal/tui/settingstext.go permanent: text catalog of the terminal interface, pure data
-file internal/tui/stacks.go 505
 file internal/tui/system.go 644
 file internal/tui/systemproposals.go 617
 file internal/tui/systemtext.go permanent: text catalog of the terminal interface, pure data
@@ -403,7 +401,6 @@ len internal/cli/rollback.go:newRollbackCommand 66
 len internal/cli/secret.go:newSecretCommand 100
 len internal/cli/selfupdate.go:runSelfUpdate 68
 len internal/cli/settings.go:newSettingsCommand 105
-len internal/cli/settings.go:settingsOutput 64
 len internal/cli/source.go:newSourceCommand 66
 len internal/cli/source.go:sourceResult 122
 len internal/cli/source_add.go:executeSourceFiles 61
@@ -523,7 +520,7 @@ len internal/service/updates.go:updatesService.handleRun 61
 len internal/stackcheck/stackcheck.go:checkStack 91
 len internal/stackcheck/stackcheck.go:updateFunction 88
 len internal/stackcheck/stackcheck_test.go:TestFunctions 67
-len internal/stacks/rules.go:validateRules 148
+len internal/stacks/rules.go:validateRules 115
 len internal/stacks/settings_test.go:TestEncodeSettingsIsCanonicalBlockYAML 62
 len internal/stacks/stacks.go:loadStack 116
 len internal/tui/backend_test.go:TestChannelBackendSpeaksTheServiceCommands 76
@@ -551,7 +548,7 @@ len internal/tui/settingsform.go:Model.submitForm 63
 len internal/tui/settingstext.go:settingsEnglish permanent: text catalog of the terminal interface, pure data
 len internal/tui/settingstext.go:settingsGerman permanent: text catalog of the terminal interface, pure data
 len internal/tui/stacks.go:buildRows 107
-len internal/tui/stacks.go:cells 69
+len internal/tui/stacks.go:cells 66
 len internal/tui/stacks80_test.go:TestStacks80NoCutWords 63
 len internal/tui/sudoconfig_test.go:TestFolderAndSettingsActionsWithoutRootRunTheirCommand 65
 len internal/tui/systemtext.go:systemEnglish permanent: text catalog of the terminal interface, pure data
