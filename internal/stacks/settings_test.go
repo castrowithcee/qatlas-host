@@ -306,3 +306,26 @@ func TestPromoteSourceMustNotBeTheStackItself(t *testing.T) {
 		t.Errorf("not a settings error: %v", s.Err)
 	}
 }
+
+func TestPromoteCompareImagesSetting(t *testing.T) {
+	for body, want := range map[string]bool{
+		"version: 1\n":                                     false,
+		"version: 1\npromote: {}\n":                        false,
+		"version: 1\npromote: {compare_images: true}\n":    true,
+		`{"version":1,"promote":{"compare_images":false}}`: false,
+	} {
+		r, err := ParseSettings([]byte(body))
+		if err != nil || r.PromoteCompare != want {
+			t.Fatalf("%q: compare %v, err %v", body, r, err)
+		}
+		back, err := ParseSettings(mustEncode(t, r))
+		if err != nil || back.PromoteCompare != want {
+			t.Fatalf("%q: round trip %v, %v", body, back, err)
+		}
+	}
+	for _, body := range []string{"version: 1\npromote: {compare_images: sometimes}\n", "version: 1\npromote: {compare: true}\n"} {
+		if _, err := ParseSettings([]byte(body)); err == nil {
+			t.Fatalf("%q was accepted", body)
+		}
+	}
+}

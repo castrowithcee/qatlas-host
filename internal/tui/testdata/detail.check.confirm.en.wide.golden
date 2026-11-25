@@ -5,27 +5,27 @@
                                                                                                                         
   Check of the stack demo-stack. Update rules, backup and compose files stay as they are.                               
                                                                                                                         
-                  ╔════════════════════════════════════════════════════════════════════════════════════════════════════╗
-> Container check ║ on                                                                                               ▾ ║
-                  ╚════════════════════════════════════════════════════════════════════════════════════════════════════╝
-                  On: the stack counts as healthy only while all its containers run.                                    
-                  ╭────────────────────────────────────────────────────────────────────────────────────────────────────╮
-  HTTP check      │ on                                                                                               ▾ │
-                  ╰────────────────────────────────────────────────────────────────────────────────────────────────────╯
-                  ╭─────────╔═ Check of a stack ═══════════════════════════════════════════╗───────────────────────────╮
-  Address (URL)   │ http://l║ ⚠ Save the check of the stack demo-stack?                    ║                           │
-                  ╰─────────║                                                              ║───────────────────────────╯
-                  ╭─────────║ A commit with the new settings is created in the stack       ║───────────────────────────╮
-  Expected status │ 200     ║ repository and pushed to its remote. The check acts on the   ║                           │
-                  ╰─────────║ next deployment.                                             ║───────────────────────────╯
-                  ╭─────────║ container check: on                                          ║───────────────────────────╮
-  Timeout         │ 10s     ║ HTTP check: http://localhost:8080/health answers 200 within  ║                           │
-                  ╰─────────║ 10s                                                          ║───────────────────────────╯
-                            ║                                                              ║                            
-                            ║ [ yes, do it ]  > cancel <                                   ║                            
+                              ╔════════════════════════════════════════════════════════════════════════════════════════╗
+> Container check             ║ on                                                                                   ▾ ║
+                              ╚════════════════════════════════════════════════════════════════════════════════════════╝
+                              On: the stack counts as healthy only while all its containers run.                        
+                              ╭────────────────────────────────────────────────────────────────────────────────────────╮
+  HTTP check                  │ on                                                                                   ▾ │
+                              ╰────────────────────────────────────────────────────────────────────────────────────────╯
+                            ╔═ Check of a stack ═══════════════════════════════════════════╗───────────────────────────╮
+  Address (URL)             ║ ⚠ Save the check of the stack demo-stack?                    ║                           │
+                            ║                                                              ║───────────────────────────╯
+                            ║ A commit with the new settings is created in the stack       ║───────────────────────────╮
+  Expected status           ║ repository and pushed to its remote. The check acts on the   ║                           │
+                            ║ next deployment, the comparison on the next promotion.       ║───────────────────────────╯
+                            ║ container check: on                                          ║───────────────────────────╮
+  Timeout                   ║ HTTP check: http://localhost:8080/health answers 200 within  ║                           │
+                            ║ 10s                                                          ║───────────────────────────╯
+                            ║ compare images on promotion: off                             ║───────────────────────────╮
+  Compare images on promotio║                                                              ║                         ▾ │
+                            ║ [ yes, do it ]  > cancel <                                   ║───────────────────────────╯
                             ║ y yes, do it  n/esc/enter cancel                             ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
-                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         

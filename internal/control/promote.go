@@ -33,6 +33,15 @@ type PromoteVersion struct {
 	Version  string `json:"version"`
 }
 
+// PromoteFingerprint tells which image a service of the source runs: its reference and, each when known, the
+// digest of the image in the repository of the reference and the image ID, both "sha256:" and 64 hex digits.
+// The target compares them only when its settings say so (promote.compare_images).
+type PromoteFingerprint struct {
+	Image      string `json:"image"`
+	RepoDigest string `json:"repo_digest,omitempty"`
+	ImageID    string `json:"image_id,omitempty"`
+}
+
 // PromoteSource is what the target's service needs to know of the source stack; PromoteSourceCommand answers
 // it. Commit is the commit the source deployed last and the versions were read at. LastResult is the result
 // of its last run. Unhealthy is set when the source has a failure, a halted repair, or is paused or stopped.
@@ -45,6 +54,8 @@ type PromoteSource struct {
 	Unhealthy    bool             `json:"unhealthy,omitempty"`
 	Observe      *ObserveInfo     `json:"observe,omitempty"`
 	Versions     []PromoteVersion `json:"versions"`
+	// Fingerprints are those of the images the source runs; empty when it never recorded any.
+	Fingerprints []PromoteFingerprint `json:"fingerprints,omitempty"`
 }
 
 // The reasons a source is not proven, as Unproven names them. A proven source is the one a promotion accepts: its
@@ -113,7 +124,9 @@ type PromoteCheckResult struct {
 	Steps        []PromoteStepInfo `json:"steps"`
 	Unchanged    []string          `json:"unchanged"`
 	Kept         []string          `json:"kept"`
-	Observe      *ObserveInfo      `json:"observe,omitempty"`
+	// Compare says the target compares the fingerprints of the images with the source's.
+	Compare bool         `json:"compare,omitempty"`
+	Observe *ObserveInfo `json:"observe,omitempty"`
 }
 
 // PromoteRunResult answers PromoteRunCommand. Without steps nothing was to do and no run was made. Run is the

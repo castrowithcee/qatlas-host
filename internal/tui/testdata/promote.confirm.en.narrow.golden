@@ -2,23 +2,23 @@
   1 [2 Stack detail] 3 4 5 6 7                          
 ────────────────────────────────────────────────────────
   demo-stack                                            
-                                                        
   ╔═ Take over versions ═════════════════════════════╗  
   ║ ⚠ Set the image versions of demo-stack to those  ║  
   ║   mail-relay runs?                               ║  
   ║                                                  ║  
-╭─║ The stack is stopped, backed up if it has backup ║─╮
-│ ║ rules, its .env gets the new versions in one     ║ │
+  ║ The stack is stopped, backed up if it has backup ║  
+╭─║ rules, its .env gets the new versions in one     ║─╮
 │ ║ commit, which is pushed, and the stack starts    ║ │
-╰─║ and is checked. A failing run is rolled back.    ║─╯
-╭─║ Only the images both stacks run are set.         ║─╮
-│ ║ Source mail-relay at commit 89abcdef0123: last   ║ │
-╰─║ run succeeded, healthy.                          ║─╯
-╭─║ APP_VERSION: 1.4.2 -> 1.5.0                      ║─╮
+│ ║ and is checked. A failing run is rolled back.    ║ │
+╰─║ Only the images both stacks run are set.         ║─╯
+╭─║ Source mail-relay at commit 89abcdef0123: last   ║─╮
+│ ║ run succeeded, healthy.                          ║ │
+╰─║ The image fingerprints are not compared (setting ║─╯
+╭─║ promote.compare_images is off).                  ║─╮
+│ ║ APP_VERSION: 1.4.2 -> 1.5.0                      ║ │
 │ ║                                                  ║ │
 │ ║ [ yes, do it ]  > cancel <                       ║ │
 │ ║ y yes, do it  n/esc/enter cancel                 ║ │
 │ ╚══════════════════════════════════════════════════╝ │
-│                                                      │
 │     - faster start                                   │
                                                    20/72

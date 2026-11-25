@@ -54,7 +54,7 @@ func (u stackUpdater) promoteNotice(ctx context.Context, st stacks.Stack) []engi
 	if err != nil {
 		return nil
 	}
-	prev, err := u.upd.eng.PreviewPromote(pctx, st.Name, src, check)
+	prev, err := u.upd.eng.PreviewPromote(pctx, st.Name, src, check, u.upd.detector.PromoteDigest())
 	if err != nil {
 		// A transient failure keeps what was reported, so it is not reported again afterwards.
 		return nil

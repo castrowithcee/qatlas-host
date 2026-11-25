@@ -9,15 +9,15 @@
         ║                                                              ║═══════╗
 > Contai║ A commit with the new settings is created in the stack       ║     ▾ ║
         ║ repository and pushed to its remote. The check acts on the   ║═══════╝
-        ║ next deployment.                                             ║tainers 
+        ║ next deployment, the comparison on the next promotion.       ║all its 
         ║ container check: on                                          ║        
         ║ HTTP check: http://localhost:8080/health answers 200 within  ║───────╮
   HTTP c║ 10s                                                          ║     ▾ │
-        ║                                                              ║───────╯
-        ║ [ yes, do it ]  > cancel <                                   ║───────╮
-  Addres║ y yes, do it  n/esc/enter cancel                             ║       │
-        ╚══════════════════════════════════════════════════════════════╝───────╯
-  …                                                                             
+        ║ compare images on promotion: off                             ║───────╯
+        ║                                                              ║───────╮
+  Addres║ [ yes, do it ]  > cancel <                                   ║       │
+        ║ y yes, do it  n/esc/enter cancel                             ║───────╯
+  …     ╚══════════════════════════════════════════════════════════════╝        
                                                                                 
                                                                                 
 [ F2 save ]  [ esc discard ]                                                    

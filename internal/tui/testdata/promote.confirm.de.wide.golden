@@ -2,23 +2,23 @@
    1 ▤ Stacks  [2 ▣ Stack-Details]  3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   demo-stack                                                                                                            
-                                                                                                                        
-  Modus    automatisch      ╔═ Versionen übernehmen ═══════════════════════════════════════╗                            
-  Zustand  deployt          ║ ⚠ Die Image-Versionen von demo-stack auf die setzen, die     ║                            
-  Befunde  1 Warnung        ║   mail-relay betreibt?                                       ║                            
-                            ║                                                              ║                            
-╭─ Image-Versionen ─────────║ Der Stack wird gestoppt, gesichert, wenn er Backup-Regeln    ║───────────────────────────╮
-│ APP_VERSION  example/app  ║ hat, seine .env bekommt die neuen Versionen in einem Commit, ║                           │
-│   1.4.2 -> 1.5.0  Update v║ der gepusht wird, und der Stack startet und wird geprüft.    ║                           │
-╰───────────────────────────║ Ein fehlschlagender Lauf wird zurückgenommen. Gesetzt werden ║───────────────────────────╯
-╭─ Container ───────────────║ nur die Images, die beide Stacks betreiben.                  ║───────────────────────────╮
-│ Keine Container dieses Sta║ Quelle mail-relay bei Commit 89abcdef0123: letzter Lauf      ║                           │
-╰───────────────────────────║ erfolgreich, gesund.                                         ║───────────────────────────╯
-╭─ Changelog ───────────────║ APP_VERSION: 1.4.2 -> 1.5.0                                  ║───────────────────────────╮
-│ APP_VERSION  1.4.2 -> 1.5.║                                                              ║                           │
-│   Quelle example/app      ║ [ ja, ausführen ]  > abbrechen <                             ║                           │
-│   1.5.0  Spring release  2║ y ja, ausführen  n/esc/enter abbrechen                       ║                           │
-│     Adds a dark theme.    ╚══════════════════════════════════════════════════════════════╝                           │
-│                                                                                                                      │
+                            ╔═ Versionen übernehmen ═══════════════════════════════════════╗                            
+  Modus    automatisch      ║ ⚠ Die Image-Versionen von demo-stack auf die setzen, die     ║                            
+  Zustand  deployt          ║   mail-relay betreibt?                                       ║                            
+  Befunde  1 Warnung        ║                                                              ║                            
+                            ║ Der Stack wird gestoppt, gesichert, wenn er Backup-Regeln    ║                            
+╭─ Image-Versionen ─────────║ hat, seine .env bekommt die neuen Versionen in einem Commit, ║───────────────────────────╮
+│ APP_VERSION  example/app  ║ der gepusht wird, und der Stack startet und wird geprüft.    ║                           │
+│   1.4.2 -> 1.5.0  Update v║ Ein fehlschlagender Lauf wird zurückgenommen. Gesetzt werden ║                           │
+╰───────────────────────────║ nur die Images, die beide Stacks betreiben.                  ║───────────────────────────╯
+╭─ Container ───────────────║ Quelle mail-relay bei Commit 89abcdef0123: letzter Lauf      ║───────────────────────────╮
+│ Keine Container dieses Sta║ erfolgreich, gesund.                                         ║                           │
+╰───────────────────────────║ Die Fingerabdrücke der Images werden nicht verglichen        ║───────────────────────────╯
+╭─ Changelog ───────────────║ (Einstellung promote.compare_images ist aus).                ║───────────────────────────╮
+│ APP_VERSION  1.4.2 -> 1.5.║ APP_VERSION: 1.4.2 -> 1.5.0                                  ║                           │
+│   Quelle example/app      ║                                                              ║                           │
+│   1.5.0  Spring release  2║ [ ja, ausführen ]  > abbrechen <                             ║                           │
+│     Adds a dark theme.    ║ y ja, ausführen  n/esc/enter abbrechen                       ║                           │
+│                           ╚══════════════════════════════════════════════════════════════╝                           │
 │     - faster start                                                                                                   │
                                                                                                                    20/66

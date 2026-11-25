@@ -449,20 +449,6 @@ type StackSettingsSetResult struct {
 	Commit   string        `json:"commit,omitempty"`
 }
 
-// StackCheckSettings say when a deployed stack counts as healthy.
-type StackCheckSettings struct {
-	Containers *bool              `json:"containers,omitempty"`
-	HTTP       *StackHTTPSettings `json:"http,omitempty"`
-}
-
-// StackHTTPSettings are an HTTP probe: the URL must answer Status (200 by default) within Timeout, a Go
-// duration from 1s to 10m (10s by default).
-type StackHTTPSettings struct {
-	URL     string `json:"url"`
-	Status  int    `json:"status,omitempty"`
-	Timeout string `json:"timeout,omitempty"`
-}
-
 // ResumeArgs are the arguments of ResumeCommand.
 type ResumeArgs struct {
 	Stack string `json:"stack"`

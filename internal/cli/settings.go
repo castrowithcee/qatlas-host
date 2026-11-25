@@ -32,7 +32,8 @@ const settingsFields = "The settings are one object with these members, each opt
 	"  update.promote_source: the stack whose versions 'qhost stack promote <stack>' takes over\n" +
 	"  backup.paths, backup.volumes, backup.command: data directories below the stack folder, named volumes\n" +
 	"  and an argument vector; backup.retention.keep and backup.retention.max_age_days (keep 7)\n" +
-	"  check.containers: true or false (true); check.http.url, check.http.status (200), check.http.timeout (10s)\n\n" +
+	"  check.containers: true or false (true); check.http.url, check.http.status (200), check.http.timeout (10s)\n" +
+	"  promote.compare_images: true or false (false), a promotion refuses unless the images are those the source runs\n\n" +
 	"A stack without settings is deployed but never updated."
 
 func newSettingsCommand(program *cobracli.Program, state *notRunning) *cobra.Command {

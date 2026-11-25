@@ -15,15 +15,15 @@ func (s *sourceSet) ReadPromoteSource(ctx context.Context, name string) (engine.
 	return routed(s, name, func(e *engine.Engine) (engine.PromoteSource, error) { return e.ReadPromoteSource(ctx, name) })
 }
 
-func (s *sourceSet) PreviewPromote(ctx context.Context, target string, src engine.PromoteSource, check engine.VersionCheck) (engine.PromotePreview, error) {
+func (s *sourceSet) PreviewPromote(ctx context.Context, target string, src engine.PromoteSource, check engine.VersionCheck, digest engine.ManifestDigest) (engine.PromotePreview, error) {
 	return routed(s, target, func(e *engine.Engine) (engine.PromotePreview, error) {
-		return e.PreviewPromote(ctx, target, src, check)
+		return e.PreviewPromote(ctx, target, src, check, digest)
 	})
 }
 
-func (s *sourceSet) Promote(ctx context.Context, target string, src engine.PromoteSource, commit string, check engine.VersionCheck) (engine.PromoteResult, error) {
+func (s *sourceSet) Promote(ctx context.Context, target string, src engine.PromoteSource, commit string, check engine.VersionCheck, digest engine.ManifestDigest) (engine.PromoteResult, error) {
 	return routed(s, target, func(e *engine.Engine) (engine.PromoteResult, error) {
-		return e.Promote(ctx, target, src, commit, check)
+		return e.Promote(ctx, target, src, commit, check, digest)
 	})
 }
 
@@ -48,6 +48,9 @@ var (
 	promoteImageRe  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,254}$`)
 	promoteTagRe    = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$`)
 	promoteResultRe = regexp.MustCompile(`^[a-z-]{0,32}$`)
+	// promoteRefRe is an image reference as a fingerprint has it, which may carry a digest.
+	promoteRefRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,254}$`)
+	promoteSumRe = regexp.MustCompile(`^(sha256:[0-9a-f]{64})?$`)
 )
 
 func (s *updatesService) handlePromoteSource(ctx context.Context, raw json.RawMessage) (any, error) {
@@ -76,6 +79,9 @@ func (s *updatesService) handlePromoteSource(ctx context.Context, raw json.RawMe
 	if st.Observe != nil {
 		res.Observe = &control.ObserveInfo{Commit: printable(st.Observe.Commit), Until: st.Observe.Until}
 	}
+	for _, f := range st.Images {
+		res.Fingerprints = append(res.Fingerprints, control.PromoteFingerprint{Image: printable(f.Image), RepoDigest: f.RepoDigest, ImageID: f.ImageID})
+	}
 	for _, img := range images {
 		res.Versions = append(res.Versions, control.PromoteVersion{Variable: printable(img.Var), Image: printable(img.Image), Version: printable(img.Value)})
 	}
@@ -85,7 +91,7 @@ func (s *updatesService) handlePromoteSource(ctx context.Context, raw json.RawMe
 // shapeOK says whether the header of a handed-over source has the shape of a real one.
 func shapeOK(a control.PromoteSource) bool {
 	return promoteNameRe.MatchString(a.Stack) && promoteResultRe.MatchString(a.LastResult) &&
-		len(a.Versions) <= control.MaxPromoteVersions && commitsOK(a)
+		len(a.Versions) <= control.MaxPromoteVersions && len(a.Fingerprints) <= control.MaxPromoteVersions && commitsOK(a)
 }
 
 func commitsOK(a control.PromoteSource) bool {
@@ -111,6 +117,12 @@ func engineSource(a control.PromoteSource) (engine.PromoteSource, error) {
 	if a.Observe != nil {
 		src.State.Observe = &engine.Observation{Commit: a.Observe.Commit, Until: a.Observe.Until}
 	}
+	for _, f := range a.Fingerprints {
+		if !promoteRefRe.MatchString(f.Image) || !promoteSumRe.MatchString(f.RepoDigest) || !promoteSumRe.MatchString(f.ImageID) {
+			return engine.PromoteSource{}, bad
+		}
+		src.State.Images = append(src.State.Images, engine.ImageFingerprint{Image: f.Image, RepoDigest: f.RepoDigest, ImageID: f.ImageID})
+	}
 	for _, v := range a.Versions {
 		if !promoteVarRe.MatchString(v.Variable) || !promoteImageRe.MatchString(v.Image) || !promoteTagRe.MatchString(v.Version) {
 			return engine.PromoteSource{}, bad
@@ -123,32 +135,32 @@ func engineSource(a control.PromoteSource) (engine.PromoteSource, error) {
 
 // promoteSetup reads the arguments and returns the source and the judge of the target's versions, refusing the
 // target as an update by hand does.
-func (s *updatesService) promoteSetup(ctx context.Context, raw json.RawMessage) (control.PromoteArgs, engine.PromoteSource, engine.VersionCheck, error) {
+func (s *updatesService) promoteSetup(ctx context.Context, raw json.RawMessage) (control.PromoteArgs, engine.PromoteSource, engine.VersionCheck, engine.ManifestDigest, error) {
 	var a control.PromoteArgs
 	if err := decodeArgs(raw, &a); err != nil {
-		return a, engine.PromoteSource{}, nil, err
+		return a, engine.PromoteSource{}, nil, nil, err
 	}
 	if a.Stack == "" {
-		return a, engine.PromoteSource{}, nil, control.NewError(control.CodeBadRequest, "a stack name is required")
+		return a, engine.PromoteSource{}, nil, nil, control.NewError(control.CodeBadRequest, "a stack name is required")
 	}
 	src, err := engineSource(a.Source)
 	if err != nil {
-		return a, src, nil, err
+		return a, src, nil, nil, err
 	}
 	st, err := s.eng.CheckUpdate(ctx, a.Stack)
 	if err != nil {
-		return a, src, nil, forStack(a.Stack, promoteAnswer(ctx, err))
+		return a, src, nil, nil, forStack(a.Stack, promoteAnswer(ctx, err))
 	}
 	check, err := s.detector.PromoteCheck(st)
 	if err != nil {
-		return a, src, nil, forStack(a.Stack, promoteAnswer(ctx, err))
+		return a, src, nil, nil, forStack(a.Stack, promoteAnswer(ctx, err))
 	}
-	return a, src, check, nil
+	return a, src, check, s.detector.PromoteDigest(), nil
 }
 
 func promoteCheckResult(target string, p engine.PromotePreview) control.PromoteCheckResult {
 	res := control.PromoteCheckResult{Stack: printable(target), Source: printable(p.Source), SourceCommit: printable(p.Commit),
-		Steps: make([]control.PromoteStepInfo, 0, len(p.Steps)), Unchanged: []string{}, Kept: []string{}}
+		Compare: p.Compare, Steps: make([]control.PromoteStepInfo, 0, len(p.Steps)), Unchanged: []string{}, Kept: []string{}}
 	for _, st := range p.Steps {
 		res.Steps = append(res.Steps, control.PromoteStepInfo{Variable: printable(st.Variable), From: printable(st.From), To: printable(st.To)})
 	}
@@ -167,11 +179,11 @@ func promoteCheckResult(target string, p engine.PromotePreview) control.PromoteC
 func (s *updatesService) handlePromoteCheck(ctx context.Context, raw json.RawMessage) (any, error) {
 	pctx, cancel := context.WithTimeout(ctx, control.UpdatesRefreshTimeout)
 	defer cancel()
-	a, src, check, err := s.promoteSetup(pctx, raw)
+	a, src, check, digest, err := s.promoteSetup(pctx, raw)
 	if err != nil {
 		return nil, err
 	}
-	prev, err := s.eng.PreviewPromote(pctx, a.Stack, src, check)
+	prev, err := s.eng.PreviewPromote(pctx, a.Stack, src, check, digest)
 	if err != nil {
 		return nil, forStack(a.Stack, promoteAnswer(pctx, err))
 	}
@@ -181,14 +193,14 @@ func (s *updatesService) handlePromoteCheck(ctx context.Context, raw json.RawMes
 func (s *updatesService) handlePromoteRun(ctx context.Context, raw json.RawMessage) (any, error) {
 	pctx, cancel := context.WithTimeout(ctx, control.UpdatesRefreshTimeout)
 	defer cancel()
-	a, src, check, err := s.promoteSetup(pctx, raw)
+	a, src, check, digest, err := s.promoteSetup(pctx, raw)
 	if err != nil {
 		return nil, err
 	}
 	if !commitIDRe.MatchString(a.Commit) {
 		return nil, control.NewError(control.CodeInvalid, "the commit of the preview is required")
 	}
-	res, err := s.eng.Promote(pctx, a.Stack, src, a.Commit, check)
+	res, err := s.eng.Promote(pctx, a.Stack, src, a.Commit, check, digest)
 	if err != nil {
 		return nil, forStack(a.Stack, promoteAnswer(pctx, err))
 	}
@@ -203,7 +215,8 @@ func (s *updatesService) handlePromoteRun(ctx context.Context, raw json.RawMessa
 // texts of the engine's errors are fixed apart from variable and image names, which pass printable.
 func promoteAnswer(ctx context.Context, err error) error {
 	for _, target := range []error{engine.ErrSourceNotDeployed, engine.ErrSourceRun, engine.ErrSourceFailed, engine.ErrSourceUnhealthy,
-		engine.ErrSourceChanged, engine.ErrAmbiguousImage, engine.ErrLowerVersion, engine.ErrSharedVariable, engine.ErrNotInEnv} {
+		engine.ErrSourceChanged, engine.ErrAmbiguousImage, engine.ErrLowerVersion, engine.ErrSharedVariable, engine.ErrNotInEnv,
+		engine.ErrNoFingerprint, engine.ErrImageChanged, engine.ErrImageDiffers, engine.ErrNoImageCheck} {
 		if errors.Is(err, target) {
 			return control.NewError(control.CodeNotUpdatable, printable(err.Error()))
 		}

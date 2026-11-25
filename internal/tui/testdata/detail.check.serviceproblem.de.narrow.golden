@@ -7,17 +7,17 @@
   bleiben unverändert.                                                          
                                                                                 
   …                                                                             
-                    ╔══════════════════════════════════════════════════════════╗
-> Adresse (URL)     ║ http://localhost:8080/health_                            ║
-                    ╚══════════════════════════════════════════════════════════╝
-                    Eine absolute http- oder https-URL, zum Beispiel            
-                    http://localhost:8080/health.                               
-                    [!] der Dienst hat die Anfrage abgelehnt: stack settings:   
-                    check.http.url: must be an absolute http or https URL (got  
-                    "x") - Korrigiere das Feld.                                 
-                    ╭──────────────────────────────────────────────────────────╮
-  Erwarteter Status │ 200                                                      │
-                    ╰──────────────────────────────────────────────────────────╯
+                             ╔═════════════════════════════════════════════════╗
+> Adresse (URL)              ║ http://localhost:8080/health_                   ║
+                             ╚═════════════════════════════════════════════════╝
+                             Eine absolute http- oder https-URL, zum Beispiel   
+                             http://localhost:8080/health.                      
+                             [!] der Dienst hat die Anfrage abgelehnt: stack    
+                             settings: check.http.url: must be an absolute http 
+                             or https URL (got "x") - Korrigiere das Feld.      
+                             ╭─────────────────────────────────────────────────╮
+  Erwarteter Status          │ 200                                             │
+                             ╰─────────────────────────────────────────────────╯
   …                                                                             
                                                                                 
 [ F2 speichern ]  [ esc Verwerfen ]                                             

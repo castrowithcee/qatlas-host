@@ -62,7 +62,7 @@ func (m *Model) checkFormFor(res control.StackSettingsResult) tea.Cmd {
 	if !ok || stack != res.Stack || m.set.form != nil || m.modal != nil {
 		return nil
 	}
-	containers, http := true, false
+	containers, http, compare := true, false, false
 	probeURL, status, timeout := "", strconv.Itoa(defaultStatus), defaultTimeout
 	if res.Settings != nil && res.Settings.Check != nil {
 		c := res.Settings.Check
@@ -84,12 +84,16 @@ func (m *Model) checkFormFor(res control.StackSettingsResult) tea.Cmd {
 			Choices: []kittui.Choice{choice(choiceOn, textCheckOn), choice(choiceOff, textCheckOff)},
 			Value:   kittui.FormValue{Choice: kittui.ChoiceID(onOff(cur))}}
 	}
+	if res.Settings != nil && res.Settings.Promote != nil && res.Settings.Promote.CompareImages != nil {
+		compare = *res.Settings.Promote.CompareImages
+	}
 	f := m.newSettingsForm(formCheck, textTitleCheckForm, []kittui.FormField{
 		pick("containers", textFieldCheckContainers, textHintCheckContainers, containers),
 		pick("http", textFieldCheckHTTP, textHintCheckHTTP, http),
 		textField("url", textFieldCheckURL, textHintCheckURL, probeURL),
 		textField("status", textFieldCheckStatus, textHintCheckStatus, status),
 		textField("timeout", textFieldCheckTimeout, textHintCheckTimeout, timeout),
+		pick("compare", textFieldCheckCompare, textHintCheckCompare, compare),
 	})
 	if f == nil {
 		return nil
@@ -100,17 +104,18 @@ func (m *Model) checkFormFor(res control.StackSettingsResult) tea.Cmd {
 
 // checkValues are what a saved check form came to. With http false the probe fields are not used.
 type checkValues struct {
-	containers, http bool
-	url              string
-	status           int
-	timeout          string
+	containers, http, compare bool
+	url                       string
+	status                    int
+	timeout                   string
 }
 
 // submitCheck checks the form like the service checks the section and, when it holds up, asks for the
 // confirmation. Nothing is sent before its yes. The probe fields count only while the probe is on.
 func (m *Model) submitCheck(f *settingsForm, v map[kittui.FieldID]kittui.FormValue) tea.Cmd {
 	r := checkValues{containers: v["containers"].Choice == choiceOn, http: v["http"].Choice == choiceOn,
-		url: strings.TrimSpace(v["url"].Text), timeout: strings.TrimSpace(v["timeout"].Text)}
+		compare: v["compare"].Choice == choiceOn,
+		url:     strings.TrimSpace(v["url"].Text), timeout: strings.TrimSpace(v["timeout"].Text)}
 	var ps []kittui.FormProblem
 	if r.http {
 		if r.url == "" {
@@ -138,6 +143,7 @@ func (m *Model) submitCheck(f *settingsForm, v map[kittui.FieldID]kittui.FormVal
 	} else {
 		details = append(details, t.Lookup(textDetailCheckNoHTTP))
 	}
+	details = append(details, t.Lookup(textDetailCheckCompare, t.Lookup(onOffText(r.compare))))
 	stack := f.stack
 	m.askSettingsSet(textTitleCheckForm, t.Lookup(textAskCheckForm, stack), m.whatSettings(stack, textWhatCheckAfter), details, stack, checkEdit(r))
 	return nil
@@ -186,6 +192,15 @@ func editCheck(s *control.StackSettings, r checkValues) {
 	s.Check = c
 	if c.Containers == nil && c.HTTP == nil {
 		s.Check = nil
+	}
+	editPromoteCompare(s, r.compare)
+}
+
+// editPromoteCompare sets the promotion comparison; like the container check, an off value stays out of the
+// file unless the file already had the key.
+func editPromoteCompare(s *control.StackSettings, compare bool) {
+	if compare || (s.Promote != nil && s.Promote.CompareImages != nil) {
+		s.Promote = &control.StackPromoteSettings{CompareImages: &compare}
 	}
 }
 

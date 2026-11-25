@@ -82,6 +82,30 @@ func (d *Detector) PromoteCheck(st stacks.Stack) (engine.VersionCheck, error) {
 	}, nil
 }
 
+// PromoteDigest returns the engine's way to ask the registry for the manifest digest of a tag, with the same
+// credentials and clients a PromoteCheck judge uses. A failure is a PlanError of kind PlanRegistry.
+func (d *Detector) PromoteDigest() engine.ManifestDigest {
+	run := &run{d: d, clients: map[string]*registry.Client{}, creds: map[string]error{}, tags: map[string]tagResult{}}
+	return func(ctx context.Context, img stacks.ImageVar, tag string) (string, error) {
+		repo, err := registry.ParseRepo(img.Image)
+		if err != nil {
+			return "", &PlanError{Kind: PlanRefused, Variable: img.Var, Text: textBadImage}
+		}
+		c, text := run.client(repo.Host)
+		if c == nil {
+			return "", &PlanError{Kind: PlanRegistry, Variable: img.Var, Text: text}
+		}
+		got, err := c.Digest(ctx, repo, tag)
+		if err != nil {
+			if ctx.Err() != nil {
+				return "", ctx.Err()
+			}
+			return "", &PlanError{Kind: PlanRegistry, Variable: img.Var, Text: classify(ctx, err, repo.Host)}
+		}
+		return got, nil
+	}
+}
+
 // Plan returns the steps that update the stack, from the tags the registries list now. Without target, every
 // image version variable whose rules allow a newer version moves to the version detection would select; with
 // target, one image version variable moves to target, which may lie above the ceiling: the one named by
