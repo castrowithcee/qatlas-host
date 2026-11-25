@@ -48,7 +48,8 @@ type run struct {
 	change *VersionStep
 	pushed bool
 	// back is set for a return, see Engine.Return.
-	back *returnJob
+	back   *returnJob
+	expect []imageExpect // set for a promotion that compares fingerprints, see verifyLoaded
 	// undo is set for the rollback of an update under observation; the run then only rolls back.
 	undo *undo
 	// tracked caches the files git tracks in the stack folder for the data directory check.
@@ -301,9 +302,7 @@ func (r *run) secured(ctx context.Context) outcome {
 		}
 	}
 	if err == nil {
-		if err = r.step("pull", func() error { return d.Pull(ctx, st, log) }); err != nil {
-			failedAt = "pull"
-		}
+		failedAt, err = r.pullAndVerify(ctx, st)
 	}
 	if err == nil {
 		started = true

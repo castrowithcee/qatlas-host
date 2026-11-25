@@ -3,6 +3,7 @@ package compose
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"regexp"
 	"strings"
 
@@ -103,4 +104,29 @@ func normalizeRepo(ref string) string {
 		ref = strings.TrimPrefix(ref, p)
 	}
 	return ref
+}
+
+// LoadedImage implements engine.LoadedImageReader.
+func (d *Deployer) LoadedImage(ctx context.Context, ref string, log *engine.Log) (engine.ImageFingerprint, error) {
+	return d.Exec.LoadedImage(ctx, ref, log)
+}
+
+// LoadedImage returns the fingerprint of the image the local store holds for ref: its ID and its digest in the
+// repository of ref. The digest is empty for a local image. Only the expected fields are used.
+func (x *Executor) LoadedImage(ctx context.Context, ref string, log Logger) (engine.ImageFingerprint, error) {
+	fp := engine.ImageFingerprint{Image: ref}
+	if !imageNameRe.MatchString(ref) {
+		return fp, errors.New("not an image reference")
+	}
+	out, err := x.dockerOut(ctx, log, "image inspect", "image", "inspect", "--format", "{{.Id}}", ref)
+	if err != nil {
+		return fp, err
+	}
+	id := strings.TrimSpace(string(out))
+	if !sha256Ref.MatchString(id) {
+		return fp, errors.New("docker image inspect: unexpected output")
+	}
+	fp.ImageID = id
+	fp.RepoDigest = pickDigest(ref, x.repoDigests(ctx, log, id))
+	return fp, nil
 }

@@ -55,7 +55,7 @@ func source(env string) PromoteSource {
 func TestPromoteMapsByRepositoryAndCommitsOnce(t *testing.T) {
 	r := promoteRig(t)
 	src := source("STAGE_APP=1.2.0\nCACHE_TAG=9.9.9\n")
-	prev, err := r.eng.PreviewPromote(context.Background(), "web", src, registryCheck)
+	prev, err := r.eng.PreviewPromote(context.Background(), "web", src, registryCheck, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestPromoteMapsByRepositoryAndCommitsOnce(t *testing.T) {
 	if len(prev.Steps) != 1 || prev.Steps[0] != want[0] || len(prev.Kept) != 1 || prev.Kept[0] != "DB_VERSION" || prev.Commit != commit(9) {
 		t.Fatalf("preview = %+v", prev)
 	}
-	res, err := r.eng.Promote(context.Background(), "web", src, prev.Commit, registryCheck)
+	res, err := r.eng.Promote(context.Background(), "web", src, prev.Commit, registryCheck, nil)
 	if err != nil || res.Result != ResultSucceeded {
 		t.Fatalf("promote: %v %+v", err, res)
 	}
@@ -80,7 +80,7 @@ func TestPromoteSetsSeveralVariablesInOneCommit(t *testing.T) {
 	r := promoteRig(t)
 	src := source("STAGE_APP=1.1.0\nSTAGE_DB=5.1.0\n")
 	src.Images = append(src.Images, stacks.ImageVar{Image: dbRepo, Var: "STAGE_DB", Source: stacks.SourceEnv})
-	res, err := r.eng.Promote(context.Background(), "web", src, commit(9), registryCheck)
+	res, err := r.eng.Promote(context.Background(), "web", src, commit(9), registryCheck, nil)
 	if err != nil || res.Result != ResultSucceeded || len(res.Steps) != 2 {
 		t.Fatalf("promote: %v %+v", err, res)
 	}
@@ -93,7 +93,7 @@ func TestPromoteAmbiguousRepositoryNamesTheImage(t *testing.T) {
 	r := promoteRig(t)
 	src := source("STAGE_APP=1.1.0\nOLD_APP=1.2.0\n")
 	src.Images = append(src.Images, stacks.ImageVar{Image: appRepo, Var: "OLD_APP", Source: stacks.SourceEnv})
-	_, err := r.eng.PreviewPromote(context.Background(), "web", src, registryCheck)
+	_, err := r.eng.PreviewPromote(context.Background(), "web", src, registryCheck, nil)
 	if !errors.Is(err, ErrAmbiguousImage) || !strings.Contains(err.Error(), appRepo) {
 		t.Fatalf("err = %v", err)
 	}
@@ -101,13 +101,13 @@ func TestPromoteAmbiguousRepositoryNamesTheImage(t *testing.T) {
 
 func TestPromoteSameVersionDoesNothingAndLowerIsRefused(t *testing.T) {
 	r := promoteRig(t)
-	res, err := r.eng.Promote(context.Background(), "web", source("STAGE_APP=1.0.0\n"), commit(9), registryCheck)
+	res, err := r.eng.Promote(context.Background(), "web", source("STAGE_APP=1.0.0\n"), commit(9), registryCheck, nil)
 	if err != nil || res.RunID != "" || len(res.Steps) != 0 || len(res.Unchanged) != 1 {
 		t.Fatalf("same: %v %+v", err, res)
 	}
 	r.update(VersionStep{Variable: "APP_VERSION", From: "1.0.0", To: "1.2.0"})
 	r.resetSteps()
-	_, err = r.eng.Promote(context.Background(), "web", source("STAGE_APP=1.1.0\n"), commit(9), registryCheck)
+	_, err = r.eng.Promote(context.Background(), "web", source("STAGE_APP=1.1.0\n"), commit(9), registryCheck, nil)
 	if !errors.Is(err, ErrLowerVersion) || !strings.Contains(err.Error(), "qhost stack rollback") {
 		t.Fatalf("lower: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestPromoteRefusesAFailedOrUnhealthySourceButNotAnObservedOne(t *testing.T)
 			r := promoteRig(t)
 			src := source("STAGE_APP=1.1.0\n")
 			tc.change(&src.State)
-			prev, err := r.eng.PreviewPromote(context.Background(), "web", src, registryCheck)
+			prev, err := r.eng.PreviewPromote(context.Background(), "web", src, registryCheck, nil)
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
@@ -151,7 +151,7 @@ func TestPromoteRefusesTheTargetAsAnUpdateByHandDoes(t *testing.T) {
 	if _, err := r.eng.SetPin(context.Background(), "web", true); err != nil {
 		t.Fatal(err)
 	}
-	_, err := r.eng.Promote(context.Background(), "web", source("STAGE_APP=1.1.0\n"), commit(9), registryCheck)
+	_, err := r.eng.Promote(context.Background(), "web", source("STAGE_APP=1.1.0\n"), commit(9), registryCheck, nil)
 	if !errors.Is(err, ErrPinned) || r.copy.called("commit") != 0 {
 		t.Fatalf("err = %v", err)
 	}
@@ -161,7 +161,7 @@ func TestPromoteRefusesAChangedSource(t *testing.T) {
 	r := promoteRig(t)
 	src := source("STAGE_APP=1.1.0\n")
 	src.State.Deployed = commit(10)
-	res, err := r.eng.Promote(context.Background(), "web", src, commit(9), registryCheck)
+	res, err := r.eng.Promote(context.Background(), "web", src, commit(9), registryCheck, nil)
 	if !errors.Is(err, ErrSourceChanged) || res.RunID != "" || len(r.dep.stepsOf("web")) != 0 {
 		t.Fatalf("err = %v %+v", err, res)
 	}
@@ -180,7 +180,7 @@ func TestPromoteSourceOfAnotherEngine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := r.eng.Promote(context.Background(), "web", src, src.State.Deployed, registryCheck)
+	res, err := r.eng.Promote(context.Background(), "web", src, src.State.Deployed, registryCheck, nil)
 	if err != nil || res.Result != ResultSucceeded || !strings.Contains(r.env(), "APP_VERSION=1.2.0") {
 		t.Fatalf("promote: %v %+v env %q", err, res, r.env())
 	}
