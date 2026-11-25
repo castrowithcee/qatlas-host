@@ -32,9 +32,10 @@
 ╰───────────────────────────║ Its address stops working within ten seconds. This cannot be ║───────────────────────────╯
 ╭─ Webhooks ────────────────║ undone.                                                      ║───────────────────────────╮
 │ h-a1b2c3d0  2026-01-02 03:║                                                              ║                           │
-╰───────────────────────────║ [ yes, do it ]  > cancel <                                   ║───────────────────────────╯
-╭─ Grants ──────────────────║ y yes, do it  n/esc/enter cancel                             ║───────────────────────────╮
-│ A grant applies to the use╚══════════════════════════════════════════════════════════════╝                           │
+│ h-a1b2c3d1  -             ║ [ yes, do it ]  > cancel <                                   ║                           │
+╰───────────────────────────║ y yes, do it  n/esc/enter cancel                             ║───────────────────────────╯
+╭─ Grants ──────────────────╚══════════════════════════════════════════════════════════════╝───────────────────────────╮
+│ A grant applies to the user and to every agent working under the account of the user.                                │
 │ No grants for this stack.                                                                                            │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -60,5 +61,4 @@
 │ Rollback with data  works                                                                                            │
 │   a failed run goes back to the previous commit and restores the backup it made before the change                    │
 │ Backup  works                                                                                                        │
-│   a backup saves the data directories data/db                                                                        │
-                                                                                                                   60/66
+                                                                                                                   60/67

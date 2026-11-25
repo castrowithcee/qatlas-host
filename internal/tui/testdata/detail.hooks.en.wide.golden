@@ -32,6 +32,7 @@
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Webhooks ───────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ h-a1b2c3d0  2026-01-02 03:04                                                                                         │
+│ h-a1b2c3d1  -                                                                                                        │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Grants ─────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ A grant applies to the user and to every agent working under the account of the user.                                │
@@ -59,6 +60,5 @@
 │   the maintenance window updates APP_VERSION by itself                                                               │
 │ Rollback with data  works                                                                                            │
 │   a failed run goes back to the previous commit and restores the backup it made before the change                    │
-│ Backup  works                                                                                                        │
 B back to before update  e update rules  b backup  C compose  k checks  E clear settings  o log  a set secret           
-x delete secret  R restore backup  h add hook  U remove hook  z grant  r reload  1-7 area  q quit      ↑/↓ scroll  59/66
+x delete secret  R restore backup  h add hook  U remove hook  z grant  r reload  1-7 area  q quit      ↑/↓ scroll  59/67

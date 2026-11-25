@@ -32,6 +32,7 @@
 ╰──────────────────────────────────────────────────────╯
 ╭─ Webhooks ───────────────────────────────────────────╮
 │ h-a1b2c3d0  2026-01-02 03:04                         │
+│ h-a1b2c3d1  -                                        │
 ╰──────────────────────────────────────────────────────╯
 ╭─ Freigaben ──────────────────────────────────────────╮
 │ Eine Freigabe gilt für den Benutzer und für jeden    │
@@ -59,6 +60,5 @@
 │ Update  geht, automatisch                            │
 │   the maintenance window updates APP_VERSION by      │
 │   itself                                             │
-│ Rollback mit Daten  geht                             │
 B zurück auf Stand davor  e Update-Regeln  b Backup     
 C Compose  o Log  r Neu laden  q Beenden                

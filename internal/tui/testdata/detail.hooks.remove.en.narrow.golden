@@ -32,10 +32,11 @@
 ╰─║                                                  ║─╯
 ╭─║ Its address stops working within ten seconds.    ║─╮
 │ ║ This cannot be undone.                           ║ │
-╰─║                                                  ║─╯
-╭─║ [ yes, do it ]  > cancel <                       ║─╮
-│ ║ y yes, do it  n/esc/enter cancel                 ║ │
+│ ║                                                  ║ │
+╰─║ [ yes, do it ]  > cancel <                       ║─╯
+╭─║ y yes, do it  n/esc/enter cancel                 ║─╮
 │ ╚══════════════════════════════════════════════════╝ │
+│ working under the account of the user.               │
 │ No grants for this stack.                            │
 ╰──────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────╮
@@ -60,5 +61,4 @@
 │   the maintenance window updates APP_VERSION by      │
 │   itself                                             │
 │ Rollback with data  works                            │
-│   a failed run goes back to the previous commit and  │
-                                                   60/71
+                                                   60/72
