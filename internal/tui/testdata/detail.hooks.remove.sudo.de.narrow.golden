@@ -32,11 +32,12 @@
 ╰─║ Sekunden nicht mehr. Das lässt sich nicht        ║─╯
 ╭─║ rückgängig machen.                               ║─╮
 │ ║ $ sudo qhost hook remove --output json --        ║ │
-╰─║   h-a1b2c3d0                                     ║─╯
-╭─║                                                  ║─╮
-│ ║ [ ja, mit sudo ]  > abbrechen <                  ║ │
+│ ║   h-a1b2c3d0                                     ║ │
+╰─║                                                  ║─╯
+╭─║ [ ja, mit sudo ]  > abbrechen <                  ║─╮
 │ ║ y ja, mit sudo  n/esc/enter abbrechen            ║ │
 │ ╚══════════════════════════════════════════════════╝ │
+│ Keine Freigaben für diesen Stack.                    │
 ╰──────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                            │
@@ -60,5 +61,4 @@
 │   the maintenance window updates APP_VERSION by      │
 │   itself                                             │
 │ Rollback mit Daten  geht                             │
-│   a failed run goes back to the previous commit and  │
-                                                   60/71
+                                                   60/72
