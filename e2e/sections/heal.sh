@@ -7,14 +7,15 @@
 # Needs deploy: the bound /opt/stacks, the admin clone and demo-stack running with its data folder.
 # scenario_repair_start sets repair_demo_broken and scenario_observe_start sets observe_from, observe_update and
 # observe_update_at for the end units of this section.
-# Restarts of the deploy service delay the repair (see scenario_repair_start), so the order of the register is part
-# of the proof. Up to scenario_repair_attempt nothing restarts the service; the restarts from scenario_tui_deploy_sudo
-# to scenario_tui_folder_sudo take about a minute, too early to delay the second attempt, which falls into
-# scenario_container_monitor or the wait of scenario_repair_second. The waits are shortened for the test (see
-# setup_service): attempts 15, 45 and 150 seconds apart, so in a run of this section the second attempt shows
-# from the 60th to the 210th second of the failure. The third attempt and the halt after it fall into the wait
-# of scenario_observe_end for the rollback or into scenario_repair_end; the source sections after
-# demo_leftovers_clean restart the service often.
+# The waits are shortened for the test (see setup_service). Restarts of the deploy service shift the repair (see
+# scenario_repair_start) and the states between the attempts show only for a while, so the order of the register is
+# part of the proof. The first attempt comes about 35 seconds after the break and shows until the second, about
+# 130 seconds after the break, as the first restart waits a minute for a health the container never reaches, so
+# scenario_repair_attempt follows at once. scenario_container_monitor fills the time to the second attempt, which
+# shows for 150 seconds; scenario_repair_second checks it before access and tui-sudo, which restarts the service.
+# The third attempt and the halt, about 5 minutes after the break, fall into the later sections; a restart moves a
+# due attempt or the halt to about 40 seconds after it. scenario_observe_end and scenario_repair_end run after
+# rootless, before source-local and source-git restart the service often.
 # Sourced by run.sh; defines only functions and constants.
 
 # stack_removed succeeds when qhost status marks the stack as removed from the repository.
@@ -112,11 +113,12 @@ repair_halted() {
 }
 
 # scenario_repair_start adds the stack repair-demo and breaks it for good: its health check fails while the file
-# data/break exists, which a restart does not remove. qhost restarts it 15, 45 and 150 seconds after the failure
-# began and then halts. The delays run in real time; scenario_repair_attempt and scenario_repair_end check them
-# later, so they overlap with the other scenarios. The monitor keeps the time a container has been unhealthy in
-# memory only: a restart of the deploy service ends the failure for two readings and starts it anew, which delays
-# the next attempt or the halt when the restart falls shortly before it.
+# data/break exists, which a restart does not remove. qhost restarts it 15 seconds after the failure began, then 45
+# and 150 seconds after the attempt before, and then halts. The delays run in real time; scenario_repair_attempt,
+# scenario_repair_second and scenario_repair_end check them later, so they overlap with the other scenarios. The
+# monitor keeps the time a container has been unhealthy in memory only: a restart of the deploy service ends the
+# failure for two readings and starts it anew, which delays the next attempt or the halt when the restart falls
+# shortly before it.
 scenario_repair_start() {
 	step 'the stack repair-demo is deployed and a channel for recovery-failed is added'
 	as_admin 'cd ~/stacks && git pull -q --ff-only && mkdir repair-demo'
@@ -186,8 +188,8 @@ scenario_repair_end() {
 	step 'repair-demo is healthy again and leaves the repository'
 	wait_for 'repair-demo healthy' 120 stack_healthy repair-demo
 	wait_for 'the finding of repair-demo to end' 120 no_finding repair-demo container-failed
-	# A repeated recovery-failed could only come from a monitor cycle (every 30 seconds) after the halt. The finding
-	# ended and recovered was sent by such cycles, so the count is final here.
+	# A repeated recovery-failed could only come from a monitor cycle after the halt. The finding ended and recovered
+	# was sent by such cycles, so the count is final here.
 	wait_for 'the webhook for the recovery of repair-demo' 60 hook_has /notify recovered '\"stack\":\"repair-demo\"'
 	[ "$(docker exec "$prefix-hooks" cat /data/requests.jsonl | grep -F '"path":"/notify"' | grep -F '"X-Qhost-Event":"recovery-failed"' | grep -cF '\"stack\":\"repair-demo\"')" = 1 ] ||
 		fail 'recovery-failed was not sent exactly once'
