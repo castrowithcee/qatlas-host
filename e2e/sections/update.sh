@@ -506,9 +506,9 @@ demo_app_digest() {
 }
 
 # scenario_promote stores demo-stack as the source of demo-cache and takes the version of demo-stack, which runs
-# 3.0.0, over to demo-cache, which has the same image
-# repository and runs 1.1.0: the preview changes nothing, the confirmed command is a run with the trigger promote
-# and one commit that names the source, and the return of that run leaves demo-cache on 1.1.0 without settings.
+# 3.0.0, over to demo-cache, which has the same image repository and runs 2.0.0 since scenario_rollback: the preview
+# changes nothing, the confirmed command is a run with the trigger promote and one commit that names the source, and
+# the return of that run leaves demo-cache on 2.0.0 without settings.
 # The tag 3.0.0 is overwritten with the image of 1.1.0 for the comparison of fingerprints: refused when the setting
 # is on, taken over when it is off; the original image is put back under the tag before the later scenarios pull it.
 scenario_promote() {
@@ -517,13 +517,13 @@ scenario_promote() {
 	step 'promote shows the versions of demo-stack for demo-cache without --confirm and changes nothing'
 	wait_for 'demo-cache to be idle' 120 stack_idle demo-cache
 	settings_set demo-cache "$(printf 'version: 1\nupdate:\n  major: direct\n  promote_source: demo-stack\n')"
-	[ "$(stack_images demo-cache)" = "$image:1.1.0" ] || fail "demo-cache does not run 1.1.0 before the promotion: $(stack_images demo-cache)"
+	[ "$(stack_images demo-cache)" = "$image:2.0.0" ] || fail "demo-cache does not run 2.0.0 before the promotion: $(stack_images demo-cache)"
 	out=$(qd --output json stack list) || fail "stack list failed: $out"
 	printf '%s' "$out" | jq -e '.[] | select(.stack == "demo-cache") | .promote_source == "demo-stack" and (.promote_versions | endswith("=3.0.0"))' >/dev/null ||
 		fail "the list does not show the version 3.0.0 of the source beside demo-cache: $out"
 	out=$(qd_fails --output json stack promote demo-cache) || fail "promote without --confirm succeeded: $out"
 	printf '%s' "$out" | grep -q '"to": *"3.0.0"' || fail "the preview does not show 3.0.0: $out"
-	[ "$(stack_images demo-cache)" = "$image:1.1.0" ] || fail "the preview changed demo-cache: $(stack_images demo-cache)"
+	[ "$(stack_images demo-cache)" = "$image:2.0.0" ] || fail "the preview changed demo-cache: $(stack_images demo-cache)"
 	source_commit=$(json_values "$out" source_commit | head -n 1)
 	[ -n "$source_commit" ] || fail "the preview names no source commit: $out"
 
@@ -537,7 +537,7 @@ scenario_promote() {
 	out=$(qd_fails stack promote demo-stack demo-cache --confirm --source-commit "$source_commit") || fail "promote with an overwritten tag succeeded: $out"
 	printf '%s' "$out" | grep -q 'no longer names the image' || fail "the refusal does not say the tag changed: $out"
 	printf '%s' "$out" | grep -q "$orig_digest" || fail "the refusal does not name the source's digest $orig_digest: $out"
-	[ "$(stack_images demo-cache)" = "$image:1.1.0" ] || fail "the refused promotion changed demo-cache: $(stack_images demo-cache)"
+	[ "$(stack_images demo-cache)" = "$image:2.0.0" ] || fail "the refused promotion changed demo-cache: $(stack_images demo-cache)"
 	[ "$(qd stack runs demo-cache | grep -c '[0-9]\{8\}T[0-9]\{6\}Z-')" = "$runs_before" ] || fail 'the refused promotion made a run'
 	settings_set demo-cache "$(printf 'version: 1\nupdate:\n  major: direct\n  promote_source: demo-stack\n')"
 
@@ -565,7 +565,7 @@ scenario_promote() {
 	printf '%s' "$out" | jq -e '.result == "succeeded"' >/dev/null || fail "unexpected answer of the rollback: $out"
 	out=$(qd stack unpin demo-cache) || fail "unpin failed: $out"
 	out=$(qd --output json stack settings remove demo-cache) || fail "settings remove failed: $out"
-	[ "$(stack_images demo-cache)" = "$image:1.1.0" ] || fail "demo-cache does not run 1.1.0 again: $(stack_images demo-cache)"
+	[ "$(stack_images demo-cache)" = "$image:2.0.0" ] || fail "demo-cache does not run 2.0.0 again: $(stack_images demo-cache)"
 	log "scenario: promote: run $run, commit $commit"
 }
 
