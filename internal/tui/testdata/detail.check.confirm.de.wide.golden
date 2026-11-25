@@ -5,27 +5,27 @@
                                                                                                                         
   Prüfung des Stacks demo-stack. Update-Regeln, Backup und Compose-Dateien bleiben unverändert.                         
                                                                                                                         
-                    ╔══════════════════════════════════════════════════════════════════════════════════════════════════╗
-> Container-Prüfung ║ an                                                                                             ▾ ║
-                    ╚══════════════════════════════════════════════════════════════════════════════════════════════════╝
-                    An: der Stack gilt nur als gesund, solange alle seine Container laufen.                             
-                    ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-  HTTP-Prüfung      │ an                                                                                             ▾ │
-                    ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
-                    ╭───────╔═ Prüfung eines Stacks ═══════════════════════════════════════╗───────────────────────────╮
-  Adresse (URL)     │ http:/║ ⚠ Die Prüfung des Stacks demo-stack speichern?               ║                           │
-                    ╰───────║                                                              ║───────────────────────────╯
-                    ╭───────║ Im Stack-Repository entsteht ein Commit mit den neuen        ║───────────────────────────╮
-  Erwarteter Status │ 200   ║ Einstellungen und wird zum Remote gepusht. Die Prüfung wirkt ║                           │
-                    ╰───────║ beim nächsten Deploy.                                        ║───────────────────────────╯
-                    ╭───────║ Container-Prüfung: an                                        ║───────────────────────────╮
-  Zeitlimit         │ 10s   ║ HTTP-Prüfung: http://localhost:8080/health antwortet mit 200 ║                           │
-                    ╰───────║ innerhalb von 10s                                            ║───────────────────────────╯
-                            ║                                                              ║                            
-                            ║ [ ja, ausführen ]  > abbrechen <                             ║                            
+                                   ╔═══════════════════════════════════════════════════════════════════════════════════╗
+> Container-Prüfung                ║ an                                                                              ▾ ║
+                                   ╚═══════════════════════════════════════════════════════════════════════════════════╝
+                                   An: der Stack gilt nur als gesund, solange alle seine Container laufen.              
+                                   ╭───────────────────────────────────────────────────────────────────────────────────╮
+  HTTP-Prüfung                     │ an                                                                              ▾ │
+                            ╔═ Prüfung eines Stacks ═══════════════════════════════════════╗───────────────────────────╯
+                            ║ ⚠ Die Prüfung des Stacks demo-stack speichern?               ║───────────────────────────╮
+  Adresse (URL)             ║                                                              ║                           │
+                            ║ Im Stack-Repository entsteht ein Commit mit den neuen        ║───────────────────────────╯
+                            ║ Einstellungen und wird zum Remote gepusht. Die Prüfung wirkt ║───────────────────────────╮
+  Erwarteter Status         ║ beim nächsten Deploy, der Vergleich bei der nächsten         ║                           │
+                            ║ Übernahme.                                                   ║───────────────────────────╯
+                            ║ Container-Prüfung: an                                        ║───────────────────────────╮
+  Zeitlimit                 ║ HTTP-Prüfung: http://localhost:8080/health antwortet mit 200 ║                           │
+                            ║ innerhalb von 10s                                            ║───────────────────────────╯
+                            ║ Images bei Übernahme vergleichen: aus                        ║───────────────────────────╮
+  Images bei Übernahme vergl║                                                              ║                         ▾ │
+                            ║ [ ja, ausführen ]  > abbrechen <                             ║───────────────────────────╯
                             ║ y ja, ausführen  n/esc/enter abbrechen                       ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
-                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         

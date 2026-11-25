@@ -499,9 +499,17 @@ scenario_update() {
 	scenario_return
 }
 
+# demo_app_digest prints the manifest digest the test registry reports for the demo image tag $1.
+demo_app_digest() {
+	docker exec "$host" curl -fsSI -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json' \
+		"https://registry.$domain/v2/demo/app/manifests/$1" | tr -d '\r' | sed -n 's/^[Dd]ocker-[Cc]ontent-[Dd]igest: *//p'
+}
+
 # scenario_promote takes the version of demo-stack, which runs 3.0.0, over to demo-cache, which has the same image
 # repository and runs 1.1.0: the preview changes nothing, the confirmed command is a run with the trigger promote
 # and one commit that names the source, and the return of that run leaves demo-cache on 1.1.0 without settings.
+# The tag 3.0.0 is overwritten with the image of 1.1.0 for the comparison of fingerprints: refused when the setting
+# is on, taken over when it is off; the original image is put back under the tag before the later scenarios pull it.
 scenario_promote() {
 	image=registry.$domain/demo/app
 
@@ -514,6 +522,20 @@ scenario_promote() {
 	[ "$(stack_images demo-cache)" = "$image:1.1.0" ] || fail "the preview changed demo-cache: $(stack_images demo-cache)"
 	source_commit=$(json_values "$out" source_commit | head -n 1)
 	[ -n "$source_commit" ] || fail "the preview names no source commit: $out"
+
+	step 'with promote.compare_images on, a source version whose tag was overwritten in the registry is refused'
+	orig_digest=$(demo_app_digest 3.0.0)
+	case $orig_digest in sha256:*) ;; *) fail "the test registry gives no digest for demo/app:3.0.0: $orig_digest" ;; esac
+	copy_image "registry.$domain/demo/app:1.1.0" demo/app:3.0.0
+	[ "$(demo_app_digest 3.0.0)" != "$orig_digest" ] || fail 'overwriting the tag 3.0.0 did not change its digest'
+	runs_before=$(qd stack runs demo-cache | grep -c '[0-9]\{8\}T[0-9]\{6\}Z-')
+	settings_set demo-cache "$(printf 'version: 1\nupdate:\n  major: direct\npromote:\n  compare_images: true\n')"
+	out=$(qd_fails stack promote demo-stack demo-cache --confirm --source-commit "$source_commit") || fail "promote with an overwritten tag succeeded: $out"
+	printf '%s' "$out" | grep -q 'no longer names the image' || fail "the refusal does not say the tag changed: $out"
+	printf '%s' "$out" | grep -q "$orig_digest" || fail "the refusal does not name the source's digest $orig_digest: $out"
+	[ "$(stack_images demo-cache)" = "$image:1.1.0" ] || fail "the refused promotion changed demo-cache: $(stack_images demo-cache)"
+	[ "$(qd stack runs demo-cache | grep -c '[0-9]\{8\}T[0-9]\{6\}Z-')" = "$runs_before" ] || fail 'the refused promotion made a run'
+	settings_set demo-cache "$(printf 'version: 1\nupdate:\n  major: direct\n')"
 
 	step 'promote --confirm is a run of demo-cache with the trigger promote and a commit that names demo-stack'
 	out=$(qd --output json stack promote demo-stack demo-cache --confirm --source-commit "$source_commit") || fail "promote failed: $out"
@@ -529,6 +551,8 @@ scenario_promote() {
 	[ "$(as_admin "cd ~/stacks && git show --format= --numstat $commit")" = "$(printf '1\t1\tdemo-cache/.env')" ] || fail 'the promotion commit touches more than one line of demo-cache/.env'
 	[ "$(stack_images demo-cache)" = "$image:3.0.0" ] || fail "demo-cache does not run 3.0.0: $(stack_images demo-cache)"
 	stack_healthy demo-cache || fail 'demo-cache is not healthy after the promotion'
+	copy_image "registry.$domain/demo/app@$orig_digest" demo/app:3.0.0 --preserve-digests
+	[ "$(demo_app_digest 3.0.0)" = "$orig_digest" ] || fail "the tag 3.0.0 is not restored: $(demo_app_digest 3.0.0)"
 	out=$(qd stack promote demo-stack demo-cache --confirm --source-commit "$source_commit") || fail "promote of the same version failed: $out"
 	printf '%s' "$out" | grep -q 'Nothing to promote' || fail "the same version is not reported as nothing to do: $out"
 

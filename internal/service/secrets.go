@@ -80,6 +80,16 @@ func (d redactingDeployer) ImageFingerprints(ctx context.Context, st stacks.Stac
 	return c.ImageFingerprints(ctx, st, log)
 }
 
+// LoadedImage implements engine.LoadedImageReader. A deployer that cannot read images is engine.ErrNoImageCheck,
+// because the wrapper always satisfies the interface.
+func (d redactingDeployer) LoadedImage(ctx context.Context, ref string, log *engine.Log) (engine.ImageFingerprint, error) {
+	c, ok := d.next.(engine.LoadedImageReader)
+	if !ok {
+		return engine.ImageFingerprint{}, engine.ErrNoImageCheck
+	}
+	return c.LoadedImage(ctx, ref, log)
+}
+
 // WillBackup implements engine.BackupPlanner; a deployer that cannot tell is assumed to back up.
 func (d redactingDeployer) WillBackup(st stacks.Stack) bool {
 	p, ok := d.next.(engine.BackupPlanner)

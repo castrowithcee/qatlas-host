@@ -20,6 +20,9 @@ const (
 	textFieldCheckStatus      kittui.TextID = "field.checkstatus"
 	textHintCheckStatus       kittui.TextID = "hint.checkstatus"
 	textFieldCheckTimeout     kittui.TextID = "field.checktimeout"
+	textFieldCheckCompare     kittui.TextID = "field.checkcompare"
+	textHintCheckCompare      kittui.TextID = "hint.checkcompare"
+	textDetailCheckCompare    kittui.TextID = "detail.checkcompare"
 	textHintCheckTimeout      kittui.TextID = "hint.checktimeout"
 	textProblemCheckURLEmpty  kittui.TextID = "problem.checkurlempty"
 	textProblemCheckURL       kittui.TextID = "problem.checkurl"
@@ -59,12 +62,15 @@ func checkEnglish() map[kittui.TextID]string {
 		textHintCheckStatus:       "The HTTP status the address must answer, 100 to 599; 200 by default.",
 		textFieldCheckTimeout:     "Timeout",
 		textHintCheckTimeout:      "How long to wait for the answer, from 1s to 10m, for example 10s.",
+		textFieldCheckCompare:     "Compare images on promotion",
+		textHintCheckCompare:      "On: a promotion into this stack refuses unless its images are the ones the source runs, by fingerprint. Off by default.",
+		textDetailCheckCompare:    "compare images on promotion: %s",
 		textProblemCheckURLEmpty:  "The HTTP check is on, so it needs an address.",
 		textProblemCheckURL:       "The address must be an absolute http or https URL.",
 		textProblemCheckStatus:    "The status is a whole number from %d to %d.",
 		textProblemCheckTimeout:   "The timeout is a duration from 1s to 10m, for example 10s or 1m30s.",
 		textAskCheckForm:          "Save the check of the stack %s?",
-		textWhatCheckAfter:        "The check acts on the next deployment.",
+		textWhatCheckAfter:        "The check acts on the next deployment, the comparison on the next promotion.",
 		textDetailCheckContainers: "container check: %s",
 		textDetailCheckHTTP:       "HTTP check: %s answers %d within %s",
 		textDetailCheckNoHTTP:     "HTTP check: off",
@@ -98,12 +104,15 @@ func checkGerman() map[kittui.TextID]string {
 		textHintCheckStatus:       "Der HTTP-Status, mit dem die Adresse antworten muss, 100 bis 599; Standard 200.",
 		textFieldCheckTimeout:     "Zeitlimit",
 		textHintCheckTimeout:      "Wie lange auf die Antwort gewartet wird, von 1s bis 10m, zum Beispiel 10s.",
+		textFieldCheckCompare:     "Images bei Übernahme vergleichen",
+		textHintCheckCompare:      "An: eine Übernahme in diesen Stack verweigert, wenn seine Images nicht die der Quelle sind (nach Fingerabdruck). Standard aus.",
+		textDetailCheckCompare:    "Images bei Übernahme vergleichen: %s",
 		textProblemCheckURLEmpty:  "Die HTTP-Prüfung ist an und braucht deshalb eine Adresse.",
 		textProblemCheckURL:       "Die Adresse muss eine absolute http- oder https-URL sein.",
 		textProblemCheckStatus:    "Der Status ist eine ganze Zahl von %d bis %d.",
 		textProblemCheckTimeout:   "Das Zeitlimit ist eine Dauer von 1s bis 10m, zum Beispiel 10s oder 1m30s.",
 		textAskCheckForm:          "Die Prüfung des Stacks %s speichern?",
-		textWhatCheckAfter:        "Die Prüfung wirkt beim nächsten Deploy.",
+		textWhatCheckAfter:        "Die Prüfung wirkt beim nächsten Deploy, der Vergleich bei der nächsten Übernahme.",
 		textDetailCheckContainers: "Container-Prüfung: %s",
 		textDetailCheckHTTP:       "HTTP-Prüfung: %s antwortet mit %d innerhalb von %s",
 		textDetailCheckNoHTTP:     "HTTP-Prüfung: aus",

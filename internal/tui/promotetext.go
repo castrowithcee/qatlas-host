@@ -13,6 +13,8 @@ const (
 	textPromoteNothing   kittui.TextID = "promote.nothing"
 	textPromoteSource    kittui.TextID = "promote.source"
 	textPromoteObserve   kittui.TextID = "promote.observe"
+	textPromoteCompare   kittui.TextID = "promote.compare"
+	textPromoteNoCompare kittui.TextID = "promote.nocompare"
 	textPromoteFailed    kittui.TextID = "promote.failed"
 	textDonePromote      kittui.TextID = "done.promote"
 )
@@ -28,6 +30,8 @@ func promoteEnglish() map[kittui.TextID]string {
 		textPromoteNothing:   "Nothing to take over: %s already has the versions of %s for the images they share.",
 		textPromoteSource:    "Source %s at commit %s: last run succeeded, healthy.",
 		textPromoteObserve:   "The source is under observation until %s: its update is not settled yet.",
+		textPromoteCompare:   "The image fingerprints are compared with the source's, before the commit and after the pull.",
+		textPromoteNoCompare: "The image fingerprints are not compared (setting promote.compare_images is off).",
 		textPromoteFailed:    "The promotion to %s did not succeed (%s). Run %s has the log.",
 		textDonePromote:      "Stack %s took over the versions, run %s.",
 	}
@@ -44,6 +48,8 @@ func promoteGerman() map[kittui.TextID]string {
 		textPromoteNothing:   "Nichts zu übernehmen: %s hat für die gemeinsamen Images schon die Versionen von %s.",
 		textPromoteSource:    "Quelle %s bei Commit %s: letzter Lauf erfolgreich, gesund.",
 		textPromoteObserve:   "Die Quelle steht unter Beobachtung bis %s: ihr Update ist noch nicht bestätigt.",
+		textPromoteCompare:   "Die Fingerabdrücke der Images werden mit denen der Quelle verglichen, vor dem Commit und nach dem Pull.",
+		textPromoteNoCompare: "Die Fingerabdrücke der Images werden nicht verglichen (Einstellung promote.compare_images ist aus).",
 		textPromoteFailed:    "Die Übernahme für %s ist nicht gelungen (%s). Der Lauf %s hat das Log.",
 		textDonePromote:      "Stack %s hat die Versionen übernommen, Lauf %s.",
 	}
