@@ -66,7 +66,6 @@ cx internal/cli/source_perms.go:planPermissions 18
 cx internal/cli/source_remote.go:compareFields 26
 cx internal/cli/source_remote_test.go:TestSourceAddFilesWithURLYesPassesTheShownState 18
 cx internal/cli/stack_datadir.go:runDatadir 18
-cx internal/cli/status.go:entryFields 16
 cx internal/cli/status.go:failureOf 84
 cx internal/cli/tui_backend_test.go:TestEngineBackendMergesTheListsAndMarksTheEngine 17
 cx internal/cli/uninstall_instances_test.go:TestUninstallRemovesEveryInstanceAndKeepsUsersAndHomes 19
@@ -113,14 +112,14 @@ cx internal/engine/return_test.go:TestReturnTakesTheVersionsFromTheParentOfTheRu
 cx internal/engine/revertfolder.go:Engine.RevertFolder 18
 cx internal/engine/rollback_test.go:TestPausedStackGetsNoRunsUntilResumed 18
 cx internal/engine/rollback_test.go:TestRollbackWaitsForOtherRuns 16
-cx internal/engine/run.go:run.record 32
+cx internal/engine/run.go:run.record 29
 cx internal/engine/run.go:run.revert 16
 cx internal/engine/run.go:run.secured 31
 cx internal/engine/settings.go:Engine.settingsBase 21
 cx internal/engine/settings_test.go:TestRemoveSettingsCommitsTheDeletionAndLeavesDeployOnly 16
 cx internal/engine/settings_test.go:TestSetSettingsCommitsPushesAndFollows 22
 cx internal/engine/state.go:validateMonitor 18
-cx internal/engine/state.go:validateState 26
+cx internal/engine/state.go:validateState 20
 cx internal/engine/update.go:Engine.UpdateWhile 18
 cx internal/engine/update_test.go:TestUpdateCommitsPushesAndDeploysOneStep 32
 cx internal/engine/update_test.go:TestUpdateFailureInTheMiddleStepRevertsOnlyThatStep 18
@@ -332,13 +331,12 @@ file internal/cli/source_add.go 763
 file internal/cli/source_move_run.go 670
 file internal/cli/tui_backend.go 779
 file internal/compose/datadirs.go 518
-file internal/control/control.go 2180
+file internal/control/control.go 2166
 file internal/credentials/credentials.go 581
 file internal/diagnose/diagnose.go 625
 file internal/engine/engine.go 1184
 file internal/engine/engine_test.go 1366
-file internal/engine/run.go 683
-file internal/engine/state.go 522
+file internal/engine/run.go 680
 file internal/gitrepo/gitrepo.go 531
 file internal/gitrepo/remote.go 653
 file internal/helptopics/helptopics.go 639
@@ -349,7 +347,7 @@ file internal/host/hostchange/users_delete.go 579
 file internal/proposals/proposals.go 569
 file internal/registry/client.go 706
 file internal/service/inspect.go 852
-file internal/service/monitor.go 659
+file internal/service/monitor.go 655
 file internal/service/repo.go 600
 file internal/service/servicetest/servicetest.go 572
 file internal/service/sourceremote.go 639
@@ -359,7 +357,7 @@ file internal/stacks/rules.go 503
 file internal/stacks/stacks.go 545
 file internal/tui/actions.go 911
 file internal/tui/backend.go 610
-file internal/tui/detail.go 651
+file internal/tui/detail.go 649
 file internal/tui/fakebackend_test.go 1260
 file internal/tui/folders.go 855
 file internal/tui/model.go 1559
@@ -437,11 +435,10 @@ len internal/engine/repair_test.go:TestRepairIsRefusedWhereItMustNotRun 62
 len internal/engine/return.go:Engine.Return 64
 len internal/engine/return_test.go:TestReturnRefusalsChangeNothing 82
 len internal/engine/revertfolder.go:Engine.RevertFolder 63
-len internal/engine/run.go:run.record 104
+len internal/engine/run.go:run.record 101
 len internal/engine/run.go:run.revert 67
 len internal/engine/run.go:run.secured 121
 len internal/engine/settings.go:Engine.settingsBase 61
-len internal/engine/state.go:State.clone 62
 len internal/engine/update.go:Engine.UpdateWhile 75
 len internal/engine/update_test.go:TestUpdateRefusals 78
 len internal/formatnum/inventory_test.go:writerFiles 68
@@ -564,5 +561,5 @@ len internal/tui/text.go:baseCatalog permanent: text catalog of the terminal int
 len internal/tui/updatetext.go:updateEnglish permanent: text catalog of the terminal interface, pure data
 len internal/tui/updatetext.go:updateGerman permanent: text catalog of the terminal interface, pure data
 len internal/uninstall/uninstall.go:Host.Plan 219
-len internal/updates/plan.go:Detector.Plan 85
+len internal/updates/plan.go:Detector.Plan 76
 len internal/version/version_test.go:TestSelect 63

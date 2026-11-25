@@ -203,8 +203,8 @@ func stackStatuses(snap engine.Snapshot) []control.StackStatus {
 	for _, n := range names {
 		s := st.Stacks[n]
 		item := control.StackStatus{
-			Name: printable(n), Deployed: printable(s.Deployed), Pending: printable(s.Pending),
-			ActiveRun: printable(snap.Active[n]), Findings: []control.FindingInfo{}, Removed: s.Removed, Images: fingerprintInfos(s.Images),
+			Name: printable(n), Deployed: printable(s.Deployed), Pending: printable(s.Pending), Images: fingerprintInfos(s.Images),
+			ActiveRun: printable(snap.Active[n]), Findings: []control.FindingInfo{}, Removed: s.Removed, FailedVersions: printableMap(s.FailedVersions),
 		}
 		if s.LastRun != nil {
 			item.LastRun = printable(s.LastRun.Result)
@@ -252,6 +252,18 @@ func stackStatuses(snap engine.Snapshot) []control.StackStatus {
 		res = append(res, item)
 	}
 	return res
+}
+
+// printableMap is m with printable keys and values, nil when m is empty.
+func printableMap(m map[string]string) map[string]string {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		out[printable(k)] = printable(v)
+	}
+	return out
 }
 
 func pauseInfo(p engine.Pause) control.PauseInfo {

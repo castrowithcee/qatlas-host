@@ -42,7 +42,10 @@ func (e *PlanError) Error() string {
 // major versions under update.major stepwise visits the highest version of every major version on the way.
 // The variables keep the order of the stack's images; a stack with nothing to update has no steps. It only
 // reads.
-func (d *Detector) Plan(ctx context.Context, st stacks.Stack, target, variable string) ([]engine.VersionStep, error) {
+//
+// Without target, a variable is left out when its path would visit the version failed[variable], a version
+// whose update failed and was rolled back; failed is not consulted with target.
+func (d *Detector) Plan(ctx context.Context, st stacks.Stack, target, variable string, failed map[string]string) ([]engine.VersionStep, error) {
 	refuse := func(variable, text string) error {
 		return &PlanError{Kind: PlanRefused, Variable: variable, Text: text}
 	}
@@ -66,21 +69,9 @@ func (d *Detector) Plan(ctx context.Context, st stacks.Stack, target, variable s
 		}
 	}
 	if target != "" {
-		names := make([]string, len(vars))
-		for i, v := range vars {
-			names[i] = clip(v.Var)
-		}
-		switch {
-		case variable != "":
-			i := slices.IndexFunc(vars, func(v stacks.ImageVar) bool { return v.Var == variable })
-			if i < 0 {
-				return nil, &PlanError{Kind: PlanVersion, Text: "the stack has no image version variable " + clip(variable) +
-					"; its variables are " + strings.Join(names, ", ")}
-			}
-			vars = []stacks.ImageVar{vars[i]}
-		case len(vars) != 1:
-			return nil, &PlanError{Kind: PlanVersion, Text: "the stack has several image version variables; name one with --var: " +
-				strings.Join(names, ", ")}
+		var err error
+		if vars, err = narrow(vars, variable); err != nil {
+			return nil, err
 		}
 	}
 
@@ -116,6 +107,9 @@ func (d *Detector) Plan(ctx context.Context, st stacks.Stack, target, variable s
 			// Path's errors are fixed texts.
 			return nil, &PlanError{Kind: PlanVersion, Variable: img.Var, Text: err.Error()}
 		}
+		if target == "" && failed[img.Var] != "" && slices.Contains(path, failed[img.Var]) {
+			continue
+		}
 		if img.Source != stacks.SourceEnv {
 			return nil, refuse(img.Var, "the version is not set in the stack's .env")
 		}
@@ -126,4 +120,25 @@ func (d *Detector) Plan(ctx context.Context, st stacks.Stack, target, variable s
 		}
 	}
 	return steps, nil
+}
+
+// narrow returns the one variable a target applies to: the one named by variable, or the only one.
+func narrow(vars []stacks.ImageVar, variable string) ([]stacks.ImageVar, error) {
+	names := make([]string, len(vars))
+	for i, v := range vars {
+		names[i] = clip(v.Var)
+	}
+	switch {
+	case variable != "":
+		i := slices.IndexFunc(vars, func(v stacks.ImageVar) bool { return v.Var == variable })
+		if i < 0 {
+			return nil, &PlanError{Kind: PlanVersion, Text: "the stack has no image version variable " + clip(variable) +
+				"; its variables are " + strings.Join(names, ", ")}
+		}
+		return []stacks.ImageVar{vars[i]}, nil
+	case len(vars) != 1:
+		return nil, &PlanError{Kind: PlanVersion, Text: "the stack has several image version variables; name one with --var: " +
+			strings.Join(names, ", ")}
+	}
+	return vars, nil
 }

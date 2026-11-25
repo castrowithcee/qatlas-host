@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"maps"
 	"path"
 	"regexp"
 	"slices"
@@ -148,20 +149,12 @@ type StackState struct {
 	// Observe is the update under observation, set by the last run when it was a successful update step and
 	// the stack's observation time is not zero. It stays after Until has passed, until the next run.
 	Observe *Observation `json:"observe,omitempty"`
+	// FailedVersions maps an image version variable to the version whose update failed, by its check or in its
+	// observation time and was rolled back. The automatic update plans no step to such a version; an update
+	// to it or to a higher one, by hand or not, removes it. Only the failed step is recorded.
+	FailedVersions map[string]string `json:"failed_versions,omitempty"`
 	// Images are the image fingerprints after the last run that left the stack running, empty when unread.
 	Images []ImageFingerprint `json:"images,omitempty"`
-}
-
-// Observation is an update by qhost and its observation time: a failure of the stack from Since until before
-// Until rolls back exactly this update. Run made it, From is the commit the stack ran at before it, Commit its
-// commit and Backup the backup it made, empty when the stack had no backup rules.
-type Observation struct {
-	Run    string    `json:"run"`
-	From   string    `json:"from"`
-	Commit string    `json:"commit"`
-	Backup string    `json:"backup,omitempty"`
-	Since  time.Time `json:"since"`
-	Until  time.Time `json:"until"`
 }
 
 // MaxRepairAttempts is how many restarts the monitor makes before it halts the repair of a stack.
@@ -344,9 +337,8 @@ func validateState(s State) error {
 		if err := validateMonitor(st); err != nil {
 			return err
 		}
-		if o := st.Observe; o != nil && (!runIDRe.MatchString(o.Run) || !commitRe.MatchString(o.From) ||
-			!commitRe.MatchString(o.Commit) || len(o.Backup) > maxNameLen || o.Since.IsZero() || !o.Until.After(o.Since)) {
-			return errors.New("invalid observation")
+		if err := errors.Join(validateObservation(st.Observe), validateFailedVersions(st.FailedVersions)); err != nil {
+			return err
 		}
 	}
 	return validateHistory(s)
@@ -445,40 +437,22 @@ func (s State) clone() State {
 			r := *v.LastRun
 			v.LastRun = &r
 		}
-		if v.Dropped != nil {
-			d := *v.Dropped
-			v.Dropped = &d
-		}
-		if v.Paused != nil {
-			p := *v.Paused
-			v.Paused = &p
-		}
+		v.Dropped = clonePtr(v.Dropped)
+		v.Paused = clonePtr(v.Paused)
 		if v.DataDirs != nil {
 			w := *v.DataDirs
 			w.Dirs = append([]MissingDir(nil), w.Dirs...)
 			v.DataDirs = &w
 		}
-		if v.OperatorPause != nil {
-			h := *v.OperatorPause
-			v.OperatorPause = &h
-		}
-		if v.Pin != nil {
-			h := *v.Pin
-			v.Pin = &h
-		}
-		if v.Stopped != nil {
-			h := *v.Stopped
-			v.Stopped = &h
-		}
+		v.OperatorPause = clonePtr(v.OperatorPause)
+		v.Pin = clonePtr(v.Pin)
+		v.Stopped = clonePtr(v.Stopped)
 		if v.Updates != nil {
 			u := *v.Updates
 			u.Items = append([]UpdateItem(nil), u.Items...)
 			v.Updates = &u
 		}
-		if v.Failure != nil {
-			f := *v.Failure
-			v.Failure = &f
-		}
+		v.Failure = clonePtr(v.Failure)
 		v.Services, v.Images = append([]string(nil), v.Services...), slices.Clone(v.Images)
 		v.StoppedContainers = append([]string(nil), v.StoppedContainers...)
 		if v.Repair != nil {
@@ -489,10 +463,8 @@ func (s State) clone() State {
 			}
 			v.Repair = &r
 		}
-		if v.Observe != nil {
-			o := *v.Observe
-			v.Observe = &o
-		}
+		v.Observe = clonePtr(v.Observe)
+		v.FailedVersions = maps.Clone(v.FailedVersions)
 		out.Stacks[k] = v
 	}
 	out.Runs = append([]RunRecord(nil), s.Runs...)

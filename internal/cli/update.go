@@ -25,6 +25,12 @@ const (
 	maxShownCommit = 12
 )
 
+// updateLockHelp explains the lock on a version whose update failed.
+const updateLockHelp = "A version whose update failed (its check or the observation time) is locked for its\n" +
+	"variable: automatic updates skip it, and qhost status shows it as failed_versions, until a higher\n" +
+	"version appears. --version with exactly that version tries it again and lifts the lock when it\n" +
+	"succeeds; so does any successful update to a higher version, a lower one does not."
+
 var updateRunColumns = []string{"stack", "variable", "from", "to", "run", "commit", "result", "error"}
 
 func newUpdateCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
@@ -42,7 +48,7 @@ func newUpdateCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"to the stack's .env (only that line changes), pushes the commit to the branch, then pulls, starts and\n" +
 			"checks the stack. A step that fails is rolled back like any run, and the later steps are not attempted;\n" +
 			"the earlier steps stay. A failure before the push leaves the branch as it was and starts the previous\n" +
-			"state again. The stacks run\n" +
+			"state again. " + updateLockHelp + " The stacks run\n" +
 			"one after another. Every stack is checked first: one that has no settings, was never deployed, has\n" +
 			"local changes or undeployed commits, is paused or has a run in progress refuses the whole call before\n" +
 			"anything changes. The deploy key needs write access to the branch. The command waits until the last\n" +

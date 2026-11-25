@@ -336,25 +336,11 @@ type StackStatus struct {
 	Repair *RepairInfo `json:"repair,omitempty"`
 	// Observe is the update by qhost whose observation time is running; nil when none is.
 	Observe *ObserveInfo `json:"observe,omitempty"`
+	// FailedVersions maps an image version variable to the version whose update failed; automatic updates skip
+	// it. It is empty when none is locked.
+	FailedVersions map[string]string `json:"failed_versions,omitempty"`
 	// Images are the fingerprints of the images the stack runs since its last successful run or rollback.
 	Images []FingerprintInfo `json:"images,omitempty"`
-}
-
-// FindingInfo is one finding of the engine about a stack.
-type FindingInfo struct {
-	Kind   string `json:"kind"`
-	Detail string `json:"detail,omitempty"`
-	// Dirs lists the missing data directories of a finding of kind "data-dir-missing".
-	Dirs []DirInfo `json:"dirs,omitempty"`
-}
-
-// DirInfo is a missing data directory: Path relative to the stack folder, Container the "UID:GID" of the
-// container's user, Owner the proposed host "UID:GID" (empty when unknown) and Warning why there is none.
-type DirInfo struct {
-	Path      string `json:"path"`
-	Owner     string `json:"owner,omitempty"`
-	Container string `json:"container,omitempty"`
-	Warning   string `json:"warning,omitempty"`
 }
 
 // The commands that control runs. ResumeCommand clears the pause of a stack and starts no run.
