@@ -190,7 +190,7 @@ func (r *run) record(out outcome, freeSlot bool) RunRecord {
 		if rec.Result == ResultSucceeded && rec.Trigger == TriggerReturn && cur.Pin == nil {
 			cur.Pin = &Hold{Since: now}
 		}
-		if d := r.st.ObserveTime(); rec.Result == ResultSucceeded && rec.Trigger == TriggerUpdate && d > 0 {
+		if d := r.st.ObserveTime(); rec.Result == ResultSucceeded && changesVersions(rec.Trigger) && d > 0 {
 			cur.Observe = &Observation{Run: rec.ID, From: r.deployed, Commit: rec.Commit, Backup: rec.Backup, Since: now, Until: now.Add(d)}
 		}
 		if cur.Pending != "" && (cur.Pending == rec.Commit || cur.Pending == out.at) {
