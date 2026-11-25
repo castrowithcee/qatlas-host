@@ -112,16 +112,16 @@ func checkSource(s StackState) error {
 	return nil
 }
 
-// sourceVersions maps each image repository of the source to its version at the deployed commit, by the
-// repository and not by the variable name. A repository with different versions is ambiguous and listed.
-func sourceVersions(src PromoteSource) (map[string]string, error) {
-	env, err := stacks.ParseEnv(src.Env)
+// ResolvedImages returns the source's image variables that have a version at the deployed commit, each with
+// that version in Value and Source set to stacks.SourceDefault, so that the result stands alone: a
+// PromoteSource built from it needs no Env.
+func (s PromoteSource) ResolvedImages() ([]stacks.ImageVar, error) {
+	env, err := stacks.ParseEnv(s.Env)
 	if err != nil {
 		return nil, fmt.Errorf("read %s of the source: %w", envName, err)
 	}
-	versions := map[string]string{}
-	var ambiguous []string
-	for _, img := range src.Images {
+	var out []stacks.ImageVar
+	for _, img := range s.Images {
 		v, ok := env[img.Var]
 		if !ok && img.Source == stacks.SourceDefault {
 			v, ok = img.Value, true
@@ -129,10 +129,26 @@ func sourceVersions(src PromoteSource) (map[string]string, error) {
 		if img.Var == "" || !ok || v == "" {
 			continue
 		}
-		if old, seen := versions[img.Image]; seen && old != v && !slices.Contains(ambiguous, img.Image) {
+		img.Value, img.Source = v, stacks.SourceDefault
+		out = append(out, img)
+	}
+	return out, nil
+}
+
+// sourceVersions maps each image repository of the source to its version at the deployed commit, by the
+// repository and not by the variable name. A repository with different versions is ambiguous and listed.
+func sourceVersions(src PromoteSource) (map[string]string, error) {
+	images, err := src.ResolvedImages()
+	if err != nil {
+		return nil, err
+	}
+	versions := map[string]string{}
+	var ambiguous []string
+	for _, img := range images {
+		if old, seen := versions[img.Image]; seen && old != img.Value && !slices.Contains(ambiguous, img.Image) {
 			ambiguous = append(ambiguous, img.Image)
 		}
-		versions[img.Image] = v
+		versions[img.Image] = img.Value
 	}
 	if len(ambiguous) > 0 {
 		slices.Sort(ambiguous)

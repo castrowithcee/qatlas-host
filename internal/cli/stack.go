@@ -16,7 +16,7 @@ func newStackCommand(program *cobracli.Program, state *notRunning, secrets *reda
 			"Run 'qhost stack <command> --help' for one command.",
 	}
 	group.AddCommand(newStacksCommand(program, state), newCheckCommand(program, state), newDeployCommand(program, state),
-		newUpdateCommand(program, state), newRollbackCommand(program, state), newUpdatesCommand(program, state), newChangelogCommand(program, state),
+		newUpdateCommand(program, state), newPromoteCommand(program, state), newRollbackCommand(program, state), newUpdatesCommand(program, state), newChangelogCommand(program, state),
 		newRunsCommand(program, state), newLogCommand(program, state), newResumeCommand(program, state),
 		newBackupCommand(program, state), newPauseCommand(program, state), newUnpauseCommand(program, state),
 		newPinCommand(program, state), newUnpinCommand(program, state), newSecretCommand(program, state, secrets),
