@@ -202,8 +202,12 @@ func (u stackUpdater) skip(name, reason string) {
 // report emits the notice of a stack in manual mode with an available update. It sends nothing anywhere.
 func (u stackUpdater) report(name string, check engine.UpdateCheck) {
 	var items []engine.UpdateItem
+	var failed map[string]string
+	if cur, _, err := u.upd.eng.Stack(name); err == nil {
+		failed = cur.FailedVersions
+	}
 	for _, it := range check.Items {
-		if it.Status == engine.UpdateAvailable {
+		if it.Status == engine.UpdateAvailable && it.Selected != failed[it.Variable] {
 			items = append(items, it)
 			u.log.Info("update available", "event", "update-available", "stack", name, "mode", stacks.ModeManual,
 				"variable", it.Variable, "current", it.Current, "available", it.Selected)
@@ -236,7 +240,10 @@ func (u stackUpdater) update(ctx context.Context, name string, check engine.Upda
 	st, err := eng.CheckUpdate(pctx, name)
 	var steps []engine.VersionStep
 	if err == nil {
-		steps, err = u.upd.detector.Plan(pctx, st, "", "")
+		var cur engine.StackState
+		if cur, _, err = eng.Stack(name); err == nil {
+			steps, err = u.upd.detector.Plan(pctx, st, "", "", cur.FailedVersions)
+		}
 	}
 	switch {
 	case err != nil:

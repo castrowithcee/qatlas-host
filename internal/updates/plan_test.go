@@ -49,7 +49,7 @@ func TestPlanTargets(t *testing.T) {
 		{"each variable in turn", planStack("minor", stacks.MajorStepwise, app, imgVar("DB_VERSION", host+"/demo/db", "5.0.0"), app),
 			"", append(steps("APP_VERSION", "1.0.0", "1.1.0"), steps("DB_VERSION", "5.0.0", "5.0.1")...)},
 	} {
-		got, err := d.Plan(context.Background(), tc.st, tc.target, "")
+		got, err := d.Plan(context.Background(), tc.st, tc.target, "", nil)
 		if err != nil || !slices.Equal(got, tc.want) {
 			t.Errorf("%s: %+v, %v; want %+v", tc.name, got, err, tc.want)
 		}
@@ -60,7 +60,7 @@ func TestPlanVariable(t *testing.T) {
 	srv := registrytest.New(t, registrytest.Config{Repos: map[string][]string{"demo/app": planTags, "demo/db": {"5.0.0", "5.0.1"}}})
 	d := detector(srv.URL, anonymous)
 	st := planStack("minor", stacks.MajorStepwise, imgVar("APP_VERSION", host+"/demo/app", "1.0.0"), imgVar("DB_VERSION", host+"/demo/db", "5.0.0"))
-	got, err := d.Plan(context.Background(), st, "5.0.1", "DB_VERSION")
+	got, err := d.Plan(context.Background(), st, "5.0.1", "DB_VERSION", nil)
 	if err != nil || !slices.Equal(got, steps("DB_VERSION", "5.0.0", "5.0.1")) {
 		t.Errorf("named variable: %+v, %v", got, err)
 	}
@@ -68,7 +68,7 @@ func TestPlanVariable(t *testing.T) {
 		{"", "--var: APP_VERSION, DB_VERSION"},
 		{"OTHER", "no image version variable OTHER; its variables are APP_VERSION, DB_VERSION"},
 	} {
-		got, err := d.Plan(context.Background(), st, "5.0.1", tc.variable)
+		got, err := d.Plan(context.Background(), st, "5.0.1", tc.variable, nil)
 		var pe *PlanError
 		if !errors.As(err, &pe) || pe.Kind != PlanVersion || got != nil || !strings.Contains(pe.Text, tc.want) {
 			t.Errorf("variable %q: %+v, %v; want %q", tc.variable, got, err, tc.want)
@@ -106,10 +106,40 @@ func TestPlanRefusals(t *testing.T) {
 		{"one variable, two images", "", PlanRefused, planStack("minor", stacks.MajorStepwise, app, imgVar("APP_VERSION", host+"/demo/other", "2.0.0"))},
 		{"registry", "", PlanRegistry, planStack("minor", stacks.MajorStepwise, imgVar("APP_VERSION", host+"/demo/missing", "2.0.0"))},
 	} {
-		got, err := d.Plan(context.Background(), tc.st, tc.target, "")
+		got, err := d.Plan(context.Background(), tc.st, tc.target, "", nil)
 		var pe *PlanError
 		if !errors.As(err, &pe) || pe.Kind != tc.kind || got != nil {
 			t.Errorf("%s: %+v, %v; want a %s error", tc.name, got, err, tc.kind)
 		}
+	}
+}
+
+func TestPlanSkipsAFailedVersionWithoutTarget(t *testing.T) {
+	srv := registrytest.New(t, registrytest.Config{Repos: map[string][]string{"demo/app": planTags}})
+	d := detector(srv.URL, anonymous)
+	app := imgVar("APP_VERSION", host+"/demo/app", "1.0.0")
+	st := planStack("major", stacks.MajorStepwise, app)
+	for _, tc := range []struct {
+		name   string
+		failed map[string]string
+		target string
+		want   []engine.VersionStep
+	}{
+		{"locked version is not planned", map[string]string{"APP_VERSION": "3.1.0"}, "", nil},
+		{"locked step of the path is not planned", map[string]string{"APP_VERSION": "2.2.0"}, "", nil},
+		{"another variable does not lock", map[string]string{"DB_VERSION": "3.1.0"}, "", steps("APP_VERSION", "1.0.0", "1.1.0", "2.2.0", "3.1.0")},
+		{"a lower lock does not matter", map[string]string{"APP_VERSION": "0.9.0"}, "", steps("APP_VERSION", "1.0.0", "1.1.0", "2.2.0", "3.1.0")},
+		{"explicit version ignores the lock", map[string]string{"APP_VERSION": "1.1.0"}, "1.1.0", steps("APP_VERSION", "1.0.0", "1.1.0")},
+	} {
+		got, err := d.Plan(context.Background(), st, tc.target, "", tc.failed)
+		if err != nil || !slices.Equal(got, tc.want) {
+			t.Errorf("%s: %+v, %v; want %+v", tc.name, got, err, tc.want)
+		}
+	}
+	// A higher version than the locked one is planned, as the path to it does not visit the locked one.
+	st = planStack("minor", stacks.MajorStepwise, app)
+	got, err := d.Plan(context.Background(), st, "", "", map[string]string{"APP_VERSION": "1.0.1"})
+	if err != nil || !slices.Equal(got, steps("APP_VERSION", "1.0.0", "1.1.0")) {
+		t.Errorf("higher version: %+v, %v", got, err)
 	}
 }

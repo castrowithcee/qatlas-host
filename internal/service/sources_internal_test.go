@@ -48,7 +48,7 @@ func TestMigrationResumesAndRepeats(t *testing.T) {
 		t.Fatal(err)
 	}
 	put(t, filepath.Join(state, legacyFile), `{"version":1,"url":"`+exampleURL+`","dir":"/srv/stacks"}`)
-	put(t, filepath.Join(state, "deploy", "state.json"), `{"schema":1}`)
+	put(t, filepath.Join(state, "deploy", "state.json"), `{"schema":2}`)
 	conf := sourcesConfig{Version: sourcesVersion, Sources: []sourceConfig{{
 		ID: "srv-stacks", Path: "/srv/stacks", Kind: kindRemote, URL: exampleURL, Key: credentials.DefaultKey,
 	}}}
@@ -79,8 +79,8 @@ func TestMigrationLeavesConflictingStateInPlace(t *testing.T) {
 		t.Fatal(err)
 	}
 	put(t, filepath.Join(state, legacyFile), `{"version":1,"url":"`+exampleURL+`","dir":"/srv/stacks"}`)
-	put(t, filepath.Join(state, "deploy", "state.json"), `{"schema":1,"note":"old"}`)
-	put(t, filepath.Join(state, "sources", "srv-stacks", "deploy", "state.json"), `{"schema":1,"note":"new"}`)
+	put(t, filepath.Join(state, "deploy", "state.json"), `{"schema":2,"note":"old"}`)
+	put(t, filepath.Join(state, "sources", "srv-stacks", "deploy", "state.json"), `{"schema":2,"note":"new"}`)
 	if err := migrateLegacy(state, store, slog.New(slog.DiscardHandler)); err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func twoSources(t *testing.T, states map[string]string) *sourceSet {
 }
 
 func TestNameGoesToTheDeployedStackElseToTheFirstSource(t *testing.T) {
-	deployed := `{"schema":1,"stacks":{"web":{"deployed":"0123456789abcdef0123456789abcdef01234567"}}}`
+	deployed := `{"schema":2,"stacks":{"web":{"deployed":"0123456789abcdef0123456789abcdef01234567"}}}`
 	for _, c := range []struct {
 		name   string
 		states map[string]string
@@ -162,7 +162,7 @@ func TestNameGoesToTheDeployedStackElseToTheFirstSource(t *testing.T) {
 // A source whose working copy cannot be read keeps the names its state deploys.
 func TestUnreadableSourceKeepsItsDeployedNames(t *testing.T) {
 	set := twoSources(t, map[string]string{
-		"first": `{"schema":1,"stacks":{"web":{"deployed":"0123456789abcdef0123456789abcdef01234567"}}}`,
+		"first": `{"schema":2,"stacks":{"web":{"deployed":"0123456789abcdef0123456789abcdef01234567"}}}`,
 	})
 	srcs := set.sources()
 	if err := os.RemoveAll(srcs[0].conf.Path); err != nil {
@@ -185,7 +185,7 @@ func TestCollisionFindingIsTheSameForEngineAndClients(t *testing.T) {
 
 func TestRepairRecordGoesToTheSourceOfTheStack(t *testing.T) {
 	set := twoSources(t, map[string]string{
-		"second": `{"schema":1,"stacks":{"web":{"deployed":"0123456789abcdef0123456789abcdef01234567"}}}`,
+		"second": `{"schema":2,"stacks":{"web":{"deployed":"0123456789abcdef0123456789abcdef01234567"}}}`,
 	})
 	at := time.Date(2026, 5, 4, 3, 0, 0, 0, time.UTC)
 	if stored, err := set.RecordRepair("web", &engine.Repair{Attempts: 1, Last: at}); err != nil || !stored {

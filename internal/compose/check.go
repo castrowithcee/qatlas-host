@@ -29,6 +29,8 @@ const (
 
 // Container is the state of one container of the project as `docker compose ps` reports it.
 type Container struct {
+	ID       string `json:"ID"`
+	Image    string `json:"Image"`
 	Name     string `json:"Name"`
 	Service  string `json:"Service"`
 	State    string `json:"State"`

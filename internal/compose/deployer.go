@@ -28,9 +28,10 @@ type Deployer struct {
 }
 
 var (
-	_ engine.Deployer      = (*Deployer)(nil)
-	_ engine.BackupChecker = (*Deployer)(nil)
-	_ engine.BackupPlanner = (*Deployer)(nil)
+	_ engine.Deployer           = (*Deployer)(nil)
+	_ engine.BackupChecker      = (*Deployer)(nil)
+	_ engine.BackupPlanner      = (*Deployer)(nil)
+	_ engine.ImageFingerprinter = (*Deployer)(nil)
 )
 
 // New returns the production deployer: docker through os/exec with ProductionEnv for the state directory and

@@ -116,19 +116,7 @@ func (r *run) record(out outcome, freeSlot bool) RunRecord {
 	if out.result == ResultRolledBack {
 		rec.RolledBackTo = out.at
 	}
-	var tagErr, pruneErr error
-	if rec.Result == ResultSucceeded || rec.Result == ResultRolledBack {
-		r.log.Step("tag")
-		rec.Tag, tagErr = r.tagRun(out.at)
-		if tagErr != nil {
-			r.log.Printf("not set: %s", tagErr)
-		} else if rec.Tag != "" {
-			r.log.Printf("%s", rec.Tag)
-			if pruneErr = r.pruneTags(); pruneErr != nil {
-				r.log.Printf("old tags not deleted: %s", pruneErr)
-			}
-		}
-	}
+	tagErr, pruneErr := r.tagAndRead(&rec, out.at)
 	r.log.line("result", rec.Result+" "+rec.Error)
 	r.log.close()
 	// An update step that failed before its commit was pushed left nothing on the branch to mark as failed.
@@ -176,6 +164,7 @@ func (r *run) record(out outcome, freeSlot bool) RunRecord {
 		}
 		if rec.Result == ResultSucceeded || rec.Result == ResultRolledBack {
 			cur.DeployedTag = rec.Tag
+			cur.Images = rec.Images
 			cur.Findings = slices.DeleteFunc(cur.Findings, func(f Finding) bool { return f.Kind == FindingTagRejected })
 			if tagErr != nil {
 				cur.Findings = append(cur.Findings, Finding{Kind: FindingTagRejected,
@@ -186,12 +175,9 @@ func (r *run) record(out outcome, freeSlot bool) RunRecord {
 					Detail: e.text("old run tags were not deleted: " + pruneErr.Error())})
 			}
 		}
-		cur.Observe = nil
+		r.trackVersions(&cur, rec, now)
 		if rec.Result == ResultSucceeded && rec.Trigger == TriggerReturn && cur.Pin == nil {
 			cur.Pin = &Hold{Since: now}
-		}
-		if d := r.st.ObserveTime(); rec.Result == ResultSucceeded && rec.Trigger == TriggerUpdate && d > 0 {
-			cur.Observe = &Observation{Run: rec.ID, From: r.deployed, Commit: rec.Commit, Backup: rec.Backup, Since: now, Until: now.Add(d)}
 		}
 		if cur.Pending != "" && (cur.Pending == rec.Commit || cur.Pending == out.at) {
 			cur.Pending = ""

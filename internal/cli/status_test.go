@@ -246,6 +246,18 @@ func TestObservationInStatusFields(t *testing.T) {
 	}
 }
 
+func TestFailedVersionsInStatusFields(t *testing.T) {
+	got := map[string]any{}
+	for _, f := range engineFields(control.EngineSystem, control.EngineStatus{Stacks: []control.StackStatus{
+		{Name: "web", Source: "srv", FailedVersions: map[string]string{"B_VERSION": "2.0.0", "A_VERSION": "1.1.0"}},
+	}}) {
+		got[f.Name] = f.Value
+	}
+	if want := "A_VERSION=1.1.0, B_VERSION=2.0.0"; got["stack.web.failed_versions"] != want {
+		t.Errorf("failed_versions = %v, want %q", got["stack.web.failed_versions"], want)
+	}
+}
+
 func TestStatusShowsTheWebhookReceiverAsNotSetUp(t *testing.T) {
 	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
 	code, stdout, _ := run(t, "status", "--output", "json")
@@ -323,5 +335,26 @@ func TestStatusShowsAnUnreadableHookConfigurationWithItsFile(t *testing.T) {
 	cfg, _ := got["hook_config"].(string)
 	if !strings.HasPrefix(cfg, "unreadable: ") || !strings.Contains(cfg, path) {
 		t.Fatalf("hook_config = %q", cfg)
+	}
+}
+
+func TestImageFingerprintsInStatusFieldsAndRunsText(t *testing.T) {
+	digest := "sha256:" + strings.Repeat("a", 64)
+	images := []control.FingerprintInfo{{Service: "app", Image: "reg.example.test/app:1", RepoDigest: digest, ImageID: "sha256:" + strings.Repeat("b", 64)},
+		{Service: "db", Image: "local/db"}}
+	got := map[string]any{}
+	for _, f := range engineFields(control.EngineSystem, control.EngineStatus{Stacks: []control.StackStatus{{Name: "web", Source: "srv", Images: images}}}) {
+		got[f.Name] = f.Value
+	}
+	for name, want := range map[string]string{"stack.web.image.app.repo_digest": digest, "stack.web.image.db.repo_digest": "missing", "stack.web.image.db.image_id": "missing", "stack.web.image.db.ref": "local/db"} {
+		if got[name] != want {
+			t.Errorf("%s = %v, want %q", name, got[name], want)
+		}
+	}
+	if want := "app=sha256:aaaaaaaaaaaa, db=missing"; imagesText(images, true) != want {
+		t.Errorf("table text = %q, want %q", imagesText(images, true), want)
+	}
+	if want := "app=" + digest + ", db=missing"; imagesText(images, false) != want {
+		t.Errorf("full text = %q, want %q", imagesText(images, false), want)
 	}
 }

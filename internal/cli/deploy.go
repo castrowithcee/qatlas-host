@@ -87,7 +87,7 @@ func newRunsCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 	runs := &cobra.Command{
 		Use:   "runs [stack]",
 		Short: "List the recorded runs, newest first",
-		Long: "runs lists the recorded runs of all stacks, or of one stack, newest first, with trigger, result, duration and the Git tag the run set on its commit.\n" +
+		Long: "runs lists the recorded runs of all stacks, or of one stack, newest first, with trigger, result, duration, the Git tag the run set on its commit and the repository digest of the image of each service after the run (missing when there is none).\n" +
 			"The runs are those of one deploy service: without a stack all stacks of that service.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
@@ -117,11 +117,11 @@ func newRunsCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 					"run": r.ID, "stack": r.Stack, "commit": commit, "trigger": r.Trigger,
 					"started":  r.Started.UTC().Format(time.RFC3339),
 					"duration": (time.Duration(r.DurationMS) * time.Millisecond).String(),
-					"result":   r.Result, "tag": r.Tag, "error": r.Error,
+					"result":   r.Result, "tag": r.Tag, "images": imagesText(r.Images, program.Format() == output.FormatTable), "error": r.Error,
 				})
 			}
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Collection{
-				Columns: []string{"run", "stack", "commit", "trigger", "started", "duration", "result", "tag", "error"}, Rows: rows})
+				Columns: []string{"run", "stack", "commit", "trigger", "started", "duration", "result", "tag", "images", "error"}, Rows: rows})
 		},
 	}
 	addEngineFlag(runs, &engine, optionalStackEngineUsage, stackEngineNote+" "+wholeEngineNote)
