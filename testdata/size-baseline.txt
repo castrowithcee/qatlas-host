@@ -113,14 +113,14 @@ cx internal/engine/return_test.go:TestReturnTakesTheVersionsFromTheParentOfTheRu
 cx internal/engine/revertfolder.go:Engine.RevertFolder 18
 cx internal/engine/rollback_test.go:TestPausedStackGetsNoRunsUntilResumed 18
 cx internal/engine/rollback_test.go:TestRollbackWaitsForOtherRuns 16
-cx internal/engine/run.go:run.record 37
+cx internal/engine/run.go:run.record 34
 cx internal/engine/run.go:run.revert 16
 cx internal/engine/run.go:run.secured 31
 cx internal/engine/settings.go:Engine.settingsBase 21
 cx internal/engine/settings_test.go:TestRemoveSettingsCommitsTheDeletionAndLeavesDeployOnly 16
 cx internal/engine/settings_test.go:TestSetSettingsCommitsPushesAndFollows 22
 cx internal/engine/state.go:validateMonitor 18
-cx internal/engine/state.go:validateState 30
+cx internal/engine/state.go:validateState 24
 cx internal/engine/update.go:Engine.UpdateWhile 18
 cx internal/engine/update_test.go:TestUpdateCommitsPushesAndDeploysOneStep 32
 cx internal/engine/update_test.go:TestUpdateFailureInTheMiddleStepRevertsOnlyThatStep 18
@@ -337,8 +337,7 @@ file internal/credentials/credentials.go 581
 file internal/diagnose/diagnose.go 625
 file internal/engine/engine.go 1184
 file internal/engine/engine_test.go 1366
-file internal/engine/run.go 694
-file internal/engine/state.go 525
+file internal/engine/run.go 691
 file internal/gitrepo/gitrepo.go 531
 file internal/gitrepo/remote.go 653
 file internal/helptopics/helptopics.go 639
@@ -438,11 +437,10 @@ len internal/engine/repair_test.go:TestRepairIsRefusedWhereItMustNotRun 62
 len internal/engine/return.go:Engine.Return 64
 len internal/engine/return_test.go:TestReturnRefusalsChangeNothing 82
 len internal/engine/revertfolder.go:Engine.RevertFolder 63
-len internal/engine/run.go:run.record 115
+len internal/engine/run.go:run.record 112
 len internal/engine/run.go:run.revert 67
 len internal/engine/run.go:run.secured 121
 len internal/engine/settings.go:Engine.settingsBase 61
-len internal/engine/state.go:State.clone 62
 len internal/engine/update.go:Engine.UpdateWhile 75
 len internal/engine/update_test.go:TestUpdateRefusals 78
 len internal/formatnum/inventory_test.go:writerFiles 68
@@ -565,5 +563,5 @@ len internal/tui/text.go:baseCatalog permanent: text catalog of the terminal int
 len internal/tui/updatetext.go:updateEnglish permanent: text catalog of the terminal interface, pure data
 len internal/tui/updatetext.go:updateGerman permanent: text catalog of the terminal interface, pure data
 len internal/uninstall/uninstall.go:Host.Plan 219
-len internal/updates/plan.go:Detector.Plan 85
+len internal/updates/plan.go:Detector.Plan 76
 len internal/version/version_test.go:TestSelect 63

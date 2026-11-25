@@ -19,8 +19,10 @@ type fakeDeployer struct {
 	block     chan struct{}
 	entered   chan struct{}
 	failCheck bool
-	calls     []string
-	pulled    []string
+	// failChecks is how many of the next checks fail, see failNextChecks.
+	failChecks int
+	calls      []string
+	pulled     []string
 }
 
 // hold makes the next deployments wait until the returned function is called.
@@ -36,6 +38,13 @@ func (d *fakeDeployer) setFailCheck(fail bool) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.failCheck = fail
+}
+
+// failNextChecks makes the next n checks fail; a rollback's check after them passes.
+func (d *fakeDeployer) failNextChecks(n int) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.failChecks = n
 }
 
 func (d *fakeDeployer) Stop(_ context.Context, st stacks.Stack, _ *engine.Log) error {
@@ -105,7 +114,8 @@ func (d *fakeDeployer) record(call string) {
 func (d *fakeDeployer) Check(context.Context, stacks.Stack, *engine.Log) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if d.failCheck {
+	if d.failCheck || d.failChecks > 0 {
+		d.failChecks = max(d.failChecks-1, 0)
 		return errors.New("the demo check failed")
 	}
 	return nil

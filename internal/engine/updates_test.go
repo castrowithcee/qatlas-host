@@ -51,7 +51,7 @@ func TestUpdatesRoundTripAndValidation(t *testing.T) {
 }
 
 func TestStateWithoutUpdatesStillDecodes(t *testing.T) {
-	old := `{"schema":1,"stacks":{"web":{"deployed":"` + commit(1) + `"}}}`
+	old := `{"schema":2,"stacks":{"web":{"deployed":"` + commit(1) + `"}}}`
 	s, err := decodeState([]byte(old))
 	if err != nil || validateState(s) != nil {
 		t.Fatalf("old state: %v", err)
