@@ -91,12 +91,12 @@ func TestPromoteWithoutRootRunsTheCommand(t *testing.T) {
 	f.report = `[{"stack":"demo-stack","variable":"APP_VERSION","from":"1.4.2","to":"1.5.0","run":"20261101T040000Z-00000003","commit":"0123456789abcdef","result":"succeeded","error":""}]`
 	send(m, promoteFromDetail...)
 	send(m, "enter")
-	contains(t, m, "sudo qhost stack promote --confirm")
+	contains(t, m, "sudo qhost stack promote --confirm --source-commit", promoteCommit)
 	if len(f.reqs) != 0 {
 		t.Fatalf("sudo ran before the answer: %+v", f.reqs)
 	}
 	send(m, "y")
-	want := []string{"stack", "promote", "--confirm", "--output", "json", "--", "mail-relay", "demo-stack"}
+	want := []string{"stack", "promote", "--confirm", "--source-commit", promoteCommit, "--output", "json", "--", "mail-relay", "demo-stack"}
 	if len(f.reqs) == 0 || !slices.Equal(f.reqs[len(f.reqs)-1].Args, want) {
 		t.Fatalf("requests %+v, want the arguments %v", f.reqs, want)
 	}

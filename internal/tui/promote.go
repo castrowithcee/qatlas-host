@@ -137,7 +137,7 @@ func (m *Model) askPromote(msg promoteCheckMsg) {
 	target, source, commit := msg.target, msg.source, res.SourceCommit
 	sengine, tengine := m.stackEngineOf(source), m.stackEngineOf(target)
 	sctx, tctx := m.engineCtx(sengine), m.engineCtx(tengine)
-	args := []string{"stack", "promote", "--confirm", "--output", "json"}
+	args := []string{"stack", "promote", "--confirm", "--source-commit", commit, "--output", "json"}
 	if m.multiEngine() && sengine != "" {
 		args = append(args, "--source-engine", sengine)
 	}

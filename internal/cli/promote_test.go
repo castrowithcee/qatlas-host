@@ -16,7 +16,7 @@ const promoteCommit = "0123456789abcdef0123456789abcdef01234567"
 
 // promoteHosts has the source in the rootless engine of alice and the target in the system engine; steps are
 // the versions the check offers and result the answer of the run.
-func promoteHosts(t *testing.T, steps []control.PromoteStepInfo, result control.PromoteRunResult) (system, alice *fakeService, runArgs func() control.PromoteArgs) {
+func promoteHosts(t *testing.T, steps []control.PromoteStepInfo, result control.PromoteRunResult, refuseOtherCommit ...bool) (system, alice *fakeService, runArgs func() control.PromoteArgs) {
 	t.Helper()
 	d := useFolderHost(t)
 	eps := engineHost(t, d, "alice")
@@ -38,6 +38,9 @@ func promoteHosts(t *testing.T, steps []control.PromoteStepInfo, result control.
 			mu.Lock()
 			defer mu.Unlock()
 			_ = json.Unmarshal(raw, &last)
+			if len(refuseOtherCommit) > 0 && last.Commit != last.Source.Commit {
+				return &control.Error{Code: control.CodeNotUpdatable, Message: "the source stack deployed another commit since the preview; preview again"}
+			}
 			return result
 		},
 	}
@@ -87,6 +90,50 @@ func TestPromoteConfirmRunsBoundToTheShownCommit(t *testing.T) {
 	rows := rowsOf(t, out)
 	if len(rows) != 1 || rows[0]["result"] != "succeeded" || rows[0]["run"] != "20260102T030405Z-0123abcd" || rows[0]["to"] != "1.3.0" {
 		t.Fatalf("rows = %s", out)
+	}
+}
+
+func TestPromoteSourceCommitIsPassedToTheRun(t *testing.T) {
+	steps := []control.PromoteStepInfo{{Variable: "APP_VERSION", From: "1.2.0", To: "1.3.0"}}
+	_, _, runArgs := promoteHosts(t, steps, control.PromoteRunResult{
+		PromoteCheckResult: control.PromoteCheckResult{Stack: "prod", Steps: steps}, Run: "20260102T030405Z-0123abcd", Result: "succeeded"})
+	other := strings.Repeat("b", 40)
+	if code, _, stderr := run(t, "stack", "promote", "stage", "prod", "--confirm", "--source-commit", other, "--output", "json"); code != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if got := runArgs(); got.Commit != other {
+		t.Fatalf("run commit = %q, want %q", got.Commit, other)
+	}
+}
+
+func TestPromotePreviewNamesTheCommitAndTheConfirmCommand(t *testing.T) {
+	steps := []control.PromoteStepInfo{{Variable: "APP_VERSION", From: "1.2.0", To: "1.3.0"}}
+	promoteHosts(t, steps, control.PromoteRunResult{})
+	_, out, stderr := run(t, "stack", "promote", "stage", "prod", "--output", "json")
+	if want := "sudo qhost stack promote stage prod --confirm --source-commit " + promoteCommit; !strings.Contains(stderr, want) {
+		t.Fatalf("stderr = %q, want %q", stderr, want)
+	}
+	for _, r := range rowsOf(t, out) {
+		if r["source_commit"] != promoteCommit {
+			t.Fatalf("row = %v", r)
+		}
+	}
+}
+
+func TestPromoteSourceCommitMustBeACommit(t *testing.T) {
+	system, _, _ := promoteHosts(t, nil, control.PromoteRunResult{})
+	code, _, stderr := run(t, "stack", "promote", "stage", "prod", "--confirm", "--source-commit", "abc123")
+	if code != 2 || !strings.Contains(stderr, "--source-commit") || system.count(control.PromoteRunCommand) != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+}
+
+func TestPromoteReportsTheRefusalOfAChangedSource(t *testing.T) {
+	steps := []control.PromoteStepInfo{{Variable: "APP_VERSION", From: "1.2.0", To: "1.3.0"}}
+	promoteHosts(t, steps, control.PromoteRunResult{}, true)
+	code, _, stderr := run(t, "stack", "promote", "stage", "prod", "--confirm", "--source-commit", strings.Repeat("b", 40))
+	if code == 0 || !strings.Contains(stderr, "preview again") {
+		t.Fatalf("code %d, stderr %q", code, stderr)
 	}
 }
 

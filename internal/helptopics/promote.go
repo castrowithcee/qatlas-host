@@ -25,7 +25,8 @@ Rules at the source:
 
 Preview and run:
 - Without --confirm the command shows, per variable of the target, the version it has and the one it gets, the source with its commit and, where it runs, its observation time. It changes nothing.
-- With --confirm the command runs, bound to the source commit of the preview. When the source has deployed another commit since, it refuses and a new preview is needed.
+- The preview names the full source commit, in --output json in the column source_commit, and the command to confirm it.
+- With --confirm --source-commit <commit> the command runs with exactly that commit, the one of the preview. When the source has deployed another commit since, it refuses and a new preview is needed. Without --source-commit, --confirm reads the source commit when it runs and binds the run to that.
 - The run has the trigger promote in qhost stack runs. Like an update it stops the stack, backs up its data if it has backup rules, commits all new versions to .env in one commit whose message names the source and the versions, pushes it, then pulls, starts and checks the stack. A failing run is rolled back; qhost stack rollback goes back afterwards. The command exits with 1 when the run did not succeed.
 
-In the terminal interface the stack detail has the key M. It asks for the source among the other stacks of the host, shows the same preview with the versions, the source and its observation time, and asks for the confirmation before the run. Without sudo the interface shows the command sudo qhost stack promote and runs it after y; that command reads the source again when it runs.`
+In the terminal interface the stack detail has the key M. It asks for the source among the other stacks of the host, shows the same preview with the versions, the source and its observation time, and asks for the confirmation before the run. Without sudo the interface shows the command sudo qhost stack promote and runs it after y; that command carries --source-commit with the commit of the preview.`

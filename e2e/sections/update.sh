@@ -512,9 +512,11 @@ scenario_promote() {
 	out=$(qd_fails --output json stack promote demo-stack demo-cache) || fail "promote without --confirm succeeded: $out"
 	printf '%s' "$out" | grep -q '"to": *"3.0.0"' || fail "the preview does not show 3.0.0: $out"
 	[ "$(stack_images demo-cache)" = "$image:1.1.0" ] || fail "the preview changed demo-cache: $(stack_images demo-cache)"
+	source_commit=$(json_values "$out" source_commit | head -n 1)
+	[ -n "$source_commit" ] || fail "the preview names no source commit: $out"
 
 	step 'promote --confirm is a run of demo-cache with the trigger promote and a commit that names demo-stack'
-	out=$(qd --output json stack promote demo-stack demo-cache --confirm) || fail "promote failed: $out"
+	out=$(qd --output json stack promote demo-stack demo-cache --confirm --source-commit "$source_commit") || fail "promote failed: $out"
 	[ "$(json_values "$out" result)" = succeeded ] || fail "the promotion did not succeed: $out"
 	run=$(json_values "$out" run | head -n 1)
 	commit=$(json_values "$out" commit | head -n 1)
@@ -527,7 +529,7 @@ scenario_promote() {
 	[ "$(as_admin "cd ~/stacks && git show --format= --numstat $commit")" = "$(printf '1\t1\tdemo-cache/.env')" ] || fail 'the promotion commit touches more than one line of demo-cache/.env'
 	[ "$(stack_images demo-cache)" = "$image:3.0.0" ] || fail "demo-cache does not run 3.0.0: $(stack_images demo-cache)"
 	stack_healthy demo-cache || fail 'demo-cache is not healthy after the promotion'
-	out=$(qd stack promote demo-stack demo-cache --confirm) || fail "promote of the same version failed: $out"
+	out=$(qd stack promote demo-stack demo-cache --confirm --source-commit "$source_commit") || fail "promote of the same version failed: $out"
 	printf '%s' "$out" | grep -q 'Nothing to promote' || fail "the same version is not reported as nothing to do: $out"
 
 	step 'the return of the promotion and the removal of the settings leave demo-cache as it was'
