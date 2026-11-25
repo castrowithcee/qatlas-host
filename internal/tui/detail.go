@@ -266,6 +266,9 @@ func (m *Model) detailLines(r stackRow, width int) []string {
 		lines = append(lines, m.framed(m.text.Lookup(key), "", width, 0, build)...)
 	}
 	section(textDetailVersions, func(w int) []string { return m.versionLines(r.engine, r.name, w) })
+	if images := m.fingerprintsOf(r.engine, r.name); len(images) > 0 {
+		section(textDetailImages, func(w int) []string { return m.imageLines(images, w) })
+	}
 	section(textDetailContainers, func(w int) []string { return m.stackContainerLines(r.engine, r.name, w) })
 	section(textDetailChangelog, m.changelogLines)
 	section(textDetailSecrets, m.secretLines)

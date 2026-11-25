@@ -249,17 +249,8 @@ func entryFields(prefix, engine string, e control.EngineStatus) []output.Field {
 		if s.LastRun != "" {
 			out = append(out, output.Field{Name: p + "last_run", Value: s.LastRun})
 		}
-		if len(s.Findings) > 0 {
-			parts := make([]string, 0, len(s.Findings))
-			for _, f := range s.Findings {
-				part := f.Kind
-				if f.Detail != "" {
-					part += ": " + f.Detail
-				}
-				parts = append(parts, part)
-			}
-			out = append(out, output.Field{Name: p + "findings", Value: strings.Join(parts, "; ")})
-		}
+		out = append(out, findingsField(p, s.Findings)...)
+		out = append(out, imageFields(p, s.Images)...)
 		if s.Removed {
 			out = append(out, output.Field{Name: p + "removed", Value: true})
 		}

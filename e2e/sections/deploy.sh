@@ -129,6 +129,11 @@ $hook_signing_value
 	printf '%s' "$log_text" | grep -q ' result succeeded' || fail "the run did not succeed: $log_text"
 	[ "$(stack_field demo-stack deployed)" = "$commit" ] || fail "demo-stack is not recorded as deployed at $commit: $(qd --output json status)"
 	[ "$(stack_images demo-stack)" = "registry.$domain/demo/app:1.0.1" ] || fail "demo-stack does not run the image 1.0.1: $(stack_images demo-stack)"
+	want=$(docker exec "$host" curl -fsSI -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json' \
+		"https://registry.$domain/v2/demo/app/manifests/1.0.1" | tr -d '\r' | sed -n 's/^[Dd]ocker-[Cc]ontent-[Dd]igest: *//p')
+	case $want in sha256:*) ;; *) fail "the test registry gives no digest for demo/app:1.0.1: $want" ;; esac
+	[ "$(stack_field demo-stack image.app.repo_digest)" = "$want" ] ||
+		fail "demo-stack does not record the registry digest $want of its image: $(stack_field demo-stack image.app.repo_digest)"
 	docker exec "$host" docker inspect -f '{{.Config.Env}}' "$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=demo-stack)" |
 		grep -q "DEMO_SECRET=$secret" || fail 'the container did not get the value of secrets.env'
 	log "scenario: deploy succeeded, run $run, deployed commit $commit"
