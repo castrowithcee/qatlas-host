@@ -7,7 +7,7 @@ import "github.com/castrowithcee/qatlas-kit/helptopics"
 // All returns the topics in the order a newcomer reads them. The text is plain ASCII with one line per
 // paragraph, list item, or command; the kit fits it to the width where it is shown.
 func All() []helptopics.Topic {
-	return []helptopics.Topic{
+	return append([]helptopics.Topic{
 		{Name: "qhost", Short: "What qhost is and what it is for", Text: overview},
 		{Name: "deploy-setup", Short: "The deploy service as its own service, and an instance per rootless engine: what the setup creates and why", Text: deployServiceTopic},
 		{Name: "hook-setup", Short: "The webhook receiver as its own service: setup, address, port, HTTPS through a reverse proxy, and what it may and may not do", Text: hookServiceTopic},
@@ -27,7 +27,7 @@ func All() []helptopics.Topic {
 		{Name: "host-admin", Short: "Read and change the users, groups and folder permissions of the host", Text: hostAdminTopic},
 		{Name: "troubleshooting", Short: "A state file that qhost cannot read: what the message means and what to do", Text: troubleshootingTopic},
 		{Name: "host-tui", Short: "The area System of the terminal interface: the users, groups and folder permissions of the host, its latest changes with undo and the action log", Text: hostTUITopic},
-	}
+	}, promoteTopics...)
 }
 
 const overview = `qhost runs as a service on a Linux host and keeps the Docker stacks of that host rolled out and up to date from its stacks repository.

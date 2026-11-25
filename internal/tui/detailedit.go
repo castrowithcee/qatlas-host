@@ -30,6 +30,7 @@ const (
 	pickBackup
 	pickHook
 	pickGrant
+	pickPromote
 )
 
 // picker is the list a person chooses one secret or one backup from.
@@ -75,8 +76,8 @@ func (m *Model) detailAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 		return m.openHookPick(), true
 	case actGrantAdd, actGrantRemove:
 		return m.grantAction(id), true
-	case actRollback:
-		return m.rollbackFromDetail(), true
+	case actRollback, actPromote:
+		return m.versionAction(id), true
 	case actDataDirs:
 		return m.openDataDirForm(), true
 	case actEdit:
@@ -224,6 +225,8 @@ func (m *Model) picked(id kittui.ItemID) tea.Cmd {
 		m.askHookRemove(stack, key)
 	case pickGrant:
 		m.askGrantRemove(stack, key)
+	case pickPromote:
+		return m.previewPromote(stack, key)
 	case pickBackup:
 		b := p.backups[id]
 		details := []string{b.Created.In(m.loc).Format(lastRunLayout), humanSize(b.Size)}

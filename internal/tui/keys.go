@@ -180,7 +180,7 @@ func keyTable() []kittui.Action {
 		act(actNo, kittui.LevelConfirm, textAnswerCancel, "n", "esc"),
 		act(actShowLog, kittui.LevelConfirm, textAnswerLog, "l"),
 	}
-	return append(table, kittui.LogViewActions()...)
+	return append(append(table, promoteKeys()...), kittui.LogViewActions()...)
 }
 
 func logKeys() kittui.LogViewKeys {

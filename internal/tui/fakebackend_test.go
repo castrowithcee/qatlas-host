@@ -98,7 +98,7 @@ type fakeBackend struct {
 	returns   []control.ReturnArgs
 	checks    []control.ReturnArgs
 	returnRes *control.ReturnRunResult
-
+	promoteFake
 	// stackSettings holds the settings by stack; a stack without an entry is only deployed. settingsSets and
 	// settingsRemoves record the writes in order; errs "settings:<stack>", "settingsset:<stack>" and
 	// "settingsremove:<stack>" fail the calls.
