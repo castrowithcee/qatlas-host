@@ -7,6 +7,7 @@ import (
 	"maps"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -150,8 +151,10 @@ type StackState struct {
 	Observe *Observation `json:"observe,omitempty"`
 	// FailedVersions maps an image version variable to the version whose update failed, by its check or in its
 	// observation time and was rolled back. The automatic update plans no step to such a version; an update
-	// to it by hand, or a successful update of the variable, removes it. Only the failed step is recorded.
+	// to it or to a higher one, by hand or not, removes it. Only the failed step is recorded.
 	FailedVersions map[string]string `json:"failed_versions,omitempty"`
+	// Images are the image fingerprints after the last run that left the stack running, empty when unread.
+	Images []ImageFingerprint `json:"images,omitempty"`
 }
 
 // MaxRepairAttempts is how many restarts the monitor makes before it halts the repair of a stack.
@@ -293,6 +296,8 @@ type RunRecord struct {
 	// Tag is the tag the run set on the commit the stack runs at after it (Commit after a success,
 	// RolledBackTo after a rollback), empty when none was set or the remote refused it.
 	Tag string `json:"tag,omitempty"`
+	// Images are the image fingerprints after a success or a rollback, empty when unread.
+	Images []ImageFingerprint `json:"images,omitempty"`
 }
 
 func validateState(s State) error {
@@ -336,15 +341,7 @@ func validateState(s State) error {
 			return err
 		}
 	}
-	for _, r := range s.Runs {
-		if !runIDRe.MatchString(r.ID) {
-			return errors.New("invalid run id")
-		}
-		if r.RolledBackTo != "" && !commitRe.MatchString(r.RolledBackTo) {
-			return errors.New("invalid commit id")
-		}
-	}
-	return nil
+	return validateHistory(s)
 }
 
 func validateDataDirs(w DataDirWait) error {
@@ -456,7 +453,7 @@ func (s State) clone() State {
 			v.Updates = &u
 		}
 		v.Failure = clonePtr(v.Failure)
-		v.Services = append([]string(nil), v.Services...)
+		v.Services, v.Images = append([]string(nil), v.Services...), slices.Clone(v.Images)
 		v.StoppedContainers = append([]string(nil), v.StoppedContainers...)
 		if v.Repair != nil {
 			r := *v.Repair

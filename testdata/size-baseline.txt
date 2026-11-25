@@ -66,7 +66,6 @@ cx internal/cli/source_perms.go:planPermissions 18
 cx internal/cli/source_remote.go:compareFields 26
 cx internal/cli/source_remote_test.go:TestSourceAddFilesWithURLYesPassesTheShownState 18
 cx internal/cli/stack_datadir.go:runDatadir 18
-cx internal/cli/status.go:entryFields 19
 cx internal/cli/status.go:failureOf 84
 cx internal/cli/tui_backend_test.go:TestEngineBackendMergesTheListsAndMarksTheEngine 17
 cx internal/cli/uninstall_instances_test.go:TestUninstallRemovesEveryInstanceAndKeepsUsersAndHomes 19
@@ -113,14 +112,14 @@ cx internal/engine/return_test.go:TestReturnTakesTheVersionsFromTheParentOfTheRu
 cx internal/engine/revertfolder.go:Engine.RevertFolder 18
 cx internal/engine/rollback_test.go:TestPausedStackGetsNoRunsUntilResumed 18
 cx internal/engine/rollback_test.go:TestRollbackWaitsForOtherRuns 16
-cx internal/engine/run.go:run.record 34
+cx internal/engine/run.go:run.record 29
 cx internal/engine/run.go:run.revert 16
 cx internal/engine/run.go:run.secured 31
 cx internal/engine/settings.go:Engine.settingsBase 21
 cx internal/engine/settings_test.go:TestRemoveSettingsCommitsTheDeletionAndLeavesDeployOnly 16
 cx internal/engine/settings_test.go:TestSetSettingsCommitsPushesAndFollows 22
 cx internal/engine/state.go:validateMonitor 18
-cx internal/engine/state.go:validateState 24
+cx internal/engine/state.go:validateState 20
 cx internal/engine/update.go:Engine.UpdateWhile 18
 cx internal/engine/update_test.go:TestUpdateCommitsPushesAndDeploysOneStep 32
 cx internal/engine/update_test.go:TestUpdateFailureInTheMiddleStepRevertsOnlyThatStep 18
@@ -292,7 +291,7 @@ cx internal/tui/general.go:Model.relocalize 18
 cx internal/tui/golden_test.go:keyMsg 16
 cx internal/tui/hostask.go:Model.hostFailed 19
 cx internal/tui/listeditor.go:Model.editorKey 29
-cx internal/tui/model.go:Model.Update 47
+cx internal/tui/model.go:Model.Update 45
 cx internal/tui/model.go:Model.enter 16
 cx internal/tui/model.go:Model.footer 38
 cx internal/tui/model.go:Model.frameSpec 17
@@ -305,9 +304,9 @@ cx internal/tui/model_test.go:TestRowsShowTheMostPressingState 17
 cx internal/tui/mouse.go:Model.mouse 31
 cx internal/tui/proposals.go:Model.proposalLines 17
 cx internal/tui/pty_test.go:TestSecretSetAtATerminalLeavesTheValueOnlyInTheSecretsFile 19
-cx internal/tui/settings.go:Model.applySetting 67
+cx internal/tui/settings.go:Model.applySetting 66
 cx internal/tui/settings.go:Model.settingsAction 24
-cx internal/tui/settingsform.go:Model.submitForm 36
+cx internal/tui/settingsform.go:Model.submitForm 29
 cx internal/tui/stacks.go:buildRows 29
 cx internal/tui/stacks.go:cells 21
 cx internal/tui/stacks80_test.go:TestStacks80NoCutWords 18
@@ -332,12 +331,12 @@ file internal/cli/source_add.go 763
 file internal/cli/source_move_run.go 670
 file internal/cli/tui_backend.go 779
 file internal/compose/datadirs.go 518
-file internal/control/control.go 2212
+file internal/control/control.go 2166
 file internal/credentials/credentials.go 581
 file internal/diagnose/diagnose.go 625
 file internal/engine/engine.go 1184
 file internal/engine/engine_test.go 1366
-file internal/engine/run.go 691
+file internal/engine/run.go 680
 file internal/gitrepo/gitrepo.go 531
 file internal/gitrepo/remote.go 653
 file internal/helptopics/helptopics.go 639
@@ -348,7 +347,7 @@ file internal/host/hostchange/users_delete.go 579
 file internal/proposals/proposals.go 569
 file internal/registry/client.go 706
 file internal/service/inspect.go 852
-file internal/service/monitor.go 659
+file internal/service/monitor.go 655
 file internal/service/repo.go 600
 file internal/service/servicetest/servicetest.go 572
 file internal/service/sourceremote.go 639
@@ -356,14 +355,14 @@ file internal/service/sources.go 842
 file internal/stacks/refs.go 504
 file internal/stacks/rules.go 503
 file internal/stacks/stacks.go 545
-file internal/tui/actions.go 915
-file internal/tui/backend.go 642
-file internal/tui/detail.go 670
-file internal/tui/fakebackend_test.go 1296
+file internal/tui/actions.go 911
+file internal/tui/backend.go 610
+file internal/tui/detail.go 649
+file internal/tui/fakebackend_test.go 1260
 file internal/tui/folders.go 855
-file internal/tui/model.go 1563
-file internal/tui/settings.go 942
-file internal/tui/settingsform.go 556
+file internal/tui/model.go 1559
+file internal/tui/settings.go 940
+file internal/tui/settingsform.go 544
 file internal/tui/settingstext.go permanent: text catalog of the terminal interface, pure data
 file internal/tui/stacks.go 505
 file internal/tui/system.go 644
@@ -418,7 +417,6 @@ len internal/cli/source_move.go:newSourceMoveCommand 64
 len internal/cli/source_move_run_test.go:startMove 123
 len internal/cli/source_remote.go:compareFields 83
 len internal/cli/stack_datadir.go:runDatadir 83
-len internal/cli/status.go:entryFields 65
 len internal/cli/status.go:failureOf 148
 len internal/cli/tools_calls.go:init 79
 len internal/cli/tui.go:newTUICommand 130
@@ -437,7 +435,7 @@ len internal/engine/repair_test.go:TestRepairIsRefusedWhereItMustNotRun 62
 len internal/engine/return.go:Engine.Return 64
 len internal/engine/return_test.go:TestReturnRefusalsChangeNothing 82
 len internal/engine/revertfolder.go:Engine.RevertFolder 63
-len internal/engine/run.go:run.record 112
+len internal/engine/run.go:run.record 101
 len internal/engine/run.go:run.revert 67
 len internal/engine/run.go:run.secured 121
 len internal/engine/settings.go:Engine.settingsBase 61
@@ -529,7 +527,7 @@ len internal/stackcheck/stackcheck_test.go:TestFunctions 67
 len internal/stacks/rules.go:validateRules 148
 len internal/stacks/settings_test.go:TestEncodeSettingsIsCanonicalBlockYAML 62
 len internal/stacks/stacks.go:loadStack 116
-len internal/tui/backend_test.go:TestChannelBackendSpeaksTheServiceCommands 89
+len internal/tui/backend_test.go:TestChannelBackendSpeaksTheServiceCommands 76
 len internal/tui/backuptext.go:backupEnglish permanent: text catalog of the terminal interface, pure data
 len internal/tui/backuptext.go:backupGerman permanent: text catalog of the terminal interface, pure data
 len internal/tui/containertext.go:containerEnglish permanent: text catalog of the terminal interface, pure data
@@ -539,9 +537,9 @@ len internal/tui/detailtext.go:detailGerman permanent: text catalog of the termi
 len internal/tui/enginesections.go:Model.fillSections 68
 len internal/tui/fakebackend_test.go:demoBackend 94
 len internal/tui/general.go:Model.relocalize 76
-len internal/tui/keys.go:keyTable 75
+len internal/tui/keys.go:keyTable 74
 len internal/tui/listeditor.go:Model.editorKey 65
-len internal/tui/model.go:Model.Update 105
+len internal/tui/model.go:Model.Update 101
 len internal/tui/model.go:Model.footer 80
 len internal/tui/model.go:Model.key 247
 len internal/tui/model.go:Model.render 86
@@ -549,8 +547,8 @@ len internal/tui/model.go:newModel 63
 len internal/tui/mouse.go:Model.mouse 68
 len internal/tui/proposals.go:Model.proposalLines 68
 len internal/tui/pty_test.go:TestSecretSetAtATerminalLeavesTheValueOnlyInTheSecretsFile 72
-len internal/tui/settings.go:Model.applySetting 204
-len internal/tui/settingsform.go:Model.submitForm 77
+len internal/tui/settings.go:Model.applySetting 199
+len internal/tui/settingsform.go:Model.submitForm 63
 len internal/tui/settingstext.go:settingsEnglish permanent: text catalog of the terminal interface, pure data
 len internal/tui/settingstext.go:settingsGerman permanent: text catalog of the terminal interface, pure data
 len internal/tui/stacks.go:buildRows 107

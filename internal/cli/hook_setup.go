@@ -32,7 +32,8 @@ func newHookSetupCommand(program *cobracli.Program) *cobra.Command {
 			"login, no home and no other group, /etc/qhost-hook with the configuration config.json (root:qhost-hook,\n" +
 			"mode 0644, no hooks at first), the marker folders /run/qhost-hook and one per deploy service instance\n" +
 			"(made at every boot by /etc/tmpfiles.d/qhost-hook.conf) and the unit qhost-hook.service, which it enables\n" +
-			"and starts. The user never joins the group docker or qhost.\n" +
+			"and starts. The user never joins the group docker or qhost. A running deploy service whose marker folder\n" +
+			"the setup creates restarts with systemctl try-restart to be able to write it; a stopped one stays stopped.\n" +
 			"--listen <host:port> sets the address. Without it the first setup listens on " + deploysetup.DefaultHookListen + ", only\n" +
 			"local, and a later setup keeps the stored address. The port must be above 1024. A changed address is\n" +
 			"written to the configuration and restarts the receiver; hooks stay as they are. The receiver speaks plain\n" +

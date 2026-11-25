@@ -266,6 +266,9 @@ func (m *Model) detailLines(r stackRow, width int) []string {
 		lines = append(lines, m.framed(m.text.Lookup(key), "", width, 0, build)...)
 	}
 	section(textDetailVersions, func(w int) []string { return m.versionLines(r.engine, r.name, w) })
+	if images := m.fingerprintsOf(r.engine, r.name); len(images) > 0 {
+		section(textDetailImages, func(w int) []string { return m.imageLines(images, w) })
+	}
 	section(textDetailContainers, func(w int) []string { return m.stackContainerLines(r.engine, r.name, w) })
 	section(textDetailChangelog, m.changelogLines)
 	section(textDetailSecrets, m.secretLines)
@@ -352,26 +355,6 @@ func (m *Model) summaryLines(r stackRow, width int) []string {
 		out = append(out, row(failedLabel, kittui.StyleWarn, m.text.Lookup(textFailedVersionsLine, failedVersions)))
 	}
 	return out
-}
-
-// failedVersionsOf is the locked versions the status reports for a stack as text, empty when it reports none.
-func (m *Model) failedVersionsOf(engine, stack string) string {
-	for i, st := range m.snap.status.Engine.Stacks {
-		if st.Name == stack && inEngine(st.Engine, engine) && primary(m.snap.status.Engine.Stacks, i) {
-			return control.FailedVersionsText(st.FailedVersions)
-		}
-	}
-	return ""
-}
-
-// observeOf is the running observation time the status reports for a stack, nil when it reports none.
-func (m *Model) observeOf(engine, stack string) *control.ObserveInfo {
-	for i, st := range m.snap.status.Engine.Stacks {
-		if st.Name == stack && inEngine(st.Engine, engine) && primary(m.snap.status.Engine.Stacks, i) {
-			return st.Observe
-		}
-	}
-	return nil
 }
 
 // repairOf is the automatic repair the status reports for a stack, nil when it reports none.

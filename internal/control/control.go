@@ -339,6 +339,8 @@ type StackStatus struct {
 	// FailedVersions maps an image version variable to the version whose update failed; automatic updates skip
 	// it. It is empty when none is locked.
 	FailedVersions map[string]string `json:"failed_versions,omitempty"`
+	// Images are the fingerprints of the images the stack runs since its last successful run or rollback.
+	Images []FingerprintInfo `json:"images,omitempty"`
 }
 
 // The commands that control runs. ResumeCommand clears the pause of a stack and starts no run.
@@ -558,6 +560,8 @@ type RunInfo struct {
 	LogUnreadable string `json:"log_unreadable,omitempty"`
 	// Engine is the engine of the deploy service that recorded the run; empty as in StackStatus.Engine.
 	Engine string `json:"engine,omitempty"`
+	// Images are the fingerprints of the images the stack ran after the run; empty when the run recorded none.
+	Images []FingerprintInfo `json:"images,omitempty"`
 }
 
 // RunsResult answers RunsCommand, newest run first. NotChecked is set as in StatusResult.

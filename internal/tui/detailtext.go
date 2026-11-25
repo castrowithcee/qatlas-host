@@ -79,6 +79,9 @@ const (
 	textFailureUnhealthy     kittui.TextID = "failure.unhealthy"
 	textFailureRestartLoop   kittui.TextID = "failure.restartloop"
 	textFailureMissing       kittui.TextID = "failure.missing"
+	textDetailImages         kittui.TextID = "detail.images"
+	textImageFacts           kittui.TextID = "image.facts"
+	textImageMissing         kittui.TextID = "image.missing"
 )
 
 func detailEnglish() map[kittui.TextID]string {
@@ -128,6 +131,9 @@ func detailEnglish() map[kittui.TextID]string {
 		textRepairNext:           "%d of %d attempts, next at %s",
 		textRepairAttempts:       "%d of %d attempts",
 		textDetailObserve:        "Observation",
+		textDetailImages:         "Images",
+		textImageFacts:           "digest %s  id %s",
+		textImageMissing:         "missing",
 		textObserveUntil:         "update %s until %s; a failure rolls it back",
 		textDetailFailedVersions: "Skipped versions",
 		textFailedVersionsLine:   "%s failed; automatic updates skip them until a higher one appears",
@@ -208,6 +214,9 @@ func detailGerman() map[kittui.TextID]string {
 		textRepairNext:           "%d von %d Versuchen, nächster um %s",
 		textRepairAttempts:       "%d von %d Versuchen",
 		textDetailObserve:        "Beobachtung",
+		textDetailImages:         "Images",
+		textImageFacts:           "Digest %s  ID %s",
+		textImageMissing:         "fehlt",
 		textObserveUntil:         "Update %s bis %s; ein Ausfall setzt es zurück",
 		textDetailFailedVersions: "Übersprungene Versionen",
 		textFailedVersionsLine:   "%s gescheitert; automatische Updates überspringen sie, bis eine höhere erscheint",

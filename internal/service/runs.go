@@ -90,7 +90,7 @@ func registerRunCommands(r *control.Registry, eng *sourceSet, version string, st
 				res.Runs = append(res.Runs, control.RunInfo{
 					ID: printable(rec.ID), Stack: printable(rec.Stack), Commit: printable(rec.Commit),
 					Trigger: printable(rec.Trigger), Started: rec.Started, DurationMS: rec.Duration.Milliseconds(),
-					Result: printable(rec.Result), Error: printable(rec.Error), Tag: printable(rec.Tag), Backup: printable(rec.Backup), LogUnreadable: unreadable,
+					Result: printable(rec.Result), Error: printable(rec.Error), Tag: printable(rec.Tag), Backup: printable(rec.Backup), LogUnreadable: unreadable, Images: fingerprintInfos(rec.Images),
 				})
 			}
 			return res, nil
@@ -203,7 +203,7 @@ func stackStatuses(snap engine.Snapshot) []control.StackStatus {
 	for _, n := range names {
 		s := st.Stacks[n]
 		item := control.StackStatus{
-			Name: printable(n), Deployed: printable(s.Deployed), Pending: printable(s.Pending),
+			Name: printable(n), Deployed: printable(s.Deployed), Pending: printable(s.Pending), Images: fingerprintInfos(s.Images),
 			ActiveRun: printable(snap.Active[n]), Findings: []control.FindingInfo{}, Removed: s.Removed, FailedVersions: printableMap(s.FailedVersions),
 		}
 		if s.LastRun != nil {
@@ -268,4 +268,15 @@ func printableMap(m map[string]string) map[string]string {
 
 func pauseInfo(p engine.Pause) control.PauseInfo {
 	return control.PauseInfo{Since: p.Time, Run: printable(p.Run), Reason: printable(p.Reason)}
+}
+
+// fingerprintInfos is the wire form of image fingerprints; they come from Docker, so they are only cleaned and
+// never interpreted.
+func fingerprintInfos(in []engine.ImageFingerprint) []control.FingerprintInfo {
+	var out []control.FingerprintInfo
+	for _, f := range in {
+		out = append(out, control.FingerprintInfo{Service: printable(f.Service), Image: printable(f.Image),
+			RepoDigest: printable(f.RepoDigest), ImageID: printable(f.ImageID)})
+	}
+	return out
 }
