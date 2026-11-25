@@ -45,7 +45,7 @@ func TestMonitorRecordRoundTripValidationAndOldState(t *testing.T) {
 		}
 	}
 
-	old := `{"schema":1,"stacks":{"web":{"deployed":"` + commit(1) + `"}}}`
+	old := `{"schema":2,"stacks":{"web":{"deployed":"` + commit(1) + `"}}}`
 	o, err := decodeState([]byte(old))
 	if err != nil || validateState(o) != nil || o.Stacks["web"].Failure != nil {
 		t.Fatalf("old state: %v", err)
@@ -124,7 +124,7 @@ func TestStoppedContainersMarkPersistsValidatesAndLoadsFromOldState(t *testing.T
 	if s.Stacks["web"].StoppedContainers[0] != "c2" {
 		t.Fatal("clone shares memory")
 	}
-	o, err := decodeState([]byte(`{"schema":1,"stacks":{"web":{"deployed":"` + commit(1) + `"}}}`))
+	o, err := decodeState([]byte(`{"schema":2,"stacks":{"web":{"deployed":"` + commit(1) + `"}}}`))
 	if err != nil || validateState(o) != nil || o.Stacks["web"].StoppedContainers != nil {
 		t.Fatalf("old state: %v", err)
 	}

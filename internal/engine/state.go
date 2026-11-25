@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 )
 
 const (
-	stateSchema = 1
+	stateSchema = 2
 	// keepRuns bounds the run history, and with it the run logs, per stack.
 	keepRuns = 50
 )
@@ -147,6 +148,8 @@ type StackState struct {
 	// Observe is the update under observation, set by the last run when it was a successful update step and
 	// the stack's observation time is not zero. It stays after Until has passed, until the next run.
 	Observe *Observation `json:"observe,omitempty"`
+	// Images are the image fingerprints after the last run that left the stack running, empty when unread.
+	Images []ImageFingerprint `json:"images,omitempty"`
 }
 
 // Observation is an update by qhost and its observation time: a failure of the stack from Since until before
@@ -300,6 +303,8 @@ type RunRecord struct {
 	// Tag is the tag the run set on the commit the stack runs at after it (Commit after a success,
 	// RolledBackTo after a rollback), empty when none was set or the remote refused it.
 	Tag string `json:"tag,omitempty"`
+	// Images are the image fingerprints after a success or a rollback, empty when unread.
+	Images []ImageFingerprint `json:"images,omitempty"`
 }
 
 func validateState(s State) error {
@@ -344,15 +349,7 @@ func validateState(s State) error {
 			return errors.New("invalid observation")
 		}
 	}
-	for _, r := range s.Runs {
-		if !runIDRe.MatchString(r.ID) {
-			return errors.New("invalid run id")
-		}
-		if r.RolledBackTo != "" && !commitRe.MatchString(r.RolledBackTo) {
-			return errors.New("invalid commit id")
-		}
-	}
-	return nil
+	return validateHistory(s)
 }
 
 func validateDataDirs(w DataDirWait) error {
@@ -482,7 +479,7 @@ func (s State) clone() State {
 			f := *v.Failure
 			v.Failure = &f
 		}
-		v.Services = append([]string(nil), v.Services...)
+		v.Services, v.Images = append([]string(nil), v.Services...), slices.Clone(v.Images)
 		v.StoppedContainers = append([]string(nil), v.StoppedContainers...)
 		if v.Repair != nil {
 			r := *v.Repair

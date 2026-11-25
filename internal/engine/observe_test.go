@@ -255,7 +255,7 @@ func TestStateWithoutObservationLoads(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	old := `{"schema":1,"stacks":{"web":{"deployed":"` + commit(1) + `"}}}`
+	old := `{"schema":2,"stacks":{"web":{"deployed":"` + commit(1) + `"}}}`
 	if err := os.WriteFile(filepath.Join(dir, stateFile), []byte(old), 0o600); err != nil {
 		t.Fatal(err)
 	}

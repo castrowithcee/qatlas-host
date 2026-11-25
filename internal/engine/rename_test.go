@@ -79,7 +79,7 @@ func TestProjectRenameIsNotDeployedAutomatically(t *testing.T) {
 
 func TestStateWithoutFolderMeansFolderIsTheName(t *testing.T) {
 	r := newRig(t, "web", "db")
-	state := `{"schema":1,"stacks":{"web":{"deployed":"` + commit(1) + `"},"db":{"deployed":"` + commit(1) + `"}}}`
+	state := `{"schema":2,"stacks":{"web":{"deployed":"` + commit(1) + `"},"db":{"deployed":"` + commit(1) + `"}}}`
 	if err := os.MkdirAll(filepath.Join(r.state, engineDir), 0o755); err != nil {
 		t.Fatal(err)
 	}
