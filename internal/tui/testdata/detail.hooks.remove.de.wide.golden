@@ -32,9 +32,10 @@
 ╰───────────────────────────║ Seine Adresse wirkt nach spätestens zehn Sekunden nicht      ║───────────────────────────╯
 ╭─ Webhooks ────────────────║ mehr. Das lässt sich nicht rückgängig machen.                ║───────────────────────────╮
 │ h-a1b2c3d0  2026-01-02 03:║                                                              ║                           │
-╰───────────────────────────║ [ ja, ausführen ]  > abbrechen <                             ║───────────────────────────╯
-╭─ Freigaben ───────────────║ y ja, ausführen  n/esc/enter abbrechen                       ║───────────────────────────╮
-│ Eine Freigabe gilt für den╚══════════════════════════════════════════════════════════════╝.                          │
+│ h-a1b2c3d1  -             ║ [ ja, ausführen ]  > abbrechen <                             ║                           │
+╰───────────────────────────║ y ja, ausführen  n/esc/enter abbrechen                       ║───────────────────────────╯
+╭─ Freigaben ───────────────╚══════════════════════════════════════════════════════════════╝───────────────────────────╮
+│ Eine Freigabe gilt für den Benutzer und für jeden Agenten, der unter seinem Konto arbeitet.                          │
 │ Keine Freigaben für diesen Stack.                                                                                    │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -60,5 +61,4 @@
 │ Rollback mit Daten  geht                                                                                             │
 │   a failed run goes back to the previous commit and restores the backup it made before the change                    │
 │ Backup  geht                                                                                                         │
-│   a backup saves the data directories data/db                                                                        │
-                                                                                                                   60/66
+                                                                                                                   60/67

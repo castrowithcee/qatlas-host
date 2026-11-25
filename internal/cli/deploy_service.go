@@ -80,6 +80,7 @@ func instanceTarget(user string, uid int) (runTarget, error) {
 
 func newDeployRunCommand() *cobra.Command {
 	var backupImage, dockerSocket, instance string
+	var timing runTiming
 	cmd := &cobra.Command{
 		Use:   "run [--instance <user>]",
 		Short: "Run the deploy service in the foreground",
@@ -105,16 +106,20 @@ func newDeployRunCommand() *cobra.Command {
 					return err
 				}
 			}
+			var cfg service.Config
+			if err := timing.apply(&cfg); err != nil {
+				return err
+			}
 			ctx, stop := signal.NotifyContext(c.Context(), syscall.SIGTERM, syscall.SIGINT)
 			defer stop()
 			backups := backup.NewManager(filepath.Join(target.stateDir, "backups"), target.stateDir, target.socket)
 			backups.Image = backupImage
 			deployer := compose.New(backups.ForRuns(), target.stateDir, target.socket)
 			deployer.Exec.HelperImage = backupImage
+			cfg.Version, cfg.Endpoint, cfg.StateDir, cfg.Deployer, cfg.Backups = version, target.endpoint, target.stateDir, deployer, backups
+			cfg.DockerSocket, cfg.Engine, cfg.HookDir = target.socket, target.engine, target.hookDir
 			return service.Run(ctx, slog.New(slog.NewTextHandler(c.ErrOrStderr(), nil)).With("pid", os.Getpid()),
-				service.Config{Version: version, Endpoint: target.endpoint, StateDir: target.stateDir,
-					Deployer: deployer, Backups: backups, DockerSocket: target.socket, Engine: target.engine,
-					HookDir: target.hookDir})
+				cfg)
 		},
 	}
 	cmd.Flags().StringVar(&instance, "instance", "", "run the instance for the rootless engine of this user")
@@ -122,6 +127,7 @@ func newDeployRunCommand() *cobra.Command {
 		"helper image of backups and restores; it needs a POSIX shell, find, rm and a tar that knows --numeric-owner")
 	cmd.Flags().StringVar(&dockerSocket, "docker-socket", service.DefaultDockerSocket,
 		"socket of the container engine for every Docker access of the service")
+	timing.addFlags(cmd)
 	return cmd
 }
 

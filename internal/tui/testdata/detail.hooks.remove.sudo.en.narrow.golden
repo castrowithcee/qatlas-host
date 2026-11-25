@@ -32,11 +32,12 @@
 ╰─║ Its address stops working within ten seconds.    ║─╯
 ╭─║ This cannot be undone.                           ║─╮
 │ ║ $ sudo qhost hook remove --output json --        ║ │
-╰─║   h-a1b2c3d0                                     ║─╯
-╭─║                                                  ║─╮
-│ ║ [ yes, with sudo ]  > cancel <                   ║ │
+│ ║   h-a1b2c3d0                                     ║ │
+╰─║                                                  ║─╯
+╭─║ [ yes, with sudo ]  > cancel <                   ║─╮
 │ ║ y yes, with sudo  n/esc/enter cancel             ║ │
 │ ╚══════════════════════════════════════════════════╝ │
+│ No grants for this stack.                            │
 ╰──────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                            │
@@ -60,5 +61,4 @@
 │   the maintenance window updates APP_VERSION by      │
 │   itself                                             │
 │ Rollback with data  works                            │
-│   a failed run goes back to the previous commit and  │
-                                                   60/71
+                                                   60/72

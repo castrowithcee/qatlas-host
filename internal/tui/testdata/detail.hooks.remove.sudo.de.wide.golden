@@ -32,10 +32,11 @@
 ╰───────────────────────────║ Seine Adresse wirkt nach spätestens zehn Sekunden nicht      ║───────────────────────────╯
 ╭─ Webhooks ────────────────║ mehr. Das lässt sich nicht rückgängig machen.                ║───────────────────────────╮
 │ h-a1b2c3d0  2026-01-02 03:║ $ sudo qhost hook remove --output json -- h-a1b2c3d0         ║                           │
-╰───────────────────────────║                                                              ║───────────────────────────╯
-╭─ Freigaben ───────────────║ [ ja, mit sudo ]  > abbrechen <                              ║───────────────────────────╮
-│ Eine Freigabe gilt für den║ y ja, mit sudo  n/esc/enter abbrechen                        ║.                          │
-│ Keine Freigaben für diesen╚══════════════════════════════════════════════════════════════╝                           │
+│ h-a1b2c3d1  -             ║                                                              ║                           │
+╰───────────────────────────║ [ ja, mit sudo ]  > abbrechen <                              ║───────────────────────────╯
+╭─ Freigaben ───────────────║ y ja, mit sudo  n/esc/enter abbrechen                        ║───────────────────────────╮
+│ Eine Freigabe gilt für den╚══════════════════════════════════════════════════════════════╝.                          │
+│ Keine Freigaben für diesen Stack.                                                                                    │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Backups ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ 20261030T140100Z-0123abcd                                                                                            │
@@ -60,5 +61,4 @@
 │ Rollback mit Daten  geht                                                                                             │
 │   a failed run goes back to the previous commit and restores the backup it made before the change                    │
 │ Backup  geht                                                                                                         │
-│   a backup saves the data directories data/db                                                                        │
-                                                                                                                   60/66
+                                                                                                                   60/67

@@ -20,9 +20,6 @@ import (
 const (
 	defaultMonitorInterval = 30 * time.Second
 	monitorListTimeout     = 20 * time.Second
-	// unhealthyAfter is how long a container must be observed unhealthy without a break before it counts; it
-	// must be exceeded, not just reached.
-	unhealthyAfter = time.Minute
 	// A restart loop is a restart count that rose by restartRise or more within restartWindow.
 	restartWindow = 5 * time.Minute
 	restartRise   = 3
@@ -33,11 +30,6 @@ const (
 	// repairStable is how long a stack runs without a failure before its restarts no longer count.
 	repairStable = time.Hour
 )
-
-// repairDelays are the waits before each repair attempt: the first from the start of the failure, each further
-// one from the attempt before. The first restarts the failed containers, the others the stack. In the
-// observation time of an update the rollback of the update takes the place of the second and third.
-var repairDelays = [engine.MaxRepairAttempts]time.Duration{time.Minute, 5 * time.Minute, 15 * time.Minute}
 
 var exitedStatusRe = regexp.MustCompile(`^Exited \((\d+)\)`)
 
@@ -102,13 +94,16 @@ type monitorEngine interface {
 }
 
 type monitorConfig struct {
-	Docker    Docker
-	Engine    monitorEngine
-	Clock     engine.Clock // nil means the system clock
-	Interval  time.Duration
-	StackDirs func() map[string]string
-	Hook      func(MonitorEvent)
-	Log       *slog.Logger
+	Docker   Docker
+	Engine   monitorEngine
+	Clock    engine.Clock // nil means the system clock
+	Interval time.Duration
+	// RepairDelays and UnhealthyAfter: zero values mean the product values, see fillTimingDefaults.
+	RepairDelays   [engine.MaxRepairAttempts]time.Duration
+	UnhealthyAfter time.Duration
+	StackDirs      func() map[string]string
+	Hook           func(MonitorEvent)
+	Log            *slog.Logger
 }
 
 type restartSample struct {
@@ -158,6 +153,7 @@ func newContainerMonitor(cfg monitorConfig) *containerMonitor {
 	if cfg.Interval <= 0 {
 		cfg.Interval = defaultMonitorInterval
 	}
+	cfg.fillTimingDefaults()
 	if cfg.Hook == nil {
 		cfg.Hook = func(MonitorEvent) {}
 	}
@@ -379,9 +375,9 @@ func (m *containerMonitor) planRepair(now time.Time, name string, cur *engine.Re
 		}
 		return repairAttempt{}, false
 	}
-	next := f.Since.Add(repairDelays[0])
+	next := f.Since.Add(m.RepairDelays[0])
 	if r.Attempts > 0 {
-		if t := r.Last.Add(repairDelays[r.Attempts]); t.After(next) {
+		if t := r.Last.Add(m.RepairDelays[r.Attempts]); t.After(next) {
 			next = t
 		}
 	}
@@ -396,7 +392,7 @@ func (m *containerMonitor) planRepair(now time.Time, name string, cur *engine.Re
 	}
 	a := repairAttempt{stack: name, rec: engine.Repair{Attempts: r.Attempts + 1, Last: now.UTC()}}
 	if a.rec.Attempts < engine.MaxRepairAttempts {
-		a.rec.Next = now.Add(repairDelays[a.rec.Attempts]).UTC()
+		a.rec.Next = now.Add(m.RepairDelays[a.rec.Attempts]).UTC()
 	}
 	if r.Attempts == 0 {
 		// Without a failed container, as for a missing service, the first attempt restarts the stack too.
@@ -412,8 +408,8 @@ func (m *containerMonitor) planRepair(now time.Time, name string, cur *engine.Re
 func (m *containerMonitor) planObserved(now time.Time, name string, cur *engine.Repair, r engine.Repair,
 	obs engine.Observation, f engine.Failure, failed []string) (repairAttempt, bool) {
 	restarted := r.Attempts > 0 && !r.Last.Before(obs.Since)
-	next := f.Since.Add(repairDelays[0])
-	if t := r.Last.Add(repairDelays[1]); restarted && t.After(next) {
+	next := f.Since.Add(m.RepairDelays[0])
+	if t := r.Last.Add(m.RepairDelays[1]); restarted && t.After(next) {
 		next = t
 	}
 	r.Next = next.UTC()
@@ -429,7 +425,7 @@ func (m *containerMonitor) planObserved(now time.Time, name string, cur *engine.
 		return repairAttempt{stack: name, rec: r, update: obs.Commit, failure: f}, true
 	}
 	return repairAttempt{stack: name, containers: failed, rec: engine.Repair{Attempts: r.Attempts + 1, Last: now.UTC(),
-		Next: now.Add(repairDelays[1]).UTC()}}, true
+		Next: now.Add(m.RepairDelays[1]).UTC()}}, true
 }
 
 // settleRepair handles the repair of a stack without an open failure: no attempt is due, and after
@@ -634,7 +630,7 @@ func (m *containerMonitor) detect(now time.Time, cs []docker.Container, expected
 				since = now
 			}
 			m.unhealthySince[c.ID] = since
-			if now.Sub(since) > unhealthyAfter {
+			if now.Sub(since) > m.UnhealthyAfter {
 				fail(engine.FailureUnhealthy, c)
 			}
 		}
