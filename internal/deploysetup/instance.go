@@ -300,12 +300,12 @@ func (h Host) PlanInstance(ctx context.Context, user string) (Plan, error) {
 	if ruleChanged || !h.exists(inst.ChannelDir()) {
 		command("systemd-tmpfiles", "--create", inst.TmpfilesConf())
 	}
+	if err := h.planHookInstances(ctx, &plan, user); err != nil {
+		return Plan{}, err
+	}
 	if templateChanged || h.run(ctx, "systemctl", "is-enabled", "--quiet", inst.Unit()) != nil ||
 		h.run(ctx, "systemctl", "is-active", "--quiet", inst.Unit()) != nil {
 		command("systemctl", "enable", "--now", inst.Unit())
-	}
-	if err := h.planHookInstances(&plan, user); err != nil {
-		return Plan{}, err
 	}
 	return plan, nil
 }

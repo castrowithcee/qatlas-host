@@ -218,7 +218,7 @@ func (h Host) PlanHook(ctx context.Context, listen string) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	h.addHookRule(&plan, rule, dirs)
+	h.addHookRule(ctx, &plan, rule, dirs)
 
 	unitChanged := h.differs(HookUnitPath(), packaging.HookUnit)
 	if unitChanged {
@@ -355,8 +355,11 @@ func (h Host) hookRule(groups map[string]group, accounts map[string]account, ext
 	return b.Bytes(), dirs, nil
 }
 
-// addHookRule adds the steps that write the tmpfiles file and create the folders where either is missing.
-func (h Host) addHookRule(plan *Plan, rule []byte, dirs []string) {
+// addHookRule adds the steps that write the tmpfiles file and create the folders where either is missing. A deploy
+// service that is active while its folder is missing restarts after the folder exists: its unit lists the folder in
+// ReadWritePaths= as optional, so under ProtectSystem=strict a folder made after its start stays read-only to it.
+// try-restart leaves a stopped service stopped.
+func (h Host) addHookRule(ctx context.Context, plan *Plan, rule []byte, dirs []string) {
 	changed := h.differs(HookTmpfilesConf, rule)
 	if changed {
 		plan.Steps = append(plan.Steps, Step{
@@ -364,9 +367,14 @@ func (h Host) addHookRule(plan *Plan, rule []byte, dirs []string) {
 			do:      func(context.Context) error { return h.write(HookTmpfilesConf, rule) }})
 	}
 	missing := false
+	var restart []string
 	for _, d := range dirs {
-		if !h.exists(d) {
-			missing = true
+		if h.exists(d) {
+			continue
+		}
+		missing = true
+		if unit := hookDeployUnit(d); unit != "" && h.run(ctx, "systemctl", "is-active", "--quiet", unit) == nil {
+			restart = append(restart, unit)
 		}
 	}
 	if changed || missing {
@@ -374,11 +382,32 @@ func (h Host) addHookRule(plan *Plan, rule []byte, dirs []string) {
 		plan.Steps = append(plan.Steps, Step{Command: "systemd-tmpfiles " + strings.Join(args, " "),
 			do: func(ctx context.Context) error { return h.run(ctx, "systemd-tmpfiles", args...) }})
 	}
+	for _, unit := range restart {
+		plan.Steps = append(plan.Steps, Step{Command: "systemctl try-restart " + unit,
+			do: func(ctx context.Context) error { return h.run(ctx, "systemctl", "try-restart", unit) }})
+	}
+}
+
+// hookDeployUnit is the deploy unit that reads the marker folder dir; empty for /run/qhost-hook itself.
+func hookDeployUnit(dir string) string {
+	name, ok := strings.CutPrefix(dir, HookRunDir+"/")
+	if !ok {
+		return ""
+	}
+	if name == hookservice.SystemInstance {
+		return Service
+	}
+	inst, err := NewInstance(name)
+	if err != nil {
+		return ""
+	}
+	return inst.Unit()
 }
 
 // planHookInstances adds, where the receiver is set up, the marker folder of the instance that is being set up
-// (the name system or a user name) to the plan. Where the receiver is not set up it adds nothing.
-func (h Host) planHookInstances(plan *Plan, instance string) error {
+// (the name system or a user name) to the plan. Where the receiver is not set up it adds nothing. It comes before
+// the deploy service starts, so that the service starts with its folder writable.
+func (h Host) planHookInstances(ctx context.Context, plan *Plan, instance string) error {
 	if !HookInstalled(h.Root) {
 		return nil
 	}
@@ -394,6 +423,6 @@ func (h Host) planHookInstances(plan *Plan, instance string) error {
 	if err != nil {
 		return err
 	}
-	h.addHookRule(plan, rule, dirs)
+	h.addHookRule(ctx, plan, rule, dirs)
 	return nil
 }

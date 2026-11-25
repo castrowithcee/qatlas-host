@@ -18,7 +18,8 @@ hook_listening() {
 
 # scenario_hook_setup sets up the webhook receiver with sudo qhost hook-service setup, while the deploy service is
 # set up, and checks what the contract says: no change without --confirm, the user qhost-hook in no other group, the
-# process without the groups docker and qhost, the marker folder of the system engine, the status without sudo and
+# process without the groups docker and qhost, the marker folder of the system engine, the restart of the running
+# deploy service whose folder the setup creates and no restart on a repeated setup, the status without sudo and
 # the answer 404 to an unknown secret. scenario_selfupdate and scenario_uninstall keep it in their checks.
 # scenario_hook follows it and proves hook add, list and remove from a POST to the printed path to the update.
 scenario_hook_setup() {
@@ -26,13 +27,18 @@ scenario_hook_setup() {
 	if out=$(as_admin 'qhost hook-service setup --confirm --yes 2>&1'); then fail "the receiver setup without root succeeded: $out"; fi
 	if out=$(as_admin 'sudo qhost hook-service setup --yes 2>&1'); then fail "the receiver setup without --confirm succeeded: $out"; fi
 	printf '%s' "$out" | grep -q 'systemctl enable --now qhost-hook' || fail "the receiver setup without --confirm does not show its commands: $out"
+	printf '%s' "$out" | grep -q 'systemctl try-restart qhost-deploy$' || fail "the receiver setup without --confirm does not show the restart of the deploy service: $out"
 	if docker exec "$host" test -e /usr/local/lib/systemd/system/qhost-hook.service; then fail 'a refused receiver setup installed the unit'; fi
 	if docker exec "$host" id qhost-hook >/dev/null 2>&1; then fail 'a refused receiver setup created the user qhost-hook'; fi
 	as_admin 'qhost --output json status' | grep -q '"hook_service": *"not set up"' ||
 		fail "qhost status does not show the receiver as not set up: $(as_admin 'qhost --output json status 2>&1')"
 
-	step 'sudo qhost hook-service setup --confirm --yes sets up the receiver, which runs as qhost-hook without the groups docker and qhost'
+	step 'sudo qhost hook-service setup --confirm --yes sets up the receiver, which runs as qhost-hook without the groups docker and qhost, and restarts the running deploy service'
+	pid=$(service_pid)
 	out=$(as_admin 'sudo qhost hook-service setup --confirm --yes 2>&1') || fail "the receiver setup failed: $out"
+	[ "$(service_pid)" != "$pid" ] || fail 'the receiver setup did not restart the running deploy service, which cannot write its new marker folder'
+	wait_service
+	pid=$(service_pid)
 	wait_for 'the webhook receiver to answer' 30 hook_listening
 	hkpid=$(service_pid qhost-hook)
 	[ -n "$hkpid" ] && [ "$hkpid" != 0 ] || fail 'the webhook receiver has no process'
@@ -52,6 +58,7 @@ scenario_hook_setup() {
 	out=$(as_admin 'sudo qhost --output json hook-service setup --confirm --yes 2>&1') || fail "the repeated receiver setup failed: $out"
 	printf '%s' "$out" | grep -q '"changed": *false' || fail "the repeated receiver setup reported a change: $out"
 	[ "$(service_pid qhost-hook)" = "$hkpid" ] || fail 'the repeated receiver setup restarted the receiver'
+	[ "$(service_pid)" = "$pid" ] || fail 'the repeated receiver setup restarted the deploy service'
 
 	step 'status without sudo shows the receiver running with its address and its hooks, and an unknown secret gets 404'
 	out=$(as_admin 'qhost --output json status 2>&1') || fail "qhost status failed: $out"

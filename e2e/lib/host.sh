@@ -186,6 +186,11 @@ host_audit_rows() {
 # restart_service restarts the deploy service, which makes the engine poll at once.
 restart_service() {
 	docker exec "$host" systemctl restart qhost-deploy || fail 'cannot restart the deploy service'
+	wait_service
+}
+
+# wait_service waits for the channel of the deploy service and its answer after a start.
+wait_service() {
 	wait_for 'the deploy service channel' 20 docker exec "$host" sh -c 'ls /run/qhost-deploy | grep -q sock'
 	wait_for 'the deploy service to answer' 20 qd status
 }
