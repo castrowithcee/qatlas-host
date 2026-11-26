@@ -257,7 +257,8 @@ func (m *Model) askFileWrite(e *fileEdit) {
 	t, p := m.text, &m.sys.fold
 	p.edit = nil
 	e.dir.remove()
-	a := hostAsk{id: hostchange.ActionFileWrite, args: hostchange.FileArgs(e.path), secret: e.text,
+	// file.write always reads standard input, so an emptied text still gets one rather than the terminal.
+	a := hostAsk{id: hostchange.ActionFileWrite, args: hostchange.FileArgs(e.path), secret: e.text, emptyInput: true,
 		question: t.Lookup(textAskFileWrite, e.path), then: func() tea.Cmd { return m.afterFileWrite(e.path, e.viaSudo) }}
 	if hostchange.IsSystemPath(e.path) {
 		a.risk = t.Lookup(textRiskFileWriteSystem)
