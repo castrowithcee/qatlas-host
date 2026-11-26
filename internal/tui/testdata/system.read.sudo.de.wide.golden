@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge  [7 ◎ System]        
+   Benutzer   Gruppen  [Ordner]  Vorschläge   Änderungen   Protokoll                                                    
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  /etc/secret-demo                                                                                                      
+  /etc/secret-demo wird gelesen...                                                                                      
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                            ╔═ Als root lesen ═════════════════════════════════════════════╗                            
+                            ║ ⚠ Nur root darf /etc/secret-demo lesen. Mit sudo lesen?      ║                            
+                            ║                                                              ║                            
+                            ║ sudo fragt nach deinem Passwort. Es wird nichts geändert.    ║                            
+                            ║ $ sudo qhost host file --output json -- /etc/secret-demo     ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║                            
+                            ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        

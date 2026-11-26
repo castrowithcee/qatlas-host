@@ -2,7 +2,9 @@
   1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
    Users   Groups  [Folders]  Proposals   Changes   Log                         
 ────────────────────────────────────────────────────────────────────────────────
-  Press enter to choose a folder and see who may read and change it.            
+  /etc/demo-app/logo.bin                                                        
+                                                                                
+  /etc/demo-app/logo.bin is a binary file. It is not shown.                     
                                                                                 
                                                                                 
                                                                                 
@@ -19,6 +21,4 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-                                                                                
-enter choose folder  R reload  1-7 area  q quit                                 
+esc back  R reload  1-7 area  q quit                                            

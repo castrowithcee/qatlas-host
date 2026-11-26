@@ -11,4 +11,4 @@
 Log saved to /home/demo/qhost/qhost-service-qhost-      
 20261030-180000.log                                     
 / search  L follow  T period  w wrap lines  t timestamps
-W save log  V level  D diagnose  R reload  q quit       
+W save log  ! level  D diagnose  R reload  q quit       

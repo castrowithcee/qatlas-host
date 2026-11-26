@@ -2,17 +2,15 @@ package tui
 
 import kittui "github.com/castrowithcee/qatlas-kit/tui"
 
-// The texts of System > Folders. Paths and names of the host come in as arguments; setuid, setgid, sticky and
-// ACL stay as they are in every language.
+// The texts of the permissions on System > Folders. Paths and names of the host come in as arguments; setuid,
+// setgid, sticky and ACL stay as they are in every language.
 const (
 	textPageFolders kittui.TextID = "system.page.folders"
 
-	textFoldersHint      kittui.TextID = "folders.hint"
 	textFolderReading    kittui.TextID = "folders.reading"
 	textFolderNotFound   kittui.TextID = "folders.notfound"
 	textFolderDenied     kittui.TextID = "folders.denied"
 	textFolderFailed     kittui.TextID = "folders.failed"
-	textFolderNotAbs     kittui.TextID = "folders.notabs"
 	textFolderResolved   kittui.TextID = "folders.resolved"
 	textFolderKind       kittui.TextID = "folders.kind"
 	textKindFolder       kittui.TextID = "folders.kind.folder"
@@ -29,11 +27,6 @@ const (
 	textLevelNothing     kittui.TextID = "level.nothing"
 	textLevelRead        kittui.TextID = "level.read"
 	textLevelReadWrite   kittui.TextID = "level.readwrite"
-
-	textKeyChooseFolder kittui.TextID = "key.choosefolder"
-	textTitleFolderPath kittui.TextID = "title.folderpath"
-	textAskFolderPath   kittui.TextID = "ask.folderpath"
-	textAnswerShow      kittui.TextID = "answer.show"
 
 	textTitleChangeFolder kittui.TextID = "title.changefolder"
 	textLeadFolder        kittui.TextID = "lead.folder"
@@ -55,7 +48,6 @@ const (
 	textFolderCountOne    kittui.TextID = "folders.countone"
 	textRiskFolderSystem  kittui.TextID = "host.riskfoldersystem"
 	textFolderOnlyDir     kittui.TextID = "folders.onlydir"
-	textFolderNone        kittui.TextID = "folders.none"
 	textFolderTooMany     kittui.TextID = "folders.toomany"
 	textFolderCountFailed kittui.TextID = "folders.countfailed"
 	textFolderSmaller     kittui.TextID = "folders.smaller"
@@ -65,12 +57,10 @@ func folderEnglish() map[kittui.TextID]string {
 	return map[kittui.TextID]string{
 		textPageFolders: "Folders",
 
-		textFoldersHint:      "Press {enter} to choose a folder and see who may read and change it.",
 		textFolderReading:    "Reading %s...",
 		textFolderNotFound:   "%s does not exist.",
 		textFolderDenied:     "%s cannot be read: permission denied.",
 		textFolderFailed:     "%s cannot be read: %s",
-		textFolderNotAbs:     "%s is not an absolute path. Type one such as /srv/data.",
 		textFolderResolved:   "Real path: %s",
 		textFolderKind:       "Type: %s",
 		textKindFolder:       "folder",
@@ -87,11 +77,6 @@ func folderEnglish() map[kittui.TextID]string {
 		textLevelNothing:     "nothing",
 		textLevelRead:        "read",
 		textLevelReadWrite:   "read and write",
-
-		textKeyChooseFolder: "choose folder",
-		textTitleFolderPath: "Choose a folder",
-		textAskFolderPath:   "Type the absolute path of the folder.",
-		textAnswerShow:      "show",
 
 		textTitleChangeFolder: "Change %s",
 		textLeadFolder:        "Owner, group and what each may do. Read lets them open and list it, read and write also change what it holds.",
@@ -113,7 +98,6 @@ func folderEnglish() map[kittui.TextID]string {
 		textFolderCountOne:    "1 entry changes: the folder itself, nothing lies below it.",
 		textRiskFolderSystem:  "This is a system path: wrong owners or permissions here can stop services and block logins on this host.",
 		textFolderOnlyDir:     "Only a folder can be changed here, not a file.",
-		textFolderNone:        "Choose a folder first with {enter}.",
 		textFolderTooMany:     "%s holds more than %d entries.",
 		textFolderCountFailed: "The entries below the folder cannot be counted: %s",
 		textFolderSmaller:     "Change a smaller folder, or the folder alone. Nothing was changed.",
@@ -124,12 +108,10 @@ func folderGerman() map[kittui.TextID]string {
 	return map[kittui.TextID]string{
 		textPageFolders: "Ordner",
 
-		textFoldersHint:      "Drücke {enter}, um einen Ordner zu wählen und zu sehen, wer ihn lesen und ändern darf.",
 		textFolderReading:    "%s wird gelesen...",
 		textFolderNotFound:   "%s gibt es nicht.",
 		textFolderDenied:     "%s lässt sich nicht lesen: keine Berechtigung.",
 		textFolderFailed:     "%s lässt sich nicht lesen: %s",
-		textFolderNotAbs:     "%s ist kein absoluter Pfad. Gib einen wie /srv/data ein.",
 		textFolderResolved:   "Echter Pfad: %s",
 		textFolderKind:       "Art: %s",
 		textKindFolder:       "Ordner",
@@ -146,11 +128,6 @@ func folderGerman() map[kittui.TextID]string {
 		textLevelNothing:     "nichts",
 		textLevelRead:        "lesen",
 		textLevelReadWrite:   "lesen und schreiben",
-
-		textKeyChooseFolder: "Ordner wählen",
-		textTitleFolderPath: "Ordner wählen",
-		textAskFolderPath:   "Gib den absoluten Pfad des Ordners ein.",
-		textAnswerShow:      "anzeigen",
 
 		textTitleChangeFolder: "%s ändern",
 		textLeadFolder:        "Besitzer, Gruppe und was jeder darf. Lesen erlaubt Öffnen und Auflisten, lesen und schreiben auch das Ändern des Inhalts.",
@@ -172,7 +149,6 @@ func folderGerman() map[kittui.TextID]string {
 		textFolderCountOne:    "1 Eintrag ändert sich: der Ordner selbst, darunter liegt nichts.",
 		textRiskFolderSystem:  "Das ist ein Systempfad: Falsche Besitzer oder Rechte können hier Dienste stoppen und Anmeldungen auf diesem Host blockieren.",
 		textFolderOnlyDir:     "Hier lässt sich nur ein Ordner ändern, keine Datei.",
-		textFolderNone:        "Wähle zuerst mit {enter} einen Ordner.",
 		textFolderTooMany:     "%s enthält mehr als %d Einträge.",
 		textFolderCountFailed: "Die Einträge unter dem Ordner lassen sich nicht zählen: %s",
 		textFolderSmaller:     "Ändere einen kleineren Ordner oder nur den Ordner selbst. Es wurde nichts geändert.",

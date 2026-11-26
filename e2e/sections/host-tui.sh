@@ -3,9 +3,33 @@
 # in it through the real sudo, and qhost host users shows the user with the group. An administrator without sudo
 # proposes a user with a group and an SSH key with qhost proposal; the interface approves it, asks for the initial
 # password and creates the user, the journal shows the change, the undo removes the user, and a process of
-# qhost-deploy is not shown the proposal.
+# qhost-deploy is not shown the proposal. The file browser shows a file the administrator may read directly and a
+# file only root may read after the password prompt of the real sudo.
 # Needs install: the host service and the group qhost of the installation. No other section needs this one.
 # Sourced by run.sh; defines only functions and constants.
+
+# tui_browse_mark marks the entry $1 of the folder the file browser shows: / filters by the name, enter keeps the
+# filter, and the marked row must then be the entry.
+tui_browse_mark() {
+	tui_send /
+	tui_type "$1"
+	tui_send Enter
+	i=0
+	until tui_screen | grep -qE "^> $1(/| |\$)"; do
+		i=$((i + 1))
+		[ "$i" -lt 40 ] || fail "the file browser does not mark $1: $(tui_screen)"
+		sleep 0.25
+	done
+}
+
+# tui_browse_to opens the path $1, given without the leading /, from the folder the file browser shows, part by part.
+tui_browse_to() {
+	for tui_browse_part in $(printf '%s' "$1" | tr '/' ' '); do
+		tui_browse_mark "$tui_browse_part"
+		tui_send Enter
+		sleep 0.3
+	done
+}
 
 # tui_system_user_create_count prints how many changes user.create of the administrator the action log holds.
 tui_system_user_create_count() {
@@ -130,11 +154,10 @@ scenario_tui_changes() {
 	tui_send 7
 	tui_wait 'DOCKER' 15
 	tui_system_tab Folders
-	tui_wait 'to choose a folder' 10
-	tui_send Enter
-	tui_wait 'Type the absolute path of the folder.' 10
-	tui_type "$tc_dir"
-	tui_send Enter
+	tui_wait 'etc/' 10
+	tui_browse_to "home/$admin"
+	tui_browse_mark "${tc_dir##*/}"
+	tui_send i
 	tui_wait "Owner $admin may: read and write" 10
 	tui_has 'Everyone else may: read' || fail "the folder does not show that everyone else may read: $(tui_screen)"
 	tui_send e
@@ -197,6 +220,68 @@ scenario_tui_changes() {
 	out=$(as_admin 'qhost audit verify 2>&1') || fail "qhost audit verify failed after the changes from the interface: $out"
 	as_admin "rm -rf '$tc_dir'"
 	log "scenario: the interface without sudo changed $tc_dir to 750, listed the change on Changes and undid it back to $tc_before"
+}
+
+# scenario_tui_files proves the file browser of System > Folders started without sudo. A file the administrator may
+# read shows directly, without a question; a file only root may read asks first with the exact command sudo qhost
+# host file, the real sudo asks for the password, and the file shows. The rule of $admin is put aside, so that sudo
+# asks, and put back at the end with the password locked again; the password shows on no captured screen.
+scenario_tui_files() {
+	tui_log=$work/tui-files-screens.log
+	: >"$tui_log"
+	tf_login=E2e-admin-Login-3307
+	tf_dir=/home/$admin/e2e-tui-files
+	tf_root=/var/tmp/e2e-tui-root-only.conf
+	as_admin "rm -rf '$tf_dir' && mkdir '$tf_dir' && printf 'name: e2e-readable-7702\n' >'$tf_dir/readable.yaml'" ||
+		fail 'cannot make the readable test file'
+	docker exec "$host" sh -ec "printf 'e2e_root_only=4471\n' >'$tf_root' && chmod 0600 '$tf_root'" || fail 'cannot make the root-only test file'
+	if as_admin "cat '$tf_root'" >/dev/null 2>&1; then fail "$admin reads $tf_root without root"; fi
+	printf '%s:%s\n' "$admin" "$tf_login" | docker exec -i "$host" chpasswd || fail "cannot give $admin a password"
+	docker exec "$host" sh -ec "mv /etc/sudoers.d/e2e-admin /etc/sudoers.d/e2e-admin.off &&
+		printf 'Defaults:%s timestamp_timeout=0\n' '$admin' >/etc/sudoers.d/e2e-ask && chmod 0440 /etc/sudoers.d/e2e-ask && visudo -c >/dev/null" ||
+		fail 'cannot put the sudo rule of the administrator aside'
+
+	step 'the file browser without sudo shows a file the administrator may read directly'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 7
+	tui_wait 'DOCKER' 15
+	tui_system_tab Folders
+	tui_wait 'etc/' 10
+	tui_browse_to "${tf_dir#/}/readable.yaml"
+	tui_wait 'e2e-readable-7702' 10
+	if tui_has 'Only root may read' || tui_has '[sudo] password'; then fail "a readable file asked for sudo: $(tui_screen)"; fi
+
+	step 'a file only root may read asks with the exact command, sudo asks for the password, and the file shows'
+	# The preview, the filter, then up to the root.
+	for _ in 1 2 3 4 5; do
+		tui_send Escape
+		sleep 0.3
+	done
+	tui_wait 'etc/' 10
+	tui_browse_to "${tf_root#/}"
+	tui_wait 'Only root may read' 10
+	tui_has 'sudo qhost host file --output json --' || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	tui_wait "[sudo] password for $admin" 30
+	tui_type "$tf_login"
+	tui_send Enter
+	tui_wait 'e2e_root_only=4471' 30
+	tui_send Escape
+	tui_send q
+	tui_wait 'qhost-exit=0' 10
+	tui_tmux kill-server >/dev/null 2>&1 || true
+
+	step 'the password shows on no captured screen; the rule of the administrator is put back'
+	if grep -qF -- "$tf_login" "$tui_log"; then fail 'the password typed for sudo shows on a captured screen'; fi
+	docker exec "$host" sh -ec 'rm -f /etc/sudoers.d/e2e-ask && mv /etc/sudoers.d/e2e-admin.off /etc/sudoers.d/e2e-admin && visudo -c >/dev/null' ||
+		fail 'cannot put the sudo rule of the administrator back'
+	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
+	docker exec "$host" rm -f "$tf_root"
+	as_admin "rm -rf '$tf_dir'"
+	log "scenario: the interface without sudo showed a readable file directly and $tf_root after the password prompt of sudo"
 }
 
 # scenario_tui_host_proposal proves a proposal of the host from submission to undo. An administrator without sudo

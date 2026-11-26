@@ -2,19 +2,19 @@
   1 2 3 4 5 6 [7 System]                                                        
    Benutzer   Gruppen  [Ordner]  Vorschläge   Änderungen   Protokoll            
 ────────────────────────────────────────────────────────────────────────────────
-  Drücke enter, um einen Ordner zu wählen und zu sehen, wer ihn lesen und ändern
-  darf.                                                                         
+  /etc/secret-demo                                                              
+  /etc/secret-demo wird gelesen...                                              
                                                                                 
                                                                                 
-        ╔═ Ordner wählen ══════════════════════════════════════════════╗        
-        ║ Gib den absoluten Pfad des Ordners ein.                      ║        
+                                                                                
+        ╔═ Als root lesen ═════════════════════════════════════════════╗        
+        ║ ⚠ Nur root darf /etc/secret-demo lesen. Mit sudo lesen?      ║        
         ║                                                              ║        
-        ║ /srv/m_                                                      ║        
-        ║   /srv/media/                                                ║        
-        ║   /srv/mail/                                                 ║        
+        ║ sudo fragt nach deinem Passwort. Es wird nichts geändert.    ║        
+        ║ $ sudo qhost host file --output json -- /etc/secret-demo     ║        
         ║                                                              ║        
-        ║ [ enter anzeigen ]  [ abbrechen ]                            ║        
-        ║ tab Übernehmen  ↑/↓ Markieren  enter anzeigen  esc abbrechen ║        
+        ║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║        
+        ║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 
                                                                                 

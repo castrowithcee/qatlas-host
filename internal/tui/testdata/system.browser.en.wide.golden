@@ -2,7 +2,14 @@
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
    Users   Groups  [Folders]  Proposals   Changes   Log                                                                 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  Press enter to choose a folder and see who may read and change it.                                                    
+  root / etc                                                                                                            
+  NAME                         SIZE  MODIFIED          RIGHTS     OWNER                                                 
+  ─────────────────────────────────────────────────────────────────────                                                 
+> demo-app/                          2026-11-02 09:00  rwxr-xr-x  root                                                  
+  hosts                        20 B  2026-11-02 09:00  rw-r--r--  root                                                  
+  motd -> /srv/media/motd.txt        2026-11-02 09:00  rwxrwxrwx  root                                                  
+  secret-demo                  21 B  2026-11-02 09:00  rw-------  root                                                  
+  vault-demo/                        2026-11-02 09:00  rwx------  root                                                  
                                                                                                                         
                                                                                                                         
                                                                                                                         
@@ -29,12 +36,5 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-enter choose folder  R reload  1-7 area  q quit                                                                         
+[ i permissions ]  [ esc up ]                                                                                           
+i permissions  enter choose  / search  esc back  R reload  1-7 area  q quit                                 ↑ up  ↓ down

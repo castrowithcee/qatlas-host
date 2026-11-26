@@ -42,7 +42,14 @@ func commandStates() []commandState {
 			states = append(states, commandState{"page " + area + "/" + string(rune('0'+page)), backend, append(keys, "down"), false})
 		}
 	}
-	return states
+	// The file browser of System > Folders and the preview of a text file, over the invented tree.
+	browser := []string{"7", "esc", "right", "right", "down"}
+	preview := slices.Clone(browser)
+	for _, name := range []string{"etc", "demo-app", "app.yaml"} {
+		preview = append(append(append(preview, "/"), typed(name)...), "enter", "enter")
+	}
+	return append(states, commandState{"file browser", demoBackend, browser, false},
+		commandState{"file preview", demoBackend, preview, false})
 }
 
 // release drops the timer record the test models keep in a global map, which would hold every model of the
@@ -56,6 +63,8 @@ func release(ms ...*Model) {
 func commandModel(t *testing.T, lang i18n.Lang, st commandState) *Model {
 	t.Helper()
 	m := newTestModel(t, lang, st.backend(), wideWidth, 30)
+	// System > Folders browses the invented tree, not the machine.
+	fakeHostFolders(m, 1)
 	send(m, st.keys...)
 	return m
 }

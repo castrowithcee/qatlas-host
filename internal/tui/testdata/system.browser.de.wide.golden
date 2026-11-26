@@ -1,0 +1,40 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge  [7 ◎ System]        
+   Benutzer   Gruppen  [Ordner]  Vorschläge   Änderungen   Protokoll                                                    
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Wurzel / etc                                                                                                          
+  NAME                         GRÖßE  GEÄNDERT          RECHTE     BESITZER                                             
+  ─────────────────────────────────────────────────────────────────────────                                             
+> demo-app/                           2026-11-02 09:00  rwxr-xr-x  root                                                 
+  hosts                         20 B  2026-11-02 09:00  rw-r--r--  root                                                 
+  motd -> /srv/media/motd.txt         2026-11-02 09:00  rwxrwxrwx  root                                                 
+  secret-demo                   21 B  2026-11-02 09:00  rw-------  root                                                 
+  vault-demo/                         2026-11-02 09:00  rwx------  root                                                 
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+[ i Rechte ]  [ esc Hoch ]                                                                                              
+i Rechte  enter Auswählen  / Suchen  esc Zurück  R Neu laden  1-7 Bereich  q Beenden                    ↑ Hoch  ↓ Runter

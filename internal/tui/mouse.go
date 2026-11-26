@@ -40,6 +40,7 @@ func (m *Model) formFocused() bool {
 type mousePart struct {
 	rect    kittui.Rect
 	list    *kittui.List
+	click   func(kittui.MouseResult) tea.Cmd // a click on a target of the part, as a list or a file browser takes it
 	log     *kittui.LogView
 	form    *kittui.Form
 	scroll  func(steps int) // a scrolled text; it takes the wheel only
@@ -50,7 +51,8 @@ type mousePart struct {
 // is drawn, so no list is left without its targets.
 func (m *Model) listView(list *kittui.List, width, height, y int) string {
 	view, targets := list.View(m.styles, width, height)
-	m.parts = append(m.parts, mousePart{rect: kittui.Rect{Y: y, Width: width, Height: height}, list: list, targets: targets})
+	m.parts = append(m.parts, mousePart{rect: kittui.Rect{Y: y, Width: width, Height: height}, list: list, targets: targets,
+		click: func(res kittui.MouseResult) tea.Cmd { return m.rowClick(list, res) }})
 	return view
 }
 
@@ -135,8 +137,8 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	case res.Item != "":
 		if p, ok := m.partAt(at.X, at.Y); ok {
 			switch {
-			case p.list != nil:
-				return m.rowClick(p.list, res)
+			case p.click != nil:
+				return p.click(res)
 			case p.form != nil && m.formTakesMouse(p.form):
 				act, handled := p.form.Click(res)
 				if m.set.form.kind == formGeneral {

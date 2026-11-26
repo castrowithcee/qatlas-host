@@ -2,8 +2,14 @@
   1 2 3 4 5 6 [7 System]                                                        
    Benutzer   Gruppen  [Ordner]  Vorschläge   Änderungen   Protokoll            
 ────────────────────────────────────────────────────────────────────────────────
-  Drücke enter, um einen Ordner zu wählen und zu sehen, wer ihn lesen und ändern
-  darf.                                                                         
+  Wurzel / etc                                                                  
+  NAME                         GRÖßE  GEÄNDERT          RECHTE     BESITZER     
+  ─────────────────────────────────────────────────────────────────────────     
+> demo-app/                           2026-11-02 09:00  rwxr-xr-x  root         
+  hosts                         20 B  2026-11-02 09:00  rw-r--r--  root         
+  motd -> /srv/media/motd.txt         2026-11-02 09:00  rwxrwxrwx  root         
+  secret-demo                   21 B  2026-11-02 09:00  rw-------  root         
+  vault-demo/                         2026-11-02 09:00  rwx------  root         
                                                                                 
                                                                                 
                                                                                 
@@ -13,12 +19,6 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-enter Ordner wählen  R Neu laden  1-7 Bereich  q Beenden                        
+[ i Rechte ]  [ esc Hoch ]                                                      
+i Rechte  enter Auswählen  / Suchen  esc Zurück  R Neu laden  1-7 Bereich       
+q Beenden                                                       ↑ Hoch  ↓ Runter

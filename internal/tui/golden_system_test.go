@@ -161,18 +161,39 @@ func TestGoldenSystemGroupDeleteConfirm(t *testing.T) {
 	})
 }
 
-func TestGoldenSystemFoldersEmpty(t *testing.T) {
-	goldenSystem(t, "system.folders", func(t *testing.T, m *Model) {
+// The file browser of System > Folders over the invented tree: a folder, a YAML file in colour, a binary file and
+// the question before a read through sudo.
+func TestGoldenSystemBrowser(t *testing.T) {
+	goldenSystem(t, "system.browser", func(t *testing.T, m *Model) {
+		fakeHostFolders(m, 42)
 		toFolderPage(t, m)
+		browseTo(t, m, "/etc")
 	})
 }
 
-func TestGoldenSystemFolderPath(t *testing.T) {
-	goldenSystem(t, "system.folder.path", func(t *testing.T, m *Model) {
-		fakeHostFolders(m, 42, "/srv/media/", "/srv/mail/")
+func TestGoldenSystemPreviewYAML(t *testing.T) {
+	goldenSystem(t, "system.preview.yaml", func(t *testing.T, m *Model) {
+		m.profile = kittui.ProfileANSI16
+		m.restyle()
+		fakeHostFolders(m, 42)
 		toFolderPage(t, m)
-		send(m, "enter")
-		send(m, typed("/srv/m")...)
+		browseTo(t, m, "/etc/demo-app/app.yaml")
+	})
+}
+
+func TestGoldenSystemPreviewBinary(t *testing.T) {
+	goldenSystem(t, "system.preview.binary", func(t *testing.T, m *Model) {
+		fakeHostFolders(m, 42)
+		toFolderPage(t, m)
+		browseTo(t, m, "/etc/demo-app/logo.bin")
+	})
+}
+
+func TestGoldenSystemReadSudo(t *testing.T) {
+	goldenSystem(t, "system.read.sudo", func(t *testing.T, m *Model) {
+		fakeHostFolders(m, 42)
+		toFolderPage(t, m)
+		browseTo(t, m, "/etc/secret-demo")
 	})
 }
 
