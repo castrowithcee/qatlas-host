@@ -87,3 +87,48 @@ func TestEveryCommandLineHasAToolEntry(t *testing.T) {
 		}
 	}
 }
+
+func TestEveryChangingCommandLineTakesYes(t *testing.T) {
+	root, _, _, err := newRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	changing := changingLines()
+	found := map[string]bool{}
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		line := strings.TrimPrefix(c.CommandPath(), root.Name()+" ")
+		if changing[line] {
+			found[line] = true
+			if has := c.Flags().Lookup("yes") != nil; has == humanOnly[line] {
+				t.Errorf("%q: has --yes = %v, human-only = %v", line, has, humanOnly[line])
+			}
+		}
+		for _, s := range c.Commands() {
+			walk(s)
+		}
+	}
+	walk(root)
+	for line := range changing {
+		if !found[line] {
+			t.Errorf("changing line %q is not in the tree", line)
+		}
+	}
+}
+
+func TestYesChangesNothingOnACommandWithoutAQuestion(t *testing.T) {
+	startBound(t, okDeployer{})
+	settle(t)
+	code, out, stderr := run(t, "stack", "unpin", "plain-stack", "--agent", "--yes", "--output", "json")
+	if code != 0 || !strings.Contains(out, "plain-stack") {
+		t.Fatalf("unpin --yes: %d %q %q", code, out, stderr)
+	}
+}
+
+func TestYesDoesNotConfirmAChange(t *testing.T) {
+	startGrantService(t)
+	code, _, stderr := run(t, "grant", "add", "demo-admin", "stack.restart", "plain-stack", "--agent", "--yes")
+	if code == 0 || !strings.Contains(stderr, "--confirm") {
+		t.Fatalf("grant add --yes: %d %q", code, stderr)
+	}
+}
