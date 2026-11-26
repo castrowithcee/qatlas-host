@@ -218,7 +218,7 @@ cx internal/service/inspect.go:planFiles 41
 cx internal/service/inspect_test.go:TestInspectCloneOfAMissingOrEmptyFolder 18
 cx internal/service/logstore.go:logService.handle 28
 cx internal/service/logstore_internal_test.go:TestLogStoreMasksSecretsInFilesAndAnswers 16
-cx internal/service/monitor.go:containerMonitor.detect 22
+cx internal/service/monitor.go:containerMonitor.detect 19
 cx internal/service/monitor.go:containerMonitor.evaluate 42
 cx internal/service/monitor_observe_test.go:TestMonitorHaltsWhenTheBackupOfTheUpdateIsMissing 17
 cx internal/service/monitor_repair_test.go:TestMonitorRepairRestartsContainersThenTheStackAndHaltsAfterThree 43
@@ -346,7 +346,7 @@ file internal/host/hostchange/users_delete.go 579
 file internal/proposals/proposals.go 569
 file internal/registry/client.go 706
 file internal/service/inspect.go 852
-file internal/service/monitor.go 655
+file internal/service/monitor.go 648
 file internal/service/repo.go 569
 file internal/service/servicetest/servicetest.go 572
 file internal/service/sourceremote.go 639
@@ -491,7 +491,6 @@ len internal/service/inspect.go:inspectService.decide 63
 len internal/service/inspect.go:planFiles 134
 len internal/service/inspect_refs_test.go:TestInspectPlansOnlyWhatTheStacksReferenceInAGrownFolder 90
 len internal/service/locks_test.go:TestReadsAnswerWhileRepoFetchWaits 62
-len internal/service/monitor.go:containerMonitor.detect 63
 len internal/service/monitor.go:containerMonitor.evaluate 112
 len internal/service/monitor_repair_test.go:TestMonitorRepairRestartsContainersThenTheStackAndHaltsAfterThree 79
 len internal/service/monitor_service_test.go:TestMonitorInServiceQhostStopIsNoFailureButAnExitIs 63
