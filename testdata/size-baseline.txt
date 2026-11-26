@@ -345,13 +345,12 @@ file internal/host/hostchange/users.go 964
 file internal/host/hostchange/users_delete.go 579
 file internal/proposals/proposals.go 569
 file internal/registry/client.go 706
-file internal/service/inspect.go 852
+file internal/service/inspect.go 844
 file internal/service/monitor.go 655
 file internal/service/repo.go 569
 file internal/service/servicetest/servicetest.go 572
 file internal/service/sourceremote.go 639
 file internal/service/sources.go 842
-file internal/stacks/refs.go 504
 file internal/stacks/stacks.go 545
 file internal/tui/actions.go 911
 file internal/tui/backend.go 610

@@ -105,6 +105,7 @@ func (s *inspectService) handle(ctx context.Context, raw json.RawMessage) (any, 
 		if err := s.addStacks(ctx, &res, v, a.Path); err != nil {
 			return nil, err
 		}
+		noteUnreadableEnv(ctx, res.Access, a.Path, v)
 	}
 	if err := fitAnswer(res, "the folder holds too many files to list in one answer; move data out of it or into a bind-mounted data folder"); err != nil {
 		return nil, err
@@ -840,13 +841,4 @@ func (s *inspectService) conflicts(ctx context.Context, list []stacks.Stack) (ma
 		}
 	}
 	return out, nil
-}
-
-// mapAll applies f to every element; an empty list stays nil.
-func mapAll(v []string, f func(string) string) []string {
-	var out []string
-	for _, e := range v {
-		out = append(out, f(e))
-	}
-	return out
 }

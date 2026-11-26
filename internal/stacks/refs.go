@@ -29,6 +29,8 @@ type Refs struct {
 	// Files are the compose files, .env and the files named by env_file, label_file, configs, include, extends,
 	// dockerfile and the bind-mounted files that are read-only.
 	Files []string
+	// EnvFiles are the files named by env_file, also in an include; they are part of Files as well.
+	EnvFiles []string
 	// Dirs are folders of which every file counts: build contexts and read-only mounts of a folder.
 	Dirs []string
 	// Writable are existing files that are bind-mounted writable. They may hold data, so they are not taken.
@@ -46,6 +48,7 @@ type refCollector struct {
 	env          map[string]string
 	files, dirs  map[string]bool
 	writable     map[string]bool
+	envFiles     map[string]bool
 	secrets      map[string]bool
 	unresolved   map[string]bool
 	seen         map[string]bool
@@ -58,7 +61,7 @@ type refCollector struct {
 func readRefs(root, folder string, files []string, env map[string]string) Refs {
 	c := &refCollector{
 		root: root, folder: folder, env: env,
-		files: map[string]bool{}, dirs: map[string]bool{}, writable: map[string]bool{},
+		files: map[string]bool{}, dirs: map[string]bool{}, writable: map[string]bool{}, envFiles: map[string]bool{},
 		secrets: map[string]bool{}, unresolved: map[string]bool{}, seen: map[string]bool{},
 	}
 	c.addFile(folder, envFile)
@@ -68,7 +71,7 @@ func readRefs(root, folder string, files []string, env map[string]string) Refs {
 		c.walk(repoFile, folder, 0)
 	}
 	r := Refs{
-		Files: sortedKeys(c.files), Dirs: sortedKeys(c.dirs), Writable: sortedKeys(c.writable),
+		Files: sortedKeys(c.files), EnvFiles: sortedKeys(c.envFiles), Dirs: sortedKeys(c.dirs), Writable: sortedKeys(c.writable),
 		Secrets: sortedKeys(c.secrets), Unresolved: sortedKeys(c.unresolved),
 	}
 	if len(r.Unresolved) > maxUnresolved {
@@ -134,7 +137,7 @@ func (c *refCollector) include(inc any, base string, depth int) {
 	}
 	for _, e := range list(envFiles) {
 		if p, ok := e.(string); ok {
-			c.ref("include.env_file", base, p, c.files)
+			c.refFile("include.env_file", base, p)
 		}
 	}
 	for _, p := range paths {
@@ -162,10 +165,10 @@ func (c *refCollector) service(svc map[string]any, base string, depth int) {
 		for _, e := range list(svc[key]) {
 			switch v := e.(type) {
 			case string:
-				c.ref(key, base, v, c.files)
+				c.refFile(key, base, v)
 			case map[string]any:
 				if p, ok := v["path"].(string); ok {
-					c.ref(key, base, p, c.files)
+					c.refFile(key, base, p)
 				}
 			}
 		}
@@ -214,17 +217,6 @@ func (c *refCollector) build(b any, base string) {
 	if dockerfile != "" {
 		c.ref("build.dockerfile", dir, dockerfile, c.files)
 	}
-}
-
-// remoteContext tells whether a build context is a URL or another source than a path of the host.
-func remoteContext(s string) bool {
-	if strings.Contains(s, "://") || strings.HasPrefix(s, "git@") || strings.HasPrefix(s, "github.com/") {
-		return true
-	}
-	if i := strings.IndexByte(s, ':'); i > 0 && !strings.ContainsAny(s[:i], "/.$") {
-		return true // service:name, a docker-image: reference
-	}
-	return false
 }
 
 // volume records a bind mount. A read-only file or folder counts. A writable file is unclear, as it may hold

@@ -59,12 +59,11 @@ EOF2
 	printf 'secrets.env\ndata/\n' | docker exec -i "$host" sh -ec "cat >'$base/demo-local/.gitignore'"
 	docker exec "$host" sh -ec "cd '$base' && git init -q -b main && git add -A &&
 		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-local stack' &&
-		printf 'DEMO_SECRET=not-a-real-secret\n' >demo-local/secrets.env && chgrp qhost-deploy demo-local/secrets.env &&
-		chmod 0640 demo-local/secrets.env" ||
+		printf 'DEMO_SECRET=not-a-real-secret\n' >demo-local/secrets.env && chmod 0600 demo-local/secrets.env" ||
 		fail 'cannot create the local repository'
 	[ -z "$(docker exec "$host" git -C "$base" remote)" ] || fail 'the local repository has a remote'
 	secret_before=$(docker exec "$host" stat -c '%U:%G %a' "$base/demo-local/secrets.env")
-	[ "$secret_before" = 'root:qhost-deploy 640' ] || fail "unexpected secrets file: $secret_before"
+	[ "$secret_before" = 'root:root 600' ] || fail "unexpected secrets file: $secret_before"
 
 	step 'source list shows the earlier sources and not the local folder'
 	out=$(qd --output json source list) || fail "source list failed: $out"
@@ -72,6 +71,11 @@ EOF2
 		fail "unexpected source list: $out"
 	out=$(qd source list) || fail "source list as text failed: $out"
 	printf '%s' "$out" | grep -qi 'source.opt-stacks.path' || fail "the text list does not show opt-stacks: $out"
+
+	step 'source inspect lists the unversioned secrets file the service cannot read and changes nothing'
+	out=$(qd source inspect "$base") || fail "source inspect failed: $out"
+	printf '%s' "$out" | grep -q 'unversioned env files' || fail "source inspect does not list the unreadable secrets file: $out"
+	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/demo-local/secrets.env")" = "$secret_before" ] || fail 'source inspect changed the secrets file'
 
 	step 'source add without a terminal and without --yes is refused and changes nothing'
 	dir_before=$(docker exec "$host" stat -c '%U:%G %a' "$base")
@@ -95,7 +99,9 @@ EOF2
 	wait_for 'the deploy service to answer' 30 qd status
 	[ "$(docker exec "$host" stat -c '%U:%G' "$base")" = root:qhost-deploy ] || fail "the folder has the wrong owner or group: $(docker exec "$host" stat -c '%U:%G' "$base")"
 	case $(docker exec "$host" stat -c '%A' "$base") in d???rws*) ;; *) fail "the folder is not group-writable with setgid: $(docker exec "$host" stat -c '%A' "$base")" ;; esac
-	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/demo-local/secrets.env")" = "$secret_before" ] || fail 'source add changed the unversioned secrets file'
+	# The secrets file only gains the group of the service and group read; its owner and the other bits stay.
+	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/demo-local/secrets.env")" = 'root:qhost-deploy 640' ] ||
+		fail "source add did not make the secrets file readable for the service: $(docker exec "$host" stat -c '%U:%G %a' "$base/demo-local/secrets.env")"
 	[ "$(docker exec "$host" git -C "$base" config core.sharedRepository)" = group ] || fail 'core.sharedRepository is not group'
 	docker exec "$host" grep -qx "ReadWritePaths=-$base" /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf || fail 'the drop-in does not grant /srv/qd-local'
 	list_has_path "$base" || fail "source list does not show the local folder: $(qd --output json source list)"

@@ -38,14 +38,24 @@ type permPlan struct {
 	repo bool
 	// listed says the plan covers the listed files of a folder without a repository, which source add makes one of.
 	listed bool
+	// envFiles are unversioned env files the service cannot read: they get the group and group read, nothing else.
+	envFiles []string
 }
 
-func (p *permPlan) changed() int { return len(p.dirs) + len(p.files) }
+func (p *permPlan) changed() int { return len(p.dirs) + len(p.files) + len(p.envFiles) }
 
 // summary is the preview the operator confirms.
 func (p *permPlan) summary() []string {
+	var lines []string
+	if len(p.dirs)+len(p.files) > 0 {
+		lines = p.folderSummary()
+	}
+	return append(lines, p.envSummary()...)
+}
+
+func (p *permPlan) folderSummary() []string {
 	lines := []string{fmt.Sprintf("%d paths get the group of the service account (gid %d) with group write; the owner stays",
-		p.changed(), p.gid)}
+		len(p.dirs)+len(p.files), p.gid)}
 	if p.listed {
 		lines = append(lines, "  the folder and the folders of listed files: group rwx and setgid; listed files: group rw")
 		lines = p.leftAlone(lines)
@@ -57,7 +67,7 @@ func (p *permPlan) summary() []string {
 	lines = append(lines,
 		"  the folder, the folders of versioned files and .git: group rwx and setgid; versioned files and files in .git: group rw")
 	lines = p.leftAlone(lines)
-	return append(lines, "  unversioned files stay as they are", "  git config core.sharedRepository group is set")
+	return append(lines, "  other unversioned files stay as they are", "  git config core.sharedRepository group is set")
 }
 
 func (p *permPlan) leftAlone(lines []string) []string {
@@ -261,19 +271,25 @@ func (h folderHost) applyPermissions(ctx context.Context, p *permPlan) error {
 		}
 	}
 	for _, path := range p.dirs {
-		if err := h.regroup(p, path, true); err != nil {
+		if err := h.regroup(p, path, true, 0o070|fs.ModeSetgid); err != nil {
 			return err
 		}
 	}
 	for _, path := range p.files {
-		if err := h.regroup(p, path, false); err != nil {
+		if err := h.regroup(p, path, false, 0o060); err != nil {
+			return err
+		}
+	}
+	for _, path := range p.envFiles {
+		if err := h.regroup(p, path, false, 0o040); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (h folderHost) regroup(p *permPlan, path string, isDir bool) error {
+// regroup gives path the group of the plan and adds the bits of add to its mode; the owner and every other bit stay.
+func (h folderHost) regroup(p *permPlan, path string, isDir bool, add fs.FileMode) error {
 	info, ok := plainBelow(p.dir, path, isDir)
 	if !ok {
 		return nil
@@ -286,11 +302,7 @@ func (h folderHost) regroup(p *permPlan, path string, isDir bool) error {
 		return nil
 	}
 	keep := info.Mode() & (fs.ModePerm | fs.ModeSetuid | fs.ModeSetgid | fs.ModeSticky)
-	mode := keep | 0o060
-	if isDir {
-		mode = keep | 0o070 | fs.ModeSetgid
-	}
-	if err := h.chmod(path, mode); err != nil {
+	if err := h.chmod(path, keep|add); err != nil {
 		return folderFailure("cannot change the mode of "+path, err)
 	}
 	return nil
