@@ -4,7 +4,8 @@
 # proposes a user with a group and an SSH key with qhost proposal; the interface approves it, asks for the initial
 # password and creates the user, the journal shows the change, the undo removes the user, and a process of
 # qhost-deploy is not shown the proposal. The file browser shows a file the administrator may read directly and a
-# file only root may read after the password prompt of the real sudo.
+# file only root may read after the password prompt of the real sudo. A script as the editor changes a file of /etc,
+# Changes undoes it, and a file is created, renamed and removed in the browser.
 # Needs install: the host service and the group qhost of the installation. No other section needs this one.
 # Sourced by run.sh; defines only functions and constants.
 
@@ -282,6 +283,153 @@ scenario_tui_files() {
 	docker exec "$host" rm -f "$tf_root"
 	as_admin "rm -rf '$tf_dir'"
 	log "scenario: the interface without sudo showed a readable file directly and $tf_root after the password prompt of sudo"
+}
+
+# tui_sudo_password answers the password prompt of the real sudo for $admin with $1 and keeps it off the screen log.
+tui_sudo_password() {
+	tui_wait "[sudo] password for $admin" 30
+	tui_type "$1"
+	tui_send Enter
+}
+
+# scenario_tui_file_edit proves the writing actions of the file browser of System > Folders started without sudo. A
+# script stands in for the editor, set through VISUAL; qhost does not know it, so it asks about backup and swap files
+# first. The editor changes a file of /etc, which the administrator may read: the question is red, shows the exact
+# command of file.write and asks for the password of sudo -v; owner, group and mode stay. Changes
+# lists the write and its undo brings the old text back. In a folder of the administrator a file is created, renamed
+# and removed, each after its question and through sudo. The rule of $admin stays, so only the password prompts of
+# sudo -v show; timestamp_timeout=0 makes each of them ask. The rule and the locked password are put back at the end,
+# and the password shows on no captured screen.
+scenario_tui_file_edit() {
+	tui_log=$work/tui-file-edit-screens.log
+	: >"$tui_log"
+	fe_login=E2e-admin-Login-5513
+	fe_etc=/etc/e2e-tui-edit.conf
+	fe_dir=/var/tmp/e2e-tui-fe
+	fe_editor=/home/$admin/e2e-fake-editor.sh
+	fe_old=e2e_edit_original=1001
+	fe_new=e2e_edit_changed=6619
+	docker exec "$host" sh -ec "printf '%s\n' '$fe_old' >'$fe_etc' && chmod 0644 '$fe_etc' && chown root:root '$fe_etc'" ||
+		fail "cannot make $fe_etc"
+	fe_stat=$(docker exec "$host" stat -c %U:%G:%a "$fe_etc")
+	[ "$fe_stat" = root:root:644 ] || fail "$fe_etc starts as $fe_stat, want root:root:644"
+	printf '%s\n' '#!/bin/sh' "printf '%s\\n' '$fe_new' >\"\$1\"" | as_admin "cat >'$fe_editor' && chmod 0755 '$fe_editor'" ||
+		fail 'cannot make the script that stands in for the editor'
+	as_admin "rm -rf '$fe_dir' && mkdir '$fe_dir' && touch '$fe_dir/keep.txt'" || fail "cannot make $fe_dir"
+	printf '%s:%s\n' "$admin" "$fe_login" | docker exec -i "$host" chpasswd || fail "cannot give $admin a password"
+	docker exec "$host" sh -ec "printf 'Defaults:%s timestamp_timeout=0\n' '$admin' >/etc/sudoers.d/e2e-ask && chmod 0440 /etc/sudoers.d/e2e-ask &&
+		visudo -c >/dev/null" || fail 'cannot make sudo ask for the password each time'
+
+	step 'the editor changes a file of /etc: red question with the exact command, password of sudo, owner and mode stay'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 VISUAL=$fe_editor sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 7
+	tui_wait 'DOCKER' 15
+	tui_system_tab Folders
+	tui_wait 'etc/' 10
+	tui_browse_to etc
+	tui_browse_mark "${fe_etc##*/}"
+	tui_send e
+	tui_wait 'Unknown editor' 15
+	tui_has 'backup or swap files' || fail "the question about the unknown editor does not name backup or swap files: $(tui_screen)"
+	tui_send y
+	tui_wait "Write the edited file $fe_etc" 30
+	tui_has "file-write $fe_etc" || fail "the question does not show the command: $(tui_screen)"
+	tui_has 'yes, with sudo' || fail "the question does not offer sudo: $(tui_screen)"
+	tui_has 'This is a system path' || fail "the question of the system path does not say so: $(tui_screen)"
+	tui_send y
+	tui_sudo_password "$fe_login"
+	tui_wait 'Done: Write the edited file' 60
+	tui_send Enter
+	[ "$(docker exec "$host" cat "$fe_etc")" = "$fe_new" ] || fail "$fe_etc holds $(docker exec "$host" cat "$fe_etc"), want $fe_new"
+	[ "$(docker exec "$host" stat -c %U:%G:%a "$fe_etc")" = "$fe_stat" ] ||
+		fail "$fe_etc is $(docker exec "$host" stat -c %U:%G:%a "$fe_etc") after the write, want $fe_stat"
+
+	step 'System > Changes lists the write and the undo brings the old text back'
+	tui_system_tab Changes
+	tui_wait 'only root can read' 10
+	tui_send R
+	tui_wait "Write the given content to $fe_etc" 60
+	i=0
+	until tui_screen | grep "^> " | grep -q "Write the given content to $fe_etc"; do
+		i=$((i + 1))
+		[ "$i" -lt 20 ] || fail "the newest change is not the write of $fe_etc under the cursor: $(tui_screen)"
+		sleep 0.25
+	done
+	tui_screen | grep "^> " | grep -q possible || fail "the write of $fe_etc offers no undo: $(tui_screen)"
+	tui_send Enter
+	tui_wait 'Undo the change: Write the given content' 10
+	tui_send y
+	tui_wait 'Done: Undo the change' 60
+	tui_send Enter
+	[ "$(docker exec "$host" cat "$fe_etc")" = "$fe_old" ] || fail "the undo left $fe_etc as $(docker exec "$host" cat "$fe_etc"), want $fe_old"
+	[ "$(docker exec "$host" stat -c %U:%G:%a "$fe_etc")" = "$fe_stat" ] ||
+		fail "$fe_etc is $(docker exec "$host" stat -c %U:%G:%a "$fe_etc") after the undo, want $fe_stat"
+	journal=$(as_admin 'sudo qhost --output json host journal 2>&1') || fail "sudo qhost host journal failed: $journal"
+	printf '%s' "$journal" | grep -qF 'file.write' || fail "the journal does not hold the action file.write: $journal"
+	printf '%s' "$journal" | tr -d ' \n' | grep -q '"result":"undone"' || fail "the journal does not mark the write undone: $journal"
+	tui_send Escape
+	tui_send q
+	tui_wait 'qhost-exit=0' 10
+	tui_tmux kill-server >/dev/null 2>&1 || true
+
+	step 'in a folder of the administrator a file is created, renamed and removed, each after its question'
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_send 7
+	tui_wait 'DOCKER' 15
+	tui_system_tab Folders
+	tui_wait 'etc/' 10
+	tui_browse_to "${fe_dir#/}"
+	tui_wait 'keep.txt' 10
+	tui_send n
+	tui_wait 'Creates an empty file or a folder.' 10
+	tui_send Down
+	tui_type e2e-new.txt
+	tui_send F2
+	tui_wait "Create the empty file $fe_dir/e2e-new.txt" 10
+	tui_has 'file-write' || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	tui_sudo_password "$fe_login"
+	tui_wait 'Done: Create the empty file' 60
+	tui_send Enter
+	docker exec "$host" sh -c "[ -f '$fe_dir/e2e-new.txt' ] && [ ! -s '$fe_dir/e2e-new.txt' ]" || fail "$fe_dir/e2e-new.txt is not an empty file"
+	[ "$(docker exec "$host" stat -c %U "$fe_dir/e2e-new.txt")" = "$admin" ] ||
+		fail "the new file does not belong to the owner of its folder"
+	tui_browse_mark e2e-new.txt
+	tui_send r
+	tui_wait 'The entry stays in its folder.' 10
+	tui_clear
+	tui_type e2e-renamed.txt
+	tui_send F2
+	tui_wait "Rename $fe_dir/e2e-new.txt" 10
+	tui_has 'file-rename' || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	tui_wait 'Done: Rename' 60
+	tui_send Enter
+	docker exec "$host" sh -c "[ ! -e '$fe_dir/e2e-new.txt' ] && [ -f '$fe_dir/e2e-renamed.txt' ]" || fail "the file was not renamed to e2e-renamed.txt in $fe_dir"
+	tui_browse_mark e2e-renamed.txt
+	tui_send d
+	tui_wait "Remove $fe_dir/e2e-renamed.txt" 10
+	tui_send y
+	tui_wait 'Done: Remove' 60
+	tui_send Enter
+	docker exec "$host" sh -c "[ ! -e '$fe_dir/e2e-renamed.txt' ] && [ -f '$fe_dir/keep.txt' ]" || fail "the renamed file was not removed, or keep.txt went with it"
+	tui_send Escape
+	tui_send q
+	tui_wait 'qhost-exit=0' 10
+	tui_tmux kill-server >/dev/null 2>&1 || true
+
+	step 'the password shows on no captured screen; the rule of the administrator is back as it was'
+	if grep -qF -- "$fe_login" "$tui_log"; then fail 'the password typed for sudo shows on a captured screen'; fi
+	docker exec "$host" sh -ec 'rm -f /etc/sudoers.d/e2e-ask && visudo -c >/dev/null' || fail 'cannot remove the sudo setting of the scenario'
+	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
+	docker exec "$host" rm -f "$fe_etc"
+	as_admin "rm -rf '$fe_dir' '$fe_editor'"
+	log "scenario: the interface without sudo edited $fe_etc in a stand-in editor, undid it on Changes, and created, renamed and removed a file in $fe_dir"
 }
 
 # scenario_tui_host_proposal proves a proposal of the host from submission to undo. An administrator without sudo

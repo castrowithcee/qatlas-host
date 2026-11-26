@@ -16,6 +16,7 @@ install        scenario_host_changes
 host-tui       scenario_tui_system
 host-tui       scenario_tui_changes
 host-tui       scenario_tui_files
+host-tui       scenario_tui_file_edit
 host-tui       scenario_tui_host_proposal
 host-tui       scenario_free_command_proposal
 instance       scenario_rootless_instance
