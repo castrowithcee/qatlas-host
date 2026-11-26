@@ -355,7 +355,7 @@ file internal/stacks/refs.go 504
 file internal/stacks/stacks.go 545
 file internal/tui/actions.go 911
 file internal/tui/backend.go 610
-file internal/tui/detail.go 649
+file internal/tui/detail.go 647
 file internal/tui/fakebackend_test.go 1260
 file internal/tui/folders.go 855
 file internal/tui/model.go 1559

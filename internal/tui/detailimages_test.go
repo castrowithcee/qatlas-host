@@ -17,3 +17,15 @@ func TestStackDetailShowsImageFingerprintsAndMissingOnes(t *testing.T) {
 	send(m, toDetail...)
 	contains(t, m, "Images", "reg.example.test/app:1", "digest sha256:aaaaaaaaaaaa  id sha256:bbbbbbbbbbbb", "digest missing  id missing")
 }
+
+func TestStackDetailListsEachVersionVariableOnceBeforeTheFirstCheck(t *testing.T) {
+	m := newSettingsModel(t, demoBackend())
+	m.snap.stacks.Stacks = []control.StackInfo{{Name: "s", Images: []control.ImageInfo{
+		{Service: "web", Image: "reg.example.test/app", Var: "APP", Version: "1.0"},
+		{Service: "worker", Image: "reg.example.test/app", Var: "APP", Version: "1.0"},
+	}}}
+	items, _ := m.versionItems("", "s")
+	if len(items) != 1 || items[0].variable != "APP" || items[0].current != "1.0" {
+		t.Fatalf("items = %+v", items)
+	}
+}

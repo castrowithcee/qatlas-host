@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
@@ -68,18 +69,13 @@ func promoteText(src control.PromoteSource, images []control.ImageInfo) string {
 	if why := src.Unproven(); why != "" {
 		return unprovenTexts[why]
 	}
-	return joinVersions(src.VersionsFor(images))
-}
-
-func joinVersions(vs []control.PromoteVersion) string {
-	text := ""
-	for i, v := range vs {
-		if i > 0 {
-			text += ", "
+	var vals []control.VarValue
+	for _, img := range images {
+		for _, v := range src.VersionsFor([]control.ImageInfo{img}) {
+			vals = append(vals, control.VarValue{Var: v.Variable, Service: img.Service, Value: v.Version})
 		}
-		text += v.Variable + "=" + v.Version
 	}
-	return text
+	return strings.Join(control.DistinctVars(vals), ", ")
 }
 
 // engineStack names a stack by its engine and name.
