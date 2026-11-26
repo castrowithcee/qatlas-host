@@ -787,8 +787,7 @@ const (
 	SourceExcludedWritableFile = "writable-file"
 	// SourceExcludedSecretsFile: a file a stack names as the file of a secret.
 	SourceExcludedSecretsFile = "secrets-file"
-	// SourceExcludedUnreadableStack: the stack the file belongs to cannot be read, so it brings no file; the
-	// finding of the stack says why and what to change.
+	// SourceExcludedUnreadableStack: the stack cannot be read, so it brings no file; its finding says what to change.
 	SourceExcludedUnreadableStack = "unreadable-stack"
 )
 
@@ -1141,19 +1140,20 @@ type SourceRemoveResult struct {
 
 // SourceAccess is the permission information of a folder. ModePath is the folder Mode belongs to: Path, or the
 // nearest existing parent while Path is missing. Owner and Group are empty when the id has no name.
-// ServiceCanWrite says the service may create files there; SetsPermissions says source add will then change the
-// permissions (group qhost-deploy, group write, setgid), which it does exactly when the service cannot write.
-// GitWritable is set for an existing repository and says the service may write its .git folder.
+// ServiceCanWrite says the service may create files there; SetsPermissions says source add will then change
+// the permissions (group qhost-deploy, group write, setgid), exactly when the service cannot write. GitWritable
+// says the service may write the .git folder; UnreadableEnvFiles are unversioned env files it cannot read.
 type SourceAccess struct {
-	ModePath        string `json:"mode_path"`
-	OwnerID         uint32 `json:"owner_id"`
-	Owner           string `json:"owner,omitempty"`
-	GroupID         uint32 `json:"group_id"`
-	Group           string `json:"group,omitempty"`
-	Mode            string `json:"mode"`
-	ServiceCanWrite bool   `json:"service_can_write"`
-	SetsPermissions bool   `json:"sets_permissions"`
-	GitWritable     *bool  `json:"git_writable,omitempty"`
+	ModePath           string   `json:"mode_path"`
+	OwnerID            uint32   `json:"owner_id"`
+	Owner              string   `json:"owner,omitempty"`
+	GroupID            uint32   `json:"group_id"`
+	Group              string   `json:"group,omitempty"`
+	Mode               string   `json:"mode"`
+	ServiceCanWrite    bool     `json:"service_can_write"`
+	SetsPermissions    bool     `json:"sets_permissions"`
+	GitWritable        *bool    `json:"git_writable,omitempty"`
+	UnreadableEnvFiles []string `json:"unreadable_env_files,omitempty"`
 }
 
 // SourceExcluded is a file or folder, as a path below the folder, that the first commit would leave out. Reason is

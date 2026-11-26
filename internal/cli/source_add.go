@@ -241,9 +241,9 @@ func prepareSourceAdd(c *cobra.Command, program *cobracli.Program, state *notRun
 	return &sourceAdd{res: res, inspected: inspected, repoURL: repoURL, perms: perms, remote: remote, question: question, include: include}, nil
 }
 
-// planAccess works out what must change so that the service can write the folder of res: nil when nothing
+// planFolderAccess works out what must change so that the service can write the folder of res: nil when nothing
 // needs to. It changes nothing.
-func planAccess(ctx context.Context, res control.SourceInspectResult) (*permPlan, error) {
+func planFolderAccess(ctx context.Context, res control.SourceInspectResult) (*permPlan, error) {
 	path, a := res.Path, res.Access
 	t := targetOf(ctx)
 	if res.Case == control.SourceCaseClone {

@@ -68,7 +68,11 @@ func load(t *testing.T, files map[string]string) []stacks.Stack {
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		mode := os.FileMode(0o644)
+		if filepath.Base(p) == "secrets.env" {
+			mode = 0o600
+		}
+		if err := os.WriteFile(p, []byte(body), mode); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -470,5 +474,52 @@ func TestOldRulesFileBesideSettingsNamesTheMode(t *testing.T) {
 	}), fakeGit{})
 	if len(fs) != 1 || fs[0].Rule != RuleOldRulesFile || !strings.Contains(fs[0].Cause, "update mode automatic") {
 		t.Fatalf("findings: %+v", fs)
+	}
+}
+
+func TestUnreadableSecretsEnvNamesThePermissionAndTheFix(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every file")
+	}
+	list := load(t, demoFiles())
+	if err := os.Chmod(filepath.Join(list[0].Dir, "secrets.env"), 0); err != nil {
+		t.Fatal(err)
+	}
+	rs, err := Check(context.Background(), list, fakeGit{}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got *Finding
+	for i, f := range rs[0].Findings {
+		if f.Rule == RuleUnreadableSecrets {
+			got = &rs[0].Findings[i]
+		}
+	}
+	if got == nil || got.Severity != SeverityError || !strings.Contains(got.Cause, "no read permission") ||
+		!strings.Contains(got.Fix, "chmod g+r") || !strings.Contains(got.Fix, "source add") || strings.Contains(got.Fix, "regular file") {
+		t.Fatalf("finding = %+v", got)
+	}
+}
+
+func TestSecretsEnvOpenToOthersIsAWarning(t *testing.T) {
+	for _, mode := range []os.FileMode{0o604, 0o602} {
+		list := load(t, demoFiles())
+		if err := os.Chmod(filepath.Join(list[0].Dir, "secrets.env"), mode); err != nil {
+			t.Fatal(err)
+		}
+		rs, err := Check(context.Background(), list, fakeGit{}, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fs := rs[0].Findings; len(fs) != 1 || fs[0].Rule != RuleOpenSecretsEnv || fs[0].Severity != SeverityWarning {
+			t.Fatalf("mode %o: findings %+v", mode, fs)
+		}
+	}
+	list := load(t, demoFiles())
+	if err := os.Chmod(filepath.Join(list[0].Dir, "secrets.env"), 0o640); err != nil {
+		t.Fatal(err)
+	}
+	if rs, _ := Check(context.Background(), list, fakeGit{}, true); len(rs[0].Findings) != 0 {
+		t.Fatalf("findings %+v", rs[0].Findings)
 	}
 }

@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -30,6 +32,7 @@ const (
 	RuleUnsetImageVariable = "unset-image-variable"
 	RuleDuplicateKey       = "duplicate-key"
 	RuleUnreadableSecrets  = "unreadable-secrets-env"
+	RuleOpenSecretsEnv     = "open-secrets-env"
 	RuleTrackedSecretsEnv  = "tracked-secrets-env"
 	RuleSecretsNotIgnored  = "secrets-env-not-ignored"
 	RuleTrackedData        = "tracked-data"
@@ -126,9 +129,7 @@ func checkStack(ctx context.Context, s stacks.Stack, git Git, remote bool) (Repo
 	}
 
 	keys, secretsExist, secretsErr := stacks.SecretKeys(s.Dir)
-	if secretsErr != nil {
-		add(RuleUnreadableSecrets, SeverityError, secretsErr.Error(), fixSecretsFile)
-	}
+	out = append(out, secretsFileFindings(s, secretsErr)...)
 	for _, k := range keys {
 		if _, both := s.Env[k]; both {
 			add(RuleDuplicateKey, SeverityWarning, fmt.Sprintf("key %s is set in both .env and secrets.env", k),
@@ -206,6 +207,28 @@ const (
 
 var fixSecretsFile = "Make secrets.env a regular file inside the stack folder, not a link and not larger than " +
 	fmt.Sprint(stacks.MaxFileSize) + " bytes."
+
+// secretsFileFindings reports a secrets.env that qhost cannot read and one that other users can read or write.
+func secretsFileFindings(s stacks.Stack, readErr error) []Finding {
+	var out []Finding
+	add := func(rule, severity, cause, fix string) {
+		out = append(out, Finding{Stack: s.Name, Rule: rule, Severity: severity, Cause: cause, Fix: fix})
+	}
+	switch {
+	case errors.Is(readErr, fs.ErrPermission):
+		add(RuleUnreadableSecrets, SeverityError, "the deploy service has no read permission on secrets.env", fixSecretsUnreadable)
+	case readErr != nil:
+		add(RuleUnreadableSecrets, SeverityError, readErr.Error(), fixSecretsFile)
+	}
+	if info, err := os.Lstat(filepath.Join(s.Dir, stacks.SecretsFile)); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o006 != 0 {
+		add(RuleOpenSecretsEnv, SeverityWarning, fmt.Sprintf("secrets.env can be read or written by other users: its mode is %04o", info.Mode().Perm()),
+			"Remove the permissions of others, for example 'chmod o-rw secrets.env' in the stack folder.")
+	}
+	return out
+}
+
+var fixSecretsUnreadable = "Give the group of the deploy service read permission on secrets.env, for example 'chgrp <group> secrets.env' and " +
+	"'chmod g+r secrets.env' in the stack folder; qhost source add does this when it takes a folder over. qhost does not change the file itself."
 
 // deployFunction: every error finding keeps the stack from being deployed, except a versioned secrets.env.
 func deployFunction(s stacks.Stack, findings []Finding) Function {
@@ -461,7 +484,7 @@ func errFindings(s stacks.Stack) []Finding {
 		return []Finding{mk(RuleInvalidRules, cause, "Correct the stack settings in the qhost TUI or with 'qhost stack settings set'; 'qhost help stack-settings' lists the fields.")}
 	}
 	if errors.Is(s.Err, fs.ErrPermission) {
-		return []Finding{mk(RuleUnreadableStack, cause, "Give the group of the deploy service read permission on the file named in the cause; qhost does not change it. "+
+		return []Finding{mk(RuleUnreadableStack, cause, "Give the group of the deploy service read permission on the file named in the cause, for example with chgrp and chmod g+r; qhost source add does this for unversioned env files when it takes a folder over, and qhost does not change a folder it already took over. "+
 			"The other checks cannot run on this stack before, and a first commit of the folder takes no file of it.")}
 	}
 	return []Finding{mk(RuleUnreadableStack, cause, "Correct the file named in the cause; the other checks cannot run on this stack before.")}

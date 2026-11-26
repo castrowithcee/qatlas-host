@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 )
 
@@ -195,5 +196,27 @@ func TestSetSecretRemovesLeftoverTemporaryFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(target); err != nil {
 		t.Fatalf("the link target was touched: %v", err)
+	}
+}
+
+func TestSetSecretKeepsModeWithoutOthersAndGroup(t *testing.T) {
+	st := secretStack(t, nil)
+	path := filepath.Join(st.Dir, SecretsFile)
+	if err := os.WriteFile(path, []byte("A_KEY=abcd\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o666); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.Stat(path)
+	if _, err := SetSecret(st, "DB_PASSWORD", fakeSecretValue); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.Mode().Perm() != 0o660 {
+		t.Fatalf("info %v, err %v", info, err)
+	}
+	if info.Sys().(*syscall.Stat_t).Gid != before.Sys().(*syscall.Stat_t).Gid {
+		t.Fatal("the group changed")
 	}
 }
