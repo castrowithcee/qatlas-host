@@ -130,7 +130,7 @@ acc_cursor_to() {
 
 # acc_tui_secret sets the secret $2=$3 of the stack $1 in the detail page of the terminal interface.
 acc_tui_secret() {
-	tui_send a
+	tui_send n
 	tui_wait 'Set a secret' 10
 	tui_type "$2"
 	tui_send Tab
@@ -149,7 +149,7 @@ acc_deploy_via_tui() {
 	prev=$(newest_run "$1")
 	tui_wait 'CURRENT' 10
 	acc_cursor_to "$1"
-	tui_send d
+	tui_send a
 	tui_wait "Deploy $1?" 10
 	tui_send y
 	tui_wait 'deploy finished: 1 ok, 0 failed' 600
@@ -173,7 +173,7 @@ acc_first_setup() {
 	tui_wait 'No stack folders yet' 30
 
 	step 'Stacks: adding the clone stops at the missing deploy key; the key is generated and registered on the git server'
-	tui_send a
+	tui_send n
 	tui_wait 'Add a stack folder' 10
 	tui_type "$acc_stacks"
 	tui_send F2
@@ -222,7 +222,7 @@ acc_first_setup() {
 	step 'Settings: a webhook channel is added and its test message is sent'
 	tui_subtab Notifications
 	tui_wait 's send test' 10
-	tui_send a
+	tui_send n
 	tui_wait 'Add a notification channel' 10
 	tui_type acceptance-hook
 	tui_send F2
@@ -247,7 +247,7 @@ acc_first_setup() {
 	step 'Stacks: the repository is cloned into a new stack folder after the host key is shown and confirmed'
 	tui_send 1
 	tui_wait 'No stack folders yet' 10
-	tui_send a
+	tui_send n
 	tui_wait 'Add a stack folder' 10
 	tui_type "$acc_stacks"
 	tui_send F2
@@ -335,7 +335,7 @@ VALUES_END
 	tui_send Enter
 	tui_wait 'Missing data directories' 15
 	tui_wait 'owner 1000:1000' 10
-	tui_send m
+	tui_send +
 	tui_wait 'Create data directories' 10
 	tui_wait '1000:1000' 10
 	tui_wait '0750' 10
