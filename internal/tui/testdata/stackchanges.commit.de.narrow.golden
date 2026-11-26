@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+  Nicht committete Änderungen in /srv/stacks-example    
+  ╔═ Committen ══════════════════════════════════════╗  
+  ║ ⚠ 2 Dateien von /srv/stacks-example committen?   ║  
+  ║                                                  ║  
+  ║ qhost prüft, dass jeder Stack der Dateien noch   ║  
+> ║ lädt und kein Secret mitgeht, committet sie, wie ║  
+  ║ sie jetzt sind, und pusht den Commit. Danach     ║  
+  ║ rollt der normale Lauf ihre Stacks aus.          ║  
+  ║ demo-stack/.env                                  ║  
+  ║ demo-stack/compose.yaml                          ║  
+  ║ $ sudo qhost source commit --head                ║  
+  ║   1111111111111111111111111111111111111111       ║  
+  ║   --output json -- /srv/stacks-example           ║  
+  ║   demo-stack/.env demo-stack/compose.yaml        ║  
+  ║                                                  ║  
+  ║ [ ja, mit sudo ]  [ enter abbrechen ]            ║  
+  ║ y ja, mit sudo  n/esc/enter abbrechen            ║  
+  ╚══════════════════════════════════════════════════╝, 
+  Datenordner und neue Dateien unter einem Bind-Mount   
+  gehören dem Host und sind nie Teil davon.             
+                                                        

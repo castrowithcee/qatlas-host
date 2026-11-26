@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  demo-stack/.env                                                                                                       
+  diff --git a/demo-stack/.env b/demo-stack/.env                                                                        
+  index 1111111..2222222 100644                                                                                         
+  --- a/demo-stack/.env                                                                                                 
+  +++ b/demo-stack/.env                                                                                                 
+  @@ -1 +1 @@                                                                                                           
+  -APP_VERSION=1.4.2                                                                                                    
+  +APP_VERSION=1.5.0                                                                                                    
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+[ / search ]  [ w wrap lines off ]  [ # line numbers off ]                                                lines 1-7 of 7
+/ search  w wrap lines  # line numbers  esc back  R reload  1-7 area  q quit                                  ↑/↓ scroll

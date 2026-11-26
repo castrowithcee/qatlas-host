@@ -28,6 +28,8 @@ type stackFiles struct {
 	// gen separates that read from an older one.
 	mounts []dataMount
 	gen    int
+	// changes is the view of the uncommitted changes of a stack folder, which covers the list or the browser.
+	changes stackChanges
 }
 
 // dataMount is a folder a running container has mounted.
@@ -35,14 +37,16 @@ type dataMount struct{ path, container string }
 
 // shownStackFiles is the browser over a stack folder while the Stacks area shows it, nil otherwise.
 func (m *Model) shownStackFiles() *fileView {
-	if m.area != areaStacks || !m.sf.open || m.set.keyOpen {
+	if m.area != areaStacks || !m.sf.open || m.set.keyOpen || m.sf.changes.open {
 		return nil
 	}
 	return &m.sf.view
 }
 
 // stackRowsShown reports whether the Stacks area shows its list, where the keys of the stacks act.
-func (m *Model) stackRowsShown() bool { return m.area == areaStacks && m.shownStackFiles() == nil }
+func (m *Model) stackRowsShown() bool {
+	return m.area == areaStacks && m.shownStackFiles() == nil && m.shownChanges() == nil
+}
 
 // openFolderFiles opens the browser over the stack folder of the marked row.
 func (m *Model) openFolderFiles() tea.Cmd {
@@ -129,6 +133,9 @@ func (m *Model) closeStackFiles() {
 
 // stacksInput is the input focus of the Stacks list or of the browser.
 func (m *Model) stacksInput() kittui.InputFocus {
+	if c := m.shownChanges(); c != nil {
+		return m.changesInput(c)
+	}
 	if v := m.shownStackFiles(); v != nil {
 		return m.filesInput(v)
 	}
@@ -137,6 +144,9 @@ func (m *Model) stacksInput() kittui.InputFocus {
 
 // stacksTyped gives a key to the browser, or to the Stacks list, where enter opens the detail of a stack.
 func (m *Model) stacksTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
+	if c := m.shownChanges(); c != nil {
+		return m.changesTyped(c, msg)
+	}
 	if v := m.shownStackFiles(); v != nil {
 		return m.filesTyped(v, msg)
 	}
@@ -144,10 +154,16 @@ func (m *Model) stacksTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	return m.open(open), handled
 }
 
-// stacksAction acts on a letter in the Stacks area: in the browser on its entries, else on the marked row.
+// stacksAction acts on a letter in the Stacks area: in the changes, in the browser on its entries, else on the marked
+// row.
 func (m *Model) stacksAction(id kittui.ActionID) (tea.Cmd, bool) {
+	if c := m.shownChanges(); c != nil {
+		return m.changesAction(c, id)
+	}
 	v := m.shownStackFiles()
 	switch {
+	case id == actChanges:
+		return m.openFolderChanges(v)
 	case v == nil && id == actFiles:
 		if _, ok := m.selectedFolder(); !ok {
 			return nil, false
@@ -167,9 +183,13 @@ func (m *Model) stacksAction(id kittui.ActionID) (tea.Cmd, bool) {
 	return act(), true
 }
 
-// stacksBack is esc in the Stacks area: in the browser it closes the preview, clears a filter and goes up, and at
-// the root it leaves the browser; in the list it clears a search, then leads to the tab line.
+// stacksBack is esc in the Stacks area: it leaves the changes; in the browser it closes the preview, clears a filter
+// and goes up, and at the root it leaves the browser; in the list it clears a search, then leads to the tab line.
 func (m *Model) stacksBack(msg tea.KeyPressMsg) tea.Cmd {
+	if c := m.shownChanges(); c != nil {
+		m.changesBack(c, msg)
+		return nil
+	}
 	v := m.shownStackFiles()
 	if v == nil {
 		m.back(m.list, msg)
@@ -184,14 +204,18 @@ func (m *Model) stacksBack(msg tea.KeyPressMsg) tea.Cmd {
 
 // stacksPosition is the position and the back key of the header in the Stacks area.
 func (m *Model) stacksPosition() (string, *kittui.Hint) {
-	if m.shownStackFiles() != nil {
+	if m.shownStackFiles() != nil || m.shownChanges() != nil {
 		return "", &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
 	}
 	return m.list.Position(), nil
 }
 
-// reloadStackFiles reads what the browser shows again, as on R, with the mounts of the running containers.
+// reloadStackFiles reads what the browser shows again, as on R, with the mounts of the running containers; over it the
+// changes are read again.
 func (m *Model) reloadStackFiles() tea.Cmd {
+	if m.shownChanges() != nil {
+		return m.readChanges()
+	}
 	v := m.shownStackFiles()
 	if v == nil {
 		return nil
@@ -199,10 +223,10 @@ func (m *Model) reloadStackFiles() tea.Cmd {
 	return tea.Batch(m.reloadFiles(v), m.readMounts())
 }
 
-// stackFilesView draws the browser, below a line about uncommitted changes of the folder where it has any.
+// stackFilesView draws the browser, below a line about uncommitted changes of the folder where it has any, which a
+// click opens.
 func (m *Model) stackFilesView(v *fileView, width, height int) string {
-	f := m.sf.folder
-	if m.snap.changes[stackRef{f.Engine, f.Path}] == 0 || height < 4 {
+	if !m.folderChanged(m.sf.folder) || height < 4 {
 		return m.filesView(v, width, height)
 	}
 	note := m.line(detailMargin, kittui.StyleWarn, m.text.Lookup(textDetailUncommitted), width)
@@ -212,6 +236,7 @@ func (m *Model) stackFilesView(v *fileView, width, height int) string {
 	for i := from; i < len(m.parts); i++ {
 		m.parts[i].rect.Y++
 	}
+	m.changesTarget(0, width, 1)
 	return note + "\n" + view
 }
 

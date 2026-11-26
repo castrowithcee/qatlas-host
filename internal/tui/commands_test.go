@@ -55,8 +55,11 @@ func commandStates() []commandState {
 	for _, name := range []string{"demo-stack", "secrets.env"} {
 		secrets = append(append(append(secrets, "/"), typed(name)...), "enter", "enter")
 	}
+	// The changes of a stack folder and the diff of one of its files.
 	return append(states, commandState{"stack file browser", stackFilesBackend, []string{"up", "Q"}, false},
-		commandState{"stack secrets preview", stackFilesBackend, secrets, false})
+		commandState{"stack secrets preview", stackFilesBackend, secrets, false},
+		commandState{"stack changes", changesBackend, []string{"up", "="}, false},
+		commandState{"stack diff", changesBackend, []string{"up", "=", "enter"}, false})
 }
 
 // release drops the timer record the test models keep in a global map, which would hold every model of the
@@ -73,6 +76,10 @@ func commandModel(t *testing.T, lang i18n.Lang, st commandState) *Model {
 	// System > Folders and the stack folders browse the invented trees, not the machine.
 	fakeHostFolders(m, 1)
 	fakeStackFiles(m)
+	if st.name == "stack diff" {
+		// As root the diff shows without a question.
+		m.euid = func() int { return 0 }
+	}
 	send(m, st.keys...)
 	return m
 }

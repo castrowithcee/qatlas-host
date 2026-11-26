@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed  [esc] back  [?] help
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+  Uncommitted changes of /srv/stacks-example            
+  ╔═ Commit ═════════════════════════════════════════╗  
+  ║ ⚠ Commit 2 files of /srv/stacks-example?         ║  
+  ║                                                  ║  
+  ║ qhost checks that every stack of the files still ║  
+> ║ loads and that no secret goes along, commits     ║  
+  ║ them as they are now and pushes the commit. The  ║  
+  ║ normal run then deploys their stacks.            ║  
+  ║ demo-stack/.env                                  ║  
+  ║ demo-stack/compose.yaml                          ║  
+  ║ $ sudo qhost source commit --head                ║  
+  ║   1111111111111111111111111111111111111111       ║  
+  ║   --output json -- /srv/stacks-example           ║  
+  ║   demo-stack/.env demo-stack/compose.yaml        ║  
+  ║                                                  ║  
+  ║ [ yes, with sudo ]  [ enter cancel ]             ║  
+  ║ y yes, with sudo  n/esc/enter cancel             ║  
+  ╚══════════════════════════════════════════════════╝  
+  data folders and new files below a bind mount belong  
+  to the host and are never part of it.                 
+                                                        

@@ -20,5 +20,5 @@
 │ last poll: Fri 2026-10-30 14:30                                                                                      │
 │ This folder has uncommitted changes: updates leave it out until they are committed or discarded.                     │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-enter details  / search  F fetch now  e deploy key  Q files  d release  n add  R reload  1-7 area  q quit               
+enter details  / search  F fetch now  e deploy key  = changes  Q files  d release  n add  R reload  1-7 area  q quit    
                                                                                                          ↑/↓ choose  1/6

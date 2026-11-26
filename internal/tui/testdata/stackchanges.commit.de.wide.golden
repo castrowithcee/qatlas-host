@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
+  [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Nicht committete Änderungen in /srv/stacks-example                                                                    
+  [ Unterschied ]  [ verwerfen ]  [ committen ]                                                                         
+                            ╔═ Committen ══════════════════════════════════════════════════╗                            
+  DATEI                    A║ ⚠ 2 Dateien von /srv/stacks-example committen?               ║                            
+  ──────────────────────────║                                                              ║                            
+> demo-stack/.env          g║ qhost prüft, dass jeder Stack der Dateien noch lädt und kein ║                            
+  demo-stack/compose.yaml  g║ Secret mitgeht, committet sie, wie sie jetzt sind, und pusht ║                            
+                            ║ den Commit. Danach rollt der normale Lauf ihre Stacks aus.   ║                            
+                            ║ demo-stack/.env                                              ║                            
+                            ║ demo-stack/compose.yaml                                      ║                            
+                            ║ $ sudo qhost source commit --head                            ║                            
+                            ║   1111111111111111111111111111111111111111 --output json --  ║                            
+                            ║   /srv/stacks-example demo-stack/.env                        ║                            
+                            ║   demo-stack/compose.yaml                                    ║                            
+                            ║                                                              ║                            
+                            ║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║                            
+                            ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
+                            ╚══════════════════════════════════════════════════════════════╝                            
+  Ein Commit nimmt alle Dateien der Liste. secrets.env, Datenordner und neue Dateien unter einem Bind-Mount gehören dem 
+  Host und sind nie Teil davon.                                                                                         
+                                                                                                                        

@@ -86,3 +86,45 @@ func (f *fakeBackend) SourceChanges(_ context.Context, path string) (control.Sou
 	defer f.mu.Unlock()
 	return control.SourceChangesResult{Path: path, Changes: slices.Clone(f.changes[path])}, nil
 }
+
+// fakeChanges is what the fake keeps of the uncommitted changes: the list source.changes gives by folder, the diff
+// by file, and the discards and commits that reached it.
+type fakeChanges struct {
+	changes  map[string][]control.SourceChange
+	diffs    map[string]string
+	discards []control.SourceDiscardArgs
+	commits  []control.SourceCommitArgs
+}
+
+func (f *fakeBackend) SourceDiff(_ context.Context, path, file string) (control.SourceDiffResult, error) {
+	if err := f.act("sourcediff", file); err != nil {
+		return control.SourceDiffResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return control.SourceDiffResult{Path: path, File: file, Diff: f.diffs[file]}, nil
+}
+
+// SourceDiscard takes the files out of the list of their folder.
+func (f *fakeBackend) SourceDiscard(_ context.Context, path string, files []string) (control.SourceDiscardResult, error) {
+	if err := f.act("sourcediscard", path); err != nil {
+		return control.SourceDiscardResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.discards = append(f.discards, control.SourceDiscardArgs{Path: path, Files: files})
+	f.changes[path] = slices.DeleteFunc(f.changes[path], func(c control.SourceChange) bool { return slices.Contains(files, c.Path) })
+	return control.SourceDiscardResult{Path: path, Discarded: files}, nil
+}
+
+// SourceCommit empties the list of the folder and answers with commitB.
+func (f *fakeBackend) SourceCommit(_ context.Context, args control.SourceCommitArgs) (control.SourceCommitResult, error) {
+	if err := f.act("sourcecommit", args.Path); err != nil {
+		return control.SourceCommitResult{}, err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.commits = append(f.commits, args)
+	delete(f.changes, args.Path)
+	return control.SourceCommitResult{Path: args.Path, Commit: commitB, Committed: args.Files}, nil
+}
