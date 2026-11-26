@@ -200,6 +200,24 @@ func TestHostRunnerKeepsTheSecretOutOfTheCommandLine(t *testing.T) {
 	}
 }
 
+// An action that reads an empty standard input, as file.write for an empty file, never reads the terminal of sudo.
+func TestHostRunnerGivesAnEmptyInputItsOwnStandardInput(t *testing.T) {
+	args := []string{"host", "apply", "--confirm", "--", "file.write", "/srv/demo/new.txt"}
+	for _, euid := range []int{1000, 0} {
+		fakeSudo(t, euid)
+		cmd, err := hostRunner(tui.HostRequest{Args: args, EmptyInput: true})
+		if err != nil || cmd.Stdin == nil {
+			t.Fatalf("euid %d: %v, %v", euid, cmd, err)
+		}
+		if in, _ := io.ReadAll(cmd.Stdin); len(in) != 0 {
+			t.Fatalf("euid %d: standard input %q", euid, in)
+		}
+		if euid != 0 && !slices.Contains(cmd.Args, "-n") {
+			t.Fatalf("the second step of sudo prompts again: %q", cmd.Args)
+		}
+	}
+}
+
 // A request about a proposal runs `qhost proposal`, under sudo or, as root, itself.
 func TestHostRunnerRunsProposalCommandsOfTheProposalGroup(t *testing.T) {
 	fakeSudo(t, 1000)

@@ -23,6 +23,8 @@ func (m *Model) submitHostForm(f *settingsForm, v map[kittui.FieldID]kittui.Form
 		return m.submitGroupRename(f, v)
 	case formHostFolder:
 		return m.submitFolderChange(f, v)
+	case formFileNew, formFileRename, formFileCopy:
+		return m.submitFileForm(f, v)
 	case formProposalPassword:
 		return m.submitProposalPassword(f, v)
 	}

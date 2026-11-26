@@ -15,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/castrowithcee/qatlas-kit/exteditor"
 	"github.com/castrowithcee/qatlas-kit/i18n"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
@@ -81,7 +82,7 @@ func (f *fakeRoot) run(req HostRequest) (*exec.Cmd, error) {
 	switch {
 	case f.root:
 		cmd = exec.Command("qhost-fake", req.Args...)
-	case len(req.Secret) > 0:
+	case len(req.Secret) > 0 || req.EmptyInput:
 		cmd = exec.Command("sudo-fake", append([]string{"-n", "qhost-fake"}, req.Args...)...)
 	default:
 		cmd = exec.Command("sudo-fake", append([]string{"qhost-fake"}, req.Args...)...)
@@ -89,7 +90,7 @@ func (f *fakeRoot) run(req HostRequest) (*exec.Cmd, error) {
 	if !f.root {
 		cmd.Env = []string{"LC_ALL=C"}
 	}
-	if len(req.Secret) > 0 {
+	if len(req.Secret) > 0 || req.EmptyInput {
 		cmd.Stdin = bytes.NewReader(req.Secret)
 	}
 	f.built = append(f.built, cmd)
@@ -153,6 +154,10 @@ func systemModel(t *testing.T, lang i18n.Lang, width, rows int) (*Model, *fakeRo
 	m.human = func() int { return 1000 }
 	f := &fakeRoot{report: appliedReport("demo")}
 	m.root = f.hook()
+	// No edit reaches a real private folder or editor unless a test sets fakeEdit.
+	m.sys.fold.hooks.pick = func(int, *exteditor.Target) (privateDir, error) {
+		return privateDir{}, errors.New("no private folder in tests")
+	}
 	send(m, "7")
 	if !m.sys.loaded {
 		t.Fatalf("the users were not read: %v", m.sys.err)

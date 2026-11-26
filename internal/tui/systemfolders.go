@@ -34,13 +34,17 @@ const (
 )
 
 // folderPage is what the folders page holds: the browser and its preview, and while Rights is open the path asked
-// for and what was read for it. read, count and readPath reach the file system; tests replace them.
+// for and what was read for it. read, count, readPath and hooks reach the file system and the editor; tests replace
+// them.
 type folderPage struct {
 	browser *kittui.FileBrowser
 	started bool
 	preview *filePreview
 	text    *kittui.TextView
 	fileGen int
+	edit    *fileEdit
+	hooks   editHooks
+	chg     fileChanges
 
 	asked    string
 	gen      int
@@ -58,6 +62,8 @@ type folderMsg struct {
 	folder hostadmin.Folder
 	err    error
 }
+
+func (msg folderMsg) applyTo(m *Model) { m.applyFolder(msg) }
 
 // readFolder reads the folder path off the event loop; an empty path reads nothing.
 func (m *Model) readFolder(path string) tea.Cmd {

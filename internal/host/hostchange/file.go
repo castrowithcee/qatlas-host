@@ -102,6 +102,31 @@ func checkCleanPath(path string) error {
 	return nil
 }
 
+// FileArgs builds the arguments of ActionFileWrite and ActionFileCreateFolder for path; a system path carries the
+// acknowledgement, which the caller may pass only after a question that names the system path.
+func FileArgs(path string) []string {
+	if IsSystemPath(path) {
+		return []string{path, optionSystemPath}
+	}
+	return []string{path}
+}
+
+// TreeArgs builds the arguments of ActionFileRename, ActionFileCopy and ActionFileRemove for paths: the paths, then
+// optionPermanent where permanent is set, then the acknowledgement of a system path if any path is one. As with
+// FileArgs, the caller passes it only after a question that names the system path.
+func TreeArgs(permanent bool, paths ...string) []string {
+	args := append([]string{}, paths...)
+	if permanent {
+		args = append(args, optionPermanent)
+	}
+	for _, p := range paths {
+		if IsSystemPath(p) {
+			return append(args, optionSystemPath)
+		}
+	}
+	return args
+}
+
 // fileTarget checks the arguments of a file action: the path, then the acknowledgement of a system path, whose
 // refusal names consequence.
 func fileTarget(action string, args []string, consequence string) (string, bool, error) {

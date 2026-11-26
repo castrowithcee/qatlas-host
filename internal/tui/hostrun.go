@@ -32,6 +32,9 @@ type HostRequest struct {
 	// this request without a prompt (sudo -n) with Secret as the standard input of the command. The hook returns
 	// a command whose Stdin carries it; it never goes into the arguments or the environment.
 	Secret []byte
+	// EmptyInput says the command reads standard input and gets none, as file.write for an empty file; it runs in
+	// the two steps of a Secret, so that the terminal stays with sudo.
+	EmptyInput bool
 }
 
 // HostRunner builds the command that runs a request as root. The interface sets Stdout (it reads the report
@@ -73,7 +76,7 @@ func (r hostRoot) build(req HostRequest) (*exec.Cmd, error) {
 // runHost hands the terminal to the command of req; after gets what it printed on standard output and the error
 // of the run. A request with a secret runs through runHostSecret.
 func (m *Model) runHost(req HostRequest, after func(out []byte, err error) tea.Cmd) tea.Cmd {
-	if len(req.Secret) > 0 {
+	if len(req.Secret) > 0 || req.EmptyInput {
 		return m.runHostSecret(req, secretLines(req.Secret), after)
 	}
 	cmd, err := m.root.build(req)

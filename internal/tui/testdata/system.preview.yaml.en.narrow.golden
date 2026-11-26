@@ -20,5 +20,5 @@
                                                                                 
                                                                                 
 [ / search ]  [ w wrap lines off ]  [1;44m[ # line numbers on ][m         [90mlines 1-7 of 7[m
-[1;34m/[m [90msearch[m  [1;34mw[m [90mwrap lines[m  [1;34m#[m [90mline numbers[m  [1;34mesc[m [90mback[m  [1;34mR[m [90mreload[m  [1;34m1-7[m [90marea[m  [1;34mq[m [90mquit[m    
-                                                                      [90m↑[m[90m/[m[90m↓[m [90mscroll[m
+[1;34m/[m [90msearch[m  [1;34mw[m [90mwrap lines[m  [1;34m#[m [90mline numbers[m  [1;34me[m [90medit[m  [1;34mesc[m [90mback[m  [1;34mR[m [90mreload[m  [1;34m1-7[m [90marea[m    
+[1;34mq[m [90mquit[m                                                                [90m↑[m[90m/[m[90m↓[m [90mscroll[m
