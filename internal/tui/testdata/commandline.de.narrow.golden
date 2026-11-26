@@ -1,0 +1,14 @@
+◆ ╔═ Befehle ════════════════════════════════════════╗fe
+  ║ : Befehl suchen oder ausführen…                  ║  
+──║                                                  ║──
+  ║ > stacks         Den Bereich Stacks öffnen     1 ║E 
+  ║   stack-details  Den Bereich Stack-Details öf… 2 ║──
+> ║   läufe          Den Bereich Läufe öffnen      3 ║u…
+  ║   einstellungen  Den Bereich Einstellungen öf… 4 ║  
+  ║   container      Den Bereich Container öffnen  5 ║  
+  ║   vorschläge     Den Bereich Vorschläge öffnen 6 ║er
+  ║   system         Den Bereich System öffnen     7 ║  
+  ║ 1-7 von 56                                       ║u…
+  ║                                                  ║  
+en║ enter Öffnen oder bestätigen  esc Zurück         ║  
+a ╚══════════════════════════════════════════════════╝  

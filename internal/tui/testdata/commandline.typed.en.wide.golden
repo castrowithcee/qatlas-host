@@ -1,0 +1,14 @@
+◆ qhost  maintenance window ╔═ Commands ═══════════════════════════════════════════════════╗                    [?] help
+  [1 ▤ Stacks]  2 ▣ Stack de║ : res_                                                       ║  7 ◎ System                
+────────────────────────────║                                                              ║────────────────────────────
+      STACK        CURRENT  ║ > resume          Resume the marked or ticked stacks afte… g ║                  FINDINGS  
+      ──────────────────────║   restart stack   Restart the containers of the marked or… Z ║────────────────────────────
+> [ ] demo-stack   1.4.2    ║   restore backup  Choose a backup of the stack to restore  l ║0-30 14:02        1 warning 
+  [ ] mail-relay   3.1      ║                                                              ║0-28 03:10        none      
+  [ ] old-tool     -        ║ enter open or confirm  esc back                              ║                  none      
+  [ ] photo-album  2.0.1    ╚══════════════════════════════════════════════════════════════╝iled 10-29 03:10  1 error   
+  [ ] web-shop     5.2.0, 16.4  6.0.0 (major)  automatic  running                rolled back 10-30 12:00      none      
+  [ ] wiki         1.41.0       unchecked      none       pinned                 succeeded 10-27 03:10        2 warnings
+                                                                                                                        
+                                                                                                                        
+enter details  / search  space tick  U update  a deploy  n add  R reload  1-7 area  q quit               ↑/↓ choose  1/6

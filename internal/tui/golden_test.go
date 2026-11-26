@@ -57,6 +57,8 @@ func newTestModelIn(t *testing.T, lang i18n.Lang, b Backend, width, height int, 
 	}
 	m.Update(tea.WindowSizeMsg{Width: width, Height: height})
 	timersOf[m] = &timers{}
+	// The map would keep every model of the run alive.
+	t.Cleanup(func() { delete(timersOf, m) })
 	m.after = timersOf[m].start
 	load(t, m)
 	// The model starts on the tab line; most tests act on the content.

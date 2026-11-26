@@ -300,7 +300,7 @@ cx internal/tui/model.go:Model.navKey 21
 cx internal/tui/model.go:Model.render 29
 cx internal/tui/model.go:newModel 17
 cx internal/tui/model_test.go:TestRowsShowTheMostPressingState 17
-cx internal/tui/mouse.go:Model.mouse 31
+cx internal/tui/mouse.go:Model.mouse 27
 cx internal/tui/proposals.go:Model.proposalLines 17
 cx internal/tui/pty_test.go:TestSecretSetAtATerminalLeavesTheValueOnlyInTheSecretsFile 19
 cx internal/tui/settings.go:Model.applySetting 65
@@ -536,9 +536,9 @@ len internal/tui/listeditor.go:Model.editorKey 65
 len internal/tui/model.go:Model.Update 101
 len internal/tui/model.go:Model.footer 80
 len internal/tui/model.go:Model.key 246
-len internal/tui/model.go:Model.render 86
+len internal/tui/model.go:Model.render 85
 len internal/tui/model.go:newModel 63
-len internal/tui/mouse.go:Model.mouse 68
+len internal/tui/mouse.go:Model.mouse 62
 len internal/tui/proposals.go:Model.proposalLines 68
 len internal/tui/pty_test.go:TestSecretSetAtATerminalLeavesTheValueOnlyInTheSecretsFile 72
 len internal/tui/settings.go:Model.applySetting 197

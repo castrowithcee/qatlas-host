@@ -287,6 +287,17 @@ scenario_tui() {
 	tui_click_row bookstack
 	log 'scenario: mouse clicks switched the area and marked a row'
 
+	step 'the command line runs update by name and asks as U does; n cancels'
+	tui_cursor_to demo-cache
+	tui_send -l :
+	tui_wait 'search or run a command' 10
+	tui_send -l update
+	tui_send Enter
+	tui_wait 'Update demo-cache?' 15
+	tui_send n
+	tui_wait 'q quit' 10
+	log 'scenario: the command line asked before the update and n cancelled it'
+
 	step 'U asks first: the question shows the versions and the changelog, nothing changes yet'
 	head_before=$(as_admin 'cd ~/stacks && git pull -q --ff-only && git rev-parse HEAD')
 	runs_before=$(stack_run_count demo-cache)
