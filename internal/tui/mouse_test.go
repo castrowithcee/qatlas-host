@@ -34,6 +34,9 @@ func cellOf(t *testing.T, m *Model, needle string) (x, y int) {
 func clickAt(m *Model, x, y int) {
 	_, cmd := m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
 	drain(m, cmd)
+	// A press on text is held back until its release without motion.
+	_, cmd = m.Update(tea.MouseReleaseMsg{X: x, Y: y, Button: tea.MouseLeft})
+	drain(m, cmd)
 	m.render()
 }
 
@@ -115,7 +118,7 @@ func TestAnOpenQuestionTakesNoClickOfTheScreenBeneath(t *testing.T) {
 	press(m, "a")
 	m.render()
 	clickAt(m, x, y)
-	if m.area != areaStacks || m.modal == nil {
+	if m.area != areaStacks || m.modal != nil {
 		t.Fatal("a click reached the screen beneath a question")
 	}
 }
@@ -283,9 +286,11 @@ func TestOnlyTheHelpTakesClicksAndTheWheelWhileItIsOpen(t *testing.T) {
 	}
 	x, y := cellOf(t, m, "Runs") // a tab of the screen beneath, if the help leaves it in sight
 	clickAt(m, x, y)
-	if m.area != areaStacks || !m.helpOpen {
-		t.Fatalf("a click reached the screen beneath the help: area %s, open %v", m.area, m.helpOpen)
+	if m.area != areaStacks || m.helpOpen {
+		t.Fatalf("a click outside did not just close the help: area %s, open %v", m.area, m.helpOpen)
 	}
+	send(m, "?")
+	m.render()
 	before := m.render()
 	for range 3 {
 		wheelAt(m, 5, m.height/2, tea.MouseWheelDown)

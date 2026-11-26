@@ -129,7 +129,7 @@ func (m *Model) openRollbackDialog(r runRow, steps []control.ReturnStepInfo) {
 		details = append(details, kittui.DialogLine{Text: t.Lookup(textRollbackNoBackup), Style: kittui.StyleWarn})
 	}
 	spec.Details, spec.Answers = details, answers
-	dialog, err := kittui.NewDialog(spec, m.keys, t)
+	dialog, err := newDialog(spec, m.keys, t)
 	if err != nil {
 		m.failure = t.Lookup(kittui.TextError, err.Error())
 		return
