@@ -27,7 +27,7 @@ func stackFilesEnglish() map[kittui.TextID]string {
 			"which the forms of the stack detail change.",
 		textStackFileDataRunning: "%s is the data folder of the running container %s. The change is not refused, but the " +
 			"container may overwrite it or read it half written. If in doubt, stop the stack first.",
-		textFolderUncommitted: "uncommitted changes, no updates",
+		textFolderUncommitted: "uncommitted",
 		textDetailUncommitted: "This folder has uncommitted changes: updates leave it out until they are committed or discarded.",
 		textTitleSecretsSaved: "secrets.env saved",
 		textAskDeploySecrets:  "The change of %s takes effect when the stack %s is deployed next. Deploy it now?",
@@ -46,7 +46,7 @@ func stackFilesGerman() map[kittui.TextID]string {
 			"Stacks, die die Formulare im Stack-Detail ändern.",
 		textStackFileDataRunning: "%s ist der Datenordner des laufenden Containers %s. Die Änderung wird nicht verweigert, " +
 			"aber der Container kann sie überschreiben oder halb geschrieben lesen. Stoppe im Zweifel vorher den Stack.",
-		textFolderUncommitted: "nicht committet, keine Updates",
+		textFolderUncommitted: "nicht committet",
 		textDetailUncommitted: "Dieser Ordner hat nicht committete Änderungen: Updates lassen ihn aus, bis sie committet oder verworfen sind.",
 		textTitleSecretsSaved: "secrets.env gespeichert",
 		textAskDeploySecrets:  "Die Änderung an %s wirkt erst, wenn der Stack %s das nächste Mal ausgerollt wird. Jetzt ausrollen?",

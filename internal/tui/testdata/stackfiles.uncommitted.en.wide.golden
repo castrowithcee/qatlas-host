@@ -4,7 +4,7 @@
           STACK                    CURRENT      AVAILABLE      MODE       STATE     FINDINGS                            
           ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
   ▾ [ ] ■ /srv/local-example (0)   local                                            poll failed: the working copy has u…
-> ▾ [ ] ■ /srv/stacks-example (6)  clone                                            uncommitted changes, no updates     
+> ▾ [ ] ■ /srv/stacks-example (6)  clone                                            uncommitted                         
       [ ] demo-stack               1.4.2        1.5.0          automatic  deployed  1 warning                           
       [ ] mail-relay               3.1          up to date     manual     pending   none                                
       [ ] old-tool                 -            unchecked      -          removed   none                                

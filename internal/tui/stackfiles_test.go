@@ -252,7 +252,12 @@ func TestSavingInTheStackFolderShowsTheUncommittedChanges(t *testing.T) {
 	send(m, "enter")
 	containsFlat(t, m, "This folder has uncommitted changes")
 	send(m, "esc", "esc", "esc", "esc")
-	containsFlat(t, m, "uncommitted changes, no updates")
+	// The row of the folder carries the short note; the panel below it says what it means.
+	row := func(l string) bool { return strings.Contains(l, stackDir+" (") && strings.Contains(l, "uncommitted") }
+	if !slices.ContainsFunc(strings.Split(m.render(), "\n"), row) {
+		t.Fatalf("the row of the folder names no uncommitted change:\n%s", m.render())
+	}
+	containsFlat(t, m, "updates leave it out until they are committed or discarded")
 	if m.modal != nil || m.shownStackFiles() != nil {
 		t.Fatalf("the list is not shown:\n%s", m.render())
 	}

@@ -4,7 +4,7 @@
           STACK                    VERSION      VERFÜGBAR      MODUS        ZUSTAND   BEFUNDE                           
           ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
   ▾ [ ] ■ /srv/local-example (0)   lokal                                              Abruf fehlgeschlagen: the working…
-> ▾ [ ] ■ /srv/stacks-example (6)  Klon                                               nicht committet, keine Updates    
+> ▾ [ ] ■ /srv/stacks-example (6)  Klon                                               nicht committet                   
       [ ] demo-stack               1.4.2        1.5.0          automatisch  deployt   1 Warnung                         
       [ ] mail-relay               3.1          aktuell        manuell      offen     keine                             
       [ ] old-tool                 -            ungeprüft      -            entfernt  keine                             
