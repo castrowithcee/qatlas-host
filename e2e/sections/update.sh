@@ -169,6 +169,10 @@ scenario_backup() {
 # scenario_updates shows the update detection against the registry: the stored result, the ceiling of the stack,
 # the major hint and a stack without settings. Detection changes nothing; only commits do.
 scenario_updates() {
+	# Earlier sections may commit demo-stack/.env too, so the check compares with its last change from here.
+	up_env=$(as_admin 'cd ~/stacks && git pull -q --ff-only && git log --format=%H -n 1 -- demo-stack/.env') ||
+		fail 'cannot read the last change of demo-stack/.env'
+
 	step 'updates says a stack was never checked'
 	out=$(qd --output json stack updates demo-stack) || fail "updates failed: $out"
 	[ "$(json_value "$out" status)" = never-checked ] || fail "demo-stack is not reported as never checked: $out"
@@ -198,7 +202,7 @@ scenario_updates() {
 	out=$(qd --output json stack updates demo-stack --refresh) || fail "updates failed: $out"
 	updates_expect "$out" 1.0.1 1.1.0 5.0.0 update
 	[ "$(stack_images demo-stack)" = "registry.$domain/demo/app:1.0.1" ] || fail "updates changed the running image: $(stack_images demo-stack)"
-	[ "$(as_admin 'cd ~/stacks && git pull -q --ff-only && git log --format=%s -n 1 -- demo-stack/.env')" = 'Update demo-stack to 1.0.1' ] ||
+	[ "$(as_admin 'cd ~/stacks && git pull -q --ff-only && git log --format=%H -n 1 -- demo-stack/.env')" = "$up_env" ] ||
 		fail 'the version of demo-stack was changed'
 }
 
