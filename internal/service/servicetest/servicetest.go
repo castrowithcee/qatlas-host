@@ -195,7 +195,7 @@ func (g *Git) Clone(_ context.Context, cfg gitrepo.Config, url, dir string) (ser
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			return nil, err
 		}
-		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		if err := os.WriteFile(p, []byte(body), fileMode(p)); err != nil {
 			return nil, err
 		}
 	}
@@ -329,7 +329,7 @@ func (c *copyOf) FastForward(_ context.Context, to string) error {
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(p, fc.content, 0o644); err != nil {
+	if err := os.WriteFile(p, fc.content, fileMode(p)); err != nil {
 		return err
 	}
 	c.g.Head = to

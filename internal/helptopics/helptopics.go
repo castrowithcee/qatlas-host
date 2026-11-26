@@ -73,7 +73,7 @@ Commands:
 - qhost stack changelog <stack>: show the release notes between the current and the available version of each variable with an update; qhost stack updates --changelog shows them for all stacks (run with sudo, as it asks GitHub)
 - qhost stack backup create|list <stack>, qhost stack backup restore <stack> <backup> [--yes]: back up, list and restore the data of a stack (list runs without sudo for an administrator in the group qhost, the rest needs sudo; see qhost help backups)
 - qhost stack datadir <stack> [--owner UID:GID] [--mode 0750] --yes: create the missing data directories of a stack and deploy it (run with sudo; see qhost help data-directories)
-- qhost stack secret set <stack> <KEY>, qhost stack secret list <stack>, qhost stack secret delete <stack> <KEY>: write, list by key and remove the secrets in a stack's secrets.env; the value is read without echo at a terminal or from standard input, never from an argument, and nothing is redeployed (list runs without sudo for an administrator in the group qhost, set and delete need sudo)
+- qhost stack secret set <stack> <KEY>, qhost stack secret list <stack>, qhost stack secret delete <stack> <KEY>: write, list by key and remove the secrets in a stack's secrets.env; the value is read without echo at a terminal or from standard input, never from an argument, and nothing is redeployed; replacing an existing secrets.env keeps its group and its mode without rights for others (list runs without sudo for an administrator in the group qhost, set and delete need sudo)
 - qhost credential set|list|delete: manage registry tokens and notification credentials (list runs without sudo for an administrator in the group qhost, set and delete need sudo)
 - qhost notify list|add|remove|test: manage the notification channels (webhook, Slack, Telegram, e-mail) and send a test message through one (list runs without sudo for an administrator in the group qhost, the rest needs sudo; see qhost help notifications)
 - qhost proposal submit|list|show|withdraw: ask for a change of the setup (a stack folder, the settings of a stack, the maintenance window or a notification channel) or of the host (a user, a group, folder permissions, or, only while root has switched it on, free commands), without sudo for an administrator in the group qhost; nothing on the host changes. qhost proposal approve|reject, sudo qhost host apply --proposal and sudo qhost proposal run: decide on a proposal, only root (see qhost help proposals)
@@ -288,7 +288,7 @@ Functions, in this order:
 - update, with the mode automatic, manual or none: works when the stack deploys, qhost can read .env, at least one image takes its version from a variable in .env whose value has a MAJOR.MINOR.PATCH core (SemVer or CalVer, x.y.z), and the stack settings exist. Without settings the mode is none and updates are not switched on. An image with a fixed tag, a digest, no tag or a floating tag such as latest is deploy only and is left alone; a version that only comes from a default in the compose file, or a variable that is the tag of two different images, stops the update of the whole stack.
 - rollback: the rollback with data. A failed run of a stack that was deployed before goes back to the previous commit; it restores the data only when the stack settings have a backup section, from the backup the run made before the change.
 - backup: works when the stack settings have a backup section, every backup path lies below data/, and the stack name has lowercase letters, digits, - and _ only and at most 63 characters (see qhost help backups).
-- redact: the values of secrets.env and of the .env keys whose name contains PASSWORD, SECRET, TOKEN or KEY are removed from the service log, the run logs and the notifications. It does not work for a secrets.env that is a link or too large, and finds nothing when the stack has neither.
+- redact: the values of secrets.env and of the .env keys whose name contains PASSWORD, SECRET, TOKEN or KEY are removed from the service log, the run logs and the notifications. It does not work for a secrets.env that is a link, too large or not readable by the service, and finds nothing when the stack has neither.
 
 Findings (rule ID, severity):
 - missing-compose-file (error): a file named in compose.files or COMPOSE_FILE does not exist
@@ -296,7 +296,7 @@ Findings (rule ID, severity):
 - invalid-rules-file (error): the stack settings are invalid
 - unknown-rules-variable (error): the stack settings name an image variable the stack does not have
 - unreadable-stack (error, or warning for an .env qhost cannot parse): a file of the stack cannot be read
-- unreadable-secrets-env (error): secrets.env is a link or too large
+- unreadable-secrets-env (error): secrets.env is a link, too large, or not readable by the deploy service; for the last the fix is group read permission for the group of the service account (chgrp, chmod g+r), which qhost source add sets when it takes a folder over
 - unset-image-variable (error): an image version variable has no value, so the image has an empty tag
 - tracked-secrets-env (error with a remote, else warning): git tracks secrets.env, so its secrets reach the remote
 - duplicate-key (warning): a key stands in both .env and secrets.env; keep it in one file
@@ -305,7 +305,7 @@ Findings (rule ID, severity):
 - old-rules-file (warning): the stack folder holds a qhost.yaml, which is no longer read; set the stack settings instead and delete it
 - ignored-stack-folder (warning): a subfolder holds a compose file but is part of the one stack whose compose file is in the root of the stack folder
 
-A finding is an error only when the stack cannot be deployed or a secret would reach a remote; everything else is a warning or only part of the functions. The exit code is 1 when there is at least one error.
+The warning open-secrets-env means other users can read or write secrets.env (o+r or o+w), also in a folder that was taken over; remove those permissions. A finding is an error only when the stack cannot be deployed or a secret would reach a remote; everything else is a warning or only part of the functions. The exit code is 1 when there is at least one error.
 
 Layout of a stack folder:
 - one or more compose files: the list compose.files in the stack settings, else COMPOSE_FILE in .env (entries separated by ':', or by COMPOSE_PATH_SEPARATOR), else the first of compose.yaml, compose.yml, docker-compose.yaml, docker-compose.yml

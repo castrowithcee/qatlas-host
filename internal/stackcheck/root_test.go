@@ -28,7 +28,11 @@ func loadAt(t *testing.T, prefix string, extra map[string]string) []stacks.Stack
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		mode := os.FileMode(0o644)
+		if filepath.Base(p) == "secrets.env" {
+			mode = 0o600
+		}
+		if err := os.WriteFile(p, []byte(body), mode); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"unicode/utf8"
 )
 
@@ -90,9 +91,10 @@ func encodeSecret(key, value string) (string, error) {
 	return line, nil
 }
 
-// SetSecret sets key in secrets.env of the stack folder st.Dir, creating the file with mode 0600, and reports
-// whether the key replaced an existing one. Every other line stays as it is. The caller holds the stack's
-// run slot. The key must not stand in the stack's .env.
+// SetSecret sets key in secrets.env of the stack folder st.Dir, creating the file with mode 0600 (an existing
+// file keeps its group and its mode without rights for others), and reports whether the key replaced an existing
+// one. Every other line stays as it is. The caller holds the stack's run slot. The key must not stand in the
+// stack's .env.
 func SetSecret(st Stack, key, value string) (replaced bool, err error) {
 	if !ValidSecretKey(key) {
 		return false, ErrInvalidSecretKey
@@ -197,7 +199,8 @@ func writeSecretLines(dir string, lines []string) error {
 	if len(body) > MaxFileSize {
 		return fmt.Errorf("%s would be larger than %d bytes", SecretsFile, MaxFileSize)
 	}
-	if info, err := os.Lstat(filepath.Join(dir, SecretsFile)); err == nil && !info.Mode().IsRegular() {
+	old, oldErr := os.Lstat(filepath.Join(dir, SecretsFile))
+	if oldErr == nil && !old.Mode().IsRegular() {
 		return errors.New("secrets.env is a link or not a regular file")
 	}
 	removeSecretTemps(dir)
@@ -213,7 +216,14 @@ func writeSecretLines(dir string, lines []string) error {
 			_ = os.Remove(tmp)
 		}
 	}()
-	if err := f.Chmod(0o600); err != nil {
+	mode := os.FileMode(0o600)
+	if oldErr == nil {
+		mode = old.Mode().Perm() & 0o770 // an existing file keeps its mode, never with rights for others
+		if st, ok := old.Sys().(*syscall.Stat_t); ok {
+			_ = f.Chown(-1, int(st.Gid)) // only a member of the group may set it; else the default group stays
+		}
+	}
+	if err := f.Chmod(mode); err != nil {
 		return fmt.Errorf("set the file mode: %w", err)
 	}
 	if _, err := f.WriteString(body); err != nil {
