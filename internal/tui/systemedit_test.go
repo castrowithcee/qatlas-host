@@ -41,13 +41,19 @@ func fakeEditor(t *testing.T, name string) string {
 // fakeEdit makes m edit with the invented editor nano through an editFake.
 func fakeEdit(t *testing.T, m *Model) *editFake {
 	t.Helper()
+	return fakeEditIn(t, m, &m.sys.fold.files)
+}
+
+// fakeEditIn is fakeEdit for the place v.
+func fakeEditIn(t *testing.T, m *Model, v *fileView) *editFake {
+	t.Helper()
 	f := &editFake{runtime: filepath.Join(t.TempDir(), "run"), ram: map[string]bool{}, env: map[string]string{}}
 	if err := os.Mkdir(f.runtime, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	f.ram[f.runtime] = true
 	f.env["XDG_RUNTIME_DIR"] = f.runtime
-	m.sys.fold.files.hooks = editHooks{getenv: func(k string) string { return f.env[k] }, runUser: t.TempDir(), shm: t.TempDir(),
+	v.hooks = editHooks{getenv: func(k string) string { return f.env[k] }, runUser: t.TempDir(), shm: t.TempDir(),
 		tmpfs: func(dir string) bool { return f.ram[dir] },
 		start: func(r exteditor.Request) (tea.Cmd, error) {
 			f.reqs = append(f.reqs, r)

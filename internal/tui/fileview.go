@@ -43,12 +43,12 @@ type fileRules struct {
 	spans func(path, text string) [][]kittui.TextSpan
 	// beforeWrite may add to the question of a change of paths, as a warning that does not refuse it.
 	beforeWrite func(a *hostAsk, paths ...string)
-	// afterWrite runs after a change of paths was run, as to say what follows from it.
+	// afterWrite runs after a change of paths was applied, as to say what follows from it.
 	afterWrite func(paths ...string) tea.Cmd
 }
 
 // fileViews are the places of the file browser; at most one of them has an edit under way.
-func (m *Model) fileViews() []*fileView { return []*fileView{m.hostFiles()} }
+func (m *Model) fileViews() []*fileView { return []*fileView{m.hostFiles(), &m.sf.view} }
 
 // path is the absolute path of the parts below the root.
 func (v *fileView) path(parts ...string) string {

@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+  /srv/stacks-example                                   
+  NAME         GRÖßE  GEÄNDERT          RECHTE          
+  ───────────────────────────────────────────────       
+> .git/               2026-11-02 09:00  rwxrwxr-x       
+  .qatlas/            2026-11-02 09:00  rwxrwxr-x       
+  demo-stack/         2026-11-02 09:00  rwxrwxr-x       
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+[ e bearbeiten ]  [ n Neu ]  [ r Umbenennen ]           
+[ c Kopieren ]  [ d Löschen ]                           
+e bearbeiten  n Neu  r Umbenennen  c Kopieren  d Löschen
+enter Auswählen  / Suchen  esc Zurück  q Beenden        

@@ -312,7 +312,9 @@ func (m *Model) foldersTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 func (m *Model) filesTyped(v *fileView, msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	if v.preview != nil {
 		t := v.previewText()
-		return nil, t != nil && t.Update(msg)
+		handled := t != nil && t.Update(msg)
+		revealAsked(t)
+		return nil, handled
 	}
 	b := m.fileBrowser(v)
 	if b == nil {

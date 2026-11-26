@@ -21,4 +21,4 @@ Fehler: der Abruf von /srv/stacks-example ist
 fehlgeschlagen: der Dienst hat die Anfrage abgelehnt:   
 cannot reach git.example.test: connection refused       
 enter Details  / Suchen  F jetzt abrufen                
-e Deploy-Schlüssel  d lösen  R Neu laden  q Beenden     
+e Deploy-Schlüssel  Q Dateien  R Neu laden  q Beenden   

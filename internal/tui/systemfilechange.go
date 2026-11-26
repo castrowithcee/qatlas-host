@@ -243,10 +243,16 @@ func (m *Model) submitFileForm(f *settingsForm, v map[kittui.FieldID]kittui.Form
 	return nil
 }
 
-// finishAsk sets what runs after the change and makes the question red where a path is a system path; only this
-// question reaches the acknowledgement the arguments carry. The place may add to the question.
+// finishAsk sets what runs after the change, and after an applied one what the place runs, and makes the question
+// red where a path is a system path; only this question reaches the acknowledgement the arguments carry. The place
+// may add to the question.
 func (m *Model) finishAsk(v *fileView, a *hostAsk, paths ...string) {
-	a.then = func() tea.Cmd { return tea.Batch(m.afterFileChange(v), v.wrote(paths...)) }
+	a.then = func(applied bool) tea.Cmd {
+		if !applied {
+			return m.afterFileChange(v)
+		}
+		return tea.Batch(m.afterFileChange(v), v.wrote(paths...))
+	}
 	for _, p := range paths {
 		if hostchange.IsSystemPath(p) {
 			a.risk = m.text.Lookup(textRiskFileWriteSystem)

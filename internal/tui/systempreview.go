@@ -28,6 +28,14 @@ func (v *fileView) previewText() *kittui.TextView {
 	return v.text
 }
 
+// revealAsked uncovers the masked values of t once its reveal key asked for it; the person may read the file, so
+// nothing more is asked.
+func revealAsked(t *kittui.TextView) {
+	if t != nil && t.TakeRevealRequest() {
+		t.SetRevealed(true)
+	}
+}
+
 // previewCurrent reports whether gen is the preview shown now.
 func (v *fileView) previewCurrent(gen int) bool {
 	return v.preview != nil && gen == v.fileGen
@@ -92,7 +100,7 @@ func (m *Model) previewView(p *fileView, width, height int) string {
 	default:
 		view, targets := v.View(m.styles, width, max(height-1, 1))
 		m.parts = append(m.parts, mousePart{rect: kittui.Rect{Y: 1, Width: width, Height: max(height-1, 1)}, targets: targets,
-			scroll: v.Wheel, click: func(res kittui.MouseResult) tea.Cmd { v.Click(res); return nil }})
+			scroll: v.Wheel, click: func(res kittui.MouseResult) tea.Cmd { v.Click(res); revealAsked(v); return nil }})
 		lines = append(lines, view)
 	}
 	out := strings.Split(strings.Join(lines, "\n"), "\n")

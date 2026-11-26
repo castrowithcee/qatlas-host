@@ -162,6 +162,8 @@ type Model struct {
 	log      runLog
 	// clog is the output of a container or stack, shown in the area it was opened from.
 	clog containerLog
+	// sf is the file browser over one stack folder, shown in the Stacks area.
+	sf stackFiles
 	// The Containers area: the list read, its rows and the container whose detail is open.
 	ct      containerState
 	ctv     containerView
@@ -571,7 +573,7 @@ func (m *Model) input() kittui.InputFocus {
 		case m.set.keyOpen:
 			return kittui.InputNavigation
 		}
-		return m.list.Input()
+		return m.stacksInput()
 	case areaContainers:
 		switch {
 		case m.set.form != nil:
@@ -603,8 +605,7 @@ func (m *Model) typed(msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool) {
 	case m.area == areaStacks && m.set.keyOpen:
 		return nil, false
 	case m.area == areaStacks:
-		open, handled := m.stackUpdate(msg)
-		return m.open(open), handled
+		return m.stacksTyped(msg)
 	case m.area == areaSettings:
 		return m.settingsTyped(msg)
 	case m.area == areaSystem:
@@ -712,7 +713,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			if m.saveOpenLog() {
 				return nil
 			}
-		case actFetch, actAdd, actRemove, actEdit, actRename, actCopy, actTest, actEnter, actRestore, actRollback, actPromote, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actGrantAdd, actGrantRemove, actRemote, actApprove, actReject:
+		case actFetch, actAdd, actRemove, actEdit, actRename, actCopy, actFiles, actTest, actEnter, actRestore, actRollback, actPromote, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actGrantAdd, actGrantRemove, actRemote, actApprove, actReject:
 			switch m.area {
 			case areaSystem:
 				if cmd, handled := m.systemAction(id); handled {
@@ -743,13 +744,13 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 					}
 				}
 			case areaStacks:
-				if cmd, handled := m.folderAction(id); handled {
+				if cmd, handled := m.stacksAction(id); handled {
 					return cmd
 				}
 			}
 		case actUpdate, actDeploy, actPause, actUnpause, actPin, actUnpin, actResume, actCheck,
 			actStackStart, actStackStop, actStackRestart:
-			if m.area == areaStacks {
+			if m.stackRowsShown() {
 				return m.beginAction(actionKinds[id])
 			}
 			if cmd, ok := m.containerAction(id); ok {
@@ -777,8 +778,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 					m.closeKeyView()
 					return nil
 				}
-				m.back(m.list, msg)
-				return nil
+				return m.stacksBack(msg)
 			case areaDetail:
 				if m.pick != nil {
 					if _, handled := m.pick.list.Update(msg); !handled {
@@ -842,9 +842,9 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 	case m.area == areaStacks && m.set.keyOpen:
 		m.topEdge(false, msg)
 	case m.area == areaStacks:
-		open, handled := m.stackUpdate(msg)
+		cmd, handled := m.stacksTyped(msg)
 		m.topEdge(handled, msg)
-		return m.open(open)
+		return cmd
 	case m.area == areaContainers && !m.ctv.open:
 		open, handled := m.ctUpdate(msg)
 		m.topEdge(handled, msg)
@@ -900,7 +900,7 @@ func (m *Model) back(l *kittui.List, msg tea.KeyPressMsg) {
 
 // reloadAll reads the service again; the detail and an open log are read again with it.
 func (m *Model) reloadAll() tea.Cmd {
-	cmds := []tea.Cmd{m.reload()}
+	cmds := []tea.Cmd{m.reload(), m.reloadStackFiles()}
 	if m.clogShown() {
 		return tea.Batch(append(cmds, m.reloadContainerLog(false))...)
 	}
@@ -1153,7 +1153,7 @@ func (m *Model) helpScreen() []kittui.Hint {
 	if m.focus() != kittui.ZoneTabs && m.zones()[0] != kittui.ZoneForm {
 		hints = append(hints, kittui.Hint{Action: actNext, Label: textKeyZone, Priority: 3})
 	}
-	if m.area == areaStacks && len(m.rows) > 0 {
+	if m.stackRowsShown() && len(m.rows) > 0 {
 		hints = append(hints, m.moreActionHints()...)
 	}
 	return hints
@@ -1251,7 +1251,7 @@ func (m *Model) frameSpec() kittui.FrameSpec {
 		spec.Position = m.systemPosition()
 		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
 	case m.area == areaStacks:
-		spec.Position = m.list.Position()
+		spec.Position, spec.Back = m.stacksPosition()
 	case m.area == areaRuns && !m.log.open:
 		spec.Position = m.runsList.Position()
 		spec.Back = &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
@@ -1429,88 +1429,6 @@ func (m *Model) workspace(width, height int) string {
 		return m.proposalsView(width, height)
 	}
 	return m.stacksView(width, height)
-}
-
-// stacksView draws the Stacks area: the list with a row for every stack folder and, below it, the detail of
-// the marked folder. Without a folder it points to adding one.
-func (m *Model) stacksView(width, height int) string {
-	if m.set.keyOpen {
-		return m.keyView(width, height)
-	}
-	if len(m.snap.status.Engine.Sources) == 0 && len(m.rows) == 0 {
-		return m.stacksEmpty(width, height)
-	}
-	var detail []string
-	if f, ok := m.selectedFolder(); ok {
-		// The list keeps at least its header, the marked row and a few more.
-		if room := height - minListRows; room >= 3 {
-			detail = m.folderDetail(f, width, room)
-		}
-	}
-	var view string
-	if len(m.secs) > 0 {
-		view = m.stackSectionsView(width, height-len(detail))
-	} else {
-		view = m.listView(m.list, width, height-len(detail), 0)
-	}
-	return strings.Join(append([]string{view}, detail...), "\n")
-}
-
-// minListRows is what the list keeps of the workspace when the detail of a folder is long.
-const minListRows = 5
-
-// stacksEmpty says that there is no stack folder and how to add one; a click on it is the key.
-func (m *Model) stacksEmpty(width, height int) string {
-	lines := kittui.Wrap(kittui.Escape(m.text.Lookup(textStacksEmpty)), max(width-2, 1))
-	lines = lines[:min(len(lines), max(height, 1))]
-	for i, l := range lines {
-		lines[i] = "  " + m.styles.Render(kittui.StyleHint, l)
-	}
-	m.parts = append(m.parts, mousePart{rect: kittui.Rect{Width: width, Height: len(lines)},
-		targets: []kittui.Target{{Rect: kittui.Rect{Width: width, Height: len(lines)}, Zone: kittui.ZoneRows, Action: actAdd}}})
-	return strings.Join(lines, "\n")
-}
-
-// keyView draws the deploy key of the folder the key view was opened for.
-func (m *Model) keyView(width, height int) string {
-	return strings.Join(m.framed(m.text.Lookup(textTitleKey), "", width, height, m.keyLines), "\n")
-}
-
-// stacksFooter is the key line of the Stacks area: the keys of the marked row, and adding a folder in every case.
-func (m *Model) stacksFooter(common, nav []kittui.Hint) []kittui.Hint {
-	add := kittui.Hint{Action: actAdd, Label: textKeyAdd, Priority: 3}
-	f, onFolder := m.selectedFolder()
-	switch {
-	case onFolder:
-		var own []kittui.Hint
-		// Fetch and the deploy key exist only for a folder with a remote.
-		if f.Kind == control.SourceKindRemote {
-			own = append(own, kittui.Hint{Action: actFetch, Label: textKeyFetch, Priority: 3},
-				kittui.Hint{Action: actEdit, Label: textKeyDeployKey, Priority: 3})
-		}
-		if f.Kind != control.SourceKindRemote {
-			own = append(own, kittui.Hint{Action: actRemote, Label: textKeyRemote, Priority: 3})
-		}
-		own = append(own, kittui.Hint{Action: actRemove, Label: textKeyRelease, Priority: 3}, add)
-		common = append(own, common...)
-	case len(m.rows) > 0:
-		common = append(append(m.actionHints(), add), common...)
-	default:
-		common = append([]kittui.Hint{add}, common...)
-	}
-	if m.setupOffered() {
-		common = append(common, kittui.Hint{Action: actSetupDeploy, Label: textKeySetupDeploy, Priority: 3})
-	}
-	return m.listFooter(m.list, len(m.rows)+len(m.set.folderData), textKeyDetails, common, nav)
-}
-
-// note is a dimmed sentence wrapped into width cells and indented like the rows of a list.
-func (m *Model) note(text string, width int) string {
-	lines := kittui.Wrap(kittui.Escape(text), max(width-2, 1))
-	for i, l := range lines {
-		lines[i] = "  " + m.styles.Render(kittui.StyleHint, l)
-	}
-	return strings.Join(lines, "\n")
 }
 
 // activeTab is the sub-tab of the area shown.

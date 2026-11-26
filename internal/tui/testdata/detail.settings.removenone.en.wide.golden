@@ -36,5 +36,5 @@
 ╭─ Grants ─────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ A grant applies to the user and to every agent working under the account of the user.                                │
 warning: The stack demo-stack has no settings. It is already deploy only; nothing was removed.                          
-B back to before update  e update rules  b backup  I compose  k checks  E clear settings  o log  n set secret           
+B back to before update  e update rules  b backup  I compose  k checks  E clear settings  o log  Q files  n set secret  
 d delete secret  l restore backup  z grant  R reload  1-7 area  q quit                                 ↑/↓ scroll  34/66

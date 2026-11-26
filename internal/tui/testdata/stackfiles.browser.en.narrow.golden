@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed  [esc] back  [?] help
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+  /srv/stacks-example                                   
+  NAME         SIZE  MODIFIED          RIGHTS     OWNER 
+  ───────────────────────────────────────────────────── 
+> .git/              2026-11-02 09:00  rwxrwxr-x  ada   
+  .qatlas/           2026-11-02 09:00  rwxrwxr-x  ada   
+  demo-stack/        2026-11-02 09:00  rwxrwxr-x  ada   
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+[ e edit ]  [ n new ]  [ r rename ]  [ c copy ]         
+[ d delete ]                                            
+e edit  n new  r rename  c copy  d delete  enter choose 
+/ search  esc back  R reload  1-7 area  q quit      ↑ up

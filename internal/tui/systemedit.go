@@ -264,7 +264,7 @@ func (m *Model) askFileWrite(e *fileEdit) {
 	e.dir.remove()
 	// file.write always reads standard input, so an emptied text still gets one rather than the terminal.
 	a := hostAsk{id: hostchange.ActionFileWrite, args: hostchange.FileArgs(e.path), secret: e.text, emptyInput: true,
-		question: t.Lookup(textAskFileWrite, e.path), then: func() tea.Cmd { return m.afterFileWrite(p, e.path, e.viaSudo) }}
+		question: t.Lookup(textAskFileWrite, e.path), then: func(applied bool) tea.Cmd { return m.afterFileWrite(p, e.path, e.viaSudo, applied) }}
 	if hostchange.IsSystemPath(e.path) {
 		a.risk = t.Lookup(textRiskFileWriteSystem)
 	}
@@ -272,9 +272,10 @@ func (m *Model) askFileWrite(e *fileEdit) {
 	m.askHost(a, nil)
 }
 
-// afterFileWrite shows the written file again in the preview of the place, then runs what the place runs after a
-// write. A preview read through sudo is closed instead, so that no second password question follows the result.
-func (m *Model) afterFileWrite(p *fileView, path string, viaSudo bool) tea.Cmd {
+// afterFileWrite shows the written file again in the preview of the place, then runs what the place runs after an
+// applied write. A preview read through sudo is closed instead, so that no second password question follows the
+// result.
+func (m *Model) afterFileWrite(p *fileView, path string, viaSudo, applied bool) tea.Cmd {
 	var cmd tea.Cmd
 	switch {
 	case p.preview == nil || p.preview.path != path:
@@ -283,6 +284,9 @@ func (m *Model) afterFileWrite(p *fileView, path string, viaSudo bool) tea.Cmd {
 		p.fileGen++
 	default:
 		cmd = m.openFilePreview(p, path)
+	}
+	if !applied {
+		return cmd
 	}
 	return tea.Batch(cmd, p.wrote(path))
 }

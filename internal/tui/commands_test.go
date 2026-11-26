@@ -48,8 +48,15 @@ func commandStates() []commandState {
 	for _, name := range []string{"etc", "demo-app", "app.yaml"} {
 		preview = append(append(append(preview, "/"), typed(name)...), "enter", "enter")
 	}
-	return append(states, commandState{"file browser", demoBackend, browser, false},
+	states = append(states, commandState{"file browser", demoBackend, browser, false},
 		commandState{"file preview", demoBackend, preview, false})
+	// The browser over a stack folder and the masked preview of its secrets.env, over the invented stack folder.
+	secrets := []string{"up", "Q"}
+	for _, name := range []string{"demo-stack", "secrets.env"} {
+		secrets = append(append(append(secrets, "/"), typed(name)...), "enter", "enter")
+	}
+	return append(states, commandState{"stack file browser", stackFilesBackend, []string{"up", "Q"}, false},
+		commandState{"stack secrets preview", stackFilesBackend, secrets, false})
 }
 
 // release drops the timer record the test models keep in a global map, which would hold every model of the
@@ -63,8 +70,9 @@ func release(ms ...*Model) {
 func commandModel(t *testing.T, lang i18n.Lang, st commandState) *Model {
 	t.Helper()
 	m := newTestModel(t, lang, st.backend(), wideWidth, 30)
-	// System > Folders browses the invented tree, not the machine.
+	// System > Folders and the stack folders browse the invented trees, not the machine.
 	fakeHostFolders(m, 1)
+	fakeStackFiles(m)
 	send(m, st.keys...)
 	return m
 }

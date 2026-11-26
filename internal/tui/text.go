@@ -278,6 +278,8 @@ func addLateCatalogs(c i18n.Catalogs[kittui.TextID]) {
 	maps.Copy(c[i18n.German], detailGrantGerman())
 	maps.Copy(c[i18n.English], commandEnglish())
 	maps.Copy(c[i18n.German], commandGerman())
+	maps.Copy(c[i18n.English], stackFilesEnglish())
+	maps.Copy(c[i18n.German], stackFilesGerman())
 }
 
 func baseCatalog() i18n.Catalogs[kittui.TextID] {
