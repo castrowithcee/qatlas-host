@@ -285,7 +285,7 @@ func (m *Model) ctSectionsView(width, height int) string {
 			view, targets := s.list.View(m.styles, inner, rows)
 			body = append(body, strings.Split(view, "\n")...)
 			m.parts = append(m.parts, mousePart{rect: kittui.Rect{X: 2, Y: y + 1 + len(body) - rows, Width: inner, Height: rows}, list: s.list,
-				targets: kittui.OffsetTargets(targets, 2, 0)})
+				targets: kittui.OffsetTargets(targets, 2, 0), click: m.listClick(s.list)})
 		}
 		heading := textEngineHeading
 		if s.readOnly {

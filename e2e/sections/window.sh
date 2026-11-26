@@ -724,7 +724,7 @@ scenario_tui() {
 	tui_wait '> Theme' 10
 	tui_walk_down 'the Navigation field' grep -qF '> Navigation'
 	tui_send Right
-	tui_wait '║ path line' 10
+	tui_wait '│ path line' 10
 	tui_send F2
 	tui_wait 'The settings are saved.' 10
 	tui_wait 'Settings ▾ ›' 10
@@ -741,9 +741,9 @@ scenario_tui() {
 	tui_wait 'Settings ▾ ›' 10
 	tui_wait '> Theme' 10
 	tui_walk_down 'the Navigation field' grep -qF '> Navigation'
-	tui_wait '║ path line' 10
+	tui_wait '│ path line' 10
 	tui_send Left
-	tui_wait '║ tabs' 10
+	tui_wait '│ tabs' 10
 	tui_send F2
 	tui_wait 'The settings are saved.' 10
 	tui_wait "1 $tui_icon_stacks Stacks" 10

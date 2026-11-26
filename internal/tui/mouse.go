@@ -52,8 +52,13 @@ type mousePart struct {
 func (m *Model) listView(list *kittui.List, width, height, y int) string {
 	view, targets := list.View(m.styles, width, height)
 	m.parts = append(m.parts, mousePart{rect: kittui.Rect{Y: y, Width: width, Height: height}, list: list, targets: targets,
-		click: func(res kittui.MouseResult) tea.Cmd { return m.rowClick(list, res) }})
+		click: m.listClick(list)})
 	return view
+}
+
+// listClick is the click of a list part, which marks the clicked row of list.
+func (m *Model) listClick(list *kittui.List) func(kittui.MouseResult) tea.Cmd {
+	return func(res kittui.MouseResult) tea.Cmd { return m.rowClick(list, res) }
 }
 
 // formPart registers the form drawn at row y of the workspace with its targets.
