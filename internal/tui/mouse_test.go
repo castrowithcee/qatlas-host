@@ -263,6 +263,26 @@ func TestASubtabClickShowsItsPageAndTheListTakesTheRowUnderThePointer(t *testing
 	wantZone(t, m, kittui.ZoneRows)
 }
 
+func TestTheRowsOfEngineSectionsAreClickable(t *testing.T) {
+	m := newActionModel(t, twoEngineBackend())
+	m.mouseOn = true
+	m.render()
+	x, y := cellOf(t, m, "wiki")
+	clickAt(m, x, y)
+	if got := marked(t, m.list); !strings.HasSuffix(got, "wiki") {
+		t.Fatalf("marked %q\n%s", got, m.render())
+	}
+
+	m = newActionModel(t, twoEnginesContainers())
+	m.mouseOn = true
+	send(m, "5")
+	x, y = cellOf(t, m, "photo-album-web-1")
+	clickAt(m, x, y)
+	if got := marked(t, m.ctList); !strings.Contains(got, "photo-album-web-1") {
+		t.Fatalf("marked %q\n%s", got, m.render())
+	}
+}
+
 func TestTheContainersListIsClickable(t *testing.T) {
 	m := newActionModel(t, containersBackend())
 	m.mouseOn = true
