@@ -357,3 +357,18 @@ func TestEditedFileIsWrittenThroughFileWriteWithTheTextOnlyOnStandardInput(t *te
 		})
 	}
 }
+
+// An emptied file still gets an empty standard input, never the terminal, which the root command would read.
+func TestEmptiedFileIsWrittenWithAnEmptyStandardInput(t *testing.T) {
+	m, f, _ := editModel(t)
+	f.report, f.reports = appliedReport("file.write"), nil
+	drain(m, m.editFile(m.hostFiles(), "/srv/media/motd.txt", kittui.FileRegular))
+	edited(m, exteditor.ChangedMsg{Text: []byte{}})
+	send(m, "y")
+	if got := f.lastArgs(t); !slices.Equal(got, []string{"apply", "--confirm", "--output", "json", "--", "file.write", "/srv/media/motd.txt"}) {
+		t.Fatalf("arguments %q", got)
+	}
+	if last := f.reqs[len(f.reqs)-1]; !last.EmptyInput || len(last.Secret) != 0 || last.Terminal {
+		t.Fatalf("empty input %v, secret %q, terminal %v", last.EmptyInput, last.Secret, last.Terminal)
+	}
+}
