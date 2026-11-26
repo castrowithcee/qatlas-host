@@ -23,6 +23,8 @@ type commandRow struct {
 var commandRows = []commandRow{
 	{actReload, "", "reload", "Read everything from the service again", "neu laden|reload", "Alles erneut vom Dienst lesen"},
 	{actSearch, "", "search", "Search the rows of the list", "suchen|search", "Die Zeilen der Liste durchsuchen"},
+	{actMenu, "", "menu|overview", "Show the areas and pages of the path to choose one", "menü|menu|übersicht",
+		"Die Bereiche und Seiten des Pfads zur Wahl zeigen"},
 	{actStackOnly, areaRuns, "stack filter", "Limit the runs to the stack marked in Stacks, or lift the limit",
 		"stack-filter|stack filter", "Die Läufe auf den in Stacks markierten Stack begrenzen oder die Grenze aufheben"},
 	{actUpdate, areaStacks, "update", "Update the marked or ticked stacks", "aktualisieren|update", "Die markierten oder angehakten Stacks aktualisieren"},
