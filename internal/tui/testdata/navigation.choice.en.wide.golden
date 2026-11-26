@@ -1,0 +1,14 @@
+◆ qhost   ◎ System ▾   maintenance window closed                                                    [esc] back  [?] help
+> [Users]  Groups   Folders   Proposals   Changes   Log                                                                 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+      NAME       UID    ADMIN               DOCKER  LOGIN    GROUPS                                                     
+      ─────────────────────────────────────────────────────────────                                                     
+  ▾ ■ Users (3)                                                                                                         
+      ada        1000   yes                 yes     unknown                                                             
+      ben        1001   yes, without qhost  no      unknown                                                             
+╭─ ada ────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Home: /home/ada                                                                                                      │
+│ Primary group: ada                                                                                                   │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+enter/e change  / search  ← previous page  → next page  n new user  d delete  m menu  R reload  1-7 area  q quit        
+                                                                                                         ↑/↓ choose  1/6

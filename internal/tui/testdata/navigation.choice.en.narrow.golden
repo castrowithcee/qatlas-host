@@ -1,0 +1,14 @@
+◆ qhost   ◎ System ▾                [esc] back  [?] help
+> [Users]  Groups   Folders   Proposals   Changes   Log 
+────────────────────────────────────────────────────────
+      NAME       UID    ADMIN            DOCKER  LOGIN  
+      ──────────────────────────────────────────────────
+  ▾ ■ Users (3)                                         
+      ada        1000   yes              yes     unknown
+      ben        1001   yes, without q…  no      unknown
+╭─ ada ────────────────────────────────────────────────╮
+│ Home: /home/ada                                      │
+│ Primary group: ada                                   │
+╰──────────────────────────────────────────────────────╯
+enter/e change  / search  ← previous page  → next page  
+n new user  d delete  m menu  R reload  1-7 area  q quit

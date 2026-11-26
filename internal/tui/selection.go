@@ -20,5 +20,5 @@ func (m *Model) selectMouse(msg tea.MouseMsg) tea.Cmd {
 	if click, ok := m.sel.Replay(); ok {
 		msg = click
 	}
-	return m.mouse(msg)
+	return m.navMouse(msg)
 }

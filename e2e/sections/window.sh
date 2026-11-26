@@ -718,6 +718,37 @@ scenario_tui() {
 	tui_has 'Stack-Details' && fail "the interface still shows German after English was saved: $(tui_screen)"
 	log 'scenario: Deutsch stayed after the restart of the interface and English was saved back'
 
+	step 'the navigation form chosen on Settings, General applies at once, stays after a restart and tabs come back'
+	# The digit opens Settings on the General page with the focus on its first field.
+	tui_send 4
+	tui_wait '> Theme' 10
+	tui_walk_down 'the Navigation field' grep -qF '> Navigation'
+	tui_send Right
+	tui_wait '║ path line' 10
+	tui_send F2
+	tui_wait 'The settings are saved.' 10
+	tui_wait 'Settings ▾ ›' 10
+	tui_has "1 $tui_icon_stacks Stacks" && fail "the tab line stays after the path line was chosen: $(tui_screen)"
+	tui_send Escape
+	tui_wait 'm menu' 10
+	tui_send q
+	tui_wait 'qhost-exit=0' 10
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'sudo qhost; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait 'demo-stack' 30
+	tui_send 4
+	tui_wait 'Settings ▾ ›' 10
+	tui_wait '> Theme' 10
+	tui_walk_down 'the Navigation field' grep -qF '> Navigation'
+	tui_wait '║ path line' 10
+	tui_send Left
+	tui_wait '║ tabs' 10
+	tui_send F2
+	tui_wait 'The settings are saved.' 10
+	tui_wait "1 $tui_icon_stacks Stacks" 10
+	log 'scenario: the path line stayed after the restart of the interface and tabs were saved back'
+
 	step 'q ends the interface with exit code 0'
 	tui_send Escape
 	tui_send 1

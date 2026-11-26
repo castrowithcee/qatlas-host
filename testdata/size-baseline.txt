@@ -292,11 +292,10 @@ cx internal/tui/hostask.go:Model.hostFailed 19
 cx internal/tui/listeditor.go:Model.editorKey 29
 cx internal/tui/model.go:Model.Update 45
 cx internal/tui/model.go:Model.enter 16
-cx internal/tui/model.go:Model.footer 38
+cx internal/tui/model.go:Model.footer 37
 cx internal/tui/model.go:Model.frameSpec 17
 cx internal/tui/model.go:Model.input 20
 cx internal/tui/model.go:Model.key 112
-cx internal/tui/model.go:Model.navKey 21
 cx internal/tui/model.go:Model.render 29
 cx internal/tui/model.go:newModel 17
 cx internal/tui/model_test.go:TestRowsShowTheMostPressingState 17
@@ -357,7 +356,7 @@ file internal/tui/backend.go 610
 file internal/tui/detail.go 647
 file internal/tui/fakebackend_test.go 1260
 file internal/tui/folders.go 855
-file internal/tui/model.go 1559
+file internal/tui/model.go 1523
 file internal/tui/settings.go 938
 file internal/tui/settingsform.go 544
 file internal/tui/settingstext.go permanent: text catalog of the terminal interface, pure data
@@ -534,9 +533,9 @@ len internal/tui/general.go:Model.relocalize 76
 len internal/tui/keys.go:keyTable 74
 len internal/tui/listeditor.go:Model.editorKey 65
 len internal/tui/model.go:Model.Update 101
-len internal/tui/model.go:Model.footer 80
+len internal/tui/model.go:Model.footer 76
 len internal/tui/model.go:Model.key 247
-len internal/tui/model.go:Model.render 85
+len internal/tui/model.go:Model.render 80
 len internal/tui/model.go:newModel 63
 len internal/tui/mouse.go:Model.mouse 62
 len internal/tui/proposals.go:Model.proposalLines 68

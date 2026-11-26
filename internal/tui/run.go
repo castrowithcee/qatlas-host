@@ -48,7 +48,8 @@ func PrefsSchema() (uiprefs.Schema, error) {
 	for _, a := range areas() {
 		ids = append(ids, string(a.ID))
 	}
-	return uiprefs.Schema{Themes: themes.Names(), Areas: ids, DefaultArea: string(areaStacks)}, nil
+	return uiprefs.Schema{Themes: themes.Names(), Areas: ids, DefaultArea: string(areaStacks),
+		Navigations: navigations(), DefaultNavigation: uiprefs.NavigationTabs}, nil
 }
 
 // Run shows the interface on the terminal of opts until the person quits.

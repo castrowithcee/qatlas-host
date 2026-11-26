@@ -1,0 +1,14 @@
+◆ qhost   System ▾ ›[Benutzer ▾]  Wartungsfenster zu                                             [esc] Zurück  [?] Hilfe
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+      NAME          UID    ADMIN           DOCKER  LOGIN      GRUPPEN                                                   
+      ───────────────────────────────────────────────────────────────                                                   
+  ▾ ■ Benutzer (3)                                                                                                      
+      ada           1000   ja              ja      unbekannt                                                            
+      ben           1001   ja, ohne qhost  nein    unbekannt                                                            
+╭─ ada ────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Home: /home/ada                                                                                                      │
+│ Primäre Gruppe: ada                                                                                                  │
+│ Weitere Gruppen: -                                                                                                   │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+enter/e ändern  / Suchen  n neuer Benutzer  d löschen  tab Zone  m Menü  R Neu laden  1-7 Bereich  q Beenden            
+                                                                        enter Öffnen oder bestätigen  ↑/↓ Auswählen  1/6
