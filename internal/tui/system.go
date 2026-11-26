@@ -507,7 +507,7 @@ func (m *Model) systemBack(msg tea.KeyPressMsg) tea.Cmd {
 func (m *Model) systemFooter(common, nav []kittui.Hint) []kittui.Hint {
 	s := m.sys
 	var own []kittui.Hint
-	if m.focus() == kittui.ZoneSubtabs {
+	if m.stepsPages() {
 		own = append(own, kittui.Hint{Action: actLeft, Label: textKeyPrevPage, Priority: 3},
 			kittui.Hint{Action: actRight, Label: textKeyNextPage, Priority: 3})
 	}

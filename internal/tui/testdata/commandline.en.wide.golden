@@ -1,0 +1,14 @@
+◆ qhost  maintenance window ╔═ Commands ═══════════════════════════════════════════════════╗                    [?] help
+  [1 ▤ Stacks]  2 ▣ Stack de║ : search or run a command…                                   ║  7 ◎ System                
+────────────────────────────║                                                              ║────────────────────────────
+      STACK        CURRENT  ║ > stacks        Open the area Stacks                       1 ║                  FINDINGS  
+      ──────────────────────║   stack detail  Open the area Stack detail                 2 ║────────────────────────────
+> [ ] demo-stack   1.4.2    ║   runs          Open the area Runs                         3 ║0-30 14:02        1 warning 
+  [ ] mail-relay   3.1      ║   settings      Open the area Settings                     4 ║0-28 03:10        none      
+  [ ] old-tool     -        ║   containers    Open the area Containers                   5 ║                  none      
+  [ ] photo-album  2.0.1    ║   proposals     Open the area Proposals                    6 ║iled 10-29 03:10  1 error   
+  [ ] web-shop     5.2.0, 16║   system        Open the area System                       7 ║ 10-30 12:00      none      
+  [ ] wiki         1.41.0   ║ 1-7 of 60                                                    ║0-27 03:10        2 warnings
+                            ║                                                              ║                            
+                            ║ enter open or confirm  esc back                              ║                            
+enter details  / search  spa╚══════════════════════════════════════════════════════════════╝             ↑/↓ choose  1/6

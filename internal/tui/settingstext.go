@@ -56,6 +56,12 @@ const (
 	textIconsUnicode          kittui.TextID = "icons.unicode"
 	textIconsNerdFont         kittui.TextID = "icons.nerdfont"
 	textIconsNone             kittui.TextID = "icons.none"
+	textFieldNavigation       kittui.TextID = "field.navigation"
+	textHintNavigation        kittui.TextID = "hint.navigation"
+	textNavTabs               kittui.TextID = "navigation.tabs"
+	textNavPathLine           kittui.TextID = "navigation.pathline"
+	textNavPathHeader         kittui.TextID = "navigation.header"
+	textNavHeaderChoice       kittui.TextID = "navigation.choice"
 	textMouseOn               kittui.TextID = "mouse.on"
 	textMouseOff              kittui.TextID = "mouse.off"
 	textGeneralSaved          kittui.TextID = "general.saved"
@@ -354,6 +360,12 @@ func settingsEnglish() map[kittui.TextID]string {
 		textIconsUnicode:          "Unicode",
 		textIconsNerdFont:         "Nerd Font",
 		textIconsNone:             "none",
+		textFieldNavigation:       "Navigation",
+		textHintNavigation:        "how the areas and tabs are shown; applies at once",
+		textNavTabs:               "tabs",
+		textNavPathLine:           "path line",
+		textNavPathHeader:         "path in the header",
+		textNavHeaderChoice:       "area choice in the header",
 		textMouseOn:               "on",
 		textMouseOff:              "off",
 		textGeneralSaved:          "The settings are saved.",
@@ -643,6 +655,12 @@ func settingsGerman() map[kittui.TextID]string {
 		textLangEnglish:           "English",
 		textLangGerman:            "Deutsch",
 		textLangSystem:            "System",
+		textFieldNavigation:       "Navigation",
+		textHintNavigation:        "wie Bereiche und Reiter erscheinen; gilt sofort",
+		textNavTabs:               "Reiter",
+		textNavPathLine:           "Pfadzeile",
+		textNavPathHeader:         "Pfad in der Kopfzeile",
+		textNavHeaderChoice:       "Bereichsauswahl in der Kopfzeile",
 		textFieldIcons:            "Symbole",
 		textHintIcons:             "Nerd Font braucht eine gepatchte Terminalschrift; ASCII-Terminals zeigen keine",
 		textFieldEditor:           "Editor",

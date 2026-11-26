@@ -1,0 +1,14 @@
+◆ qhost   ◎ System ▾             [esc] Zurück  [?] Hilfe
+> [Benutzer]                                            
+────────────────────────────────────────────────────────
+      NAME          UID    ADMIN       DOCKER  LOGIN    
+      ──────────────────────────────────────────────────
+  ▾ ■ Benutzer (3)                                      
+      ada           1000   ja          ja      unbekannt
+      ben           1001   ja, ohne …  nein    unbekannt
+╭─ ada ────────────────────────────────────────────────╮
+│ Home: /home/ada                                      │
+│ Primäre Gruppe: ada                                  │
+╰──────────────────────────────────────────────────────╯
+enter/e ändern  / Suchen  ← vorherige Seite             
+→ nächste Seite  R Neu laden  q Beenden                 

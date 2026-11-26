@@ -176,7 +176,7 @@ func TestGeneralSavesTheEditorCommandLine(t *testing.T) {
 	s := &savedPrefs{}
 	m := generalModel(t, s)
 	send(m, toGeneral...)
-	send(m, "down", "down", "down", "down", "down")
+	send(m, "down", "down", "down", "down", "down", "down")
 	send(m, typed(" micro -demo ")...)
 	send(m, save...)
 	if len(s.calls) != 1 || s.calls[0].Editor != "micro -demo" || s.calls[0].Icons != uiprefs.IconsNerdFont {

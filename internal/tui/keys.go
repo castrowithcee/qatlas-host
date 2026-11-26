@@ -5,6 +5,7 @@ import kittui "github.com/castrowithcee/qatlas-kit/tui"
 // The actions of the key table.
 const (
 	actHelp                      = kittui.ActionHelp
+	actCommand                   = kittui.ActionCommand
 	actBack                      = kittui.ActionBack
 	actForceQuit                 = kittui.ActionForceQuit
 	actQuit                      = kittui.ActionQuit
@@ -123,7 +124,7 @@ func std(id kittui.ActionID, help kittui.TextID) kittui.Action {
 
 func keyTable() []kittui.Action {
 	table := []kittui.Action{
-		std(actHelp, kittui.TextKeyHelp),
+		std(actHelp, kittui.TextKeyHelp), std(actCommand, kittui.TextKeyCommands),
 		std(actBack, kittui.TextKeyBack),
 		std(actForceQuit, kittui.TextKeyQuit),
 		std(actQuit, kittui.TextKeyQuit),
@@ -193,7 +194,7 @@ func keyTable() []kittui.Action {
 		act(actNo, kittui.LevelConfirm, textAnswerCancel, "n", "esc"),
 		act(actShowLog, kittui.LevelConfirm, textAnswerLog, "l"),
 	}
-	return append(append(append(table, promoteKeys()...), browserKeys()...), kittui.LogViewActions()...)
+	return append(append(append(table, promoteKeys()...), browserKeys()...), append(kittui.LogViewActions(), navActions()...)...)
 }
 
 // browserKeys are the actions of the file browser and its text view beyond those of a list and a log.

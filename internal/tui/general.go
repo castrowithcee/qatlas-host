@@ -60,6 +60,7 @@ func (m *Model) generalForm() *settingsForm {
 			choice(mouseChoiceOff, textMouseOff)}, mouse),
 		pick("icons", textFieldIcons, textHintIcons, []kittui.Choice{choice(uiprefs.IconsUnicode, textIconsUnicode),
 			choice(uiprefs.IconsNerdFont, textIconsNerdFont), choice(uiprefs.IconsNone, textIconsNone)}, p.Icons),
+		navigationField(p.Navigation),
 		textField(fieldEditor, textFieldEditor, textHintEditor, p.Editor),
 	}
 	// The switch belongs to the host, not to the preferences; it shows once the host service has answered.
@@ -81,7 +82,8 @@ func (m *Model) submitGeneral(f *settingsForm) tea.Cmd {
 	v := f.form.Values()
 	next := m.prefs
 	next.Theme, next.Start = string(v["theme"].Choice), string(v["start"].Choice)
-	next.Icons, next.Editor = string(v["icons"].Choice), strings.TrimSpace(v[fieldEditor].Text)
+	next.Icons, next.Navigation = string(v["icons"].Choice), string(v["navigation"].Choice)
+	next.Editor = strings.TrimSpace(v[fieldEditor].Text)
 	next.Language, next.MouseEnabled = string(v["language"].Choice), v["mouse"].Choice == mouseChoiceOn
 	if err := m.savePrefs(next); err != nil {
 		f.problem(t.Lookup(textGeneralSaveFailed, err.Error()), t.Lookup(textFormRetry))

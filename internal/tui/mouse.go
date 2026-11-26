@@ -151,13 +151,7 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	case res.Tab != "":
 		return m.selectTab(res.Tab)
 	case res.Area != "":
-		if m.formShown() && m.set.form.kind == formGeneral {
-			// A key would go to the form, which is no way to another area.
-			return m.enter(res.Area)
-		}
-		if i := slices.IndexFunc(areas(), func(a kittui.Area) bool { return a.ID == res.Area }); i >= 0 && i < len(areaKeys) {
-			return m.pressName(areaKeys[i])
-		}
+		return m.areaClick(res.Area)
 	case res.Action != "":
 		if key, ok := m.keyOf(res.Action); ok {
 			return m.press(key)
@@ -169,6 +163,18 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 			}
 			m.setZone(res.Zone)
 		}
+	}
+	return nil
+}
+
+// areaClick is a click on the tab of an area, which the command of the area takes as well.
+func (m *Model) areaClick(area kittui.AreaID) tea.Cmd {
+	if m.formShown() && m.set.form.kind == formGeneral {
+		// A key would go to the form, which is no way to another area.
+		return m.enter(area)
+	}
+	if i := slices.IndexFunc(areas(), func(a kittui.Area) bool { return a.ID == area }); i >= 0 && i < len(areaKeys) {
+		return m.pressName(areaKeys[i])
 	}
 	return nil
 }
@@ -242,6 +248,12 @@ func (m *Model) helpMouse(res kittui.MouseResult) tea.Cmd {
 // press runs one key press; the keyboard and the mouse both come here.
 func (m *Model) press(msg tea.KeyPressMsg) tea.Cmd {
 	m.sel.Clear()
+	if m.navOpen() {
+		return m.navKeyOpen(msg)
+	}
+	if cmd, taken := m.commandKey(msg); taken {
+		return cmd
+	}
 	cmd := m.key(msg)
 	m.refeedFilteredLog()
 	return cmd

@@ -180,14 +180,17 @@ type Model struct {
 	modal                                     *modal
 	run                                       *running
 	modalGen, runGen, rollbackGen, promoteGen int
-	stale                                     bool
+	stale, helpOpen                           bool
 	// after starts a timer; tests replace it.
 	after func(time.Duration, func(time.Time) tea.Msg) tea.Cmd
 	// euid and makeDirs are the user the interface runs as and the creation of data directories; tests replace them.
 	euid     func() int
 	makeDirs func(datadir.Request) (datadir.Result, error)
 	help     *kittui.Help
-	helpOpen bool
+	// pnav is the overview or choice the path navigation opened; nil, or closed, when none shows.
+	pnav *kittui.PathNav
+	// cmdline is the open command line, nil while it is closed.
+	cmdline *kittui.CommandLine
 	// mouseOn is the mouse preference, mouseMap the click targets of the frame drawn last, sel the text selection.
 	mouseOn  bool
 	mouseMap *kittui.MouseMap
@@ -439,7 +442,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return m, m.press(msg)
 	case tea.MouseMsg:
-		return m, m.selectMouse(msg)
+		return m, m.pointer(msg)
 	}
 	return m, nil
 }
@@ -1029,35 +1032,7 @@ func (m *Model) navKey(id kittui.ActionID, msg tea.KeyPressMsg, focus kittui.Inp
 	if focus != kittui.InputNavigation {
 		return nil, false
 	}
-	zones, cur := m.zones(), m.focus()
-	tabs, sub := cur == kittui.ZoneTabs, cur == kittui.ZoneSubtabs
-	switch {
-	case id == actNext, (tabs || sub) && (id == actDown || id == actEnter):
-		m.setZone(kittui.CycleZone(zones, cur, 1))
-	case id == actPrev:
-		m.setZone(kittui.CycleZone(zones, cur, -1))
-	case tabs && id == actUp:
-		// nothing lies above the tab line; the unfocused content must not move under it
-	case sub && id == actUp:
-		m.setZone(kittui.ZoneTabs)
-	case sub && (id == actLeft || id == actRight):
-		step := 1
-		if id == actLeft {
-			step = -1
-		}
-		return m.stepTab(step), true
-	case tabs && (id == actLeft || id == actRight):
-		step := 1
-		if id == actLeft {
-			step = -1
-		}
-		cmd := m.enter(kittui.StepArea(areas(), m.area, step))
-		m.setZone(kittui.ZoneTabs) // the arrows keep the focus on the tab line so they can go on
-		return cmd, true
-	default:
-		return nil, false
-	}
-	return nil, true
+	return m.zoneKey(id)
 }
 
 // open shows the stack id in the detail area.
@@ -1097,11 +1072,7 @@ func (m *Model) footer() []kittui.Hint {
 		{Action: actArea, Label: textKeyArea, Priority: 3},
 		{Action: actQuit, Label: kittui.TextKeyQuit, Priority: 1},
 	}
-	if m.focus() == kittui.ZoneTabs {
-		common = append([]kittui.Hint{{Action: actLeft, Label: textKeyPrevArea, Priority: 3},
-			{Action: actRight, Label: textKeyNextArea, Priority: 3},
-			{Action: actNext, Label: textKeyZone, Priority: 3}}, common...)
-	}
+	common = m.navCommon(common)
 	switch {
 	case m.setupShown() && !m.clogShown():
 		return append([]kittui.Hint{{Action: actSetupDeploy, Label: textKeySetupDeploy, Priority: 3}}, common...)
@@ -1267,7 +1238,7 @@ func (m *Model) frameSpec() kittui.FrameSpec {
 	spec := kittui.FrameSpec{
 		Width: m.width, Height: m.height, Product: productName, Icon: icons.logo, Status: m.marks(),
 		HeaderKeys: []kittui.Hint{{Action: actHelp, Label: kittui.TextKeyHelp}},
-		Areas:      areasWith(icons), ActiveArea: m.area, ActiveTab: m.activeTab(), Focus: m.focus(), Input: m.input(),
+		Areas:      areasWith(icons), Nav: navForm(m.prefs.Navigation), ActiveArea: m.area, ActiveTab: m.activeTab(), Focus: m.frameFocus(), PathFocusArea: m.pathFocusArea(), Input: m.input(),
 		Message: m.message(), Footer: m.footer(),
 	}
 	switch {
@@ -1368,16 +1339,7 @@ func (m *Model) render() string {
 		}
 	}
 	if lv := m.filteringLogView(); lv != nil {
-		if over, ot, ok := lv.ModalOverlay(m.styles, view, m.width, m.height, room); ok {
-			view, targets = over, ot
-		} else {
-			spec.Footer, spec.Input, spec.Position, spec.Back = lv.Hints(), lv.Input(), "", nil
-			room = m.frame.Workspace(spec)
-			var wt []kittui.Target
-			spec.Workspace, wt = lv.ModalView(m.styles, room.Width, room.Height)
-			view, _ = m.frame.Render(m.styles, spec)
-			targets = kittui.OffsetTargets(wt, room.X, room.Y)
-		}
+		view, targets = m.logFilterOverlay(lv, spec, view, room)
 	}
 	if m.helpOpen {
 		if over, ot, ok := m.help.Overlay(m.styles, view, m.width, m.height, room); ok {
@@ -1396,8 +1358,10 @@ func (m *Model) render() string {
 		pt, parts := m.partTargets(room)
 		targets, m.mouseParts = append(targets, pt...), parts
 	}
-	m.setMouse(targets)
-	return m.styles.Paint(view, m.width, m.height)
+	if m.navOpen() {
+		view, targets = m.navOverlay(spec, view, room)
+	}
+	return m.paint(view, targets)
 }
 
 // filteringLogView is the log view whose period form is open, nil when none is.
