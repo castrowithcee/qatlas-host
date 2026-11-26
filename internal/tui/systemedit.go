@@ -14,13 +14,14 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
 )
 
-// e on System > Folders edits a file in the editor of the person, never as root: started with sudo, the editor runs
+// e in a file browser edits a file in the editor of the person, never as root: started with sudo, the editor runs
 // as the user behind sudo. The text is read directly or through sudo qhost host file, edited in a private copy the
 // kit makes and removes, checked by its extension and written back as the root action file.write, the text on
 // standard input only. A file only root may read is edited only where the copy lies in memory.
 
-// fileEdit is the edit under way; there is at most one, as the editor takes the terminal.
+// fileEdit is the edit under way in the place view; there is at most one, as the editor takes the terminal.
 type fileEdit struct {
+	view   *fileView
 	path   string
 	editor exteditor.Editor
 	target *exteditor.Target
@@ -44,35 +45,39 @@ type editReadMsg struct {
 	err  error
 }
 
-// folderEditKey is e on the folders page: it changes the permissions shown, edits the file shown in the preview, or
-// acts as the edit button of the browser on the marked entry.
+// folderEditKey is e on the folders page: it changes the permissions shown, or acts as e of the file browser.
 func (m *Model) folderEditKey() tea.Cmd {
-	p := &m.sys.fold
-	switch {
-	case p.asked != "":
+	if m.sys.fold.asked != "" {
 		return m.openFolderChange()
-	case p.preview != nil:
-		if p.previewText() != nil {
-			return m.editFile(p.preview.path, kittui.FileRegular)
+	}
+	return m.fileEditKey(m.hostFiles())
+}
+
+// fileEditKey is e in the place: it edits the file shown in the preview, or acts as the edit button of the browser
+// on the marked entry.
+func (m *Model) fileEditKey(v *fileView) tea.Cmd {
+	if v.preview != nil {
+		if v.previewText() != nil {
+			return m.editFile(v, v.preview.path, kittui.FileRegular)
 		}
 		return nil
 	}
-	if b := m.folderBrowser(); b != nil {
+	if b := m.fileBrowser(v); b != nil {
 		r, _ := b.Act(actEdit)
-		return m.fileResult(r)
+		return m.fileResult(v, r)
 	}
 	return nil
 }
 
-// editFile starts the edit of the file at path, kind as the browser shows it.
-func (m *Model) editFile(path string, kind kittui.FileKind) tea.Cmd {
-	t, p := m.text, &m.sys.fold
+// editFile starts the edit of the file at path in the place, kind as the browser shows it.
+func (m *Model) editFile(v *fileView, path string, kind kittui.FileKind) tea.Cmd {
+	t, readOnly := m.text, v.readOnlyText(path)
 	var refusal string
 	switch {
-	case m.sys.busy || p.edit != nil:
+	case m.sys.busy || m.activeEdit() != nil:
 		refusal = t.Lookup(textActionBusy)
-	case gitPath(path):
-		refusal = t.Lookup(textFileGitReadOnly, path)
+	case readOnly != "":
+		refusal = t.Lookup(readOnly, path)
 	case kind == kittui.FileDir:
 		refusal = t.Lookup(textEditFolder, path)
 	case kind == kittui.FileLink:
@@ -82,13 +87,13 @@ func (m *Model) editFile(path string, kind kittui.FileKind) tea.Cmd {
 		m.warn(refusal)
 		return nil
 	}
-	e, refusal := m.prepareEdit(path)
+	e, refusal := m.prepareEdit(v, path)
 	if refusal != "" {
 		m.warn(refusal)
 		return nil
 	}
-	p.edit = e
-	read := p.readPath
+	v.edit = e
+	read := v.readPath
 	if read == nil {
 		read = hostchange.ReadPath
 	}
@@ -99,8 +104,8 @@ func (m *Model) editFile(path string, kind kittui.FileKind) tea.Cmd {
 }
 
 // prepareEdit finds the editor, the user it runs as and the private folder of the copy.
-func (m *Model) prepareEdit(path string) (*fileEdit, string) {
-	t, h := m.text, m.sys.fold.hooks.withDefaults()
+func (m *Model) prepareEdit(v *fileView, path string) (*fileEdit, string) {
+	t, h := m.text, v.hooks.withDefaults()
 	editor, err := exteditor.Resolve(m.prefs.Editor, h.getenv)
 	if err != nil {
 		return nil, t.Lookup(textEditNoEditor, err.Error())
@@ -117,12 +122,12 @@ func (m *Model) prepareEdit(path string) (*fileEdit, string) {
 	if err != nil {
 		return nil, t.Lookup(textEditNoDir, err.Error())
 	}
-	return &fileEdit{path: path, editor: editor, target: target, dir: dir}, ""
+	return &fileEdit{view: v, path: path, editor: editor, target: target, dir: dir}, ""
 }
 
 // applyEdit takes the read of the file and the end of the editor.
 func (m *Model) applyEdit(msg tea.Msg) tea.Cmd {
-	e := m.sys.fold.edit
+	e := m.activeEdit()
 	if e == nil {
 		return nil
 	}
@@ -167,7 +172,7 @@ func (m *Model) applyEditRead(e *fileEdit, msg editReadMsg) tea.Cmd {
 			args: []string{"host", "file", "--output", "json", "--", e.path},
 			done: func(r sudoRun) tea.Cmd {
 				read, ok := decodeHostFile(r.out)
-				if !ok || m.sys.fold.edit != e {
+				if !ok || e.view.edit != e {
 					m.endEdit()
 					m.failure = t.Lookup(kittui.TextError, t.Lookup(textFolderFailed, e.path, r.problem))
 					return nil
@@ -216,7 +221,7 @@ func (m *Model) openFileEditor(e *fileEdit, r hostRead) tea.Cmd {
 
 // launchEditor hands the terminal to the editor on the text of e.
 func (m *Model) launchEditor(e *fileEdit) tea.Cmd {
-	cmd, err := m.sys.fold.hooks.withDefaults().start(exteditor.Request{Editor: e.editor, Dir: e.dir.path, Name: path.Base(e.path),
+	cmd, err := e.view.hooks.withDefaults().start(exteditor.Request{Editor: e.editor, Dir: e.dir.path, Name: path.Base(e.path),
 		Text: e.text, MaxSize: hostchange.MaxFileContent, Target: e.target})
 	if err != nil {
 		m.endEdit()
@@ -254,37 +259,37 @@ func (m *Model) askQuestion(spec kittui.DialogSpec, yes func() tea.Cmd, drop fun
 // from here and overwrites it when it is answered or the run is over. A system path asks in red, the only way to
 // the acknowledgement in the arguments.
 func (m *Model) askFileWrite(e *fileEdit) {
-	t, p := m.text, &m.sys.fold
+	t, p := m.text, e.view
 	p.edit = nil
 	e.dir.remove()
 	a := hostAsk{id: hostchange.ActionFileWrite, args: hostchange.FileArgs(e.path), secret: e.text,
-		question: t.Lookup(textAskFileWrite, e.path), then: func() tea.Cmd { return m.afterFileWrite(e.path, e.viaSudo) }}
+		question: t.Lookup(textAskFileWrite, e.path), then: func() tea.Cmd { return m.afterFileWrite(p, e.path, e.viaSudo) }}
 	if hostchange.IsSystemPath(e.path) {
 		a.risk = t.Lookup(textRiskFileWriteSystem)
 	}
+	p.beforeWrite(&a, e.path)
 	m.askHost(a, nil)
 }
 
-// afterFileWrite shows the written file again in its preview. A preview read through sudo is closed instead, so
-// that no second password question follows the result.
-func (m *Model) afterFileWrite(path string, viaSudo bool) tea.Cmd {
-	p := &m.sys.fold
+// afterFileWrite shows the written file again in the preview of the place, then runs what the place runs after a
+// write. A preview read through sudo is closed instead, so that no second password question follows the result.
+func (m *Model) afterFileWrite(p *fileView, path string, viaSudo bool) tea.Cmd {
+	var cmd tea.Cmd
 	switch {
 	case p.preview == nil || p.preview.path != path:
-		return nil
 	case viaSudo:
 		p.preview = nil
 		p.fileGen++
-		return nil
+	default:
+		cmd = m.openFilePreview(p, path)
 	}
-	return m.openFilePreview(path)
+	return tea.Batch(cmd, p.wrote(path))
 }
 
 // endEdit ends the edit under way: the text is overwritten and a folder made for the copy removed.
 func (m *Model) endEdit() {
-	p := &m.sys.fold
-	if e := p.edit; e != nil {
-		p.edit = nil
+	if e := m.activeEdit(); e != nil {
+		e.view.edit = nil
 		zeroAll(e.text)
 		e.dir.remove()
 	}

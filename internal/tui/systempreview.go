@@ -12,7 +12,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
 )
 
-// filePreview is the file the folders page shows instead of the browser. note says why no text is shown: a
+// filePreview is the file a place shows instead of the browser. note says why no text is shown: a
 // binary or too large file, a link, no regular file, or a read that failed.
 type filePreview struct {
 	path    string
@@ -21,33 +21,32 @@ type filePreview struct {
 }
 
 // previewText is the text view of the preview while it shows a text; nil while it reads or shows a note.
-func (p *folderPage) previewText() *kittui.TextView {
-	if p.preview == nil || p.preview.reading || p.preview.note != "" {
+func (v *fileView) previewText() *kittui.TextView {
+	if v.preview == nil || v.preview.reading || v.preview.note != "" {
 		return nil
 	}
-	return p.text
+	return v.text
 }
 
 // previewCurrent reports whether gen is the preview shown now.
-func (m *Model) previewCurrent(gen int) bool {
-	p := &m.sys.fold
-	return p.preview != nil && gen == p.fileGen
+func (v *fileView) previewCurrent(gen int) bool {
+	return v.preview != nil && gen == v.fileGen
 }
 
-// openFilePreview reads the file at path for the preview.
-func (m *Model) openFilePreview(path string) tea.Cmd {
-	p := &m.sys.fold
+// openFilePreview reads the file at path for the preview of the place.
+func (m *Model) openFilePreview(p *fileView, path string) tea.Cmd {
 	p.fileGen++
 	p.preview = &filePreview{path: path, reading: true}
-	return m.readHostPath(path, nil, p.fileGen)
+	return m.readHostPath(p, path, nil, p.fileGen)
 }
 
-// showPreview shows the file read for the preview gen; a text is coloured by the format its name names.
-func (m *Model) showPreview(gen int, r hostRead) {
-	if !m.previewCurrent(gen) {
+// showPreview shows the file read for the preview gen; a text is coloured by the spans of the place, else by the
+// format its name names.
+func (m *Model) showPreview(p *fileView, gen int, r hostRead) {
+	if !p.previewCurrent(gen) {
 		return
 	}
-	p, t := &m.sys.fold, m.text
+	t := m.text
 	pv := p.preview
 	pv.reading = false
 	switch {
@@ -74,12 +73,15 @@ func (m *Model) showPreview(gen int, r hostRead) {
 		}
 		p.text = v
 	}
-	p.text.SetText(r.Content, highlight.Highlight(path.Base(pv.path), r.Content))
+	spans := p.rules.spans
+	if spans == nil {
+		spans = func(name, text string) [][]kittui.TextSpan { return highlight.Highlight(path.Base(name), text) }
+	}
+	p.text.SetText(r.Content, spans(pv.path, r.Content))
 }
 
-// previewView draws the preview: the path, then the text or the note in its place.
-func (m *Model) previewView(width, height int) string {
-	p := &m.sys.fold
+// previewView draws the preview of the place: the path, then the text or the note in its place.
+func (m *Model) previewView(p *fileView, width, height int) string {
 	pv := p.preview
 	lines := []string{m.line(detailMargin, kittui.StyleActive, pv.path, width)}
 	switch v := p.previewText(); {

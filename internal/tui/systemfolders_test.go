@@ -29,7 +29,7 @@ func fakeHostFolders(m *Model, n int) *int {
 	p := &m.sys.fold
 	p.read = func(path string) (hostadmin.Folder, error) { reads++; return demoFolder(path), nil }
 	p.count = func(string, bool) (int, error) { return n, nil }
-	p.readPath = demoTreeReader(m)
+	p.files.readPath = demoTreeReader(m)
 	return &reads
 }
 
@@ -47,7 +47,7 @@ func toFolderPage(t *testing.T, m *Model) {
 func showFolder(t *testing.T, m *Model, path string) {
 	t.Helper()
 	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
-	drain(m, m.fileResult(kittui.FileResult{Action: &kittui.FileAction{Action: actRights, Dir: parts[:len(parts)-1],
+	drain(m, m.fileResult(m.hostFiles(), kittui.FileResult{Action: &kittui.FileAction{Action: actRights, Dir: parts[:len(parts)-1],
 		Entry: kittui.FileEntry{Name: parts[len(parts)-1]}, HasEntry: true}}))
 	if m.sys.fold.asked != path {
 		t.Fatalf("Rights shows %q, want %q:\n%s", m.sys.fold.asked, path, m.render())

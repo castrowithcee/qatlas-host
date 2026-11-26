@@ -155,7 +155,7 @@ func systemModel(t *testing.T, lang i18n.Lang, width, rows int) (*Model, *fakeRo
 	f := &fakeRoot{report: appliedReport("demo")}
 	m.root = f.hook()
 	// No edit reaches a real private folder or editor unless a test sets fakeEdit.
-	m.sys.fold.hooks.pick = func(int, *exteditor.Target) (privateDir, error) {
+	m.sys.fold.files.hooks.pick = func(int, *exteditor.Target) (privateDir, error) {
 		return privateDir{}, errors.New("no private folder in tests")
 	}
 	send(m, "7")

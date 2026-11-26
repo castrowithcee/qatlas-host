@@ -47,7 +47,7 @@ func fakeEdit(t *testing.T, m *Model) *editFake {
 	}
 	f.ram[f.runtime] = true
 	f.env["XDG_RUNTIME_DIR"] = f.runtime
-	m.sys.fold.hooks = editHooks{getenv: func(k string) string { return f.env[k] }, runUser: t.TempDir(), shm: t.TempDir(),
+	m.sys.fold.files.hooks = editHooks{getenv: func(k string) string { return f.env[k] }, runUser: t.TempDir(), shm: t.TempDir(),
 		tmpfs: func(dir string) bool { return f.ram[dir] },
 		start: func(r exteditor.Request) (tea.Cmd, error) {
 			f.reqs = append(f.reqs, r)
@@ -82,14 +82,14 @@ func TestEditResolvesThePreferenceBeforeVisualAndRefusesAMissingOne(t *testing.T
 	m, _, e := editModel(t)
 	nano := m.prefs.Editor
 	e.env["VISUAL"] = fakeEditor(t, "demo-visual")
-	drain(m, m.editFile("/etc/hosts", kittui.FileRegular))
+	drain(m, m.editFile(m.hostFiles(), "/etc/hosts", kittui.FileRegular))
 	if len(e.reqs) != 1 || e.reqs[0].Editor.Path != nano || !e.reqs[0].Editor.NoTraces {
 		t.Fatalf("requests %+v, want nano from the preference", e.reqs)
 	}
 	edited(m, exteditor.UnchangedMsg{})
 
 	m.prefs.Editor = ""
-	drain(m, m.editFile("/etc/hosts", kittui.FileRegular))
+	drain(m, m.editFile(m.hostFiles(), "/etc/hosts", kittui.FileRegular))
 	send(m, "y") // VISUAL names an editor the kit does not know
 	if len(e.reqs) != 2 || e.reqs[1].Editor.Path != e.env["VISUAL"] {
 		t.Fatalf("requests %+v, want the editor of VISUAL", e.reqs)
@@ -97,7 +97,7 @@ func TestEditResolvesThePreferenceBeforeVisualAndRefusesAMissingOne(t *testing.T
 	edited(m, exteditor.UnchangedMsg{})
 
 	m.prefs.Editor = "no-such-editor-demo"
-	drain(m, m.editFile("/etc/hosts", kittui.FileRegular))
+	drain(m, m.editFile(m.hostFiles(), "/etc/hosts", kittui.FileRegular))
 	if len(e.reqs) != 2 || !strings.Contains(m.notice, "No editor found") {
 		t.Fatalf("a missing editor of the preference must not fall back: %d requests, notice %q", len(e.reqs), m.notice)
 	}
@@ -119,11 +119,11 @@ func TestEditUnderSudoRunsTheEditorAsTheUserBehindSudo(t *testing.T) {
 	m, f, e := editModel(t)
 	m.euid, m.human, f.root = func() int { return 0 }, func() int { return 1000 }, true
 	var asked []uint32
-	m.sys.fold.hooks.pick = func(uid int, target *exteditor.Target) (privateDir, error) {
+	m.sys.fold.files.hooks.pick = func(uid int, target *exteditor.Target) (privateDir, error) {
 		asked = append(asked, uint32(uid), target.UID)
 		return privateDir{path: e.runtime, ram: true}, nil
 	}
-	drain(m, m.editFile("/etc/secret-demo", kittui.FileRegular))
+	drain(m, m.editFile(m.hostFiles(), "/etc/secret-demo", kittui.FileRegular))
 	if len(e.reqs) != 1 {
 		t.Fatalf("%d requests, notice %q", len(e.reqs), m.notice)
 	}
@@ -139,8 +139,8 @@ func TestEditUnderSudoRunsTheEditorAsTheUserBehindSudo(t *testing.T) {
 func TestEditAsRootWithoutSudoIsRefused(t *testing.T) {
 	m, _, e := editModel(t)
 	m.euid, m.human = func() int { return 0 }, func() int { return 0 }
-	drain(m, m.editFile("/etc/hosts", kittui.FileRegular))
-	if len(e.reqs) != 0 || m.sys.fold.edit != nil || !strings.Contains(m.notice, "never runs as root") {
+	drain(m, m.editFile(m.hostFiles(), "/etc/hosts", kittui.FileRegular))
+	if len(e.reqs) != 0 || m.sys.fold.files.edit != nil || !strings.Contains(m.notice, "never runs as root") {
 		t.Fatalf("%d requests, notice %q", len(e.reqs), m.notice)
 	}
 }
@@ -153,7 +153,7 @@ func TestUnknownEditorAsksBeforeItStarts(t *testing.T) {
 		t.Fatalf("no question before an unknown editor:\n%s", m.render())
 	}
 	send(m, "n")
-	if len(e.reqs) != 0 || m.sys.fold.edit != nil {
+	if len(e.reqs) != 0 || m.sys.fold.files.edit != nil {
 		t.Fatalf("n started the editor or kept the edit")
 	}
 	send(m, "e", "y")
@@ -209,11 +209,11 @@ func TestPrivateFolderIsTheRuntimeFolderElseOneUnderDevShm(t *testing.T) {
 func TestFileOnlyRootReadsIsEditedOnlyWithACopyInMemory(t *testing.T) {
 	m, f, e := editModel(t)
 	e.ram[e.runtime] = false
-	drain(m, m.editFile("/etc/secret-demo", kittui.FileRegular))
+	drain(m, m.editFile(m.hostFiles(), "/etc/secret-demo", kittui.FileRegular))
 	if len(f.reqs) != 0 || len(e.reqs) != 0 || !strings.Contains(m.notice, "tmpfs") {
 		t.Fatalf("without memory: %d sudo requests, %d edits, notice %q", len(f.reqs), len(e.reqs), m.notice)
 	}
-	drain(m, m.editFile("/etc/hosts", kittui.FileRegular))
+	drain(m, m.editFile(m.hostFiles(), "/etc/hosts", kittui.FileRegular))
 	if len(e.reqs) != 1 {
 		t.Fatalf("a file the administrator reads needs no memory: notice %q", m.notice)
 	}
@@ -221,7 +221,7 @@ func TestFileOnlyRootReadsIsEditedOnlyWithACopyInMemory(t *testing.T) {
 
 	e.ram[e.runtime] = true
 	m.notice = ""
-	drain(m, m.editFile("/etc/secret-demo", kittui.FileRegular))
+	drain(m, m.editFile(m.hostFiles(), "/etc/secret-demo", kittui.FileRegular))
 	if m.modal == nil || len(e.reqs) != 1 {
 		t.Fatalf("no question before the read through sudo:\n%s", m.render())
 	}
@@ -242,7 +242,7 @@ func TestEntriesThatAreNoTextFilesAreNotEdited(t *testing.T) {
 		t.Run(tc.path, func(t *testing.T) {
 			m, _, e := editModel(t)
 			editEntry(t, m, tc.path)
-			if len(e.reqs) != 0 || m.sys.fold.edit != nil || !strings.Contains(m.notice, tc.want) {
+			if len(e.reqs) != 0 || m.sys.fold.files.edit != nil || !strings.Contains(m.notice, tc.want) {
 				t.Fatalf("%d requests, notice %q, want %q", len(e.reqs), m.notice, tc.want)
 			}
 		})
@@ -276,7 +276,7 @@ func TestCheckSyntaxByExtensionNamesTheLineOnly(t *testing.T) {
 
 func TestFailedCheckOffersToEditAgainOrToDiscard(t *testing.T) {
 	m, f, e := editModel(t)
-	drain(m, m.editFile("/etc/demo-app/app.yaml", kittui.FileRegular))
+	drain(m, m.editFile(m.hostFiles(), "/etc/demo-app/app.yaml", kittui.FileRegular))
 	bad := "services: [web\n# demo-only-marker\n"
 	edited(m, exteditor.ChangedMsg{Text: []byte(bad)})
 	screen := flat(m.render())
@@ -289,7 +289,7 @@ func TestFailedCheckOffersToEditAgainOrToDiscard(t *testing.T) {
 	}
 	edited(m, exteditor.ChangedMsg{Text: []byte("services: [web\n")})
 	send(m, "n")
-	if m.modal != nil || m.sys.fold.edit != nil || len(f.reqs) != 0 {
+	if m.modal != nil || m.sys.fold.files.edit != nil || len(f.reqs) != 0 {
 		t.Fatalf("discard left the edit or asked root: %d requests", len(f.reqs))
 	}
 }
@@ -297,13 +297,13 @@ func TestFailedCheckOffersToEditAgainOrToDiscard(t *testing.T) {
 func TestUnchangedEditDoesNothing(t *testing.T) {
 	m, f, e := editModel(t)
 	e.ram[e.runtime] = false // the copy goes to a folder of its own under the stand-in for /dev/shm
-	e.ram[m.sys.fold.hooks.shm] = true
-	drain(m, m.editFile("/etc/hosts", kittui.FileRegular))
-	if len(e.reqs) != 1 || filepath.Dir(e.reqs[0].Dir) != m.sys.fold.hooks.shm {
+	e.ram[m.sys.fold.files.hooks.shm] = true
+	drain(m, m.editFile(m.hostFiles(), "/etc/hosts", kittui.FileRegular))
+	if len(e.reqs) != 1 || filepath.Dir(e.reqs[0].Dir) != m.sys.fold.files.hooks.shm {
 		t.Fatalf("requests %+v", e.reqs)
 	}
 	edited(m, exteditor.UnchangedMsg{})
-	if m.modal != nil || m.sys.fold.edit != nil || len(f.reqs) != 0 || m.failure != "" {
+	if m.modal != nil || m.sys.fold.files.edit != nil || len(f.reqs) != 0 || m.failure != "" {
 		t.Fatalf("unchanged: modal %v, %d requests, failure %q", m.modal != nil, len(f.reqs), m.failure)
 	}
 	if _, err := os.Stat(e.reqs[0].Dir); !errors.Is(err, os.ErrNotExist) {
@@ -313,9 +313,9 @@ func TestUnchangedEditDoesNothing(t *testing.T) {
 
 func TestFailedEditorWritesNothing(t *testing.T) {
 	m, f, _ := editModel(t)
-	drain(m, m.editFile("/etc/hosts", kittui.FileRegular))
+	drain(m, m.editFile(m.hostFiles(), "/etc/hosts", kittui.FileRegular))
 	edited(m, exteditor.FailedMsg{Err: exteditor.ErrEditorFailed})
-	if m.sys.fold.edit != nil || len(f.reqs) != 0 || !strings.Contains(m.failure, "nothing was written") {
+	if m.sys.fold.files.edit != nil || len(f.reqs) != 0 || !strings.Contains(m.failure, "nothing was written") {
 		t.Fatalf("failure %q, %d requests", m.failure, len(f.reqs))
 	}
 }
@@ -331,7 +331,7 @@ func TestEditedFileIsWrittenThroughFileWriteWithTheTextOnlyOnStandardInput(t *te
 		t.Run(tc.path, func(t *testing.T) {
 			m, f, _ := editModel(t)
 			f.report, f.reports = appliedReport("file.write"), nil
-			drain(m, m.editFile(tc.path, kittui.FileRegular))
+			drain(m, m.editFile(m.hostFiles(), tc.path, kittui.FileRegular))
 			text := []byte("demo-only-content 4711\n")
 			sent := bytes.Clone(text)
 			edited(m, exteditor.ChangedMsg{Text: sent})

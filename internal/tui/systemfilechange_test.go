@@ -18,7 +18,7 @@ const bigTree = 12 << 20
 func changeModel(t *testing.T, dir string, entries int, size int64) (*Model, *fakeRoot) {
 	t.Helper()
 	m, f := browserModel(t, i18n.English, wideWidth, 40)
-	m.sys.fold.chg.measure = func(string) (int, int64, error) { return entries, size, nil }
+	m.sys.fold.files.chg.measure = func(string) (int, int64, error) { return entries, size, nil }
 	f.report, f.reports = appliedReport("file"), nil
 	browseTo(t, m, dir)
 	return m, f
@@ -108,7 +108,7 @@ func TestNamesAreCheckedBeforeAnyCommand(t *testing.T) {
 	}
 	// A control character cannot be typed into the form, but a pasted name may hold one.
 	m, _ := changeModel(t, "/etc", 1, 0)
-	if len(m.fileNameProblem("a\x07b", "/etc")) == 0 {
+	if len(m.fileNameProblem(m.hostFiles(), "a\x07b", "/etc")) == 0 {
 		t.Error("a name with a control character was accepted")
 	}
 }
@@ -173,7 +173,7 @@ func TestFolderQuestionNamesEntriesAndSizeUpToTheUndoLimit(t *testing.T) {
 		"c": {"Copy the folder /srv/media/clips with everything in it to /srv/media/clips-copy.", "file.copy"},
 	} {
 		m, f := changeModel(t, "/srv/media", 40, hostchange.MaxUndoBytes)
-		m.sys.fold.readPath = func(p string) (hostchange.PathContent, error) {
+		m.sys.fold.files.readPath = func(p string) (hostchange.PathContent, error) {
 			return readDemo(map[string]demoNode{"/": demoTree["/"], "/srv": demoTree["/srv"], "/srv/media": demoTree["/srv/media"],
 				"/srv/media/clips": {kind: hostchange.KindFolder, mode: 0o755}}, p, false)
 		}
@@ -240,7 +240,7 @@ func TestSystemFolderBeyondTheUndoLimitCarriesBothOptions(t *testing.T) {
 
 func TestAFolderTheAdministratorCannotCountSaysSoAndLeavesTheLimitToTheCommand(t *testing.T) {
 	m, f := changeModel(t, "/etc", 0, 0)
-	m.sys.fold.chg.measure = func(string) (int, int64, error) { return 0, 0, fs.ErrPermission }
+	m.sys.fold.files.chg.measure = func(string) (int, int64, error) { return 0, 0, fs.ErrPermission }
 	mark(t, m, "demo-app")
 	send(m, "d")
 	containsFlat(t, m, "The entries and their size cannot be read here", "permission denied", "refuses and nothing changes")
@@ -252,7 +252,7 @@ func TestAFolderTheAdministratorCannotCountSaysSoAndLeavesTheLimitToTheCommand(t
 
 func TestATreeBeyondWhatOneChangeWalksIsRefused(t *testing.T) {
 	m, f := changeModel(t, "/srv", 0, 0)
-	m.sys.fold.chg.measure = func(string) (int, int64, error) { return 0, 0, hostchange.ErrTooManyEntries }
+	m.sys.fold.files.chg.measure = func(string) (int, int64, error) { return 0, 0, hostchange.ErrTooManyEntries }
 	mark(t, m, "media")
 	send(m, "d")
 	if m.modal != nil || len(f.reqs) != 0 {
@@ -264,14 +264,14 @@ func TestATreeBeyondWhatOneChangeWalksIsRefused(t *testing.T) {
 // A file larger than an undo keeps needs permanent as well; its size comes from the list, with no read.
 func TestLargeFileIsRemovedOnlyPermanently(t *testing.T) {
 	m, f := changeModel(t, "/etc/demo-app", 0, 0)
-	m.sys.fold.chg.measure = func(string) (int, int64, error) { t.Fatal("a file was measured"); return 0, 0, nil }
+	m.sys.fold.files.chg.measure = func(string) (int, int64, error) { t.Fatal("a file was measured"); return 0, 0, nil }
 	mark(t, m, "dump.sql") // 3 MiB: within the limit
 	send(m, "d")
 	send(m, "y")
 	if got := applied(t, f); slices.Contains(got, "permanent") {
 		t.Fatalf("arguments %q", got)
 	}
-	m.sys.fold.readPath = func(p string) (hostchange.PathContent, error) {
+	m.sys.fold.files.readPath = func(p string) (hostchange.PathContent, error) {
 		c, err := readDemo(demoTree, p, false)
 		for i := range c.Entries {
 			if c.Entries[i].Name == "dump.sql" {
@@ -328,8 +328,8 @@ func TestRefusalOfTheRootActionIsShown(t *testing.T) {
 func TestChangeReadsTheFolderAgain(t *testing.T) {
 	m, _ := changeModel(t, "/srv/media", 1, 0)
 	reads := 0
-	read := m.sys.fold.readPath
-	m.sys.fold.readPath = func(p string) (hostchange.PathContent, error) { reads++; return read(p) }
+	read := m.sys.fold.files.readPath
+	m.sys.fold.files.readPath = func(p string) (hostchange.PathContent, error) { reads++; return read(p) }
 	mark(t, m, "motd.txt")
 	send(m, "d", "y")
 	if reads == 0 {
@@ -346,10 +346,10 @@ func TestChangeInAFolderReadThroughSudoDoesNotAskAgain(t *testing.T) {
 		}
 		return appliedReport("file.remove")
 	}
-	m.sys.fold.chg.measure = func(string) (int, int64, error) { return 1, 1, nil }
+	m.sys.fold.files.chg.measure = func(string) (int, int64, error) { return 1, 1, nil }
 	browseTo(t, m, "/etc/vault-demo")
 	send(m, "y")
-	if !m.sys.fold.chg.viaSudo {
+	if !m.sys.fold.files.chg.viaSudo {
 		t.Fatalf("the folder was not read through sudo:\n%s", m.render())
 	}
 	before := len(f.reqs)
@@ -389,7 +389,7 @@ func TestGoldenSystemFolderRemoveFinal(t *testing.T) {
 		m.profile = kittui.ProfileANSI16
 		m.restyle()
 		fakeHostFolders(m, 42)
-		m.sys.fold.chg.measure = func(string) (int, int64, error) { return 312, bigTree, nil }
+		m.sys.fold.files.chg.measure = func(string) (int, int64, error) { return 312, bigTree, nil }
 		toFolderPage(t, m)
 		browseTo(t, m, "/srv")
 		mark(t, m, "media")
