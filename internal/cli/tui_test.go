@@ -303,3 +303,26 @@ func TestTUIHelpNamesTheSetupKey(t *testing.T) {
 		t.Fatalf("help of tui does not name G for setting up the deploy service:\n%s", long)
 	}
 }
+
+func TestTUICommandReadsEveryNavigationFormAndDefaultsToTabs(t *testing.T) {
+	forms := map[string]string{"": uiprefs.NavigationTabs, "navigation: tabs\n": uiprefs.NavigationTabs,
+		"navigation: pathline\n": uiprefs.NavigationPathLine, "navigation: header\n": uiprefs.NavigationPathHeader,
+		"navigation: choice\n": uiprefs.NavigationHeaderChoice}
+	for yaml, want := range forms {
+		startService(t, func(net.Conn) (uint32, error) { return 0, nil })
+		out, started := fakeTerminal(t)
+		dir := filepath.Join(os.Getenv("HOME"), ".qatlas", "qhost")
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "tui.yaml"), []byte("start: runs\n"+yaml), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if code, stderr := runOn(out, "tui"); code != 0 || len(*started) != 1 {
+			t.Fatalf("%q: code %d, stderr %q", yaml, code, stderr)
+		}
+		if p := (*started)[0]; p.Prefs.Navigation != want || len(p.PrefsWarnings) != 0 {
+			t.Fatalf("%q: navigation %q, warnings %v", yaml, p.Prefs.Navigation, p.PrefsWarnings)
+		}
+	}
+}

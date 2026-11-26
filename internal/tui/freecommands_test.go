@@ -51,14 +51,14 @@ func readSwitch(m *Model, h *fakeHostProposals) {
 func TestGoldenSettingsFreeSwitchOff(t *testing.T) {
 	goldenSystem(t, "settings.free.off", func(t *testing.T, m *Model) {
 		readSwitch(m, demoFreeProposals(t, false))
-		send(m, "4", "down", "down", "down", "down", "down")
+		send(m, "4", "down", "down", "down", "down", "down", "down")
 	})
 }
 
 func TestGoldenSettingsFreeSwitchOn(t *testing.T) {
 	goldenSystem(t, "settings.free.on", func(t *testing.T, m *Model) {
 		readSwitch(m, demoFreeProposals(t, true))
-		send(m, "4", "down", "down", "down", "down", "down")
+		send(m, "4", "down", "down", "down", "down", "down", "down")
 	})
 }
 
@@ -264,7 +264,7 @@ func TestFreeSwitchOnAsksWithTheConsequenceAndRunsEnableOverSudo(t *testing.T) {
 	m, f := systemModel(t, i18n.English, wideWidth, 40)
 	readSwitch(m, demoFreeProposals(t, false))
 	m.savePrefs = func(p uiprefs.Prefs) error { return nil }
-	send(m, "4", "down", "down", "down", "down", "down")
+	send(m, "4", "down", "down", "down", "down", "down", "down")
 	contains(t, m, "Free proposals", "does not check and cannot undo")
 	f.report = `{"enabled":true}`
 	send(m, "left", "f2")
@@ -291,7 +291,7 @@ func TestFreeSwitchOffRunsDisableOverSudo(t *testing.T) {
 	m, f := systemModel(t, i18n.English, wideWidth, 40)
 	readSwitch(m, demoFreeProposals(t, true))
 	m.savePrefs = func(p uiprefs.Prefs) error { return nil }
-	send(m, "4", "down", "down", "down", "down", "down")
+	send(m, "4", "down", "down", "down", "down", "down", "down")
 	f.report = `{"enabled":false}`
 	send(m, "right", "f2", "y")
 	want := []string{"sudo-fake", "qhost-fake", "proposal", "commands", "disable", "--output", "json"}
