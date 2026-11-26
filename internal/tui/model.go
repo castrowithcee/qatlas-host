@@ -188,10 +188,10 @@ type Model struct {
 	makeDirs func(datadir.Request) (datadir.Result, error)
 	help     *kittui.Help
 	helpOpen bool
-	// mouseOn is the mouse preference; it may change while the interface runs. mouseMap holds the click targets
-	// of the frame drawn last.
+	// mouseOn is the mouse preference, mouseMap the click targets of the frame drawn last, sel the text selection.
 	mouseOn  bool
 	mouseMap *kittui.MouseMap
+	sel      kittui.TextSelection
 	// The System area: the users and groups read, and the way to run changes as root. hostReg describes the
 	// changes, human is the person behind the interface; tests replace both.
 	sys      *systemState
@@ -439,7 +439,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return m, m.press(msg)
 	case tea.MouseMsg:
-		return m, m.mouse(msg)
+		return m, m.selectMouse(msg)
 	}
 	return m, nil
 }
@@ -1072,7 +1072,7 @@ func (m *Model) open(id kittui.ItemID) tea.Cmd {
 
 func (m *Model) openHelp() {
 	help, err := kittui.NewHelp(kittui.HelpSpec{Topics: helptopics.All(), Screen: m.helpScreen(),
-		Global: []kittui.ActionID{actHelp, actArea, actReload, actBack, actQuit}, Keys: helpKeys()}, m.keys, m.text)
+		Global: []kittui.ActionID{actHelp, actArea, actReload, actBack, actQuit}, Keys: helpKeys(), CloseOutside: true}, m.keys, m.text)
 	if err != nil {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return

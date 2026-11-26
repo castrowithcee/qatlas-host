@@ -77,7 +77,7 @@ func (m *Model) beginSetup() tea.Cmd {
 		Answers: []kittui.Answer{{Action: actYes, Label: textAnswerSetupSystem}, {Action: actRootless, Label: textAnswerSetupRootless},
 			{Action: actNo, Label: textAnswerCancel}},
 		Default: actNo, Keys: kittui.DialogKeys{Enter: actEnter}}
-	dialog, err := kittui.NewDialog(spec, m.keys, m.text)
+	dialog, err := newDialog(spec, m.keys, m.text)
 	if err != nil {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return nil
@@ -106,7 +106,7 @@ func (m *Model) askRootlessUser() tea.Cmd {
 		}
 		return out
 	}
-	dialog, err := kittui.NewDialog(kittui.DialogSpec{Title: textSetupTitle, Question: hint,
+	dialog, err := newDialog(kittui.DialogSpec{Title: textSetupTitle, Question: hint,
 		Input:   &kittui.DialogInput{Suggest: suggest},
 		Answers: []kittui.Answer{{Action: actEnter, Label: textAnswerSetupSteps}, {Action: actBack, Label: textAnswerCancel}},
 		Default: actEnter,
@@ -157,7 +157,7 @@ func (m *Model) askSetup(user string) tea.Cmd {
 	spec := kittui.DialogSpec{Title: textSetupTitle, Question: question, Consequence: consequence, Details: details,
 		Answers: []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}},
 		Default: actNo, Keys: kittui.DialogKeys{Enter: actEnter}}
-	dialog, err := kittui.NewDialog(spec, m.keys, m.text)
+	dialog, err := newDialog(spec, m.keys, m.text)
 	if err != nil {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return nil

@@ -123,7 +123,7 @@ func (m *Model) openFolderPath() tea.Cmd {
 		}
 		return out
 	}
-	dialog, err := kittui.NewDialog(kittui.DialogSpec{Title: textTitleFolderPath, Question: m.text.Lookup(textAskFolderPath),
+	dialog, err := newDialog(kittui.DialogSpec{Title: textTitleFolderPath, Question: m.text.Lookup(textAskFolderPath),
 		Input:   &kittui.DialogInput{Value: p.asked, Suggest: suggest},
 		Answers: []kittui.Answer{{Action: actEnter, Label: textAnswerShow}, {Action: actBack, Label: textAnswerCancel}},
 		Default: actEnter,

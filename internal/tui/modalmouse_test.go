@@ -48,22 +48,19 @@ func TestAClickOnADestructiveAnswerTakesTheFollowUpQuestion(t *testing.T) {
 	}
 }
 
-func TestAClickOutsideTheDialogTargetsDoesNothing(t *testing.T) {
+func TestAClickOutsideTheDialogClosesItAndActsOnNothingBeneath(t *testing.T) {
 	m, b := newMouseModel(t)
-	send(m, "a")
 	for _, needle := range []string{"Runs", "[?]", "photo-album"} {
+		send(m, "a")
 		if !strings.Contains(m.render(), needle) {
+			send(m, "n")
 			continue
 		}
 		x, y := cellOf(t, m, needle)
 		clickAt(m, x, y)
-		if m.modal == nil || m.area != areaStacks || m.helpOpen || len(b.actions()) != 0 {
-			t.Fatalf("a click on %q acted under the question", needle)
+		if m.modal != nil || m.area != areaStacks || m.helpOpen || len(b.actions()) != 0 {
+			t.Fatalf("a click on %q: modal=%v area=%s help=%v calls=%v", needle, m.modal != nil, m.area, m.helpOpen, b.actions())
 		}
-	}
-	clickAt(m, 0, 0)
-	if m.modal == nil {
-		t.Fatal("a click on the corner closed the question")
 	}
 }
 

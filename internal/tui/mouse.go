@@ -239,6 +239,7 @@ func (m *Model) helpMouse(res kittui.MouseResult) tea.Cmd {
 
 // press runs one key press; the keyboard and the mouse both come here.
 func (m *Model) press(msg tea.KeyPressMsg) tea.Cmd {
+	m.sel.Clear()
 	cmd := m.key(msg)
 	m.refeedFilteredLog()
 	return cmd

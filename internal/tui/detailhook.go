@@ -160,7 +160,7 @@ func (m *Model) askHookRemove(stack, id string) {
 func (m *Model) hookAdded(res HookAddResult, stack string) tea.Cmd {
 	t := m.text
 	address := t.Lookup(textHookSecretAddress, kittui.Escape(res.Listen), kittui.Escape(res.Path))
-	dialog, err := kittui.NewDialog(kittui.DialogSpec{Title: textTitleHookSecret, Question: t.Lookup(textHookSecretShown, res.ID, stack),
+	dialog, err := newDialog(kittui.DialogSpec{Title: textTitleHookSecret, Question: t.Lookup(textHookSecretShown, res.ID, stack),
 		Notice: true, Details: dialogLines([]string{address, t.Lookup(textHookSecretOnce)}),
 		Answers: []kittui.Answer{{Action: actNo, Label: textAnswerClose}}, Default: actNo,
 		Keys: kittui.DialogKeys{Enter: actEnter}}, m.keys, m.text)
