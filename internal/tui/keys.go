@@ -70,6 +70,8 @@ const (
 	// actServiceLog opens the log of the service from the Runs list, actLogLevel chooses its minimum level.
 	actServiceLog kittui.ActionID = "servicelog"
 	actLogLevel   kittui.ActionID = "loglevel"
+	// actRights shows the permissions of the entry marked in the file browser of System > Folders.
+	actRights = kittui.ActionInfo
 	// actDiagnose writes the diagnostic package from the service log.
 	actDiagnose kittui.ActionID = "diagnose"
 	// actSaveLog saves the lines a log view holds as a file.
@@ -169,7 +171,7 @@ func keyTable() []kittui.Action {
 		act(actDataDirs, kittui.LevelLetter, textKeyDataDirs, "+"),
 		act(actContainerLogs, kittui.LevelLetter, textKeyLog, "o"),
 		act(actServiceLog, kittui.LevelLetter, textKeySvcLog, "v"),
-		act(actLogLevel, kittui.LevelLetter, textKeyLogLevel, "V"),
+		act(actLogLevel, kittui.LevelLetter, textKeyLogLevel, "!"),
 		act(actSaveLog, kittui.LevelLetter, textKeySaveLog, "W"),
 		act(actDiagnose, kittui.LevelLetter, textKeyDiagnose, "D"),
 		act(actBackup, kittui.LevelLetter, textKeyBackupForm, "b"),
@@ -191,7 +193,23 @@ func keyTable() []kittui.Action {
 		act(actNo, kittui.LevelConfirm, textAnswerCancel, "n", "esc"),
 		act(actShowLog, kittui.LevelConfirm, textAnswerLog, "l"),
 	}
-	return append(append(table, promoteKeys()...), kittui.LogViewActions()...)
+	return append(append(append(table, promoteKeys()...), browserKeys()...), kittui.LogViewActions()...)
+}
+
+// browserKeys are the actions of the file browser and its text view beyond those of a list and a log.
+func browserKeys() []kittui.Action {
+	return append([]kittui.Action{std(actRights, textKeyRights)}, kittui.TextViewActions()...)
+}
+
+func textKeys() kittui.TextViewKeys {
+	return kittui.TextViewKeys{Up: actUp, Down: actDown, PageUp: actPageUp, PageDown: actPageDown, First: actFirst,
+		Last: actLast, Search: actSearch, Enter: actEnter, Back: actBack, NextMatch: kittui.ActionLogNextMatch,
+		PrevMatch: kittui.ActionLogPrevMatch, Wrap: kittui.ActionLogWrap, Numbers: kittui.ActionTextNumbers}
+}
+
+func fileBrowserKeys() kittui.FileBrowserKeys {
+	return kittui.FileBrowserKeys{Up: actUp, Down: actDown, PageUp: actPageUp, PageDown: actPageDown, First: actFirst,
+		Last: actLast, Left: actLeft, Right: actRight, Enter: actEnter, Search: actSearch, Back: actBack, Reload: actReload}
 }
 
 func logKeys() kittui.LogViewKeys {

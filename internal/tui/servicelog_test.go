@@ -54,8 +54,8 @@ func TestServiceLogOpensFromRunsWithOneRequest(t *testing.T) {
 func TestServiceLogLevelKeyAsksForTheMinimumLevel(t *testing.T) {
 	b := svcBackend()
 	m := openServiceLog(t, b)
-	send(m, "V") // info
-	send(m, "V") // warn
+	send(m, "!") // info
+	send(m, "!") // warn
 	last := b.svcArgs[len(b.svcArgs)-1]
 	if last.Level != control.LogLevelWarn || last.Cursor != "" || last.Tail != clogTail {
 		t.Fatalf("request %+v", last)
@@ -65,7 +65,7 @@ func TestServiceLogLevelKeyAsksForTheMinimumLevel(t *testing.T) {
 	}
 	contains(t, m, "level from warn", "maintenance window without a bound source", "registry unreachable")
 	noLeak(t, m.render(), "service started", "poll tick")
-	send(m, "V", "V") // error, then all again
+	send(m, "!", "!") // error, then all again
 	if m.clog.level != "" || m.clog.view.Len() != 4 {
 		t.Fatalf("level %q, lines %d", m.clog.level, m.clog.view.Len())
 	}
@@ -120,5 +120,5 @@ func TestGoldenServiceLog(t *testing.T) {
 }
 
 func TestGoldenServiceLogLevel(t *testing.T) {
-	goldenScreens(t, "servicelog.level", goldenRows, svcBackend, "3", "v", "V", "V")
+	goldenScreens(t, "servicelog.level", goldenRows, svcBackend, "3", "v", "!", "!")
 }

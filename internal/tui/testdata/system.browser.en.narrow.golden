@@ -2,23 +2,23 @@
   1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
    Users   Groups  [Folders]  Proposals   Changes   Log                         
 ────────────────────────────────────────────────────────────────────────────────
-  Press enter to choose a folder and see who may read and change it.            
-                                                                                
-                                                                                
-                                                                                
-        ╔═ Choose a folder ════════════════════════════════════════════╗        
-        ║ Type the absolute path of the folder.                        ║        
-        ║                                                              ║        
-        ║ /srv/m_                                                      ║        
-        ║   /srv/media/                                                ║        
-        ║   /srv/mail/                                                 ║        
-        ║                                                              ║        
-        ║ [ enter show ]  [ cancel ]                                   ║        
-        ║ tab complete  ↑/↓ mark  enter show  esc cancel               ║        
-        ╚══════════════════════════════════════════════════════════════╝        
+  root / etc                                                                    
+  NAME                         SIZE  MODIFIED          RIGHTS     OWNER         
+  ─────────────────────────────────────────────────────────────────────         
+> demo-app/                          2026-11-02 09:00  rwxr-xr-x  root          
+  hosts                        20 B  2026-11-02 09:00  rw-r--r--  root          
+  motd -> /srv/media/motd.txt        2026-11-02 09:00  rwxrwxrwx  root          
+  secret-demo                  21 B  2026-11-02 09:00  rw-------  root          
+  vault-demo/                        2026-11-02 09:00  rwx------  root          
                                                                                 
                                                                                 
                                                                                 
                                                                                 
                                                                                 
                                                                                 
+                                                                                
+                                                                                
+                                                                                
+[ i permissions ]  [ esc up ]                                                   
+i permissions  enter choose  / search  esc back  R reload  1-7 area  q quit     
+                                                                    ↑ up  ↓ down

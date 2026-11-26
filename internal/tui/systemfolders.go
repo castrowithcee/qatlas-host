@@ -9,18 +9,16 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/castrowithcee/qatlas-kit/projectpath"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 	"github.com/castrowithcee/qatlas-host/internal/host/hostadmin"
 	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
 )
 
-// System > Folders shows owner, group and the three levels of one folder. enter asks for its path in a dialog
-// that completes directories; e changes it in a form that offers owner and group from the accounts of the host
-// and three levels per position, never free text or numbers. A change of everything below it counts the entries
-// first and names the number in the confirmation; a system path asks in red, which is the only way to pass the
-// acknowledgement the root action demands.
+// Rights on System > Folders shows owner, group and the three levels of the entry marked in the browser; e changes
+// a folder in a form that offers owner and group from the accounts of the host and three levels per position, never
+// free text or numbers. A change of everything below it counts the entries first and names the number in the
+// confirmation; a system path asks in red, which is the only way to pass the acknowledgement the root action demands.
 
 // The form of the folders page.
 const formHostFolder formKind = formGroupRename + 1
@@ -35,17 +33,23 @@ const (
 	fieldFolderBelow  = "below"
 )
 
-// folderPage is what the folders page holds: the path asked for last and what was read for it. read, count and
-// suggest reach the file system; tests replace them.
+// folderPage is what the folders page holds: the browser and its preview, and while Rights is open the path asked
+// for and what was read for it. read, count and readPath reach the file system; tests replace them.
 type folderPage struct {
-	asked   string
-	gen     int
-	reading bool
-	folder  *hostadmin.Folder
-	err     string
-	read    func(path string) (hostadmin.Folder, error)
-	count   func(path string, recursive bool) (int, error)
-	suggest func(start string) func(typed string) []string
+	browser *kittui.FileBrowser
+	started bool
+	preview *filePreview
+	text    *kittui.TextView
+	fileGen int
+
+	asked    string
+	gen      int
+	reading  bool
+	folder   *hostadmin.Folder
+	err      string
+	read     func(path string) (hostadmin.Folder, error)
+	count    func(path string, recursive bool) (int, error)
+	readPath func(path string) (hostchange.PathContent, error)
 }
 
 // folderMsg carries a read of a folder.
@@ -100,62 +104,6 @@ func (m *Model) applyFolder(msg folderMsg) {
 	default:
 		p.folder = &msg.folder
 	}
-}
-
-// openFolderPath asks for the path of a folder; the directories that complete it stand under the input.
-func (m *Model) openFolderPath() tea.Cmd {
-	p := &m.sys.fold
-	start := "/"
-	if p.folder != nil {
-		start = filepath.Dir(realPath(*p.folder))
-	}
-	newSource := p.suggest
-	if newSource == nil {
-		newSource = func(start string) func(string) []string {
-			return projectpath.NewSuggester(projectpath.Directories, start, "").Suggest
-		}
-	}
-	source := newSource(start)
-	suggest := func(typed string) []kittui.Suggestion {
-		var out []kittui.Suggestion
-		for _, s := range source(typed) {
-			out = append(out, kittui.Suggestion{Text: s, Continues: strings.HasSuffix(s, string(filepath.Separator))})
-		}
-		return out
-	}
-	dialog, err := kittui.NewDialog(kittui.DialogSpec{Title: textTitleFolderPath, Question: m.text.Lookup(textAskFolderPath),
-		Input:   &kittui.DialogInput{Value: p.asked, Suggest: suggest},
-		Answers: []kittui.Answer{{Action: actEnter, Label: textAnswerShow}, {Action: actBack, Label: textAnswerCancel}},
-		Default: actEnter,
-		Keys:    kittui.DialogKeys{Enter: actEnter, Up: actUp, Down: actDown, Complete: actNext}}, m.keys, m.text)
-	if err != nil {
-		m.failure = m.text.Lookup(kittui.TextError, err.Error())
-		return nil
-	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, input: m.takeFolderPath}
-	return nil
-}
-
-// takeFolderPath reads the folder typed into the path dialog. A path that is not absolute is not read, as the
-// working directory of the interface means nothing to the person.
-func (m *Model) takeFolderPath(typed string) tea.Cmd {
-	p := &m.sys.fold
-	typed = strings.TrimSpace(typed)
-	if typed == "" {
-		return nil
-	}
-	path, err := projectpath.Expand(typed)
-	if err != nil {
-		path = typed
-	}
-	p.gen++
-	p.asked, p.folder, p.err, p.reading = path, nil, "", false
-	if !filepath.IsAbs(path) {
-		p.err = m.text.Lookup(textFolderNotAbs, typed)
-		return nil
-	}
-	p.asked = filepath.Clean(path)
-	return m.readFolder(p.asked)
 }
 
 // realPath is the path a change is made on: the one without links, as the root action demands.
@@ -229,38 +177,32 @@ func (m *Model) folderLines(f hostadmin.Folder, width int) []string {
 	return lines
 }
 
-// foldersView draws the folders page in width by height cells.
+// foldersView draws the folders page in width by height cells: the permissions while Rights is open, else the
+// preview or the browser.
 func (m *Model) foldersView(width, height int) string {
-	p, t := &m.sys.fold, m.text
+	p := &m.sys.fold
 	var lines []string
 	switch {
+	case p.preview != nil && p.asked == "":
+		return m.previewView(width, height)
 	case p.asked == "":
-		lines = m.wrapped(detailMargin, kittui.StyleHint, t.Lookup(textFoldersHint), width)
+		return m.browserView(width, height)
 	case p.err != "":
 		lines = append([]string{m.line(detailMargin, kittui.StyleActive, p.asked, width), ""},
 			m.wrapped(detailMargin, kittui.StyleFail, p.err, width)...)
 	case p.folder == nil:
-		lines = []string{m.line(detailMargin, kittui.StyleHint, t.Lookup(textFolderReading, p.asked), width)}
+		lines = []string{m.line(detailMargin, kittui.StyleHint, m.text.Lookup(textFolderReading, p.asked), width)}
 	default:
 		f := *p.folder
-		lines = m.framed(f.Path, "", width, height, func(w int) []string { return m.folderLines(f, w) })
+		lines = m.framed(kittui.Escape(f.Path), "", width, height, func(w int) []string { return m.folderLines(f, w) })
 	}
 	return strings.Join(lines[:min(len(lines), height)], "\n")
 }
 
-// foldersFooter are the own keys of the folders page.
-func (m *Model) foldersFooter() []kittui.Hint {
-	own := []kittui.Hint{{Action: actEnter, Label: textKeyChooseFolder, Priority: 3}}
-	if _, ok := m.changeableFolder(); ok {
-		own = append(own, kittui.Hint{Action: actEdit, Label: textKeyChange, Priority: 3})
-	}
-	return own
-}
-
-// changeableFolder is the folder e changes: one that was read and is a folder, not a file.
+// changeableFolder is the folder e changes: one that was read, is a folder, not a file, and lies in no .git folder.
 func (m *Model) changeableFolder() (hostadmin.Folder, bool) {
 	f := m.sys.fold.folder
-	if f == nil || f.Kind != "directory" {
+	if f == nil || f.Kind != "directory" || gitPath(f.Path) || gitPath(realPath(*f)) {
 		return hostadmin.Folder{}, false
 	}
 	return *f, true
@@ -288,12 +230,15 @@ func levelField(id string, label kittui.TextID, current hostadmin.Access) kittui
 // openFolderChange opens the form that changes the folder shown.
 func (m *Model) openFolderChange() tea.Cmd {
 	f, ok := m.changeableFolder()
-	if !ok {
-		if m.sys.fold.folder != nil {
-			m.warn(m.text.Lookup(textFolderOnlyDir))
-		} else {
-			m.warn(m.text.Lookup(textFolderNone))
-		}
+	switch shown := m.sys.fold.folder; {
+	case ok:
+	case shown == nil:
+		return nil
+	case gitPath(shown.Path) || gitPath(realPath(*shown)):
+		m.warn(m.text.Lookup(textFileGitReadOnly, shown.Path))
+		return nil
+	default:
+		m.warn(m.text.Lookup(textFolderOnlyDir))
 		return nil
 	}
 	var users, groups []string

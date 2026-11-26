@@ -2,7 +2,8 @@
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
    Users   Groups  [Folders]  Proposals   Changes   Log                                                                 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  Press enter to choose a folder and see who may read and change it.                                                    
+  /etc/secret-demo                                                                                                      
+  Reading /etc/secret-demo...                                                                                           
                                                                                                                         
                                                                                                                         
                                                                                                                         
@@ -14,15 +15,14 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                            ╔═ Choose a folder ════════════════════════════════════════════╗                            
-                            ║ Type the absolute path of the folder.                        ║                            
+                            ╔═ Read as root ═══════════════════════════════════════════════╗                            
+                            ║ ⚠ Only root may read /etc/secret-demo. Read it with sudo?    ║                            
                             ║                                                              ║                            
-                            ║ /srv/m_                                                      ║                            
-                            ║   /srv/media/                                                ║                            
-                            ║   /srv/mail/                                                 ║                            
+                            ║ sudo asks for your password. Nothing is changed.             ║                            
+                            ║ $ sudo qhost host file --output json -- /etc/secret-demo     ║                            
                             ║                                                              ║                            
-                            ║ [ enter show ]  [ cancel ]                                   ║                            
-                            ║ tab complete  ↑/↓ mark  enter show  esc cancel               ║                            
+                            ║ [ yes, with sudo ]  [ enter cancel ]                         ║                            
+                            ║ y yes, with sudo  n/esc/enter cancel                         ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         
                                                                                                                         

@@ -312,7 +312,7 @@ cx internal/tui/stacks80_test.go:TestStacks80NoCutWords 18
 cx internal/tui/sudoactions_test.go:TestSettingsSaveWithoutRootHandsTheSettingsOnStandardInput 16
 cx internal/tui/sudoactions_test.go:TestStackActionWithoutRootRunsTheCommandThroughSudo 16
 cx internal/tui/sudoconfig_test.go:TestFolderAndSettingsActionsWithoutRootRunTheirCommand 21
-cx internal/tui/system.go:Model.systemAction 25
+cx internal/tui/system.go:Model.systemAction 23
 cx internal/tui/systemgroups.go:Model.guardMembers 18
 cx internal/tui/systemgroups.go:Model.submitGroupMembers 19
 cx internal/tui/systemusers.go:Model.changesFor 18
@@ -357,11 +357,11 @@ file internal/tui/backend.go 610
 file internal/tui/detail.go 647
 file internal/tui/fakebackend_test.go 1260
 file internal/tui/folders.go 855
-file internal/tui/model.go 1559
+file internal/tui/model.go 1558
 file internal/tui/settings.go 938
 file internal/tui/settingsform.go 544
 file internal/tui/settingstext.go permanent: text catalog of the terminal interface, pure data
-file internal/tui/system.go 644
+file internal/tui/system.go 610
 file internal/tui/systemproposals.go 617
 file internal/tui/systemtext.go permanent: text catalog of the terminal interface, pure data
 file internal/tui/systemusers.go 562
@@ -535,7 +535,7 @@ len internal/tui/keys.go:keyTable 74
 len internal/tui/listeditor.go:Model.editorKey 65
 len internal/tui/model.go:Model.Update 101
 len internal/tui/model.go:Model.footer 80
-len internal/tui/model.go:Model.key 247
+len internal/tui/model.go:Model.key 246
 len internal/tui/model.go:Model.render 86
 len internal/tui/model.go:newModel 63
 len internal/tui/mouse.go:Model.mouse 68

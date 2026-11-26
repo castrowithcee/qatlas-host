@@ -22,14 +22,14 @@ func demoFolder(path string) hostadmin.Folder {
 		Protected: hostchange.IsSystemPath(path)}
 }
 
-// fakeHostFolders makes the folders page read invented folders, count n entries and suggest the given paths. It
-// returns the number of reads so far.
-func fakeHostFolders(m *Model, n int, suggestions ...string) *int {
+// fakeHostFolders makes the folders page read invented folders and the invented tree, and count n entries. It
+// returns the number of reads of a folder's permissions so far.
+func fakeHostFolders(m *Model, n int) *int {
 	reads := 0
 	p := &m.sys.fold
 	p.read = func(path string) (hostadmin.Folder, error) { reads++; return demoFolder(path), nil }
 	p.count = func(string, bool) (int, error) { return n, nil }
-	p.suggest = func(string) func(string) []string { return func(string) []string { return suggestions } }
+	p.readPath = demoTreeReader(m)
 	return &reads
 }
 
@@ -43,17 +43,14 @@ func toFolderPage(t *testing.T, m *Model) {
 	}
 }
 
-// showFolder types path into the path dialog and reads it.
+// showFolder opens Rights for path as the action of the browser on its marked entry does.
 func showFolder(t *testing.T, m *Model, path string) {
 	t.Helper()
-	send(m, "enter")
-	if m.modal == nil {
-		t.Fatalf("no path dialog:\n%s", m.render())
-	}
-	send(m, typed(path)...)
-	send(m, "enter")
-	if m.modal != nil {
-		t.Fatalf("the path dialog stayed open:\n%s", m.render())
+	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	drain(m, m.fileResult(kittui.FileResult{Action: &kittui.FileAction{Action: actRights, Dir: parts[:len(parts)-1],
+		Entry: kittui.FileEntry{Name: parts[len(parts)-1]}, HasEntry: true}}))
+	if m.sys.fold.asked != path {
+		t.Fatalf("Rights shows %q, want %q:\n%s", m.sys.fold.asked, path, m.render())
 	}
 }
 
@@ -66,9 +63,6 @@ func TestFolderShowsOwnerGroupAndLevelsInPlainWords(t *testing.T) {
 	m, _ := systemModel(t, i18n.English, wideWidth, 40)
 	fakeHostFolders(m, 1)
 	toFolderPage(t, m)
-	if !strings.Contains(m.render(), "Press enter to choose a folder") {
-		t.Fatalf("no hint on the empty page:\n%s", m.render())
-	}
 	showFolder(t, m, "/srv/media")
 	screen := m.render()
 	for _, want := range []string{"Owner cleo may: read and write", "Group media may: read", "Everyone else may: nothing", "Mode: 0750"} {
@@ -181,46 +175,6 @@ func TestTooManyEntriesKeepTheForm(t *testing.T) {
 	}
 }
 
-func TestPathDialogCompletesTheDirectoriesOfTheFileSystem(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.Mkdir(filepath.Join(dir, "media"), 0o750); err != nil {
-		t.Fatal(err)
-	}
-	m, _ := systemModel(t, i18n.English, wideWidth, 40)
-	toFolderPage(t, m)
-	send(m, "enter")
-	send(m, typed(dir+"/me")...)
-	send(m, "tab")
-	if got := m.modal.dialog.Value(); got != dir+"/media/" {
-		t.Fatalf("tab completed to %q, want %q", got, dir+"/media/")
-	}
-	send(m, "enter")
-	if p := m.sys.fold; p.folder == nil || p.folder.Path != dir+"/media" || p.folder.Kind != "directory" {
-		t.Fatalf("the folder was not read: %+v, %q", p.folder, p.err)
-	}
-}
-
-func TestFolderPathProblemsAreShownOnThePage(t *testing.T) {
-	m, _ := systemModel(t, i18n.English, wideWidth, 40)
-	toFolderPage(t, m)
-	showFolder(t, m, "srv/data")
-	if !strings.Contains(m.render(), "srv/data is not an absolute path.") {
-		t.Fatalf("a relative path is not refused:\n%s", m.render())
-	}
-	missing := filepath.Join(t.TempDir(), "missing")
-	send(m, "enter")
-	m.modal.dialog.ClearInput()
-	send(m, typed(missing)...)
-	send(m, "enter")
-	if !strings.Contains(m.render(), missing+" does not exist.") {
-		t.Fatalf("a missing folder is not named:\n%s", m.render())
-	}
-	send(m, "e")
-	if m.set.form != nil || !strings.Contains(m.render(), "Choose a folder first with enter.") {
-		t.Fatalf("e without a folder opened something:\n%s", m.render())
-	}
-}
-
 func TestAFileIsNotChanged(t *testing.T) {
 	m, _ := systemModel(t, i18n.English, wideWidth, 40)
 	fakeHostFolders(m, 1)
@@ -234,25 +188,5 @@ func TestAFileIsNotChanged(t *testing.T) {
 	send(m, "e")
 	if m.set.form != nil || !strings.Contains(m.render(), "Only a folder can be changed here, not a file.") {
 		t.Fatalf("a file got a form:\n%s", m.render())
-	}
-}
-
-// esc leaves the folders page for the sub-tab line, and the path dialog takes typed letters, never the keys of
-// the screen behind it.
-func TestFolderPageKeys(t *testing.T) {
-	m, _ := systemModel(t, i18n.English, wideWidth, 40)
-	fakeHostFolders(m, 1)
-	toFolderPage(t, m)
-	send(m, "enter", "q", "x", "a")
-	if m.modal == nil || m.modal.dialog.Value() != "qxa" {
-		t.Fatalf("the dialog did not take the letters: %v", m.modal)
-	}
-	send(m, "esc")
-	if m.modal != nil {
-		t.Fatal("esc did not close the path dialog")
-	}
-	send(m, "esc")
-	if m.focus() != kittui.ZoneSubtabs {
-		t.Fatalf("esc left the focus on %v", m.focus())
 	}
 }

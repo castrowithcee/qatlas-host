@@ -15,7 +15,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
 )
 
-// areaSystem holds the users, groups and folder permissions of the host. It reads them from the account files
+// areaSystem holds the users, groups, files and folder permissions of the host. It reads them from the account files
 // and the file system of the host, not over a service, so it works while the deploy service is not set up; it is
 // the last area so the keys of the others stay.
 const areaSystem kittui.AreaID = "system"
@@ -364,6 +364,8 @@ func (m *Model) showSystemPage() tea.Cmd {
 		if !s.prop.read || s.prop.stale {
 			return m.readHostProposals()
 		}
+	case pageFolders:
+		return m.showFolders()
 	}
 	return nil
 }
@@ -380,6 +382,8 @@ func (m *Model) reloadSystemPage() tea.Cmd {
 		return m.readHostLog()
 	case pageProposals:
 		return m.readHostProposals()
+	case pageFolders:
+		return m.reloadFolders()
 	}
 	return nil
 }
@@ -399,20 +403,22 @@ func (m *Model) systemInput() kittui.InputFocus {
 	if f := m.set.form; f != nil {
 		return f.input()
 	}
-	l := m.sys.activeList()
-	if f := m.focus(); f == kittui.ZoneTabs || f == kittui.ZoneSubtabs || l == nil {
+	if f := m.focus(); f == kittui.ZoneTabs || f == kittui.ZoneSubtabs {
 		return kittui.InputNavigation
 	}
-	return l.Input()
+	if l := m.sys.activeList(); l != nil {
+		return l.Input()
+	}
+	return m.foldersInput()
 }
 
-// systemTyped gives a key to the list shown; enter on a user opens the choice of a change, on a change picks it,
-// and on a group opens its members.
+// systemTyped gives a key to the list shown, or to the file browser; enter on a user opens the choice of a change,
+// on a change picks it, and on a group opens its members.
 func (m *Model) systemTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	s := m.sys
 	l := s.activeList()
 	if l == nil {
-		return nil, false
+		return m.foldersTyped(msg)
 	}
 	open, handled := l.Update(msg)
 	if open == "" {
@@ -455,9 +461,6 @@ func (m *Model) systemAction(id kittui.ActionID) (tea.Cmd, bool) {
 		act = m.openGroupRename
 	case s.page == pageGroups && id == actRemove:
 		act = m.askGroupDelete
-	case s.page == pageFolders && id == actEnter:
-		// Reading a folder changes nothing, so it is not held back by a change under way.
-		return m.openFolderPath(), true
 	case s.page == pageFolders && id == actEdit:
 		act = m.openFolderChange
 	case s.page == pageProposals && id == actApprove:
@@ -476,7 +479,7 @@ func (m *Model) systemAction(id kittui.ActionID) (tea.Cmd, bool) {
 
 // systemBack is esc in the System area: it closes the choice of a change, clears a search, then leads to the
 // sub-tab line.
-func (m *Model) systemBack(msg tea.KeyPressMsg) {
+func (m *Model) systemBack(msg tea.KeyPressMsg) tea.Cmd {
 	s := m.sys
 	switch m.focus() {
 	case kittui.ZoneTabs:
@@ -487,14 +490,17 @@ func (m *Model) systemBack(msg tea.KeyPressMsg) {
 			if _, handled := s.changes.Update(msg); !handled {
 				s.changes = nil
 			}
-			return
+			return nil
 		}
 		if l := s.activeList(); l != nil {
 			m.back(l, msg)
+		} else if s.page == pageFolders {
+			return m.foldersBack(msg)
 		} else {
 			m.setZone(m.above())
 		}
 	}
+	return nil
 }
 
 // systemFooter is the key line of the System area.

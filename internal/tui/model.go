@@ -768,8 +768,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 				}
 				return nil
 			case areaSystem:
-				m.systemBack(msg)
-				return nil
+				return m.systemBack(msg)
 			case areaStacks:
 				if m.set.keyOpen {
 					m.closeKeyView()
