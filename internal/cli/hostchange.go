@@ -127,8 +127,11 @@ func newHostApplyCommand(program *cobracli.Program, state *notRunning, secrets *
 			"not allow because standard input holds the password. Without --confirm the command shows the proposal\n" +
 			"and stops with exit code 2, without a question and without taking the approval. Only a person at a\n" +
 			"terminal may apply a proposal: --agent and a process without a terminal are refused.",
-		Args: func(_ *cobra.Command, args []string) error {
+		Args: func(c *cobra.Command, args []string) error {
 			switch {
+			case proposal != "" && c.Flags().Changed("yes"):
+				return usageFailure("--proposal takes no --yes",
+					"Pass --fingerprint, or answer the question at the terminal: 'sudo qhost host apply --proposal <id> --confirm'.")
 			case proposal != "" && len(args) > 0:
 				return usageFailure("--proposal takes no action and no arguments; they come from the proposal",
 					"Run 'sudo qhost host apply --proposal <id> --confirm'.")
