@@ -50,7 +50,7 @@ func newRoot() (*cobra.Command, *cobracli.Program, *notRunning, error) {
 		PersistentPreRun: func(c *cobra.Command, _ []string) { repairBoundFolder(c) },
 	}
 	secrets := &redact.Redactor{}
-	program, err := cobracli.New(root, cobracli.Options{Version: version, Topics: helptopics.All(), Redactor: secrets})
+	program, err := cobracli.New(root, cobracli.Options{Version: version, Topics: helptopics.All(), Redactor: secrets, AgentHelp: agentHelp})
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -61,6 +61,7 @@ func newRoot() (*cobra.Command, *cobracli.Program, *notRunning, error) {
 		newTUICommand(state), newSelfUpdateCommand(program), newDeployServiceCommand(program), newHookServiceCommand(program), newHookCommand(program, state),
 		newContainerCommand(program, state), newGrantCommand(program, state), newServiceCommand(program, state), newAuditCommand(program, state), newHostCommand(program, state, secrets), newDiagnoseCommand(program),
 		newUninstallCommand(program), newManpageCommand(program))
+	addYesFlags(program, root)
 	return root, program, state, nil
 }
 

@@ -59,3 +59,25 @@ func TestStackListShowsTheVersionsOfThePromoteSource(t *testing.T) {
 		t.Fatal("the sources were not read at the engine that has them, once each")
 	}
 }
+
+func TestStackListShowsEachVariableOnce(t *testing.T) {
+	images := []control.ImageInfo{
+		{Service: "web", Image: "reg.example.test/app", Var: "APP", Version: "1.1.14"},
+		{Service: "worker", Image: "reg.example.test/app", Var: "APP", Version: "1.1.14"},
+		{Service: "db", Image: "reg.example.test/db", Var: "DB", Version: "5"},
+	}
+	rows := stackRows("e", []control.StackInfo{{Name: "s", Images: images}}, nil)
+	if got := rows[0]["versions"]; got != "APP=1.1.14, DB=5" {
+		t.Fatalf("versions = %q", got)
+	}
+	images[1].Version = "1.2.0"
+	rows = stackRows("e", []control.StackInfo{{Name: "s", Images: images}}, nil)
+	if got := rows[0]["versions"]; got != "APP=1.1.14 (web) / 1.2.0 (worker), DB=5" {
+		t.Fatalf("versions = %q", got)
+	}
+	src := control.PromoteSource{Commit: promoteCommit, LastResult: "succeeded", Versions: []control.PromoteVersion{
+		{Image: "reg.example.test/app", Version: "1.3.0"}, {Image: "reg.example.test/db", Version: "6"}}}
+	if got := promoteText(src, images); got != "APP=1.3.0, DB=6" {
+		t.Fatalf("promote = %q", got)
+	}
+}

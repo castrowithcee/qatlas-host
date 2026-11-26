@@ -430,9 +430,7 @@ func (m *Model) versionItems(engine, stack string) (items []versionItem, checkEr
 		if si.Name != stack || si.Collision != "" || !inEngine(si.Engine, engine) {
 			continue
 		}
-		for _, img := range si.Images {
-			items = append(items, versionItem{variable: img.Var, image: img.Image, current: img.Version})
-		}
+		items = append(items, distinctVersionItems(si.Images)...)
 	}
 	return items, checkErr
 }

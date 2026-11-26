@@ -533,3 +533,16 @@ func TestHostApplyProposalPreviewAsksNothingAndTakesNoApproval(t *testing.T) {
 		t.Errorf("order %q, executed %v, audited %v", h, f.w.calls, f.audited)
 	}
 }
+
+func TestHostApplyProposalRefusesYesBeforeAnyEffect(t *testing.T) {
+	env := &hostProposalEnv{content: control.ProposalHostChange{Action: "demo.set", Args: []string{"alpha", "new"}}}
+	f, _ := startHostProposalEnv(t, env)
+	useTerminalStdin(t, "y\n")
+	code, _, errOut := run(t, "host", "apply", "--proposal", demoHostProposalID, "--fingerprint", "fp-one", "--confirm", "--yes")
+	if code != 2 || !strings.Contains(errOut, "--yes") {
+		t.Fatalf("code %d, stderr %q", code, errOut)
+	}
+	if h := env.history(); h != "" || len(f.w.calls) != 0 {
+		t.Fatalf("something happened: order %q, executed %v", h, f.w.calls)
+	}
+}
