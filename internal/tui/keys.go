@@ -5,6 +5,7 @@ import kittui "github.com/castrowithcee/qatlas-kit/tui"
 // The actions of the key table.
 const (
 	actHelp                      = kittui.ActionHelp
+	actCommand                   = kittui.ActionCommand
 	actBack                      = kittui.ActionBack
 	actForceQuit                 = kittui.ActionForceQuit
 	actQuit                      = kittui.ActionQuit
@@ -121,7 +122,7 @@ func std(id kittui.ActionID, help kittui.TextID) kittui.Action {
 
 func keyTable() []kittui.Action {
 	table := []kittui.Action{
-		std(actHelp, kittui.TextKeyHelp),
+		std(actHelp, kittui.TextKeyHelp), std(actCommand, kittui.TextKeyCommands),
 		std(actBack, kittui.TextKeyBack),
 		std(actForceQuit, kittui.TextKeyQuit),
 		std(actQuit, kittui.TextKeyQuit),
