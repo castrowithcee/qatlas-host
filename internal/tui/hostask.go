@@ -125,7 +125,7 @@ func (m *Model) askCommands(title kittui.TextID, question, consequence string, i
 	if danger {
 		spec.Danger = actYes
 	}
-	dialog, err := kittui.NewDialog(spec, m.keys, m.text)
+	dialog, err := newDialog(spec, m.keys, m.text)
 	if err != nil {
 		if drop != nil {
 			drop()
@@ -211,7 +211,7 @@ func (m *Model) hostResult(r hostReport, a hostAsk) {
 
 // hostNotice shows a calm message about a run through sudo.
 func (m *Model) hostNotice(title string, details []kittui.DialogLine) {
-	dialog, err := kittui.NewDialog(kittui.DialogSpec{Title: textTitleHostResult, Question: title, Notice: true, Details: details,
+	dialog, err := newDialog(kittui.DialogSpec{Title: textTitleHostResult, Question: title, Notice: true, Details: details,
 		Answers: []kittui.Answer{{Action: actNo, Label: textAnswerClose}}, Default: actNo,
 		Keys: kittui.DialogKeys{Enter: actEnter}}, m.keys, m.text)
 	if err != nil {

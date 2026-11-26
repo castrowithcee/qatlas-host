@@ -707,7 +707,7 @@ func (m *Model) ask(title kittui.TextID, question, consequence string, details [
 	if destructive {
 		spec.Danger, spec.Irreversible = actYes, true
 	}
-	dialog, err := kittui.NewDialog(spec, m.keys, m.text)
+	dialog, err := newDialog(spec, m.keys, m.text)
 	if err != nil {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return
@@ -728,7 +728,7 @@ func (m *Model) askSheet(title kittui.TextID, question, consequence string, body
 		spec.Notice, spec.Details = true, dialogLines([]string{consequence})
 		spec.Answers = []kittui.Answer{{Action: actNo, Label: textAnswerClose}}
 	}
-	dialog, err := kittui.NewDialog(spec, m.keys, m.text)
+	dialog, err := newDialog(spec, m.keys, m.text)
 	if err != nil {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return
@@ -742,7 +742,7 @@ func (m *Model) tell(title kittui.TextID, text string, details []string) {
 		m.result = text
 		return
 	}
-	dialog, err := kittui.NewDialog(kittui.DialogSpec{Title: title, Question: text, Notice: true,
+	dialog, err := newDialog(kittui.DialogSpec{Title: title, Question: text, Notice: true,
 		Details: dialogLines(details),
 		Answers: []kittui.Answer{{Action: actNo, Label: textAnswerClose}}, Default: actNo,
 		Keys: kittui.DialogKeys{Enter: actEnter}}, m.keys, m.text)

@@ -165,7 +165,7 @@ func (m *Model) containerQuestion(kind actionKind, d control.ContainerDetail) (q
 // containerDialog is the question. Cancel is the default answer, so a stray enter does nothing.
 func (m *Model) containerDialog(kind actionKind, d control.ContainerDetail) (*kittui.Dialog, error) {
 	question, consequence, lead := m.containerQuestion(kind, d)
-	return kittui.NewDialog(kittui.DialogSpec{Title: kindTexts[kind].word, Question: question, Consequence: consequence, Details: lead,
+	return newDialog(kittui.DialogSpec{Title: kindTexts[kind].word, Question: question, Consequence: consequence, Details: lead,
 		Answers: []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}},
 		Default: actNo, Keys: kittui.DialogKeys{Enter: actEnter}}, m.keys, m.text)
 }
@@ -236,7 +236,7 @@ func (m *Model) applyContainerDone(msg ctDoneMsg) tea.Cmd {
 	}
 	md := &modal{kind: modalSummary, outcomes: []outcome{o}}
 	md.title = t.Lookup(textSummaryTitle, t.Lookup(kindTexts[msg.kind].word), 1-failed, failed)
-	dialog, err := kittui.NewDialog(kittui.DialogSpec{Title: kindTexts[msg.kind].word, Question: md.title,
+	dialog, err := newDialog(kittui.DialogSpec{Title: kindTexts[msg.kind].word, Question: md.title,
 		Consequence: t.Lookup(textSummaryNoteCt), Answers: []kittui.Answer{{Action: actNo, Label: textAnswerClose}},
 		Default: actNo, Keys: kittui.DialogKeys{Enter: actEnter}}, m.keys, t)
 	if err != nil {

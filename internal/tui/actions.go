@@ -284,7 +284,7 @@ func (m *Model) confirmDialog(p plan, answers []kittui.Answer) (*kittui.Dialog, 
 	if answers == nil {
 		answers = []kittui.Answer{{Action: actYes, Label: textAnswerYes}, {Action: actNo, Label: textAnswerCancel}}
 	}
-	return kittui.NewDialog(kittui.DialogSpec{Title: info.word, Question: t.Lookup(info.ask, m.subject(p)),
+	return newDialog(kittui.DialogSpec{Title: info.word, Question: t.Lookup(info.ask, m.subject(p)),
 		Consequence: t.Lookup(info.consequence), Details: dialogLines(details), Answers: answers, Default: actNo,
 		Keys: kittui.DialogKeys{Enter: actEnter}}, m.keys, t)
 }
@@ -616,7 +616,7 @@ func (m *Model) finish() tea.Cmd {
 	if len(md.runs()) > 0 {
 		answers = append(answers, kittui.Answer{Action: actShowLog, Label: textAnswerLog})
 	}
-	dialog, err := kittui.NewDialog(kittui.DialogSpec{Title: kindTexts[r.plan.kind].word, Question: md.title,
+	dialog, err := newDialog(kittui.DialogSpec{Title: kindTexts[r.plan.kind].word, Question: md.title,
 		Consequence: m.text.Lookup(textSummaryNote), Answers: answers, Default: actNo,
 		Keys: kittui.DialogKeys{Enter: actEnter}}, m.keys, m.text)
 	if err != nil {
