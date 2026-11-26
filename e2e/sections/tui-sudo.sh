@@ -922,7 +922,7 @@ scenario_tui_stack_changes() {
 	sc_dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sc_dirty"
 	[ -z "$sc_dirty" ] || fail "the stack folder has uncommitted changes after the commit: $sc_dirty"
 	tui_send l
-	tui_wait "[3 $tui_icon_runs Runs]" 15
+	tui_wait 'TRIGGER' 15
 	sc_run=$(next_run demo-stack "$sc_prev") || fail 'the commit started no run of demo-stack'
 	wait_for "the run $sc_run" 240 run_finished demo-stack "$sc_run"
 	qd stack log "$sc_run" | grep -q ' result succeeded' || fail "the run $sc_run did not succeed: $(qd stack log "$sc_run")"
