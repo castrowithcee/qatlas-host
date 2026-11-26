@@ -128,23 +128,31 @@ func newNotifyAdd(program *cobracli.Program, state *notRunning, secrets *redact.
 
 func newNotifyRemove(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var engine string
+	var gate *cobracli.Gate
 	cmd := &cobra.Command{
-		Use:   "remove <name>",
+		Use:   "remove <name> [--yes]",
 		Short: "Remove a notification channel and its stored secrets",
-		Args:  cobra.ExactArgs(1),
+		Long: "remove deletes the channel and the credentials stored for it; they cannot be brought back. At a terminal the\n" +
+			"command asks first (default no); without a terminal it refuses unless --yes is given (with --agent, --yes\n" +
+			"is always needed).",
+		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := routeInstance(c, engine); err != nil {
 				return err
 			}
-			if err := notifyCall(c, state, control.NotifyRemoveCommand, control.NotifyNameArgs{Name: args[0]}, nil); err != nil {
-				return err
-			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
-				{Name: "name", Value: args[0]}, {Name: "removed", Value: true},
-			}})
+			question := fmt.Sprintf("Remove the channel %s? Its stored credentials are deleted with it and cannot be brought back.", args[0])
+			return gate.Run(cobracli.Request{Question: question}, func() error {
+				if err := notifyCall(c, state, control.NotifyRemoveCommand, control.NotifyNameArgs{Name: args[0]}, nil); err != nil {
+					return err
+				}
+				return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
+					{Name: "name", Value: args[0]}, {Name: "removed", Value: true},
+				}})
+			})
 		},
 	}
 	addEngineFlag(cmd, &engine, instanceEngineUsage, notifyEngineNote)
+	gate = program.AddGate(cmd, cobracli.Gates{Question: true})
 	return cmd
 }
 

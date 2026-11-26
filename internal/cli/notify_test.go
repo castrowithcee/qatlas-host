@@ -153,7 +153,7 @@ func TestNotifyErrors(t *testing.T) {
 	}
 	// no-such-channel
 	for _, sub := range []string{"remove", "test"} {
-		code, _, stderr = run(t, "notify", sub, "missing")
+		code, _, stderr = run(t, "notify", sub, "missing", "--yes")
 		if code == 0 || !strings.Contains(stderr, "no such channel") || !strings.Contains(stderr, "notify list") {
 			t.Fatalf("%s missing: code %d, stderr %q", sub, code, stderr)
 		}
@@ -184,7 +184,7 @@ func TestNotifyErrors(t *testing.T) {
 	}
 
 	// remove, then the name is free again
-	if code, stdout, stderr := run(t, "notify", "remove", "one"); code != 0 || !strings.Contains(stdout, "REMOVED") {
+	if code, stdout, stderr := run(t, "notify", "remove", "one", "--yes"); code != 0 || !strings.Contains(stdout, "REMOVED") {
 		t.Fatalf("remove: code %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 	if code, stdout, _ := run(t, "notify", "list", "--output", "json"); code != 0 || strings.TrimSpace(stdout) != "[]" {

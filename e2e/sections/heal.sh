@@ -91,7 +91,7 @@ $hook_signing_value
 	wait_for 'the webhook for the recovered container' 90 hook_has /notify recovered '\"stack\":\"demo-cache\"' '\"kind\":\"exited\"' '\"restarted\":true'
 	wait_for 'the finding to end' 60 no_finding demo-cache container-failed
 	docker exec "$host" docker update --restart=unless-stopped "$victim" >/dev/null || fail 'cannot restore the restart policy'
-	out=$(qd notify remove mon) || fail "notify remove failed: $out"
+	out=$(qd notify remove mon --yes) || fail "notify remove failed: $out"
 	log 'scenario: qhost restarted the killed container and the finding ended'
 }
 
@@ -192,7 +192,7 @@ scenario_repair_end() {
 	wait_for 'the webhook for the recovery of repair-demo' 60 hook_has /notify recovered '\"stack\":\"repair-demo\"'
 	[ "$(docker exec "$prefix-hooks" cat /data/requests.jsonl | grep -F '"path":"/notify"' | grep -F '"X-Qhost-Event":"recovery-failed"' | grep -cF '\"stack\":\"repair-demo\"')" = 1 ] ||
 		fail 'recovery-failed was not sent exactly once'
-	out=$(qd notify remove rep) || fail "notify remove rep failed: $out"
+	out=$(qd notify remove rep --yes) || fail "notify remove rep failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q repair-demo &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the repair-demo stack" && git push -q origin main'
 	log 'scenario: resume released the repair; repair-demo is fixed and removed'
@@ -313,7 +313,7 @@ backup:
 	[ "$(stack_field observe-demo failed_versions)" = DEMO_APP_VERSION=1.1.0 ] || fail 'the lock is gone after the check'
 
 	step 'observe-demo leaves the repository'
-	out=$(qd notify remove obs) || fail "notify remove obs failed: $out"
+	out=$(qd notify remove obs --yes) || fail "notify remove obs failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q observe-demo .qatlas/qhost/observe-demo.yaml &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the observe-demo stack" && git push -q origin main'
 	log 'scenario: the update of observe-demo was rolled back by qhost; observe-demo is removed'

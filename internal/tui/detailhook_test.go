@@ -22,7 +22,7 @@ const (
 var (
 	toDetail     = keys("enter")
 	hookAddSudo  = []string{"hook", "add", "--output", "json", "--", "demo-stack"}
-	hookDelSudo  = []string{"hook", "remove", "--output", "json", "--", "h-a1b2c3d0"}
+	hookDelSudo  = []string{"hook", "remove", "--yes", "--output", "json", "--", "h-a1b2c3d0"}
 	oneHook      = map[string][]HookInfo{"demo-stack": {{ID: "h-a1b2c3d0"}}}
 	twoHooks     = map[string][]HookInfo{"demo-stack": {{ID: "h-a1b2c3d0", Created: time.Date(2026, 1, 2, 3, 4, 0, 0, time.UTC)}, {ID: "h-a1b2c3d1"}}}
 	hookTrigger  = func(b *fakeBackend, trigger string) *fakeBackend { b.stacks.Stacks[0].Trigger = trigger; return b }

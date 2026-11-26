@@ -56,9 +56,9 @@ func TestFolderAndSettingsActionsWithoutRootRunTheirCommand(t *testing.T) {
 			typed("04:30"), keys("f2")), reportWindow,
 			[]string{"window", "set", "--start", "04:30", "--output", "json"}, "The maintenance window is changed."},
 		{"credential delete", settingsBackend, nil, seq(toCreds, keys("x")), `{"name":"registry.docker.io","deleted":true}`,
-			[]string{"credential", "delete", "--output", "json", "--", "registry.docker.io"}, "The credential registry.docker.io is deleted."},
+			[]string{"credential", "delete", "--yes", "--output", "json", "--", "registry.docker.io"}, "The credential registry.docker.io is deleted."},
 		{"notify remove", settingsBackend, nil, seq(toNotify, keys("down", "x")), `{"name":"ops-mail","removed":true}`,
-			[]string{"notify", "remove", "--output", "json", "--", "ops-mail"}, "The channel ops-mail is removed."},
+			[]string{"notify", "remove", "--yes", "--output", "json", "--", "ops-mail"}, "The channel ops-mail is removed."},
 		{"notify test", settingsBackend, nil, seq(toNotify, keys("s")), `{"name":"ops-hook","type":"webhook","sent":true}`,
 			[]string{"notify", "test", "--output", "json", "--", "ops-hook"}, "The test message through ops-hook was delivered."},
 	} {

@@ -31,7 +31,7 @@
 │ ║                                                  ║ │
 ╰─║ Its address stops working within ten seconds.    ║─╯
 ╭─║ This cannot be undone.                           ║─╮
-│ ║ $ sudo qhost hook remove --output json --        ║ │
+│ ║ $ sudo qhost hook remove --yes --output json --  ║ │
 │ ║   h-a1b2c3d0                                     ║ │
 ╰─║                                                  ║─╯
 ╭─║ [ yes, with sudo ]  > cancel <                   ║─╮

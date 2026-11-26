@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -23,7 +24,7 @@ func newSecretCommand(program *cobracli.Program, state *notRunning, secrets *red
 			"at the next deployment, so run 'qhost stack deploy <stack>' afterwards. Values are never shown or\n" +
 			"logged. list reads and needs no sudo for an administrator in the group qhost; set and delete need sudo.",
 	}
-	var setEngine, listEngine, delEngine string
+	var setEngine, listEngine string
 	set := &cobra.Command{
 		Use:   "set <stack> <KEY>",
 		Short: "Write a secret read from the terminal or stdin to secrets.env",
@@ -85,34 +86,47 @@ func newSecretCommand(program *cobracli.Program, state *notRunning, secrets *red
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Collection{Columns: []string{"key"}, Rows: rows})
 		},
 	}
+	del := newSecretDeleteCommand(program, state)
+	addEngineFlag(set, &setEngine, stackEngineUsage, stackEngineNote)
+	addEngineFlag(list, &listEngine, stackEngineUsage, stackEngineNote)
+	group.AddCommand(set, list, del)
+	return group
+}
+
+func newSecretDeleteCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
+	var engine string
+	var gate *cobracli.Gate
 	del := &cobra.Command{
-		Use:   "delete <stack> <KEY>",
+		Use:   "delete <stack> <KEY> [--yes]",
 		Short: "Remove a secret from secrets.env",
 		Long: "delete removes the key from the stack's secrets.env and keeps the rest of the file. The stack is not\n" +
-			"redeployed; a deployment without a key the Compose files need fails.",
+			"redeployed; a deployment without a key the Compose files need fails. The value is lost: at a terminal the\n" +
+			"command asks first (default no); without a terminal it refuses unless --yes is given (with --agent, --yes\n" +
+			"is always needed).",
 		Args: cobra.ExactArgs(2),
 		RunE: func(c *cobra.Command, args []string) error {
 			if !stacks.ValidSecretKey(args[1]) {
 				return usageFailure(stacks.ErrInvalidSecretKey.Error(), "Check the keys with 'qhost stack secret list "+args[0]+"'.")
 			}
-			if err := routeStacks(c, state, delEngine, args[0]); err != nil {
+			if err := routeStacks(c, state, engine, args[0]); err != nil {
 				return err
 			}
-			var res control.SecretResult
-			if err := secretCall(c, state, control.SecretDeleteCommand,
-				control.SecretKeyArgs{Stack: args[0], Key: args[1]}, &res); err != nil {
-				return err
-			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
-				{Name: "stack", Value: res.Stack}, {Name: "key", Value: res.Key}, {Name: "deleted", Value: true},
-			}})
+			question := fmt.Sprintf("Delete the secret %s of the stack %s? Its value is lost and cannot be brought back.", args[1], args[0])
+			return gate.Run(cobracli.Request{Question: question}, func() error {
+				var res control.SecretResult
+				if err := secretCall(c, state, control.SecretDeleteCommand,
+					control.SecretKeyArgs{Stack: args[0], Key: args[1]}, &res); err != nil {
+					return err
+				}
+				return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
+					{Name: "stack", Value: res.Stack}, {Name: "key", Value: res.Key}, {Name: "deleted", Value: true},
+				}})
+			})
 		},
 	}
-	addEngineFlag(set, &setEngine, stackEngineUsage, stackEngineNote)
-	addEngineFlag(list, &listEngine, stackEngineUsage, stackEngineNote)
-	addEngineFlag(del, &delEngine, stackEngineUsage, stackEngineNote)
-	group.AddCommand(set, list, del)
-	return group
+	gate = program.AddGate(del, cobracli.Gates{Question: true})
+	addEngineFlag(del, &engine, stackEngineUsage, stackEngineNote)
+	return del
 }
 
 // secretCall answers a key that stands in .env itself: the generic mapping of key-exists belongs to the

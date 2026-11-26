@@ -705,9 +705,9 @@ scenario_tui_secrets() {
 	log 'scenario: no value in a command line, a captured screen, the system journal, a log or the state; the token only in the credential store, the secret only in secrets.env'
 
 	step 'the secret, the login, the password and the sudo timestamp are put back'
-	out=$(qd stack secret delete demo-stack "$ts_key") || fail "secret delete failed: $out"
+	out=$(qd stack secret delete demo-stack "$ts_key" --yes) || fail "secret delete failed: $out"
 	[ "$ts_had_env" = yes ] || docker exec "$host" rm -f "$ts_env"
-	out=$(qd credential delete "registry.$ts_reg_host") || fail "credential delete failed: $out"
+	out=$(qd credential delete "registry.$ts_reg_host" --yes) || fail "credential delete failed: $out"
 	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
 	docker exec -u "$admin" "$host" sudo -K || fail "cannot remove the sudo timestamp of $admin"
 	docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1 || fail "sudo of $admin asks for a password after the scenario"
