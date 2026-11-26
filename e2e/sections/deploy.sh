@@ -429,7 +429,7 @@ scenario_notify() {
 	printf '%s' "$out" | grep -q 'exists' || fail "the duplicate was not explained: $out"
 	out=$(qd_fails notify test missing) || fail 'a missing channel was tested'
 	printf '%s' "$out" | grep -q 'no such channel' || fail "the missing channel was not explained: $out"
-	out=$(qd_fails notify remove missing) || fail 'a missing channel was removed'
+	out=$(qd_fails notify remove missing --yes) || fail 'a missing channel was removed'
 	if out=$(qd_in "$slack_url_value
 " notify add bad --type slack --events exploded); then fail 'an unknown event was accepted'; fi
 	printf '%s' "$out" | grep -q 'event' || fail "the unknown event was not explained: $out"
@@ -453,7 +453,7 @@ $(qd stack log "$id")"
 
 	step 'removing the channels removes their stored secrets'
 	for name in hook chat bot mail; do
-		out=$(qd notify remove "$name") || fail "notify remove $name failed: $out"
+		out=$(qd notify remove "$name" --yes) || fail "notify remove $name failed: $out"
 	done
 	if qd notify list | grep -q 'webhook\|slack\|telegram\|smtp'; then fail "channels remain: $(qd notify list)"; fi
 	left=$(docker exec "$host" sh -c 'ls /var/lib/qhost-deploy/credentials 2>/dev/null | grep -c "^notify" || true')

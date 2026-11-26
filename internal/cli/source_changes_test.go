@@ -60,7 +60,7 @@ func TestSourceChangesDiffAndDiscardCallTheService(t *testing.T) {
 		t.Fatalf("diff: code %d, stdout %q, stderr %q, err %v", code, stdout, stderr, err)
 	}
 
-	code, stdout, stderr = run(t, "source", "discard", "/srv/stacks", "web/.env", "db/notes.txt", "--output", "json")
+	code, stdout, stderr = run(t, "source", "discard", "/srv/stacks", "web/.env", "db/notes.txt", "--yes", "--output", "json")
 	var gone struct{ Discarded []string }
 	if err := json.Unmarshal([]byte(stdout), &gone); code != 0 || err != nil || len(gone.Discarded) != 2 {
 		t.Fatalf("discard: code %d, stdout %q, stderr %q, err %v", code, stdout, stderr, err)
@@ -92,7 +92,7 @@ func TestSourceChangesReachesTheInstanceThatHasTheFolderBound(t *testing.T) {
 	system := startFakeService(t, withStatus(changesHandlers(&s), []string{"/srv/system"}, "web"))
 	alice := serveFake(t, eps["alice"], withStatus(changesHandlers(&a), []string{"/srv/alice"}, "demo"))
 
-	if code, _, stderr := run(t, "source", "discard", "/srv/alice", "demo/.env"); code != 0 {
+	if code, _, stderr := run(t, "source", "discard", "/srv/alice", "demo/.env", "--yes"); code != 0 {
 		t.Fatalf("code %d, stderr %q", code, stderr)
 	}
 	if alice.count(control.SourceDiscardCommand) != 1 || system.count(control.SourceDiscardCommand) != 0 {

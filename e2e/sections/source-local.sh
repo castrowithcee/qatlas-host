@@ -196,10 +196,10 @@ EOF2
 	printf '%s' "$out" | grep -qi 'local.changes' || fail "the refused deploy does not name the local changes: $out"
 	out=$(qd --output json source diff "$base" demo-local/.env) || fail "source diff failed: $out"
 	printf '%s' "$out" | jq -e '.diff | contains("+# edited by hand")' >/dev/null || fail "unexpected source diff: $out"
-	out=$(qd_fails source discard "$base" demo-local/.env demo-local/secrets.env) || fail "source discard accepted the host's own secrets file: $out"
+	out=$(qd_fails source discard "$base" demo-local/.env demo-local/secrets.env --yes) || fail "source discard accepted the host's own secrets file: $out"
 	[ "$(docker exec "$host" tail -n 1 "$base/demo-local/.env")" = '# edited by hand' ] || fail 'a refused source discard changed .env'
-	out=$(qd_fails source discard "$base" demo-local/.env ../demo-live/compose.yaml) || fail "source discard accepted a path outside the stack folder: $out"
-	out=$(qd --output json source discard "$base" demo-local/.env demo-local/scratch.txt) || fail "source discard failed: $out"
+	out=$(qd_fails source discard "$base" demo-local/.env ../demo-live/compose.yaml --yes) || fail "source discard accepted a path outside the stack folder: $out"
+	out=$(qd --output json source discard "$base" demo-local/.env demo-local/scratch.txt --yes) || fail "source discard failed: $out"
 	printf '%s' "$out" | jq -e '.discarded == ["demo-local/.env", "demo-local/scratch.txt"]' >/dev/null || fail "unexpected source discard result: $out"
 	docker exec "$host" grep -qx DEMO_APP_VERSION=1.1.0 "$base/demo-local/.env" || fail 'source discard did not restore .env'
 	if docker exec "$host" test -e "$base/demo-local/scratch.txt"; then fail 'source discard did not remove the named new file'; fi
@@ -398,7 +398,7 @@ EOF2
 	docker exec "$host" docker compose -p demo-private down >/dev/null 2>&1 || fail 'cannot stop demo-private'
 	docker exec "$host" docker rmi "$image:1.0.0" >/dev/null 2>&1 || true
 	out=$(qd --output json source remove "$base" --yes) || fail "source remove failed: $out"
-	out=$(qd credential delete "$cred") || fail "credential delete failed: $out"
+	out=$(qd credential delete "$cred" --yes) || fail "credential delete failed: $out"
 	docker exec "$host" rm -rf "$base" || fail "cannot remove $base"
 }
 

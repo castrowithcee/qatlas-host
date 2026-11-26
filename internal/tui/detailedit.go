@@ -219,7 +219,7 @@ func (m *Model) picked(id kittui.ItemID) tea.Cmd {
 		m.askSetting(settingChange{title: textTitleSecretDelete, question: m.text.Lookup(textAskSecretDelete, key, stack),
 			consequence: m.text.Lookup(textWhatSecretDelete), danger: true, op: opSecretDelete, name: key,
 			direct: func(b Backend) (any, error) { return b.SecretDelete(ctx, stack, key) },
-			args:   m.engineArgs(m.stackEngineOf(stack), []string{"stack", "secret", "delete", "--output", "json", "--", stack, key}),
+			args:   m.engineArgs(m.stackEngineOf(stack), []string{"stack", "secret", "delete", "--yes", "--output", "json", "--", stack, key}),
 			decode: decodeSudo[control.SecretResult](func(r control.SecretResult) bool { return r.Stack != "" })})
 	case pickHook:
 		m.askHookRemove(stack, key)

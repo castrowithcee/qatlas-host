@@ -181,25 +181,33 @@ func hookListResult(table bool) (output.Collection, error) {
 }
 
 func newHookRemoveCommand(program *cobracli.Program) *cobra.Command {
-	return &cobra.Command{
-		Use:   "remove <id>",
+	var gate *cobracli.Gate
+	cmd := &cobra.Command{
+		Use:   "remove <id> [--yes]",
 		Short: "Remove a webhook",
 		Long: "remove deletes the hook with the id from the configuration; its secret then gets 404 at the receiver within ten\n" +
-			"seconds. Needs root and the receiver set up. A configuration that does not parse is never overwritten.",
+			"seconds, and the secret address cannot be brought back. At a terminal the command asks first (default no);\n" +
+			"without a terminal it refuses unless --yes is given (with --agent, --yes is always needed). Needs root and the\n" +
+			"receiver set up. A configuration that does not parse is never overwritten.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := requireHookRoot("removing a webhook"); err != nil {
 				return err
 			}
 			id := args[0]
-			if err := removeHook(id); err != nil {
-				return err
-			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
-				{Name: "id", Value: id}, {Name: "removed", Value: true},
-			}})
+			question := fmt.Sprintf("Remove the webhook %s? Its secret address stops working and cannot be brought back.", id)
+			return gate.Run(cobracli.Request{Question: question}, func() error {
+				if err := removeHook(id); err != nil {
+					return err
+				}
+				return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
+					{Name: "id", Value: id}, {Name: "removed", Value: true},
+				}})
+			})
 		},
 	}
+	gate = program.AddGate(cmd, cobracli.Gates{Question: true})
+	return cmd
 }
 
 // removeHook deletes the hook with the id from the configuration.

@@ -59,7 +59,7 @@ scenario_diagnose() {
 	[ -n "$default" ] || fail "qhost diagnose without --out names no file in $home/qhost: $out"
 	[ "$(as_admin "stat -c %a:%U $default")" = "600:$admin" ] || fail "the default package has the wrong mode or owner: $(as_admin "stat -c %a:%U $default")"
 	as_admin "rm -rf ~/diag-e2e $file $default"
-	out=$(qd credential delete "$cred") || fail "credential delete failed: $out"
+	out=$(qd credential delete "$cred" --yes) || fail "credential delete failed: $out"
 	log "scenario: qhost diagnose refused to replace a file and wrote its default file $default"
 }
 

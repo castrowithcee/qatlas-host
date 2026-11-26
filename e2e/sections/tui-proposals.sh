@@ -337,7 +337,7 @@ scenario_tui_proposal_kinds() {
 	for value in "$pk_hook_url" "$pk_hook_path" "$pk_hook_key"; do
 		if printf '%s' "$out" | grep -qF -- "$value"; then fail 'a secret part of the channel is kept on the proposal'; fi
 	done
-	out=$(qd notify remove prop-hook) || fail "notify remove prop-hook failed: $out"
+	out=$(qd notify remove prop-hook --yes) || fail "notify remove prop-hook failed: $out"
 	if qd --output json notify list | grep -q '"prop-hook"'; then fail 'the channel prop-hook remains'; fi
 	log "scenario: the proposals of a stack's settings, the window and a webhook channel were approved in the interface and applied; settings and window are back, the channel is removed"
 }

@@ -7,11 +7,11 @@
 # Needs deploy: the bound /opt/stacks, the admin clone and demo-stack running with its data folder.
 # scenario_repair_start sets repair_demo_broken and scenario_observe_start sets observe_from, observe_update and
 # observe_update_at for the end units of this section.
-# The waits are shortened for the test (see setup_service). Restarts of the deploy service shift the repair (see
-# scenario_repair_start) and the states between the attempts show only for a while, so the order of the register is
-# part of the proof. The first attempt comes about 35 seconds after the break and shows until the second, about
-# 130 seconds after the break, as the first restart waits a minute for a health the container never reaches, so
-# scenario_repair_attempt follows at once. scenario_container_monitor fills the time to the second attempt, which
+# The waits are shortened for the test (see setup_service). Restarts of the deploy service do not end an open
+# failure of an unhealthy container, and the states between the attempts show only for a while, so the order of the
+# register is part of the proof. The first attempt comes about 35 seconds after the break and shows until the
+# second, about 130 seconds after the break, as the first restart waits a minute for a health the container never
+# reaches, so scenario_repair_attempt follows at once. scenario_container_monitor fills the time to the second attempt, which
 # shows for 150 seconds; scenario_repair_second checks it before access and tui-sudo, which restarts the service.
 # The third attempt and the halt, about 5 minutes after the break, fall into the later sections; a restart moves a
 # due attempt or the halt to about 40 seconds after it. scenario_observe_end and scenario_repair_end run after
@@ -91,7 +91,7 @@ $hook_signing_value
 	wait_for 'the webhook for the recovered container' 90 hook_has /notify recovered '\"stack\":\"demo-cache\"' '\"kind\":\"exited\"' '\"restarted\":true'
 	wait_for 'the finding to end' 60 no_finding demo-cache container-failed
 	docker exec "$host" docker update --restart=unless-stopped "$victim" >/dev/null || fail 'cannot restore the restart policy'
-	out=$(qd notify remove mon) || fail "notify remove failed: $out"
+	out=$(qd notify remove mon --yes) || fail "notify remove failed: $out"
 	log 'scenario: qhost restarted the killed container and the finding ended'
 }
 
@@ -116,9 +116,8 @@ repair_halted() {
 # data/break exists, which a restart does not remove. qhost restarts it 15 seconds after the failure began, then 45
 # and 150 seconds after the attempt before, and then halts. The delays run in real time; scenario_repair_attempt,
 # scenario_repair_second and scenario_repair_end check them later, so they overlap with the other scenarios. The
-# monitor keeps the time a container has been unhealthy in memory only: a restart of the deploy service ends the
-# failure for two readings and starts it anew, which delays the next attempt or the halt when the restart falls
-# shortly before it.
+# stored failure survives a restart of the deploy service and stays open while the container is unhealthy, so only
+# a due attempt or the halt that falls shortly before the restart is delayed.
 scenario_repair_start() {
 	step 'the stack repair-demo is deployed and a channel for recovery-failed is added'
 	as_admin 'cd ~/stacks && git pull -q --ff-only && mkdir repair-demo'
@@ -193,7 +192,7 @@ scenario_repair_end() {
 	wait_for 'the webhook for the recovery of repair-demo' 60 hook_has /notify recovered '\"stack\":\"repair-demo\"'
 	[ "$(docker exec "$prefix-hooks" cat /data/requests.jsonl | grep -F '"path":"/notify"' | grep -F '"X-Qhost-Event":"recovery-failed"' | grep -cF '\"stack\":\"repair-demo\"')" = 1 ] ||
 		fail 'recovery-failed was not sent exactly once'
-	out=$(qd notify remove rep) || fail "notify remove rep failed: $out"
+	out=$(qd notify remove rep --yes) || fail "notify remove rep failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q repair-demo &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the repair-demo stack" && git push -q origin main'
 	log 'scenario: resume released the repair; repair-demo is fixed and removed'
@@ -314,7 +313,7 @@ backup:
 	[ "$(stack_field observe-demo failed_versions)" = DEMO_APP_VERSION=1.1.0 ] || fail 'the lock is gone after the check'
 
 	step 'observe-demo leaves the repository'
-	out=$(qd notify remove obs) || fail "notify remove obs failed: $out"
+	out=$(qd notify remove obs --yes) || fail "notify remove obs failed: $out"
 	as_admin 'cd ~/stacks && git pull -q --ff-only && git rm -r -q observe-demo .qatlas/qhost/observe-demo.yaml &&
 		git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Remove the observe-demo stack" && git push -q origin main'
 	log 'scenario: the update of observe-demo was rolled back by qhost; observe-demo is removed'

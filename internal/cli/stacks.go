@@ -21,7 +21,8 @@ func newStacksCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"version variables of its compose files, their current values, its update mode (none without stack\n" +
 			"settings) and its update trigger (window, interval or webhook), with the interval in seconds for\n" +
 			"interval. A stack with a promote source (update.promote_source) shows it and, beside its own versions, the\n" +
-			"versions the source runs, or that the source is missing or not proven (see 'qhost help promote'). A\n" +
+			"versions the source runs, or that the source is missing or not proven (see 'qhost help promote'). Each\n" +
+			"variable shows once, as VAR=a (web) / b (worker) when services give it different values. A\n" +
 			"stack that cannot be read shows its problem and does not hide the others. Run it\n" +
 			"after 'qhost repo set'; it reads the working copy as it is and does not fetch.\n\n" + wrapHelp(overviewEngineNote),
 		Args: cobra.NoArgs,
@@ -48,14 +49,11 @@ func newStacksCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 func stackRows(engine string, stacks []control.StackInfo, promoted map[engineStack]string) []output.Row {
 	rows := make([]output.Row, 0, len(stacks))
 	for _, s := range stacks {
-		versions := make([]string, 0, len(s.Images))
-		for _, img := range s.Images {
-			v := img.Version
-			if v == "" {
-				v = "(unset)"
-			}
-			versions = append(versions, img.Var+"="+v)
+		vals := make([]control.VarValue, len(s.Images))
+		for i, img := range s.Images {
+			vals[i] = control.VarValue{Var: img.Var, Service: img.Service, Value: img.Version}
 		}
+		versions := control.DistinctVars(vals)
 		state := ""
 		if s.Stopped != nil {
 			state = "stopped since " + s.Stopped.Since.UTC().Format(time.RFC3339)

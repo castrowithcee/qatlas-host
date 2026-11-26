@@ -83,12 +83,12 @@ func TestSecretRoundTripNeverShowsTheValue(t *testing.T) {
 	if code != 2 || !strings.Contains(stderr, ".env") {
 		t.Fatalf("set of an .env key: code %d, stderr %q", code, stderr)
 	}
-	code, stdout, stderr = run(t, "stack", "secret", "delete", "plain-stack", "NO_SUCH")
+	code, stdout, stderr = run(t, "stack", "secret", "delete", "plain-stack", "NO_SUCH", "--yes")
 	all = append(all, stdout, stderr)
 	if code == 0 || !strings.Contains(stderr, "not-found") || !strings.Contains(stderr, "stack secret list") {
 		t.Fatalf("delete missing: code %d, stderr %q", code, stderr)
 	}
-	code, stdout, stderr = run(t, "stack", "secret", "delete", "plain-stack", "DB_PASSWORD")
+	code, stdout, stderr = run(t, "stack", "secret", "delete", "plain-stack", "DB_PASSWORD", "--yes")
 	all = append(all, stdout, stderr)
 	if code != 0 {
 		t.Fatalf("delete: code %d, stderr %q", code, stderr)

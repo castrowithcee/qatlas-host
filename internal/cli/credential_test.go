@@ -107,7 +107,7 @@ func TestCredentialInvalidNamesRejected(t *testing.T) {
 		if code != 2 || !strings.Contains(stderr, "invalid name") {
 			t.Fatalf("set %q: code %d, stderr %q", name, code, stderr)
 		}
-		if code, _, _ := run(t, "credential", "delete", name); code != 2 {
+		if code, _, _ := run(t, "credential", "delete", name, "--yes"); code != 2 {
 			t.Fatalf("delete %q: code %d", name, code)
 		}
 	}
@@ -136,13 +136,13 @@ func TestCredentialDelete(t *testing.T) {
 	if code, _, _ := runWithStdin(t, demoToken, "credential", "set", "registry"); code != 0 {
 		t.Fatal("set failed")
 	}
-	if code, _, stderr := run(t, "credential", "delete", "registry"); code != 0 {
+	if code, _, stderr := run(t, "credential", "delete", "registry", "--yes"); code != 0 {
 		t.Fatalf("delete: code %d, stderr %q", code, stderr)
 	}
 	if _, stdout, _ := run(t, "credential", "list"); strings.Contains(stdout, "registry") {
 		t.Fatalf("still listed: %q", stdout)
 	}
-	if code, _, stderr := run(t, "credential", "delete", "registry"); code != 1 || !strings.Contains(stderr, "no such credential") || !strings.Contains(stderr, "credential list") {
+	if code, _, stderr := run(t, "credential", "delete", "registry", "--yes"); code != 1 || !strings.Contains(stderr, "no such credential") || !strings.Contains(stderr, "credential list") {
 		t.Fatalf("second delete: code %d, stderr %q", code, stderr)
 	}
 }
