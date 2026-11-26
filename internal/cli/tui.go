@@ -215,7 +215,7 @@ func hostRunner(req tui.HostRequest) (*exec.Cmd, error) {
 		}
 		cmd := exec.Command(exe, req.Args...)
 		switch {
-		case len(req.Secret) > 0:
+		case len(req.Secret) > 0 || req.EmptyInput:
 			cmd.Stdin = bytes.NewReader(req.Secret)
 		case req.Terminal:
 			cmd.Stdin = os.Stdin
@@ -230,7 +230,7 @@ func hostRunner(req tui.HostRequest) (*exec.Cmd, error) {
 	switch {
 	case req.Validate:
 		cmd = exec.Command(sudo, "-v")
-	case len(req.Secret) == 0:
+	case len(req.Secret) == 0 && !req.EmptyInput:
 		cmd = exec.Command(sudo, append([]string{exe}, req.Args...)...)
 	default:
 		cmd = exec.Command(sudo, append([]string{"-n", exe}, req.Args...)...)

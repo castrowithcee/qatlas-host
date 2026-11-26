@@ -18,7 +18,7 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-[ e edit ]  [ i permissions ]  [ esc up ]                                       
-e edit  i permissions  enter choose  / search  esc back  R reload  1-7 area     
-q quit                                                              ↑ up  ↓ down
+[ e edit ]  [ n new ]  [ r rename ]  [ c copy ]  [ d delete ]  [ i permissions ]
+[ esc up ]                                                                      
+e edit  n new  r rename  c copy  d delete  i permissions  enter choose  / search
+esc back  R reload  1-7 area  q quit                                ↑ up  ↓ down

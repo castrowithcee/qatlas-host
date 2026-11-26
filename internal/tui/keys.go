@@ -55,6 +55,8 @@ const (
 	actEdit                   = kittui.ActionEdit
 	// actRename renames the group marked on System > Groups.
 	actRename = kittui.ActionRename
+	// actCopy copies the entry marked in the file browser of System > Folders.
+	actCopy = kittui.ActionCopy
 	// actRemote gives a local stack folder a remote; actWithRemote is the answer that adds a folder of files
 	// together with the repository at an address.
 	actRemote     kittui.ActionID = "remote"
@@ -199,7 +201,7 @@ func keyTable() []kittui.Action {
 
 // browserKeys are the actions of the file browser and its text view beyond those of a list and a log.
 func browserKeys() []kittui.Action {
-	return append([]kittui.Action{std(actRights, textKeyRights)}, kittui.TextViewActions()...)
+	return append([]kittui.Action{std(actRights, textKeyRights), std(actCopy, kittui.TextKeyCopy)}, kittui.TextViewActions()...)
 }
 
 func textKeys() kittui.TextViewKeys {

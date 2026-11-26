@@ -44,6 +44,7 @@ type folderPage struct {
 	fileGen int
 	edit    *fileEdit
 	hooks   editHooks
+	chg     fileChanges
 
 	asked    string
 	gen      int

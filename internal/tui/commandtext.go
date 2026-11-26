@@ -44,6 +44,7 @@ var commandRows = []commandRow{
 	{actRemove, "", "remove", "Remove the marked entry", "entfernen|remove", "Den markierten Eintrag entfernen"},
 	{actEdit, "", "edit", "Change the marked entry", "ändern|edit", "Den markierten Eintrag ändern"},
 	{actRename, "", "rename", "Rename the marked entry", "umbenennen|rename", "Den markierten Eintrag umbenennen"},
+	{actCopy, "", "copy", "Copy the marked entry", "kopieren|copy", "Den markierten Eintrag kopieren"},
 	{actTest, "", "send test", "Send a test notification", "test senden|send test", "Eine Testbenachrichtigung senden"},
 	{actSave, "", "save", "Save the open form", "speichern|save", "Das offene Formular speichern"},
 	{actRollback, areaRuns, "rollback", "Return a stack to the state before an update run", "zurücksetzen|rollback", "Einen Stack auf den Stand vor einem Update-Lauf zurücksetzen"},

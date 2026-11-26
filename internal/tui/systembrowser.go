@@ -63,7 +63,9 @@ func (m *Model) folderBrowser() *kittui.FileBrowser {
 	p := &m.sys.fold
 	if p.browser == nil {
 		b, err := kittui.NewFileBrowser(kittui.FileBrowserSpec{Keys: fileBrowserKeys(),
-			Actions: []kittui.FormButton{{Action: actEdit, Label: textKeyEditFile}, {Action: actRights, Label: textKeyRights}}},
+			Actions: []kittui.FormButton{{Action: actEdit, Label: textKeyEditFile}, {Action: actAdd, Label: kittui.TextKeyNew},
+				{Action: actRename, Label: kittui.TextKeyRename}, {Action: actCopy, Label: kittui.TextKeyCopy},
+				{Action: actRemove, Label: kittui.TextKeyDelete}, {Action: actRights, Label: textKeyRights}}},
 			m.keys, m.text)
 		if err != nil {
 			m.failure = m.text.Lookup(kittui.TextError, err.Error())
@@ -117,6 +119,9 @@ func (m *Model) fileResult(r kittui.FileResult) tea.Cmd {
 		return nil
 	}
 	a := *r.Action
+	if cmd, ok := m.fileChange(a); ok {
+		return cmd
+	}
 	path := hostPath(a.Dir...)
 	if a.HasEntry {
 		path = hostPath(append(a.Dir, a.Entry.Name)...)
@@ -153,6 +158,7 @@ func (m *Model) applyFileRead(msg fileReadMsg) {
 	}
 	switch {
 	case msg.err == nil:
+		m.sys.fold.chg.listed(msg.load, false)
 		m.showHostRead(msg.load, msg.gen, m.directRead(msg.read))
 	case errors.Is(msg.err, fs.ErrPermission) && m.euid() != 0:
 		m.askReadRoot(msg.path, msg.load, msg.gen)
@@ -168,6 +174,7 @@ func (m *Model) askReadRoot(path string, load *kittui.FileLoad, gen int) {
 		args: []string{"host", "file", "--output", "json", "--", path},
 		done: func(r sudoRun) tea.Cmd {
 			if read, ok := decodeHostFile(r.out); ok {
+				m.sys.fold.chg.listed(load, true)
 				m.showHostRead(load, gen, read)
 			} else {
 				m.failHostRead(load, gen, r.problem)
@@ -245,7 +252,10 @@ func (m *Model) showHostRead(load *kittui.FileLoad, gen int, r hostRead) {
 	for i, e := range r.Entries {
 		entries[i] = fileEntry(e)
 	}
-	_, _ = b.SetEntries(*load, entries) // a refused folder is shown as failed with its reason
+	// A refused folder is shown as failed with its reason.
+	if current, err := b.SetEntries(*load, entries); current && err == nil {
+		m.sys.fold.chg.setNames(r.Entries)
+	}
 }
 
 // failHostRead shows why a read gave nothing.
@@ -259,6 +269,7 @@ func (m *Model) failHostRead(load *kittui.FileLoad, gen int, reason string) {
 	}
 	if b := m.folderBrowser(); b != nil {
 		b.SetError(*load, errors.New(reason))
+		m.sys.fold.chg.names = nil
 	}
 }
 

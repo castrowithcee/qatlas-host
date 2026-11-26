@@ -568,3 +568,20 @@ func TestFileCreateFolder(t *testing.T) {
 	_, err = f.runner.Apply(t.Context(), ActionFileCreateFolder, []string{filepath.Join(f.root, "missing", "x")}, nil)
 	wantRefusal(t, "missing folder", err, "does not exist")
 }
+
+func TestTreeArgsAppendThePermanentOptionBeforeTheSystemPathAcknowledgement(t *testing.T) {
+	for _, tc := range []struct {
+		permanent bool
+		paths     []string
+		want      string
+	}{
+		{false, []string{"/srv/a", "/srv/b"}, "/srv/a /srv/b"},
+		{true, []string{"/srv/a"}, "/srv/a permanent"},
+		{false, []string{"/srv/a", "/etc/b"}, "/srv/a /etc/b system-path"},
+		{true, []string{"/etc/a"}, "/etc/a permanent system-path"},
+	} {
+		if got := strings.Join(TreeArgs(tc.permanent, tc.paths...), " "); got != tc.want {
+			t.Errorf("TreeArgs(%v, %v) = %q, want %q", tc.permanent, tc.paths, got, tc.want)
+		}
+	}
+}

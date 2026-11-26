@@ -24,6 +24,8 @@ type hostAsk struct {
 	args   []string
 	secret []byte
 	mask   [][]byte
+	// emptyInput gives an action that reads standard input an empty one, as the creation of an empty file does.
+	emptyInput bool
 	// question is the sentence of the confirmation.
 	question string
 	// risk names why the change touches root, a system account or a system group; it makes the question red.
@@ -145,7 +147,7 @@ func (m *Model) runHostChange(a hostAsk) tea.Cmd {
 	if a.apply != nil {
 		argv = append([]string{"host"}, a.apply...)
 	}
-	req := HostRequest{Args: argv, Secret: a.secret}
+	req := HostRequest{Args: argv, Secret: a.secret, EmptyInput: a.emptyInput}
 	after := func(out []byte, err error) tea.Cmd {
 		report, ok := parseReport(out)
 		if ok {
@@ -162,7 +164,7 @@ func (m *Model) runHostChange(a hostAsk) tea.Cmd {
 		}
 		return tea.Batch(m.loadSystem(true), m.afterHostChange(), then)
 	}
-	if len(a.secret) > 0 {
+	if len(a.secret) > 0 || a.emptyInput {
 		return m.runHostSecret(req, a.mask, after)
 	}
 	return m.runHost(req, after)

@@ -82,7 +82,7 @@ func (f *fakeRoot) run(req HostRequest) (*exec.Cmd, error) {
 	switch {
 	case f.root:
 		cmd = exec.Command("qhost-fake", req.Args...)
-	case len(req.Secret) > 0:
+	case len(req.Secret) > 0 || req.EmptyInput:
 		cmd = exec.Command("sudo-fake", append([]string{"-n", "qhost-fake"}, req.Args...)...)
 	default:
 		cmd = exec.Command("sudo-fake", append([]string{"qhost-fake"}, req.Args...)...)
@@ -90,7 +90,7 @@ func (f *fakeRoot) run(req HostRequest) (*exec.Cmd, error) {
 	if !f.root {
 		cmd.Env = []string{"LC_ALL=C"}
 	}
-	if len(req.Secret) > 0 {
+	if len(req.Secret) > 0 || req.EmptyInput {
 		cmd.Stdin = bytes.NewReader(req.Secret)
 	}
 	f.built = append(f.built, cmd)
