@@ -293,7 +293,7 @@ func (m *containerMonitor) evaluate(now time.Time, dirs map[string]string, state
 			continue
 		}
 		cs := byStack[name]
-		kind, container, failed := m.detect(now, cs, st.Services, stopped, oldUnhealthy, oldRestarts)
+		kind, container, failed := m.detect(now, cs, st.Services, stopped, st.Failure, oldUnhealthy, oldRestarts)
 		open := st.Failure
 		switch {
 		case kind != "" && st.Failure == nil:
@@ -591,7 +591,7 @@ func (m *containerMonitor) healthyServices(cs []docker.Container, stopped map[st
 // empty if none. failed are the IDs of the containers that fail. It also carries the per-container timers
 // forward.
 func (m *containerMonitor) detect(now time.Time, cs []docker.Container, expected []string, stopped map[string]bool,
-	oldUnhealthy map[string]time.Time, oldRestarts map[string][]restartSample) (kind, container string, failed []string) {
+	open *engine.Failure, oldUnhealthy map[string]time.Time, oldRestarts map[string][]restartSample) (kind, container string, failed []string) {
 	sorted := slices.Clone(cs)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Name < sorted[j].Name })
 	found := map[string]string{}
@@ -624,15 +624,8 @@ func (m *containerMonitor) detect(now time.Time, cs []docker.Container, expected
 		if c.RestartCount-samples[0].count >= restartRise {
 			fail(engine.FailureRestartLoop, c)
 		}
-		if c.State == "running" && c.Health == "unhealthy" {
-			since, ok := oldUnhealthy[c.ID]
-			if !ok {
-				since = now
-			}
-			m.unhealthySince[c.ID] = since
-			if now.Sub(since) > m.UnhealthyAfter {
-				fail(engine.FailureUnhealthy, c)
-			}
+		if m.unhealthy(now, c, open, oldUnhealthy) {
+			fail(engine.FailureUnhealthy, c)
 		}
 	}
 	switch {

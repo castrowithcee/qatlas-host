@@ -317,6 +317,44 @@ func TestMonitorUnhealthyNeedsMoreThanAMinuteObservedContinuously(t *testing.T) 
 	}
 }
 
+func TestMonitorOpenUnhealthyFailureSurvivesAServiceRestart(t *testing.T) {
+	r := newMonRig(t)
+	app := ctr("1", "app")
+	app.Health = "unhealthy"
+	r.dock.list = []docker.Container{app}
+	for range 4 {
+		r.poll(30 * time.Second)
+	}
+	r.wantEvents(1, 0)
+	since := r.events[0].Since
+	r.restart()
+	for range 4 {
+		r.poll(30 * time.Second)
+	}
+	r.wantEvents(1, 0)
+	if got := r.eng.states["web"].Failure; got == nil || !got.Since.Equal(since) {
+		t.Fatalf("open failure changed: %+v, want since %v", got, since)
+	}
+}
+
+func TestMonitorUnhealthyContainerThatRecoversAfterAServiceRestartEndsTheFailure(t *testing.T) {
+	r := newMonRig(t)
+	app := ctr("1", "app")
+	app.Health = "unhealthy"
+	r.dock.list = []docker.Container{app}
+	for range 4 {
+		r.poll(30 * time.Second)
+	}
+	r.restart()
+	r.poll(30 * time.Second)
+	app.Health = "healthy"
+	r.dock.list = []docker.Container{app}
+	r.poll(30 * time.Second)
+	r.wantEvents(1, 0)
+	r.poll(30 * time.Second)
+	r.wantEvents(1, 1)
+}
+
 func TestMonitorRestartLoopRule(t *testing.T) {
 	r := newMonRig(t)
 	app := ctr("1", "app")
