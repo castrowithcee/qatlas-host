@@ -198,7 +198,7 @@ func keyTable() []kittui.Action {
 		act(actNo, kittui.LevelConfirm, textAnswerCancel, "n", "esc"),
 		act(actShowLog, kittui.LevelConfirm, textAnswerLog, "l"),
 	}
-	return append(append(append(table, promoteKeys()...), browserKeys()...), append(kittui.LogViewActions(), navActions()...)...)
+	return append(append(append(table, promoteKeys()...), append(browserKeys(), changesKeys()...)...), append(kittui.LogViewActions(), navActions()...)...)
 }
 
 // browserKeys are the actions of the file browser and its text view beyond those of a list and a log.

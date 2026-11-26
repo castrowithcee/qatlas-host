@@ -9,10 +9,14 @@ import (
 )
 
 // stacksView draws the Stacks area: the list with a row for every stack folder and, below it, the detail of
-// the marked folder, or the file browser over a stack folder. Without a folder it points to adding one.
+// the marked folder, which a click opens on its changes where it has any, or the file browser over a stack folder, or
+// the changes of one. Without a folder it points to adding one.
 func (m *Model) stacksView(width, height int) string {
 	if m.set.keyOpen {
 		return m.keyView(width, height)
+	}
+	if c := m.shownChanges(); c != nil {
+		return m.stackChangesView(c, width, height)
 	}
 	if v := m.shownStackFiles(); v != nil {
 		return m.stackFilesView(v, width, height)
@@ -25,6 +29,9 @@ func (m *Model) stacksView(width, height int) string {
 		// The list keeps at least its header, the marked row and a few more.
 		if room := height - minListRows; room >= 3 {
 			detail = m.folderDetail(f, width, room)
+		}
+		if m.folderChanged(f) && len(detail) > 0 {
+			m.changesTarget(height-len(detail), width, len(detail))
 		}
 	}
 	var view string
@@ -58,8 +65,11 @@ func (m *Model) keyView(width, height int) string {
 
 // stacksFooter is the key line of the Stacks area: the keys of the marked row, and adding a folder in every case.
 func (m *Model) stacksFooter(common, nav []kittui.Hint) []kittui.Hint {
+	if c := m.shownChanges(); c != nil {
+		return append(m.stackChangesFooter(c), common...)
+	}
 	if v := m.shownStackFiles(); v != nil {
-		return append(m.filesFooter(v), common...)
+		return append(append(m.filesFooter(v), m.changesHint(m.sf.folder)...), common...)
 	}
 	add := kittui.Hint{Action: actAdd, Label: textKeyAdd, Priority: 3}
 	f, onFolder := m.selectedFolder()
@@ -74,6 +84,7 @@ func (m *Model) stacksFooter(common, nav []kittui.Hint) []kittui.Hint {
 		if f.Kind != control.SourceKindRemote {
 			own = append(own, kittui.Hint{Action: actRemote, Label: textKeyRemote, Priority: 3})
 		}
+		own = append(own, m.changesHint(f)...)
 		own = append(own, kittui.Hint{Action: actFiles, Label: textKeyFiles, Priority: 3},
 			kittui.Hint{Action: actRemove, Label: textKeyRelease, Priority: 3}, add)
 		common = append(own, common...)

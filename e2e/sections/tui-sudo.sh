@@ -1,8 +1,8 @@
 #!/bin/sh
 # Section tui-sudo: the terminal interface without sudo asks for a deploy, a container restart and a change of the
 # maintenance window and runs each through the real sudo, which asks for the password; a Ctrl-C there changes nothing.
-# Nested data folders, the forms with a secret, the file browser over a stack folder and the folders that need sudo
-# follow.
+# Nested data folders, the forms with a secret, the file browser over a stack folder, its uncommitted changes and the
+# folders that need sudo follow.
 # Needs deploy: the bound /opt/stacks with demo-stack and demo-cache; the choice of the engine in
 # scenario_tui_folder_sudo needs the rootless instance, which deploy needs.
 # Sourced by run.sh; defines only functions and constants.
@@ -859,6 +859,105 @@ scenario_tui_stack_files() {
 	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
 	docker exec -u "$admin" "$host" sudo -K || fail "cannot remove the sudo timestamp of $admin"
 	docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1 || fail "sudo of $admin asks for a password after the scenario"
+}
+
+# scenario_tui_stack_changes proves the view of the uncommitted changes of a stack folder in the interface started
+# without sudo. compose.yaml and .env of demo-stack are changed on the host beforehand: scenario_tui_stack_files proves
+# the edit through the browser, this one what follows it. The rule of $admin stays, so the commands through sudo ask
+# for no password. = on the row of /opt/stacks lists both files, enter shows the diff of .env through sudo qhost source
+# diff, > commits both through sudo qhost source commit, the remote gets the commit and its run deploys demo-stack.
+# A further change of .env is discarded through sudo qhost source discard. The commit is reverted through the clone
+# of the administrator at the end, so the files and the clone are as before and the later sections build on them.
+scenario_tui_stack_changes() {
+	tui_log=$work/tui-stack-changes-screens.log
+	: >"$tui_log"
+	sc_env=/opt/stacks/demo-stack/.env
+	sc_compose=/opt/stacks/demo-stack/compose.yaml
+	sc_mark=E2E_CHANGES=6181
+	sc_more=E2E_DISCARD=6182
+	sc_dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sc_dirty"
+	[ -z "$sc_dirty" ] || fail "the stack folder has uncommitted changes before the scenario: $sc_dirty"
+	sc_env_before=$(docker exec "$host" cat "$sc_env") && sc_compose_before=$(docker exec "$host" cat "$sc_compose") ||
+		fail 'cannot read the files of demo-stack'
+	sc_head=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks rev-parse HEAD) || fail 'cannot read the head of /opt/stacks'
+	docker exec -u qhost-deploy "$host" sh -ec "printf '%s\n' '$sc_mark' >>'$sc_env' && printf '# %s\n' '$sc_mark' >>'$sc_compose'" ||
+		fail 'cannot change the files of demo-stack'
+
+	step 'the changes of /opt/stacks list both files, and the diff of .env comes through sudo'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_wait '[ ] demo-stack' 30
+	tui_folder_to /opt/stacks
+	tui_wait 'This folder has uncommitted changes' 30
+	tui_send -l '='
+	tui_wait 'Uncommitted changes of /opt/stacks' 15
+	tui_wait 'demo-stack/compose.yaml' 15
+	tui_has 'demo-stack/.env' || fail "the changes do not list .env: $(tui_screen)"
+	tui_has 'demo-stack/secrets.env' && fail "the changes list secrets.env: $(tui_screen)"
+	tui_send Enter
+	tui_wait 'Show the diff of demo-stack/.env?' 15
+	tui_has 'sudo qhost source diff' || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	tui_wait "+$sc_mark" 30
+	tui_excerpt "+$sc_mark" 2
+	tui_send Escape
+	tui_wait 'Uncommitted changes of /opt/stacks' 15
+
+	step 'the commit goes to the remote and its run deploys demo-stack'
+	sc_prev=$(newest_run demo-stack)
+	tui_send -l '>'
+	tui_wait 'Commit 2 files of /opt/stacks?' 15
+	tui_has 'sudo qhost source commit' || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	tui_wait 'Committed 2 files as' 120
+	sc_commit=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks rev-parse HEAD) || fail 'cannot read the head of /opt/stacks'
+	[ "$sc_commit" != "$sc_head" ] || fail 'the commit left the head of /opt/stacks as it was'
+	sc_remote=$(docker exec "$prefix-git" git -c safe.directory='*' --git-dir=/srv/git/stacks.git rev-parse main 2>&1) ||
+		fail "cannot read the remote: $sc_remote"
+	[ "$sc_remote" = "$sc_commit" ] || fail "the remote has $sc_remote, want the commit $sc_commit"
+	sc_files=$(docker exec "$prefix-git" git -c safe.directory='*' --git-dir=/srv/git/stacks.git diff-tree --no-commit-id --name-only -r main 2>&1)
+	[ "$sc_files" = "$(printf 'demo-stack/.env\ndemo-stack/compose.yaml')" ] || fail "the commit holds the wrong files: $sc_files"
+	sc_dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sc_dirty"
+	[ -z "$sc_dirty" ] || fail "the stack folder has uncommitted changes after the commit: $sc_dirty"
+	tui_send l
+	tui_wait "[3 $tui_icon_runs Runs]" 15
+	sc_run=$(next_run demo-stack "$sc_prev") || fail 'the commit started no run of demo-stack'
+	wait_for "the run $sc_run" 240 run_finished demo-stack "$sc_run"
+	qd stack log "$sc_run" | grep -q ' result succeeded' || fail "the run $sc_run did not succeed: $(qd stack log "$sc_run")"
+	log "scenario: the interface committed .env and compose.yaml of demo-stack as $sc_commit, pushed it, and run $sc_run deployed it"
+
+	step 'a further change of .env is discarded through sudo'
+	docker exec -u qhost-deploy "$host" sh -ec "printf '%s\n' '$sc_more' >>'$sc_env'" || fail "cannot change $sc_env"
+	tui_send 1
+	tui_wait 'Uncommitted changes of /opt/stacks' 15
+	tui_send R
+	tui_wait 'demo-stack/.env' 30
+	tui_send d
+	tui_wait 'Discard the changes of demo-stack/.env?' 15
+	tui_has 'sudo qhost source discard' || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	tui_wait 'Discarded the changes of demo-stack/.env.' 60
+	docker exec "$host" grep -qxF "$sc_more" "$sc_env" && fail "$sc_env still holds the discarded line"
+	docker exec "$host" grep -qxF "$sc_mark" "$sc_env" || fail "$sc_env lost the committed line"
+	sc_dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sc_dirty"
+	[ -z "$sc_dirty" ] || fail "the stack folder is not clean after the discard: $sc_dirty"
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	[ "$(wc -l <"$tui_log")" -gt 40 ] || fail 'too few screens were captured to check'
+	log 'scenario: the interface discarded a further change of .env'
+
+	step 'the commit is reverted through the clone of the administrator, and demo-stack runs on the files from before'
+	sc_prev=$(newest_run demo-stack)
+	as_admin "cd ~/stacks && git pull -q --ff-only && [ \"\$(git rev-parse HEAD)\" = '$sc_commit' ] &&
+		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test revert --no-edit HEAD >/dev/null && git push -q origin main" ||
+		fail "cannot revert the commit $sc_commit"
+	restart_service
+	sc_run=$(next_run demo-stack "$sc_prev") || fail 'the revert started no run of demo-stack'
+	wait_for "the run $sc_run" 240 run_finished demo-stack "$sc_run"
+	qd stack log "$sc_run" | grep -q ' result succeeded' || fail "the run $sc_run did not succeed: $(qd stack log "$sc_run")"
+	[ "$(docker exec "$host" cat "$sc_env")" = "$sc_env_before" ] && [ "$(docker exec "$host" cat "$sc_compose")" = "$sc_compose_before" ] ||
+		fail 'the files of demo-stack differ from before the scenario'
 }
 
 # fs_password hands the terminal password to the sudo prompt that follows an answer of the interface.

@@ -42,6 +42,7 @@ tui-sudo       scenario_tui_deploy_sudo
 tui-sudo       scenario_datadir_nested
 tui-sudo       scenario_tui_secrets
 tui-sudo       scenario_tui_stack_files
+tui-sudo       scenario_tui_stack_changes
 tui-sudo       scenario_tui_folder_sudo
 update         scenario_backup
 update         scenario_updates

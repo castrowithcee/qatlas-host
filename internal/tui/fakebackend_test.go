@@ -82,8 +82,7 @@ type fakeBackend struct {
 	inspectIncludes [][]string
 	remotes         []control.SourceRemoteArgs
 	removes         []string
-	// changes are the uncommitted changes source.changes lists by folder.
-	changes map[string][]control.SourceChange
+	fakeChanges
 	// host is the host side the model gets; nil gives it none.
 	host *fakeFolders
 	// sent are the arguments of the credential and channel writes in order, kept to check what reached the
