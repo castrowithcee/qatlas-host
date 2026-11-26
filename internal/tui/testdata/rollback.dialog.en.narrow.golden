@@ -3,8 +3,8 @@
 ────────────────────────────────────────────────────────
   STACK        STARTED      RESULT           TRIGGER    
   ╔═ Back to the state before ═══════════════════════╗  
-> ║ ⚠ Set demo-stack back to the state before the    ║  
-  ║   update run 20261030T140200Z-0000000c?          ║  
+  ║ ⚠ Set demo-stack back to the state before the    ║  
+> ║   update run 20261030T140200Z-0000000c?          ║  
   ║                                                  ║  
   ║ The stack is pinned afterwards, so no update or  ║  
   ║ window moves it on. Choose what happens to its   ║  
@@ -16,9 +16,9 @@
   ║ Version only: The data stays, the old version    ║  
   ║ may not understand migrated data.                ║  
   ║                                                  ║  
-  ║ [ with data ]  [ version only ]  > cancel <      ║  
+  ║ [ with data ]  [ version only ]                  ║  
+  ║ [ enter cancel ]                                 ║  
   ║ d with data  v version only  n/esc/enter cancel  ║  
   ╚══════════════════════════════════════════════════╝  
-                                                        
                                                         
                                                      2/7

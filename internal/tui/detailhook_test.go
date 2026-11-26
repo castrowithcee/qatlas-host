@@ -277,7 +277,7 @@ func TestHookRemoveAsksFirstAndCancelChangesNothing(t *testing.T) {
 	m := newTestModel(t, i18n.English, b, wideWidth, hookRows)
 	m.euid = func() int { return 0 }
 	send(m, toDetail...)
-	send(m, "U")
+	send(m, "j")
 	contains(t, m, "Remove a webhook", "h-a1b2c3d0", "h-a1b2c3d1")
 	send(m, "down", "enter")
 	contains(t, m, "Remove the webhook h-a1b2c3d1 of the stack demo-stack?", "stops working")
@@ -285,7 +285,7 @@ func TestHookRemoveAsksFirstAndCancelChangesNothing(t *testing.T) {
 	if len(b.actions()) != 0 {
 		t.Fatalf("removed without the confirmation: %v", b.actions())
 	}
-	send(m, "U", "down", "enter", "y")
+	send(m, "j", "down", "enter", "y")
 	if got := b.actions(); !slices.Equal(got, []string{"hookremove:h-a1b2c3d1"}) {
 		t.Fatalf("calls %v", got)
 	}
@@ -300,7 +300,7 @@ func TestHookRemoveWithoutRootRunsTheCommandThroughSudo(t *testing.T) {
 	m, f := sudoDetailModel(t, i18n.English, b, wideWidth, hookRows)
 	f.report = `{"id":"h-a1b2c3d0","removed":true}`
 	send(m, toDetail...)
-	send(m, "U", "enter")
+	send(m, "j", "enter")
 	if !shows(m.render(), sudoCommand(hookDelSudo)) {
 		t.Fatalf("the question lacks the command:\n%s", m.render())
 	}
@@ -317,7 +317,7 @@ func TestHookRemoveWithoutRootRunsTheCommandThroughSudo(t *testing.T) {
 func TestHookRemoveWithoutHooksOnlyWarns(t *testing.T) {
 	m := newTestModel(t, i18n.English, hookStackFor(hookRunning, nil, "webhook")(), wideWidth, hookRows)
 	send(m, toDetail...)
-	send(m, "U")
+	send(m, "j")
 	if m.pick != nil || m.modal != nil || m.notice == "" {
 		t.Fatal("a choice or question opened without a hook")
 	}
@@ -407,13 +407,13 @@ func TestGoldenDetailHooksSecretClosed(t *testing.T) {
 }
 
 func TestGoldenDetailHooksRemovePick(t *testing.T) {
-	goldenHooks(t, "detail.hooks.pick", hookStackFor(hookRunning, twoHooks, "webhook"), seq(toDetail, keys("U"))...)
+	goldenHooks(t, "detail.hooks.pick", hookStackFor(hookRunning, twoHooks, "webhook"), seq(toDetail, keys("j"))...)
 }
 
 func TestGoldenDetailHooksRemoveQuestion(t *testing.T) {
-	goldenHooks(t, "detail.hooks.remove", hookStackFor(hookRunning, twoHooks, "webhook"), seq(toDetail, keys("U", "enter"))...)
+	goldenHooks(t, "detail.hooks.remove", hookStackFor(hookRunning, twoHooks, "webhook"), seq(toDetail, keys("j", "enter"))...)
 }
 
 func TestGoldenDetailHooksRemoveSudoQuestion(t *testing.T) {
-	goldenHooksSudo(t, "detail.hooks.remove.sudo", hookStackFor(hookRunning, twoHooks, "webhook"), "", seq(toDetail, keys("U", "enter"))...)
+	goldenHooksSudo(t, "detail.hooks.remove.sudo", hookStackFor(hookRunning, twoHooks, "webhook"), "", seq(toDetail, keys("j", "enter"))...)
 }

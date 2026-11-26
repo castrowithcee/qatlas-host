@@ -4,11 +4,11 @@ import kittui "github.com/castrowithcee/qatlas-kit/tui"
 
 // The actions of the key table.
 const (
-	actHelp      kittui.ActionID = "help"
-	actBack      kittui.ActionID = "back"
-	actForceQuit kittui.ActionID = "forcequit"
-	actQuit      kittui.ActionID = "quit"
-	actReload    kittui.ActionID = "reload"
+	actHelp                      = kittui.ActionHelp
+	actBack                      = kittui.ActionBack
+	actForceQuit                 = kittui.ActionForceQuit
+	actQuit                      = kittui.ActionQuit
+	actReload                    = kittui.ActionReload
 	actUp        kittui.ActionID = "up"
 	actDown      kittui.ActionID = "down"
 	actLeft      kittui.ActionID = "left"
@@ -18,14 +18,14 @@ const (
 	actPageUp    kittui.ActionID = "pageup"
 	actPageDown  kittui.ActionID = "pagedown"
 	actEnter     kittui.ActionID = "enter"
-	actSearch    kittui.ActionID = "search"
+	actSearch                    = kittui.ActionSearch
 	actArea      kittui.ActionID = "area"
 	// actStackOnly limits the Runs area to the stack chosen in Stacks, and lifts the limit again.
-	actStackOnly kittui.ActionID = "stackonly"
+	actStackOnly = kittui.ActionFilter
 	// actToggle ticks a stack in the Stacks list.
 	actToggle kittui.ActionID = "toggle"
 	// The actions on stacks; each opens a confirmation first.
-	actUpdate  kittui.ActionID = "update"
+	actUpdate                  = kittui.ActionUpdate
 	actDeploy  kittui.ActionID = "deploy"
 	actPause   kittui.ActionID = "pause"
 	actUnpause kittui.ActionID = "unpause"
@@ -47,13 +47,13 @@ const (
 	// The keys of the Settings area and of its forms.
 	actNext   kittui.ActionID = "next"
 	actPrev   kittui.ActionID = "prev"
-	actSave   kittui.ActionID = "save"
+	actSave                   = kittui.ActionSave
 	actFetch  kittui.ActionID = "fetch"
-	actAdd    kittui.ActionID = "add"
-	actRemove kittui.ActionID = "remove"
-	actEdit   kittui.ActionID = "edit"
+	actAdd                    = kittui.ActionNew
+	actRemove                 = kittui.ActionDelete
+	actEdit                   = kittui.ActionEdit
 	// actRename renames the group marked on System > Groups.
-	actRename kittui.ActionID = "rename"
+	actRename = kittui.ActionRename
 	// actRemote gives a local stack folder a remote; actWithRemote is the answer that adds a folder of files
 	// together with the repository at an address.
 	actRemote     kittui.ActionID = "remote"
@@ -108,13 +108,24 @@ func act(id kittui.ActionID, level kittui.KeyLevel, help kittui.TextID, keys ...
 	return kittui.Action{ID: id, Level: level, DefaultKeys: keys, Help: help}
 }
 
+// std is the standard action id of the kit with its level and key, under a help text of qhost.
+func std(id kittui.ActionID, help kittui.TextID) kittui.Action {
+	for _, a := range kittui.StandardActions() {
+		if a.ID == id {
+			a.Help = help
+			return a
+		}
+	}
+	panic("tui: no standard action " + string(id))
+}
+
 func keyTable() []kittui.Action {
 	table := []kittui.Action{
-		act(actHelp, kittui.LevelGlobal, kittui.TextKeyHelp, "?"),
-		act(actBack, kittui.LevelGlobal, kittui.TextKeyBack, "esc"),
-		act(actForceQuit, kittui.LevelGlobal, kittui.TextKeyQuit, "ctrl+c"),
-		act(actQuit, kittui.LevelLetter, kittui.TextKeyQuit, "q"),
-		act(actReload, kittui.LevelLetter, kittui.TextKeyReload, "r"),
+		std(actHelp, kittui.TextKeyHelp),
+		std(actBack, kittui.TextKeyBack),
+		std(actForceQuit, kittui.TextKeyQuit),
+		std(actQuit, kittui.TextKeyQuit),
+		std(actReload, kittui.TextKeyReload),
 		act(actUp, kittui.LevelMove, kittui.TextKeyUp, "up"),
 		act(actDown, kittui.LevelMove, kittui.TextKeyDown, "down"),
 		act(actLeft, kittui.LevelMove, kittui.TextKeyLeft, "left"),
@@ -124,29 +135,29 @@ func keyTable() []kittui.Action {
 		act(actPageUp, kittui.LevelMove, kittui.TextKeyPageUp, "pgup"),
 		act(actPageDown, kittui.LevelMove, kittui.TextKeyPageDown, "pgdown"),
 		act(actEnter, kittui.LevelMove, kittui.TextKeyEnter, "enter"),
-		act(actSearch, kittui.LevelMove, kittui.TextKeySearch, "/"),
+		std(actSearch, kittui.TextKeySearch),
 		act(actArea, kittui.LevelMove, textKeyArea, areaKeys...),
-		act(actStackOnly, kittui.LevelLetter, textKeyStackOnly, "f"),
+		std(actStackOnly, textKeyStackOnly),
 		act(actToggle, kittui.LevelMove, textKeyTick, "space"),
-		act(actUpdate, kittui.LevelLetter, textKeyUpdate, "u"),
-		act(actDeploy, kittui.LevelLetter, textKeyDeploy, "d"),
+		std(actUpdate, textKeyUpdate),
+		act(actDeploy, kittui.LevelLetter, textKeyDeploy, "a"),
 		act(actPause, kittui.LevelLetter, textKeyPause, "p"),
 		act(actUnpause, kittui.LevelLetter, textKeyUnpause, "P"),
-		act(actPin, kittui.LevelLetter, textKeyPin, "i"),
-		act(actUnpin, kittui.LevelLetter, textKeyUnpin, "I"),
+		act(actPin, kittui.LevelLetter, textKeyPin, "y"),
+		act(actUnpin, kittui.LevelLetter, textKeyUnpin, "Y"),
 		act(actResume, kittui.LevelLetter, textKeyResume, "g"),
-		act(actCheck, kittui.LevelLetter, textKeyCheck, "c"),
+		act(actCheck, kittui.LevelLetter, textKeyCheck, "u"),
 		act(actStackStart, kittui.LevelLetter, textKeyStart, "S"),
 		act(actStackStop, kittui.LevelLetter, textKeyStop, "X"),
 		act(actStackRestart, kittui.LevelLetter, textKeyRestart, "Z"),
 		act(actNext, kittui.LevelMove, textKeyNext, "tab"),
 		act(actPrev, kittui.LevelMove, textKeyPrev, "shift+tab"),
-		act(actSave, kittui.LevelGlobal, textKeySave, "f2"),
+		std(actSave, textKeySave),
 		act(actFetch, kittui.LevelLetter, textKeyFetch, "F"),
-		act(actAdd, kittui.LevelLetter, textKeyAdd, "a"),
-		act(actRemove, kittui.LevelLetter, textKeyRemove, "x"),
-		act(actEdit, kittui.LevelLetter, textKeyEdit, "e"),
-		act(actRename, kittui.LevelLetter, textKeyRename, "n"),
+		std(actAdd, textKeyAdd),
+		std(actRemove, textKeyRemove),
+		std(actEdit, textKeyEdit),
+		std(actRename, textKeyRename),
 		act(actTest, kittui.LevelLetter, textKeyTest, "s"),
 		act(actRemote, kittui.LevelLetter, textKeyRemote, "O"),
 		act(actWithRemote, kittui.LevelConfirm, textAnswerWithRemote, "w"),
@@ -154,15 +165,15 @@ func keyTable() []kittui.Action {
 		act(actRollback, kittui.LevelLetter, textKeyRollback, "B"),
 		act(actRollbackData, kittui.LevelConfirm, textAnswerRollbackData, "d"),
 		act(actRollbackKeep, kittui.LevelConfirm, textAnswerRollbackKeep, "v"),
-		act(actRestore, kittui.LevelLetter, textKeyRestore, "R"),
-		act(actDataDirs, kittui.LevelLetter, textKeyDataDirs, "m"),
+		act(actRestore, kittui.LevelLetter, textKeyRestore, "l"),
+		act(actDataDirs, kittui.LevelLetter, textKeyDataDirs, "+"),
 		act(actContainerLogs, kittui.LevelLetter, textKeyLog, "o"),
 		act(actServiceLog, kittui.LevelLetter, textKeySvcLog, "v"),
 		act(actLogLevel, kittui.LevelLetter, textKeyLogLevel, "V"),
 		act(actSaveLog, kittui.LevelLetter, textKeySaveLog, "W"),
 		act(actDiagnose, kittui.LevelLetter, textKeyDiagnose, "D"),
 		act(actBackup, kittui.LevelLetter, textKeyBackupForm, "b"),
-		act(actCompose, kittui.LevelLetter, textKeyComposeForm, "C"),
+		act(actCompose, kittui.LevelLetter, textKeyComposeForm, "I"),
 		act(actCheckForm, kittui.LevelLetter, textKeyCheckForm, "k"),
 		act(actRemoveSettings, kittui.LevelLetter, textKeyRemoveSettings, "E"),
 		act(actMoveUp, kittui.LevelLetter, textKeyMoveUp, "K"),
@@ -172,9 +183,9 @@ func keyTable() []kittui.Action {
 		act(actReject, kittui.LevelLetter, textKeyReject, "N"),
 		act(actInstance, kittui.LevelLetter, textKeyInstance, "H"),
 		act(actHookAdd, kittui.LevelLetter, textKeyHookAdd, "h"),
-		act(actHookRemove, kittui.LevelLetter, textKeyHookRemove, "U"),
+		act(actHookRemove, kittui.LevelLetter, textKeyHookRemove, "j"),
 		act(actGrantAdd, kittui.LevelLetter, textKeyGrantAdd, "z"),
-		act(actGrantRemove, kittui.LevelLetter, textKeyGrantRemove, "Y"),
+		act(actGrantRemove, kittui.LevelLetter, textKeyGrantRemove, "x"),
 		act(actRootless, kittui.LevelConfirm, textAnswerSetupRootless, "r"),
 		act(actYes, kittui.LevelConfirm, textAnswerYes, "y"),
 		act(actNo, kittui.LevelConfirm, textAnswerCancel, "n", "esc"),

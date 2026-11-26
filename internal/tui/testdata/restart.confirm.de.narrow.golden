@@ -2,16 +2,16 @@
   [1 Stacks] 2 3 4 5 6 7                                
 ────────────────────────────────────────────────────────
       STACK        VERSION  VERFÜGBAR  ZUSTAND  BEFUNDE 
+      ──────────────────────────────────────────────────
 > [ ] demo-stack   1.4.2    1.5.0      deployt  1 Warnu…
-  [ ] mail-relay   3.1      aktuell    gestop…  keine   
   ╔═ restart ════════════════════════════════════════╗  
-  ║ ⚠ demo-stack neu starten (restart)?              ║er
-  ║                                                  ║  
-  ║ Startet die Container des Stacks neu und prüft   ║u…
-  ║ den Stack. Ein über qhost gestoppter Stack wird  ║  
+  ║ ⚠ demo-stack neu starten (restart)?              ║  
+  ║                                                  ║er
+  ║ Startet die Container des Stacks neu und prüft   ║  
+  ║ den Stack. Ein über qhost gestoppter Stack wird  ║u…
   ║ abgelehnt; starte ihn stattdessen.               ║  
   ║                                                  ║  
-  ║ [ ja, ausführen ]  > abbrechen <                 ║  
+  ║ [ ja, ausführen ]  [ enter abbrechen ]           ║  
   ║ y ja, ausführen  n/esc/enter abbrechen           ║  
   ╚══════════════════════════════════════════════════╝  
                                                         

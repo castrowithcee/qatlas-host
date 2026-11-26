@@ -2,13 +2,13 @@
   [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
       STACK        VERSION      VERFÜGBAR      MODUS        ZUSTAND   LETZTER LAUF                         BEFUNDE      
+      ────────────────────────────────────────────────────────────────────────────────────────────────────────────────  
 > [ ] demo-stack   1.4.2        1.5.0          automatisch  deployt   erfolgreich 10-30 14:02              1 Warnung    
   [ ] mail-relay   3.1          aktuell        manuell      offen     erfolgreich 10-28 03:10              keine        
   [ ] old-tool     -            ungeprüft      -            entfernt  erfolgreich                          keine        
   [ ] photo-album  2.0.1        Fehler         automatisch  Rollback  Rollback fehlgeschlagen 10-29 03:10  1 Fehler     
   [ ] web-shop     5.2.0, 16.4  6.0.0 (Major)  automatisch  läuft     zurückgerollt 10-30 12:00            keine        
   [ ] wiki         1.41.0       ungeprüft      keiner       gepinnt   erfolgreich 10-27 03:10              2 Warnungen  
-                                                                                                                        
                             ╔═ Deploy-Dienst ══════════════════════════════════════════════╗                            
                             ║ ⚠ Den Deploy-Dienst für die rootless Engine von demo_ops     ║                            
                             ║   jetzt einrichten?                                          ║                            
@@ -25,7 +25,7 @@
                             ║   0644)                                                      ║                            
                             ║ $ systemctl enable --now qhost-deploy@demo_ops.service       ║                            
                             ║                                                              ║                            
-                            ║ [ ja, ausführen ]  > abbrechen <                             ║                            
+                            ║ [ ja, ausführen ]  [ enter abbrechen ]                       ║                            
                             ║ y ja, ausführen  n/esc/enter abbrechen                       ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

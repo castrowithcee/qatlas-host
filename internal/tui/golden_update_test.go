@@ -44,7 +44,7 @@ func TestGoldenUpdateEditorEntry(t *testing.T) {
 }
 
 func TestGoldenUpdateEditorEntryProblem(t *testing.T) {
-	goldenUpdate(t, "detail.update.entryproblem", settingsBackend, seq(toChangelog, keys("enter", "a", "down"), typed("nowhere"), keys("f2"))...)
+	goldenUpdate(t, "detail.update.entryproblem", settingsBackend, seq(toChangelog, keys("enter", "n", "down"), typed("nowhere"), keys("f2"))...)
 }
 
 func TestGoldenUpdateFieldProblem(t *testing.T) {

@@ -7,15 +7,15 @@ import (
 )
 
 func TestGoldenUpdateConfirmation(t *testing.T) {
-	goldenScreens(t, "update.confirm", detailRows, demoBackend, "u")
+	goldenScreens(t, "update.confirm", detailRows, demoBackend, "U")
 }
 
 func TestGoldenPinConfirmation(t *testing.T) {
-	goldenScreens(t, "pin.confirm", 20, demoBackend, "i")
+	goldenScreens(t, "pin.confirm", 20, demoBackend, "y")
 }
 
 func TestGoldenPinConfirmationInASmallTerminal(t *testing.T) {
-	goldenScreens(t, "pin.confirm.small", goldenRows, demoBackend, "i")
+	goldenScreens(t, "pin.confirm.small", goldenRows, demoBackend, "y")
 }
 
 func TestGoldenTickedStacks(t *testing.T) {
@@ -27,7 +27,7 @@ func TestGoldenMultiActionSummary(t *testing.T) {
 		b := demoBackend()
 		b.errs["pin:mail-relay"] = control.NewError(control.CodeLocalChanges, "the stack has local changes")
 		return b
-	}, "space", "down", "space", "end", "space", "i", "y")
+	}, "space", "down", "space", "end", "space", "y", "y")
 }
 
 // stoppedBackend is the demo host with mail-relay stopped through qhost.

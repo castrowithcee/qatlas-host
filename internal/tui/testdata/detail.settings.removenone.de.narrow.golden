@@ -20,5 +20,5 @@
 │   1.5.0  Spring release  2026-10-29                                          │
 Warnung: Der Stack demo-stack hat keine Einstellungen. Er ist schon nur Deploy; 
 es wurde nichts entfernt.                                                       
-B zurück auf Stand davor  e Update-Regeln  b Backup  C Compose  o Log           
-a Geheimnis setzen  x Geheimnis löschen  r Neu laden  q Beenden                 
+B zurück auf Stand davor  e Update-Regeln  b Backup  I Compose  o Log           
+n Geheimnis setzen  d Geheimnis löschen  R Neu laden  q Beenden                 

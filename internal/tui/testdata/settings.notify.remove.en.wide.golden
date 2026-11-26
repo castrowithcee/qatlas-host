@@ -3,16 +3,16 @@
    General   Credentials   Maintenance window  [Notifications]  Webhooks                                                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   NAME      TYPE     EVENTS              TARGET                                                                         
+  ────────────────────────────────────────────────────────────────────────────────                                      
   ops-hook  webhook  failed,rolled-back  -                                                                              
 > ops-mail  smtp     all                 mail.example.test:587 -> ops@example.test                                      
-                                                                                                                        
                                                                                                                         
                             ╔═ Notifications ══════════════════════════════════════════════╗                            
                             ║ ⚠ Remove the channel ops-mail?                               ║                            
                             ║                                                              ║                            
                             ║ The channel and its stored secrets are deleted.              ║                            
                             ║                                                              ║                            
-                            ║ [ yes, do it ]  > cancel <                                   ║                            
+                            ║ [ yes, do it ]  [ enter cancel ]                             ║                            
                             ║ y yes, do it  n/esc/enter cancel                             ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

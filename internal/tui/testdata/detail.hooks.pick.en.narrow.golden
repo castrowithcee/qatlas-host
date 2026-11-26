@@ -4,6 +4,7 @@
   Remove a webhook                                      
                                                         
   ID                                                    
+  ──────────                                            
 > h-a1b2c3d0                                            
   h-a1b2c3d1                                            
                                                         
@@ -59,6 +60,5 @@
                                                         
                                                         
                                                         
-                                                        
-enter choose  esc back  r reload  1-7 area  q quit      
+enter choose  esc back  R reload  1-7 area  q quit      
                                               ↑/↓ choose

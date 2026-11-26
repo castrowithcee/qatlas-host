@@ -3,6 +3,7 @@
    General   Credentials   Maintenance window  [Notifications]  Webhooks                                                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   NAME      TYPE     EVENTS              TARGET                                                                         
+  ────────────────────────────────────────────────────────────────────────────────                                      
 > ops-hook  webhook  failed,rolled-back  -                                                                              
   ops-mail  smtp     all                 mail.example.test:587 -> ops@example.test                                      
                                                                                                                         
@@ -20,5 +21,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-a add  s send test  x remove  esc back  r reload  1-7 area  q quit                                       ↑/↓ choose  1/2
+n add  s send test  d remove  esc back  R reload  1-7 area  q quit                                       ↑/↓ choose  1/2

@@ -14,7 +14,7 @@
 ╭─ Container ───────────────║ 10-23 03:10                                                  ║───────────────────────────╮
 │ Keine Container dieses Sta║ 11.0 MiB                                                     ║                           │
 ╰───────────────────────────║                                                              ║───────────────────────────╯
-╭─ Changelog ───────────────║ [ ja, ausführen ]  > abbrechen <                             ║───────────────────────────╮
+╭─ Changelog ───────────────║ [ ja, ausführen ]  [ enter abbrechen ]                       ║───────────────────────────╮
 │ APP_VERSION  1.4.2 -> 1.5.║ y ja, ausführen  n/esc/enter abbrechen                       ║                           │
 │   Quelle example/app      ╚══════════════════════════════════════════════════════════════╝                           │
 │   1.5.0  Spring release  2026-10-29                                                                                  │

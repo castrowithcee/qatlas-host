@@ -10,7 +10,7 @@ import (
 func TestResultWithoutDetailsIsAMessageLine(t *testing.T) {
 	m := newSettingsModel(t, settingsBackend())
 	send(m, toCreds...)
-	send(m, "x", "y")
+	send(m, "d", "y")
 	if m.modal != nil {
 		t.Fatal("a result without details opened a dialog")
 	}
@@ -90,8 +90,8 @@ func TestFinalQuestionsShowTheirConsequenceInWarnColour(t *testing.T) {
 		keys [][]string
 		what kittui.TextID
 	}{
-		{"credential", [][]string{toCreds, {"x"}}, textWhatCredDelete},
-		{"channel", [][]string{toNotify, {"down", "x"}}, textWhatNotifyRemove},
+		{"credential", [][]string{toCreds, {"d"}}, textWhatCredDelete},
+		{"channel", [][]string{toNotify, {"down", "d"}}, textWhatNotifyRemove},
 		{"secret", [][]string{toSecretPick, {"down", "enter"}}, textWhatSecretDelete},
 		{"restore", [][]string{toRestore, {"enter"}}, textWhatRestore},
 	}

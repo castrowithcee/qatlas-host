@@ -3,18 +3,18 @@
    Users   Groups   Folders  [Proposals]  Changes   Log                         
 ────────────────────────────────────────────────────────────────────────────────
   PROPOSAL  KIND           FROM  SUBMITTED    EXPIRES      STATE                
+  ─────────────────────────────────────────────────────────────────             
   h-0001    host change    ben   10-30 16:00  11-13 16:00  open                 
-  h-0002    host change    ada   10-30 09:00  11-13 09:00  open                 
-  h-0003╔═ Run free commands ══════════════════════════════════════════╗        
-  h-0004║ ⚠ Run the 3 commands of proposal h-0005 as root?             ║        
-> h-0005║                                                              ║        
-        ║ The submitter wrote them and nothing checks them. They run   ║        
+  h-0002╔═ Run free commands ══════════════════════════════════════════╗        
+  h-0003║ ⚠ Run the 3 commands of proposal h-0005 as root?             ║        
+  h-0004║                                                              ║        
+> h-0005║ The submitter wrote them and nothing checks them. They run   ║        
         ║ one after the other, the run stops at the first one that     ║        
         ║ fails, and nothing can be undone. Runs with sudo.            ║        
         ║ $ sudo qhost proposal run h-0005 --fingerprint fp-h-0005     ║        
         ║   --confirm --output json                                    ║        
         ║                                                              ║        
-        ║ [ yes, with sudo ]  > cancel <                               ║        
+        ║ [ yes, with sudo ]  [ enter cancel ]                         ║        
         ║ y yes, with sudo  n/esc/enter cancel                         ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

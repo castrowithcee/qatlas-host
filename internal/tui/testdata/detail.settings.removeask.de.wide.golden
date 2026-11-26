@@ -21,7 +21,7 @@
 │     Adds a dark theme.    ║ zum Remote gepusht. Danach wird der Stack nur noch deployt   ║                           │
 │                           ║ und nie aktualisiert.                                        ║                           │
 │     - faster start        ║                                                              ║                           │
-│     - fixes the upload lim║ [ ja, ausführen ]  > abbrechen <                             ║                           │
+│     - fixes the upload lim║ [ ja, ausführen ]  [ enter abbrechen ]                       ║                           │
 │   1.4.3  2026-10-20       ║ y ja, ausführen  n/esc/enter abbrechen                       ║                           │
 │     Fixes a crash on empty╚══════════════════════════════════════════════════════════════╝                           │
 │   mehr unter https://example.invalid/app/releases                                                                    │

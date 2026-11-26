@@ -2,16 +2,18 @@
   [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ╔═ Engine system ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
-║         STACK                      CURRENT  AVAILABLE  MODE    STATE     LAST RUN               FINDINGS             ║
+║           STACK                    CURRENT  AVAILABLE  MODE    STATE     LAST RUN               FINDINGS             ║
+║           ────────────────────────────────────────────────────────────────────────────────────────────────────────── ║
 ║   ▾ [ ] ■ /srv/stacks-example (2)  clone                                                        polled 2026-10-30 1… ║
-║ >   [ ] mail-relay                 -        -          manual  deployed  succeeded              none                 ║
-║     [ ] wiki                       -        -          none    deployed  succeeded 10-30 14:02  none                 ║
+║ >     [ ] mail-relay               -        -          manual  deployed  succeeded              none                 ║
+║       [ ] wiki                     -        -          none    deployed  succeeded 10-30 14:02  none                 ║
 ╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 ╭─ Engine rootless:alice ──────────────────────────────────────────────────────────────────────────────────────────────╮
-│         STACK                             CURRENT  AVAILABLE  MODE       STATE     FINDINGS                          │
+│           STACK                           CURRENT  AVAILABLE  MODE       STATE     FINDINGS                          │
+│           ────────────────────────────────────────────────────────────────────────────────────────────────           │
 │   ▾ [ ] ■ /home/alice/stacks-example (2)  local                                    polled 2026-10-30 14:25           │
-│     [ ] photo-album                       -        -          automatic  pending   none                              │
-│     [ ] wiki                              -        -          none       deployed  none                              │
+│       [ ] photo-album                     -        -          automatic  pending   none                              │
+│       [ ] wiki                            -        -          none       deployed  none                              │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                         
                                                                                                                         
@@ -21,6 +23,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-                                                                                                                        
-enter details  / search  space tick  u update  d deploy  a add  r reload  1-7 area  q quit               ↑/↓ choose  1/2
+enter details  / search  space tick  U update  a deploy  n add  R reload  1-7 area  q quit               ↑/↓ choose  1/2

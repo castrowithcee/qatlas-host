@@ -268,6 +268,9 @@ func (m *Model) lastKey() kittui.ActionID  { return stackListKeys().Last }
 // minSection is the least height of a section: its borders, the header and one row.
 const minSection = 5
 
+// listHead is the rows a list with columns takes above its entries: the column titles and the rule under them.
+const listHead = 2
+
 // stackSectionsView draws the sections one below the other in height rows. A section takes the rows its content
 // needs; when they do not suffice, each keeps a few and the marked one gets the rest.
 func (m *Model) stackSectionsView(width, height int) string {
@@ -285,7 +288,7 @@ func (m *Model) stackSectionsView(width, height int) string {
 		case s.shown == 0:
 			need[i] = 4
 		default:
-			need[i] = s.shown + 3
+			need[i] = s.shown + 2 + listHead
 		}
 	}
 	heights := sectionHeights(need, nil, slices.IndexFunc(m.secs, func(s *stackSection) bool { return s.list == m.list }), height)

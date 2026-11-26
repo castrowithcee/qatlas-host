@@ -43,5 +43,5 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-e Update-Regeln  b Backup  C Compose  k Prüfung  E Einstellungen entfernen  o Log  a Geheimnis setzen                   
-x Geheimnis löschen  R Backup einspielen  z freigeben  r Neu laden  1-7 Bereich  q Beenden                  ↑/↓ Scrollen
+e Update-Regeln  b Backup  I Compose  k Prüfung  E Einstellungen entfernen  o Log  n Geheimnis setzen                   
+d Geheimnis löschen  l Backup einspielen  z freigeben  R Neu laden  1-7 Bereich  q Beenden                  ↑/↓ Scrollen

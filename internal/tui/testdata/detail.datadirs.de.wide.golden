@@ -10,7 +10,7 @@
 ╭─ Fehlende Datenordner ───────────────────────────────────────────────────────────────────────────────────────────────╮
 │ data/db  Besitzer 1000:1000                                                                                          │
 │ data/files  Besitzer 1000:1000                                                                                       │
-│ Der Stack wartet, bis diese Ordner existieren. m legt sie mit dem bestätigten Besitzer und Modus an und rollt den    │
+│ Der Stack wartet, bis diese Ordner existieren. + legt sie mit dem bestätigten Besitzer und Modus an und rollt den    │
 │ Stack danach aus.                                                                                                    │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Image-Versionen ────────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -20,5 +20,5 @@
 ╭─ Container ──────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Keine Container dieses Stacks.                                                                                       │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-m Datenordner anlegen  B zurück auf Stand davor  e Update-Regeln  b Backup  C Compose  k Prüfung  o Log                 
-a Geheimnis setzen  x Geheimnis löschen  R Backup einspielen  r Neu laden  1-7 Bereich  q Beenden                       
++ Datenordner anlegen  B zurück auf Stand davor  e Update-Regeln  b Backup  I Compose  k Prüfung  o Log                 
+n Geheimnis setzen  d Geheimnis löschen  l Backup einspielen  R Neu laden  1-7 Bereich  q Beenden                       

@@ -70,7 +70,7 @@ func TestWebhooksSetupAsRootCallsTheServiceAfterY(t *testing.T) {
 	b := hookBackend(HookServiceInfo{})()
 	m := newTestModel(t, i18n.English, b, wideWidth, 24)
 	send(m, toHooks...)
-	send(m, "a")
+	send(m, "n")
 	contains(t, m, "Set up the webhook receiver on 127.0.0.1:8480?")
 	if got := b.actions(); len(got) != 0 {
 		t.Fatalf("the service was called before y: %v", got)
@@ -87,7 +87,7 @@ func TestWebhooksSetupWithoutRootShowsTheCommandAndRunsItAfterY(t *testing.T) {
 	m, f := sudoDetailModel(t, i18n.English, b, wideWidth, 30)
 	f.report = reportHookSetup
 	send(m, toHooks...)
-	send(m, "a")
+	send(m, "n")
 	if !shows(m.render(), sudoCommand(hookSudoArgs)) {
 		t.Fatalf("the question lacks the command:\n%s", m.render())
 	}
@@ -109,7 +109,7 @@ func TestWebhooksSetupWithoutRootFailureIsShown(t *testing.T) {
 	m, f := sudoDetailModel(t, i18n.English, b, wideWidth, 30)
 	f.report = `{"set_up":false}`
 	send(m, toHooks...)
-	send(m, "a", "y")
+	send(m, "n", "y")
 	contains(t, m, "not set up")
 	if m.failure == "" {
 		t.Fatal("no failure shown")
@@ -168,7 +168,7 @@ func TestWebhooksKeysDoNothingWhileTheStateIsNotRead(t *testing.T) {
 	b.errs = map[string]error{"hookservice:": errServiceBusy()}
 	m := newTestModel(t, i18n.English, b, wideWidth, 24)
 	send(m, toHooks...)
-	send(m, "a", "e")
+	send(m, "n", "e")
 	if m.modal != nil || m.set.form != nil {
 		t.Fatal("a key opened something without a state")
 	}
@@ -187,7 +187,7 @@ func TestGoldenSettingsWebhooksNonLocalAddress(t *testing.T) {
 }
 
 func TestGoldenSettingsWebhooksSetupQuestion(t *testing.T) {
-	goldenScreens(t, "settings.hooks.setup", settingsRows, hookBackend(HookServiceInfo{}), seq(toHooks, keys("a"))...)
+	goldenScreens(t, "settings.hooks.setup", settingsRows, hookBackend(HookServiceInfo{}), seq(toHooks, keys("n"))...)
 }
 
 func TestGoldenSettingsWebhooksAddressForm(t *testing.T) {
@@ -200,7 +200,7 @@ func TestGoldenSettingsWebhooksAddressQuestion(t *testing.T) {
 }
 
 func TestGoldenSudoWebhooksSetupQuestion(t *testing.T) {
-	goldenSudoSettings(t, "settings.hooks.setup.sudo", hookBackend(HookServiceInfo{}), seq(toHooks, keys("a"))...)
+	goldenSudoSettings(t, "settings.hooks.setup.sudo", hookBackend(HookServiceInfo{}), seq(toHooks, keys("n"))...)
 }
 
 func TestGoldenSudoWebhooksAddressQuestion(t *testing.T) {

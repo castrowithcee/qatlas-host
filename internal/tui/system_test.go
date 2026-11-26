@@ -225,7 +225,7 @@ func TestSystemIsNotHiddenByTheMissingDeployService(t *testing.T) {
 func TestInitialPasswordIsNeverOnTheCommandLineOfTheChild(t *testing.T) {
 	m, f := systemModel(t, i18n.English, wideWidth, 40)
 	f.report = appliedReport(hostchange.ActionUserCreate)
-	send(m, seq(keys("a"), typed("dora"), keys("down"), typed(hiddenA), keys("down"), typed(hiddenA), keys("f2"))...)
+	send(m, seq(keys("n"), typed("dora"), keys("down"), typed(hiddenA), keys("down"), typed(hiddenA), keys("f2"))...)
 	if m.modal == nil {
 		t.Fatalf("no confirmation:\n%s", m.render())
 	}
@@ -262,7 +262,7 @@ func TestInitialPasswordIsNeverOnTheCommandLineOfTheChild(t *testing.T) {
 
 func TestCreateConfirmationShowsTheCommandsWithoutTheSecret(t *testing.T) {
 	m, f := systemModel(t, i18n.English, wideWidth, 40)
-	send(m, seq(keys("a"), typed("dora"), keys("down"), typed(hiddenA), keys("down"), typed(hiddenA), keys("down", "right", "tab", "tab", "tab"))...)
+	send(m, seq(keys("n"), typed("dora"), keys("down"), typed(hiddenA), keys("down"), typed(hiddenA), keys("down", "right", "tab", "tab", "tab"))...)
 	m.Update(tea.PasteMsg{Content: demoKey(t, 7)})
 	send(m, "f2")
 	screen := flat(m.render())
@@ -281,7 +281,7 @@ func TestCreateConfirmationShowsTheCommandsWithoutTheSecret(t *testing.T) {
 
 func TestCreateFormRefusesWhatTheRootActionWouldRefuse(t *testing.T) {
 	m, _ := systemModel(t, i18n.English, wideWidth, 40)
-	send(m, seq(keys("a"), typed("cleo"), keys("down"), typed(hiddenA), keys("down"), typed(hiddenB), keys("f2"))...)
+	send(m, seq(keys("n"), typed("cleo"), keys("down"), typed(hiddenA), keys("down"), typed(hiddenB), keys("f2"))...)
 	screen := m.render()
 	if m.modal != nil || !strings.Contains(screen, "This user exists already.") || !strings.Contains(screen, "The two passwords differ.") {
 		t.Fatalf("the form did not refuse:\n%s", screen)
@@ -335,7 +335,7 @@ func TestOwnAccountIsNotLockedOrDeleted(t *testing.T) {
 	if m.modal != nil || !strings.Contains(m.render(), "You cannot lock yourself.") {
 		t.Fatalf("locking oneself was offered:\n%s", m.render())
 	}
-	send(m, "x")
+	send(m, "d")
 	if m.set.form != nil || len(f.reqs) != 0 {
 		t.Fatal("deleting oneself was offered")
 	}
@@ -344,7 +344,7 @@ func TestOwnAccountIsNotLockedOrDeleted(t *testing.T) {
 func TestDeleteKeepsTheHomeUnlessChosen(t *testing.T) {
 	m, f := systemModel(t, i18n.English, wideWidth, 40)
 	toUser(t, m, "cleo")
-	send(m, "x", "f2")
+	send(m, "d", "f2")
 	if screen := flat(m.render()); !strings.Contains(screen, "The home and its files stay.") {
 		t.Fatalf("the delete question:\n%s", screen)
 	}
@@ -354,7 +354,7 @@ func TestDeleteKeepsTheHomeUnlessChosen(t *testing.T) {
 	}
 	send(m, "esc")
 	toUser(t, m, "cleo")
-	send(m, "x", "right", "f2")
+	send(m, "d", "right", "f2")
 	if screen := flat(m.render()); !strings.Contains(screen, "This cannot be undone: the home /home/cleo") {
 		t.Fatalf("the delete of the home:\n%s", screen)
 	}

@@ -5,6 +5,7 @@
   Service: deploy, engine system                                                
                                                                                 
   TIME                 USER  FUNCTION       STACK  RESULT         ORIGIN        
+  ──────────────────────────────────────────────────────────────────────        
 > 2026-11-02 09:05:00  ada   stacks.deploy  web    success        tui           
   2026-11-02 09:04:00  4242  stacks.update  db     failure: busy  mcp           
   2026-11-02 09:03:00  root  log.list       -      success        cli           
@@ -20,5 +21,4 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-H service  / search  W save log  r reload  1-7 area  q quit      ↑/↓ choose  1/3
+H service  / search  W save log  R reload  1-7 area  q quit      ↑/↓ choose  1/3

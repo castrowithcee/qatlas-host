@@ -362,7 +362,7 @@ scenario_tui_engine_choice() {
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_send 1
 	tui_wait "Engine $tc_engine" 30
-	tui_send a
+	tui_send n
 	tui_wait 'Add a stack folder' 10
 	tui_type "$tc_dir"
 	tui_send F2
@@ -814,7 +814,7 @@ scenario_tui_engine() {
 	tui_excerpt 'demo-rootless' 12
 
 	step 'a deploy from the section runs through sudo in the instance'
-	tui_send d
+	tui_send a
 	tui_wait 'Deploy demo-rootless?' 15
 	# The dialog may break the command after --engine.
 	tui_has 'sudo qhost stack deploy --output json --engine' && tui_has "$te_engine -- demo-rootless" ||

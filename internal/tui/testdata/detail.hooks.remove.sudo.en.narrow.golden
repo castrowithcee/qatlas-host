@@ -34,7 +34,7 @@
 │ ║ $ sudo qhost hook remove --yes --output json --  ║ │
 │ ║   h-a1b2c3d0                                     ║ │
 ╰─║                                                  ║─╯
-╭─║ [ yes, with sudo ]  > cancel <                   ║─╮
+╭─║ [ yes, with sudo ]  [ enter cancel ]             ║─╮
 │ ║ y yes, with sudo  n/esc/enter cancel             ║ │
 │ ╚══════════════════════════════════════════════════╝ │
 │ No grants for this stack.                            │

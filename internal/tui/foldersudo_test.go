@@ -315,7 +315,7 @@ func TestAdoptWithoutRootRunsSourceAdd(t *testing.T) {
 	if !m.ctList.Select(kittui.ItemID("legacy-blog-db-1")) {
 		t.Fatal("the container of the foreign project is not in the list")
 	}
-	send(m, "a")
+	send(m, "n")
 	wantCommands(t, m, f, inspectArgs(foreignDir))
 	add := []string{"source", "add", "--expect-effect", effectExample, "--yes", "--output", "json", "--", foreignDir}
 	contains(t, m, "legacy-blog")

@@ -3,12 +3,12 @@
    Benutzer   Gruppen   Ordner  [Vorschläge]  Änderungen   Protokoll                                                    
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   VORSCHLAG  ART            VON  EINGEREICHT  LÄUFT AB     ZUSTAND                                                      
+  ───────────────────────────────────────────────────────────────────                                                   
   h-0001     Host-Änderung  ben  10-30 16:00  11-13 16:00  offen                                                        
   h-0002     Host-Änderung  ada  10-30 09:00  11-13 09:00  offen                                                        
   h-0003     Host-Änderung  ada  10-29 12:00  11-12 12:00  angewendet                                                   
   h-0004     Host-Änderung  ben  10-28 08:00  11-11 08:00  abgelehnt                                                    
 > h-0005     freie Befehle  ben  10-30 18:00  11-13 18:00  offen                                                        
-                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         
@@ -23,7 +23,7 @@
                             ║ $ sudo qhost proposal run h-0005 --fingerprint fp-h-0005     ║                            
                             ║   --confirm --output json                                    ║                            
                             ║                                                              ║                            
-                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║                            
                             ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

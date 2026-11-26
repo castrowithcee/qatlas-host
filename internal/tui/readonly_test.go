@@ -40,7 +40,7 @@ func TestChangeWithoutRootIsHandedToSudo(t *testing.T) {
 	b := noRootBackend()
 	m, f := sudoStackModel(t, i18n.English, b, wideWidth, 60)
 	f.report = reportDeploy
-	send(m, "d", "y")
+	send(m, "a", "y")
 	if screen := m.render(); strings.Contains(screen, "this needs root; quit and run sudo qhost") || len(b.actions()) != 0 {
 		t.Fatalf("the change was refused instead of handed to sudo:\n%s", screen)
 	}
@@ -59,7 +59,7 @@ func TestUpdatePreviewWithoutRootIsHandedToSudo(t *testing.T) {
 	b := noRootBackend()
 	m, f := sudoStackModel(t, i18n.English, b, wideWidth, 60)
 	f.report = reportChangelog
-	send(m, "u")
+	send(m, "U")
 	if m.modal == nil || !strings.Contains(flat(m.render()), "This asks GitHub") {
 		t.Fatalf("no question with the sentence on GitHub:\n%s", m.render())
 	}
@@ -112,9 +112,9 @@ func TestFolderAndSettingsChangesWithoutRootAreHandedToSudo(t *testing.T) {
 		command       string
 	}{
 		{"fetch", "fetch:" + stackDir, foldersBackend, onStackFolder, keys("F", "y"), "sudo-fake qhost-fake repo fetch"},
-		{"release", "sourceremove:" + stackDir, foldersBackend, onStackFolder, keys("x", "y"), "sudo-fake qhost-fake source remove"},
+		{"release", "sourceremove:" + stackDir, foldersBackend, onStackFolder, keys("d", "y"), "sudo-fake qhost-fake source remove"},
 		{"notify test", "notifytest:ops-hook", settingsBackend, nil, seq(toNotify, keys("s", "y")), "sudo-fake qhost-fake notify test"},
-		{"credential delete", "creddel:registry.docker.io", settingsBackend, nil, seq(toCreds, keys("x", "y")), "sudo-fake qhost-fake credential delete"},
+		{"credential delete", "creddel:registry.docker.io", settingsBackend, nil, seq(toCreds, keys("d", "y")), "sudo-fake qhost-fake credential delete"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			b := tt.backend()

@@ -319,7 +319,7 @@ func TestChangesOfFreeCommandsOfferNoUndo(t *testing.T) {
 	f.report = `[{"id":"20261102T090000.000000Z-aaaaaa","time":"2026-11-02T09:00:00Z","action":"proposal.run",` +
 		`"sentence":"Run 3 unchecked commands of a proposal.","result":"failed","reversible":false,"sudo_uid":1000,` +
 		`"undo_sentence":"","undo_commands":[]}]`
-	send(m, "r")
+	send(m, "R")
 	if e, ok := m.selectedJournal(); !ok || e.undoable() {
 		t.Fatalf("the entry of free commands offers an undo: %+v", e)
 	}

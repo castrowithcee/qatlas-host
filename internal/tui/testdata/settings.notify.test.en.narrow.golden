@@ -3,9 +3,9 @@
   [Notifications]                                       
 ────────────────────────────────────────────────────────
   NAME      TYPE     EVENTS              TARGET         
+  ──────────────────────────────────────────────────────
 > ops-hook  webhook  failed,rolled-back  -              
   ops-mail  smtp     all                 mail.example.t…
-                                                        
                                                         
   ╔═ Notifications ══════════════════════════════════╗  
   ║ ⚠ Send a test message through ops-hook?          ║  
@@ -13,7 +13,7 @@
   ║ One short message is sent to the channel,        ║  
   ║ without retries.                                 ║  
   ║                                                  ║  
-  ║ [ yes, do it ]  > cancel <                       ║  
+  ║ [ yes, do it ]  [ enter cancel ]                 ║  
   ║ y yes, do it  n/esc/enter cancel                 ║  
   ╚══════════════════════════════════════════════════╝  
                                                         

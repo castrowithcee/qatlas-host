@@ -32,7 +32,7 @@
 ╰───────────────────────────║ A secret address is created. It is shown once after this and ║───────────────────────────╯
 ╭─ Webhooks ────────────────║ cannot be read again.                                        ║───────────────────────────╮
 │ No webhook for this stack.║                                                              ║                           │
-╰───────────────────────────║ [ yes, do it ]  > cancel <                                   ║───────────────────────────╯
+╰───────────────────────────║ [ yes, do it ]  [ enter cancel ]                             ║───────────────────────────╯
 ╭─ Grants ──────────────────║ y yes, do it  n/esc/enter cancel                             ║───────────────────────────╮
 │ A grant applies to the use╚══════════════════════════════════════════════════════════════╝                           │
 │ No grants for this stack.                                                                                            │

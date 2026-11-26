@@ -2,7 +2,7 @@
   1 Stacks 2 Stack detail 3 Runs 4 Settings [5 Containers] 6 Proposals 7 System 
 ────────────────────────────────────────────────────────────────────────────────
   demo-stack-app-1                                                              
-  error: the container engine is not reachable; start it, then press r          
+  error: the container engine is not reachable; start it, then press R          
 No lines yet.                                                                   
                                                                                 
                                                                                 
@@ -20,5 +20,5 @@ No lines yet.
                                                                                 
                                                                                 
 [ L following ]  [ / search ]  [ T period: all ]  [ w off ]  [ t off ]          
-/ search  L follow  T period  w wrap lines  t timestamps  W save log  r reload  
+/ search  L follow  T period  w wrap lines  t timestamps  W save log  R reload  
 1-7 area  q quit                                                      ↑/↓ scroll

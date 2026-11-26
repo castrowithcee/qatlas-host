@@ -2,23 +2,23 @@
   1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
    Users  [Groups]  Folders   Proposals   Changes   Log                         
 ────────────────────────────────────────────────────────────────────────────────
-    NAME          GID    MEMBERS                                                
+      NAME        GID    MEMBERS                                                
+      ──────────────────────────                                                
   ▾ ■ Groups (5)                                                                
-    ada           1000   ada                                                    
-    ben           1001   ben                                                    
-    cleo          1002   cleo                                                   
-    medi╔═ Change the host ════════════════════════════════════════════╗        
->   back║ ⚠ Delete the group backup-ops.                               ║        
-  ▾ ■ Sy║                                                              ║        
-    root║ Runs with sudo, goes into the journal and can be undone.     ║        
-    daem║ $ groupdel backup-ops                                        ║        
-    adm ║                                                              ║        
-    sudo║ [ yes, with sudo ]  > cancel <                               ║        
-    user║ y yes, with sudo  n/esc/enter cancel                         ║        
-    qhos╚══════════════════════════════════════════════════════════════╝        
-    docker        999    ada                                                    
-    nogroup       65534  nobody                                                 
-                                                                                
+      ada         1000   ada                                                    
+      ben         1001   ben                                                    
+      cl╔═ Change the host ════════════════════════════════════════════╗        
+      me║ ⚠ Delete the group backup-ops.                               ║        
+>     ba║                                                              ║        
+  ▾ ■ Sy║ Runs with sudo, goes into the journal and can be undone.     ║        
+      ro║ $ groupdel backup-ops                                        ║        
+      da║                                                              ║        
+      ad║ [ yes, with sudo ]  [ enter cancel ]                         ║        
+      su║ y yes, with sudo  n/esc/enter cancel                         ║        
+      us╚══════════════════════════════════════════════════════════════╝        
+      qhost       998    ada                                                    
+      docker      999    ada                                                    
+      nogroup     65534  nobody                                                 
                                                                                 
                                                                                 
                                                                             5/13

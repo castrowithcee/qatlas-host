@@ -33,7 +33,7 @@
 ╭─ Webhooks ────────────────║ gezeigt und ist nicht wieder lesbar.                         ║───────────────────────────╮
 │ Kein Webhook für diesen St║ $ sudo qhost hook add --output json -- demo-stack            ║                           │
 ╰───────────────────────────║                                                              ║───────────────────────────╯
-╭─ Freigaben ───────────────║ [ ja, mit sudo ]  > abbrechen <                              ║───────────────────────────╮
+╭─ Freigaben ───────────────║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║───────────────────────────╮
 │ Eine Freigabe gilt für den║ y ja, mit sudo  n/esc/enter abbrechen                        ║.                          │
 │ Keine Freigaben für diesen╚══════════════════════════════════════════════════════════════╝                           │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯

@@ -44,4 +44,4 @@
 │ failed  10-29 02:00  poll  850ms                     │
 │   20261029T020000Z-00000010                          │
 B back to before update  e update rules  b backup       
-C compose  o log  a set secret  r reload  q quit        
+I compose  o log  n set secret  R reload  q quit        

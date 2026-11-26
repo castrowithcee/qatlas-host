@@ -263,7 +263,7 @@ func (m *Model) ctSectionsView(width, height int) string {
 		case s.shown == 0:
 			need[i] = len(notes[i]) + 3
 		default:
-			need[i] = len(notes[i]) + s.shown + 3
+			need[i] = len(notes[i]) + s.shown + 2 + listHead
 		}
 	}
 	heights := sectionHeights(need, keep, slices.IndexFunc(secs, func(s *ctSection) bool { return s.list == m.ctList }), height)

@@ -14,7 +14,7 @@
                             ║ $ sudo qhost hook-service setup --listen 0.0.0.0:8480        ║                            
                             ║   --confirm --yes --output json                              ║                            
                             ║                                                              ║                            
-                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ [ yes, with sudo ]  [ enter cancel ]                         ║                            
                             ║ y yes, with sudo  n/esc/enter cancel                         ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

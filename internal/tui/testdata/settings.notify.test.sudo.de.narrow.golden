@@ -3,9 +3,9 @@
   [Benachrichtigungen]                                  
 ────────────────────────────────────────────────────────
   NAME      TYP      EREIGNISSE          ZIEL           
+  ──────────────────────────────────────────────────────
 > ops-hook  webhook  failed,rolled-back  -              
   ops-mail  smtp     alle                mail.example.t…
-                                                        
   ╔═ Benachrichtigungen ═════════════════════════════╗  
   ║ ⚠ Eine Testnachricht über ops-hook senden?       ║  
   ║                                                  ║  
@@ -14,7 +14,7 @@
   ║ $ sudo qhost notify test --output json --        ║  
   ║   ops-hook                                       ║  
   ║                                                  ║  
-  ║ [ ja, mit sudo ]  > abbrechen <                  ║  
+  ║ [ ja, mit sudo ]  [ enter abbrechen ]            ║  
   ║ y ja, mit sudo  n/esc/enter abbrechen            ║  
   ╚══════════════════════════════════════════════════╝  
                                                         

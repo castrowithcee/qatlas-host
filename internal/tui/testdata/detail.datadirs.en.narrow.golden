@@ -10,7 +10,7 @@
 ╭─ Missing data directories ───────────────────────────╮
 │ data/db  owner 1000:1000                             │
 │ data/files  owner 1000:1000                          │
-│ The stack waits until these directories exist. m     │
+│ The stack waits until these directories exist. +     │
 │ creates them with an owner and mode you confirm,     │
 │ then deploys the stack.                              │
 ╰──────────────────────────────────────────────────────╯
@@ -20,5 +20,5 @@
 ╰──────────────────────────────────────────────────────╯
 ╭─ Containers ─────────────────────────────────────────╮
 │ No containers of this stack.                         │
-m create data directories  B back to before update      
-e update rules  b backup  o log  r reload  q quit       
++ create data directories  B back to before update      
+e update rules  b backup  o log  R reload  q quit       

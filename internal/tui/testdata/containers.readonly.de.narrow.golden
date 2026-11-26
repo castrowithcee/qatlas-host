@@ -2,23 +2,23 @@
   1 2 3 4 [5 Container] 6 7                                                     
 ────────────────────────────────────────────────────────────────────────────────
 ╔═ Engine system ══════════════════════════════════════════════════════════════╗
-║     NAME               ZUSTAND   IMAGE                   LAUFZEIT  NEUSTARTS ║
+║       NAME               ZUSTAND   IMAGE                 LAUFZEIT  NEUSTARTS ║
+║       ────────────────────────────────────────────────────────────────────── ║
 ║   ▾ ■ eigener Stack demo-stack (2)                                           ║
-║ >   demo-stack-app-1   ok        example.invalid/app:1…  3h2m      0         ║
-║     demo-stack-db-1    ungesund  example.invalid/db:16   1m        2         ║
-║   ▾ ■ einzelne Container (1)                                                 ║
+║ >     demo-stack-app-1   ok        example.invalid/app…  3h2m      0         ║
+║       demo-stack-db-1    ungesund  example.invalid/db:…  1m        2         ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ╭─ Engine rootless:alice ──────────────────────────────────────────────────────╮
-│     NAME               ZUSTAND  IMAGE                    LAUFZEIT  NEUSTARTS │
-│   ▾ ■ eigener Stack photo-album (1)                                          │
-│     photo-album-web-1  ok       example.invalid/photo:3  10m       0         │
+│       NAME               ZUSTAND  IMAGE                  LAUFZEIT  NEUSTARTS │
+│       ────────────────────────────────────────────────────────────────────── │
+│       photo-album-web-1  ok       example.invalid/phot…  10m       0         │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Engine rootless:carol, nur lesen ───────────────────────────────────────────╮
 │ Diese Engine hat keinen Deploy-Dienst: Ihre Container werden nur gezeigt,    │
 │ keine Taste wirkt auf sie.                                                   │
-│     NAME            ZUSTAND   IMAGE                    LAUFZEIT  NEUSTARTS   │
-│   ▾ ■ einzelne Container (1)                                                 │
-│     ghost           ok        example.invalid/ghost:1  20s       0           │
+│       NAME            ZUSTAND   IMAGE                    LAUFZEIT  NEUSTARTS │
+│       ────────────────────────────────────────────────────────────────────── │
+│       ghost           ok        example.invalid/ghost:1  20s       0         │
 ╰──────────────────────────────────────────────────────────────────────────────╯
-enter Details  / Suchen  o Log  S start  X stop  Z restart  r Neu laden         
+enter Details  / Suchen  o Log  S start  X stop  Z restart  R Neu laden         
 1-7 Bereich  q Beenden                                        ↑/↓ Auswählen  1/6

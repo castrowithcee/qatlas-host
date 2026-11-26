@@ -11,4 +11,4 @@ qhost  maintenance window closed    [esc] back  [?] help
 | APP_VERSION  example/app                             |
 |   1.4.2 -> 1.5.0  update available                   |
 B back to before update  e update rules  b backup       
-C compose  o log  a set secret  r reload  q quit        
+I compose  o log  n set secret  R reload  q quit        

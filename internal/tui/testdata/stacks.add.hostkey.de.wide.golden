@@ -1,22 +1,22 @@
 ◆ qhost  Wartungsfenster zu                                                                                    [?] Hilfe
   [1 ▤ Stacks]  2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-        STACK                      VERSION      VERFÜGBAR      MODUS        ZUSTAND   BEFUNDE                           
-  ▾ [ ] ■ /srv/local-example (0)   lokal                                              Abruf fehlgeschlagen: the working…
-  ▾ [ ] ■ /srv/stacks-exampl╔═ Stack-Ordner hinzufügen ════════════════════════════════════╗fen 2026-10-30 14:30        
->   [ ] demo-stack          ║ ⚠ Diesem Hostschlüssel für                                   ║ung                         
-    [ ] mail-relay          ║   ssh://git.example.test/ops/stacks.git vertrauen?           ║                            
-    [ ] old-tool            ║                                                              ║                            
-    [ ] photo-album         ║ Vergleiche den Fingerabdruck zuerst mit der Git-Plattform.   ║er                          
-    [ ] web-shop            ║ Noch wird nichts gespeichert; der Schlüssel wird erst nach   ║                            
-    [ ] wiki                ║ der letzten Frage weitergegeben.                             ║ungen                       
-                            ║ Host: example.test                                           ║                            
+          STACK                    VERSION      VERFÜGBAR      MODUS        ZUSTAND   BEFUNDE                           
+          ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ▾ [ ] ■ /srv/local-example╔═ Stack-Ordner hinzufügen ════════════════════════════════════╗fehlgeschlagen: the working…
+  ▾ [ ] ■ /srv/stacks-exampl║ ⚠ Diesem Hostschlüssel für                                   ║fen 2026-10-30 14:30        
+>     [ ] demo-stack        ║   ssh://git.example.test/ops/stacks.git vertrauen?           ║ung                         
+      [ ] mail-relay        ║                                                              ║                            
+      [ ] old-tool          ║ Vergleiche den Fingerabdruck zuerst mit der Git-Plattform.   ║                            
+      [ ] photo-album       ║ Noch wird nichts gespeichert; der Schlüssel wird erst nach   ║er                          
+      [ ] web-shop          ║ der letzten Frage weitergegeben.                             ║                            
+      [ ] wiki              ║ Host: example.test                                           ║ungen                       
                             ║ Schlüsseltyp: ssh-ed25519                                    ║                            
                             ║ Fingerabdruck:                                               ║                            
                             ║ SHA256:ExampleFingerprintForTestsOnly0000000000              ║                            
                             ║ Ordner: /srv/clone-example                                   ║                            
                             ║                                                              ║                            
-                            ║ [ ja, ausführen ]  > abbrechen <                             ║                            
+                            ║ [ ja, ausführen ]  [ enter abbrechen ]                       ║                            
                             ║ y ja, ausführen  n/esc/enter abbrechen                       ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

@@ -2,23 +2,23 @@
   1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
    Users  [Groups]  Folders   Proposals   Changes   Log                         
 ────────────────────────────────────────────────────────────────────────────────
-    NAME          GID    MEMBERS                                                
+      NAME        GID    MEMBERS                                                
+      ──────────────────────────                                                
   ▾ ■ Groups (5)                                                                
-    ada           1000   ada                                                    
-    ben ╔═ Change the host ════════════════════════════════════════════╗        
-    cleo║ ⚠ Add ada, ben to the group media. Remove cleo from the      ║        
->   medi║   group media.                                               ║        
-    back║                                                              ║        
-  ▾ ■ Sy║ Runs with sudo, goes into the journal and can be undone.     ║        
-    root║ $ gpasswd -a ada media                                       ║        
-    daem║ $ gpasswd -a ben media                                       ║        
-    adm ║ $ gpasswd -d cleo media                                      ║        
-    sudo║                                                              ║        
-    user║ [ yes, with sudo ]  > cancel <                               ║        
-    qhos║ y yes, with sudo  n/esc/enter cancel                         ║        
-    dock╚══════════════════════════════════════════════════════════════╝        
-    nogroup       65534  nobody                                                 
-                                                                                
+      ad╔═ Change the host ════════════════════════════════════════════╗        
+      be║ ⚠ Add ada, ben to the group media. Remove cleo from the      ║        
+      cl║   group media.                                               ║        
+>     me║                                                              ║        
+      ba║ Runs with sudo, goes into the journal and can be undone.     ║        
+  ▾ ■ Sy║ $ gpasswd -a ada media                                       ║        
+      ro║ $ gpasswd -a ben media                                       ║        
+      da║ $ gpasswd -d cleo media                                      ║        
+      ad║                                                              ║        
+      su║ [ yes, with sudo ]  [ enter cancel ]                         ║        
+      us║ y yes, with sudo  n/esc/enter cancel                         ║        
+      qh╚══════════════════════════════════════════════════════════════╝        
+      docker      999    ada                                                    
+      nogroup     65534  nobody                                                 
                                                                                 
                                                                                 
                                                                             4/13

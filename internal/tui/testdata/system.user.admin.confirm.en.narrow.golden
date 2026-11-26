@@ -2,19 +2,19 @@
   1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
   [Users]  Groups   Folders   Proposals   Changes   Log                         
 ────────────────────────────────────────────────────────────────────────────────
-    NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS             
+      NAME       UID    ADMIN               DOCKER  LOGIN    GROUPS             
+      ─────────────────────────────────────────────────────────────             
   ▾ ■ Users (3)                                                                 
-    ada          1000   yes                 yes     unknown                     
-    ben          1001   yes, without qhost  no      unknown                     
->   cleo╔═ Change the host ════════════════════════════════════════════╗        
-  ▾ ■ Sy║ ⚠ Make cleo an administrator with access to qhost.           ║        
-    root║                                                              ║        
-    daem║ Admin and Docker rights allow practically everything on this ║        
-    nobo║ host. Runs with sudo, goes into the journal and can be       ║        
-        ║ undone.                                                      ║        
+      ada        1000   yes                 yes     unknown                     
+      be╔═ Change the host ════════════════════════════════════════════╗        
+>     cl║ ⚠ Make cleo an administrator with access to qhost.           ║        
+  ▾ ■ Sy║                                                              ║        
+      ro║ Admin and Docker rights allow practically everything on this ║        
+      da║ host. Runs with sudo, goes into the journal and can be       ║        
+      no║ undone.                                                      ║        
         ║ $ usermod -aG sudo,qhost cleo                                ║        
 ╭─ cleo ║                                                              ║───────╮
-│ Home: ║ [ yes, with sudo ]  > cancel <                               ║       │
+│ Home: ║ [ yes, with sudo ]  [ enter cancel ]                         ║       │
 │ Primar║ y yes, with sudo  n/esc/enter cancel                         ║       │
 │ Furthe╚══════════════════════════════════════════════════════════════╝       │
 │ Access: no administrator                                                     │

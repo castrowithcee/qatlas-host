@@ -13,7 +13,7 @@
         ║ $ sudo qhost grant add --confirm --output json -- ada        ║───────╮
   Last d║   stack.restart demo-stack                                   ║       │
         ║                                                              ║───────╯
-        ║ [ yes, with sudo ]  > cancel <                               ║        
+        ║ [ yes, with sudo ]  [ enter cancel ]                         ║        
         ║ y yes, with sudo  n/esc/enter cancel                         ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

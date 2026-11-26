@@ -10,9 +10,9 @@ import (
 
 // The ways to a change in the detail of the first stack.
 var (
-	toSecretForm = keys("enter", "a")
-	toSecretPick = keys("enter", "x")
-	toRestore    = keys("enter", "R")
+	toSecretForm = keys("enter", "n")
+	toSecretPick = keys("enter", "d")
+	toRestore    = keys("enter", "l")
 )
 
 func secretFormKeys() []string {
@@ -100,7 +100,7 @@ func TestSecretIsDeletedAfterConfirmation(t *testing.T) {
 	if slices.Contains(b.actions(), "secretdelete:demo-stack/DB_PASSWORD") {
 		t.Fatal("deleted without the confirmation")
 	}
-	send(m, "x", "down", "enter", "y")
+	send(m, "d", "down", "enter", "y")
 	if got := b.actions(); !slices.Contains(got, "secretdelete:demo-stack/DB_PASSWORD") {
 		t.Fatalf("calls = %v", got)
 	}
@@ -117,7 +117,7 @@ func TestSecretChoiceIsLeftWithEscape(t *testing.T) {
 	if m.pick != nil || m.area != areaDetail {
 		t.Fatalf("pick %v area %s", m.pick, m.area)
 	}
-	send(m, "x", "1")
+	send(m, "d", "1")
 	if m.pick != nil || m.area != areaStacks {
 		t.Fatal("the choice stays open after leaving the area")
 	}
@@ -155,7 +155,7 @@ func TestBackupIsRestoredAfterConfirmation(t *testing.T) {
 	if len(b.restores) != 0 {
 		t.Fatal("restored by the default answer")
 	}
-	send(m, "R", "enter", "y")
+	send(m, "l", "enter", "y")
 	if want := []control.BackupRestoreArgs{{Stack: "demo-stack", ID: olderBackup, Confirm: true}}; !slices.Equal(b.restores, want) {
 		t.Fatalf("restores %v", b.restores)
 	}
@@ -185,7 +185,7 @@ func TestRestoreWithoutAnOlderBackupSaysSo(t *testing.T) {
 func TestDetailChangesKeysDoNothingInStacks(t *testing.T) {
 	b := settingsBackend()
 	m := newSettingsModel(t, b)
-	send(m, "x", "R")
+	send(m, "d", "l")
 	if m.modal != nil || m.pick != nil || m.set.form != nil || len(b.actions()) != 0 {
 		t.Fatal("a detail key acted in the Stacks area")
 	}

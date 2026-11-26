@@ -2,16 +2,18 @@
   [1 Stacks] 2 3 4 5 6 7                                
 ────────────────────────────────────────────────────────
 ╔═ Engine system ══════════════════════════════════════╗
-║         STACK                      VERSION  VERFÜGBA ║
+║           STACK                    VERSION  VERFÜGBA ║
+║           ────────────────────────────────────────── ║
 ║   ▾ [ ] ■ /srv/stacks-example (2)  Klon            … ║
-║ >   [ ] mail-relay                 -        -      … ║
-║     [ ] wiki                       -        -      … ║
+║ >     [ ] mail-relay               -        -      … ║
+║       [ ] wiki                     -        -      … ║
 ╚══════════════════════════════════════════════════════╝
 ╭─ Engine rootless:alice ──────────────────────────────╮
-│         STACK                             VERSION  V │
+│           STACK                           VERSION  V │
+│           ────────────────────────────────────────── │
 │   ▾ [ ] ■ /home/alice/stacks-example (2)  lokal    … │
-│     [ ] photo-album                       -        … │
-│     [ ] wiki                              -        … │
+│       [ ] photo-album                     -        … │
+│       [ ] wiki                            -        … │
 ╰──────────────────────────────────────────────────────╯
                                                         
                                                         
@@ -20,7 +22,5 @@
                                                         
                                                         
                                                         
-                                                        
-                                                        
-enter Details  / Suchen  space markieren  u update      
-d deploy  a hinzufügen  r Neu laden  q Beenden          
+enter Details  / Suchen  space markieren  U update      
+a deploy  n hinzufügen  R Neu laden  q Beenden          

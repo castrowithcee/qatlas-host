@@ -14,13 +14,13 @@ import (
 
 func TestAClickOnAnAnswerActsLikeItsKey(t *testing.T) {
 	m, b := newMouseModel(t)
-	send(m, "d")
-	x, y := cellOf(t, m, "cancel <")
+	send(m, "a")
+	x, y := cellOf(t, m, "enter cancel ]")
 	clickAt(m, x, y)
 	if m.modal != nil || len(b.actions()) != 0 {
 		t.Fatalf("cancel by click: modal=%v calls=%v", m.modal != nil, b.actions())
 	}
-	send(m, "d")
+	send(m, "a")
 	x, y = cellOf(t, m, "yes, do it")
 	clickAt(m, x, y)
 	if got := b.actions(); !slices.Equal(got, []string{"deploy:demo-stack"}) {
@@ -50,7 +50,7 @@ func TestAClickOnADestructiveAnswerTakesTheFollowUpQuestion(t *testing.T) {
 
 func TestAClickOutsideTheDialogTargetsDoesNothing(t *testing.T) {
 	m, b := newMouseModel(t)
-	send(m, "d")
+	send(m, "a")
 	for _, needle := range []string{"Runs", "[?]", "photo-album"} {
 		if !strings.Contains(m.render(), needle) {
 			continue
@@ -89,7 +89,7 @@ func TestAFooterAnswerInTheNarrowFallbackIsClickable(t *testing.T) {
 		b := demoBackend()
 		m := newTestModel(t, i18n.English, b, width, minHeight)
 		m.mouseOn = true
-		send(m, "d")
+		send(m, "a")
 		m.render()
 		x, y := cellOf(t, m, "y yes")
 		clickAt(m, x, y)
@@ -101,7 +101,7 @@ func TestAFooterAnswerInTheNarrowFallbackIsClickable(t *testing.T) {
 
 func TestASheetFooterAnswerCanBeClicked(t *testing.T) {
 	m, b := newMouseModel(t)
-	cmd := press(m, "u")
+	cmd := press(m, "U")
 	drain(m, cmd)
 	m.render()
 	x, y := cellOf(t, m, "y yes, do it")
@@ -114,7 +114,7 @@ func TestASheetFooterAnswerCanBeClicked(t *testing.T) {
 func TestTheWheelScrollsASheetAndStopsAtBothEnds(t *testing.T) {
 	m := newTestModel(t, i18n.English, demoBackend(), wideWidth, 14)
 	m.mouseOn = true
-	drain(m, press(m, "u"))
+	drain(m, press(m, "U"))
 	m.render()
 	md := m.modal
 	if md.total <= md.rows {
@@ -147,7 +147,7 @@ func itoa(n int) string { return strconv.Itoa(n) }
 func TestTheWheelUnderAQuestionScrollsNoBackground(t *testing.T) {
 	m, _ := newMouseModel(t)
 	before := m.render()
-	send(m, "d")
+	send(m, "a")
 	m.render()
 	for range 5 {
 		wheelAt(m, 5, 10, tea.MouseWheelDown)
@@ -160,7 +160,7 @@ func TestTheWheelUnderAQuestionScrollsNoBackground(t *testing.T) {
 
 func TestATargetOfAnEarlierFrameDoesNotAnswer(t *testing.T) {
 	m, b := newMouseModel(t)
-	send(m, "d")
+	send(m, "a")
 	x, y := cellOf(t, m, "yes, do it")
 	send(m, "esc")
 	clickAt(m, x, y)

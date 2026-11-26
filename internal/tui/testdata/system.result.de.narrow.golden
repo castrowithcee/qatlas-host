@@ -2,19 +2,19 @@
   1 2 3 4 5 6 [7 System]                                                        
   [Benutzer]  Gruppen   Ordner   Vorschläge   Änderungen   Protokoll            
 ────────────────────────────────────────────────────────────────────────────────
-    NAME            UID    ADMIN           DOCKER  LOGIN      GRUPPEN           
+      NAME          UID    ADMIN           DOCKER  LOGIN      GRUPPEN           
+      ───────────────────────────────────────────────────────────────           
   ▾ ■ Benutzer (3)                                                              
-    ada             1000   ja              ja      unbekannt                    
-    ben ╔═ Host ═══════════════════════════════════════════════════════╗        
->   cleo║ Erledigt: cleo sperren: Danach ist kein Login mehr möglich,  ║        
-  ▾ ■ Sy║ weder mit Passwort noch mit SSH-Schlüssel.                   ║        
-    root║                                                              ║        
-    daem║ Journaleintrag 20261102T090000-0001. System > Änderungen     ║        
-    nobo║ nimmt ihn zurück.                                            ║        
-        ║                                                              ║        
+      ad╔═ Host ═══════════════════════════════════════════════════════╗        
+      be║ Erledigt: cleo sperren: Danach ist kein Login mehr möglich,  ║        
+>     cl║ weder mit Passwort noch mit SSH-Schlüssel.                   ║        
+  ▾ ■ Sy║                                                              ║        
+      ro║ Journaleintrag 20261102T090000-0001. System > Änderungen     ║        
+      da║ nimmt ihn zurück.                                            ║        
+      no║                                                              ║        
         ║ Prüfung: bestanden.                                          ║        
 ╭─ cleo ║                                                              ║───────╮
-│ Home: ║ > schließen <                                                ║       │
+│ Home: ║ [ enter schließen ]                                          ║       │
 │ Primär║ n/esc/enter schließen                                        ║       │
 │ Weiter╚══════════════════════════════════════════════════════════════╝       │
 │ Zugang: kein Administrator                                                   │

@@ -55,7 +55,7 @@ func TestAClickOnAKeyActsLikeTheKey(t *testing.T) {
 	}
 	press(m, "esc")
 	m.render()
-	x, y = cellOf(t, m, "d deploy")
+	x, y = cellOf(t, m, "a deploy")
 	clickAt(m, x, y)
 	if m.modal == nil {
 		t.Fatal("the footer key did not open the question")
@@ -67,7 +67,7 @@ func TestAClickOnAKeyActsLikeTheKey(t *testing.T) {
 
 func TestATargetOfAnEarlierFrameDoesNotAct(t *testing.T) {
 	m, _ := newMouseModel(t)
-	x, y := cellOf(t, m, "d deploy")
+	x, y := cellOf(t, m, "a deploy")
 	send(m, "3")
 	clickAt(m, x, y)
 	if m.modal != nil {
@@ -112,7 +112,7 @@ func TestTheMouseMapIsOffWhereTheMouseMustNotAct(t *testing.T) {
 func TestAnOpenQuestionTakesNoClickOfTheScreenBeneath(t *testing.T) {
 	m, _ := newMouseModel(t)
 	x, y := cellOf(t, m, "Runs")
-	press(m, "d")
+	press(m, "a")
 	m.render()
 	clickAt(m, x, y)
 	if m.area != areaStacks || m.modal == nil {
@@ -311,7 +311,7 @@ func TestAStaleRowAndTheWheelOfAnOpenQuestionDoNotAct(t *testing.T) {
 	if m.area != areaContainers || marked(t, m.list) != "demo-stack" {
 		t.Fatalf("area %s, marked %q", m.area, marked(t, m.list))
 	}
-	send(m, "1", "d")
+	send(m, "1", "a")
 	if m.modal == nil {
 		t.Fatal("no question")
 	}

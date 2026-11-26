@@ -48,16 +48,16 @@ func TestFolderAndSettingsActionsWithoutRootRunTheirCommand(t *testing.T) {
 	}{
 		{"repo fetch", foldersBackend, onStackFolder, keys("F"), reportFetch,
 			[]string{"repo", "fetch", "--dir", stackDir, "--output", "json"}, "Fetched " + stackDir + "; the remote has newer commits"},
-		{"source remove", foldersBackend, onStackFolder, keys("x"), reportRemove,
+		{"source remove", foldersBackend, onStackFolder, keys("d"), reportRemove,
 			[]string{"source", "remove", "--yes", "--output", "json", "--", stackDir}, "The stack folder " + stackDir + " is released"},
 		{"key generate", keyHost, nil, toFolderKeyForm, reportKey,
 			[]string{"key", "generate", "--dir", stackDir, "--output", "json"}, "The deploy key is generated."},
 		{"window set", settingsBackend, nil, seq(toWindow, keys("e", "tab", "backspace", "backspace", "backspace", "backspace", "backspace"),
 			typed("04:30"), keys("f2")), reportWindow,
 			[]string{"window", "set", "--start", "04:30", "--output", "json"}, "The maintenance window is changed."},
-		{"credential delete", settingsBackend, nil, seq(toCreds, keys("x")), `{"name":"registry.docker.io","deleted":true}`,
+		{"credential delete", settingsBackend, nil, seq(toCreds, keys("d")), `{"name":"registry.docker.io","deleted":true}`,
 			[]string{"credential", "delete", "--yes", "--output", "json", "--", "registry.docker.io"}, "The credential registry.docker.io is deleted."},
-		{"notify remove", settingsBackend, nil, seq(toNotify, keys("down", "x")), `{"name":"ops-mail","removed":true}`,
+		{"notify remove", settingsBackend, nil, seq(toNotify, keys("down", "d")), `{"name":"ops-mail","removed":true}`,
 			[]string{"notify", "remove", "--yes", "--output", "json", "--", "ops-mail"}, "The channel ops-mail is removed."},
 		{"notify test", settingsBackend, nil, seq(toNotify, keys("s")), `{"name":"ops-hook","type":"webhook","sent":true}`,
 			[]string{"notify", "test", "--output", "json", "--", "ops-hook"}, "The test message through ops-hook was delivered."},
@@ -136,12 +136,12 @@ func TestFolderAndSettingsActionsWithoutRootShowTheMessageOfTheCommand(t *testin
 		keys    []string
 	}{
 		{"repo fetch", foldersBackend, onStackFolder, keys("F", "y")},
-		{"source remove", foldersBackend, onStackFolder, keys("x", "y")},
+		{"source remove", foldersBackend, onStackFolder, keys("d", "y")},
 		{"key generate", keyHost, nil, seq(toFolderKeyForm, keys("y"))},
 		{"window set", settingsBackend, nil, seq(toWindow, keys("e", "tab", "backspace", "backspace", "backspace", "backspace", "backspace"),
 			typed("04:30"), keys("f2", "y"))},
-		{"credential delete", settingsBackend, nil, seq(toCreds, keys("x", "y"))},
-		{"notify remove", settingsBackend, nil, seq(toNotify, keys("down", "x", "y"))},
+		{"credential delete", settingsBackend, nil, seq(toCreds, keys("d", "y"))},
+		{"notify remove", settingsBackend, nil, seq(toNotify, keys("down", "d", "y"))},
 		{"notify test", settingsBackend, nil, seq(toNotify, keys("s", "y"))},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -165,10 +165,10 @@ func TestFolderAndSettingsActionsWithoutRootCancelledRunNothing(t *testing.T) {
 		keys    []string
 	}{
 		"repo fetch":        {foldersBackend, onStackFolder, keys("F")},
-		"source remove":     {foldersBackend, onStackFolder, keys("x")},
+		"source remove":     {foldersBackend, onStackFolder, keys("d")},
 		"key generate":      {keyHost, nil, toFolderKeyForm},
-		"credential delete": {settingsBackend, nil, seq(toCreds, keys("x"))},
-		"notify remove":     {settingsBackend, nil, seq(toNotify, keys("down", "x"))},
+		"credential delete": {settingsBackend, nil, seq(toCreds, keys("d"))},
+		"notify remove":     {settingsBackend, nil, seq(toNotify, keys("down", "d"))},
 		"notify test":       {settingsBackend, nil, seq(toNotify, keys("s"))},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -207,7 +207,7 @@ func TestGoldenSudoFolderFetchQuestion(t *testing.T) {
 }
 
 func TestGoldenSudoFolderReleaseQuestion(t *testing.T) {
-	goldenSudoSettings(t, "stacks.release.sudo", oneFolderBackend, seq(toFolders, keys("up", "x"))...)
+	goldenSudoSettings(t, "stacks.release.sudo", oneFolderBackend, seq(toFolders, keys("up", "d"))...)
 }
 
 func TestGoldenSudoKeyGenerateQuestion(t *testing.T) {
@@ -224,5 +224,5 @@ func TestGoldenSudoNotifyTestQuestion(t *testing.T) {
 }
 
 func TestGoldenSudoCredentialDeleteQuestion(t *testing.T) {
-	goldenSudoSettings(t, "settings.credential.delete.sudo", settingsBackend, seq(toCreds, keys("x"))...)
+	goldenSudoSettings(t, "settings.credential.delete.sudo", settingsBackend, seq(toCreds, keys("d"))...)
 }

@@ -90,7 +90,7 @@ func TestLogIsReadOnceOnOpenAndAgainOnReload(t *testing.T) {
 	if h.lists != 1 {
 		t.Fatalf("the action log was read %d times, want once: every read is an entry of it", h.lists)
 	}
-	send(m, "r")
+	send(m, "R")
 	if h.lists != 2 || h.verifies != 2 {
 		t.Fatalf("r read the action log %d and checked it %d times, want twice each", h.lists, h.verifies)
 	}

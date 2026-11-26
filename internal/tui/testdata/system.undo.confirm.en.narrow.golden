@@ -3,10 +3,10 @@
    Users   Groups   Folders   Proposals  [Changes]  Log                         
 ────────────────────────────────────────────────────────────────────────────────
   TIME              BY    CHANGE                                RESULT  UNDO    
-> 2026-11-02 09:00  ada   Change /srv/media: owner cleo, grou…  done    possible
-  2026-1╔═ Change the host ════════════════════════════════════════════╗-       
+  ──────────────────────────────────────────────────────────────────────────────
+> 2026-1╔═ Change the host ════════════════════════════════════════════╗possible
   2026-1║ ⚠ Undo the change: Change /srv/media: owner cleo, group      ║-       
-        ║   media; the owner gets read and write, the group read,      ║        
+  2026-1║   media; the owner gets read and write, the group read,      ║-       
         ║   everyone else nothing.                                     ║        
         ║                                                              ║        
         ║ Runs with sudo and goes into the journal. The undo itself    ║        
@@ -16,7 +16,7 @@
         ║ $ chown -h -- 1000:1000 /srv/media                           ║        
         ║ $ chmod -- 0755 /srv/media                                   ║        
 ╭─ 20261║                                                              ║───────╮
-│ Undo: ║ [ yes, with sudo ]  > cancel <                               ║       │
+│ Undo: ║ [ yes, with sudo ]  [ enter cancel ]                         ║       │
 │ /srv/m║ y yes, with sudo  n/esc/enter cancel                         ║       │
 │ $ chow╚══════════════════════════════════════════════════════════════╝       │
 │ $ chmod -- 0755 /srv/media                                                   │

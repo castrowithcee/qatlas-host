@@ -2,13 +2,13 @@
   [1 Stacks] 2 3 4 5 6 7                                
 ────────────────────────────────────────────────────────
   ╔═ pin ════════════════════════════════════════════╗  
-> ║ ⚠ Pin demo-stack?                                ║g 
-  ║                                                  ║  
+  ║ ⚠ Pin demo-stack?                                ║──
+> ║                                                  ║g 
   ║ The maintenance window and update leave the      ║  
   ║ image versions of the stack as they are until    ║  
   ║ you unpin it.                                    ║  
-  ║                                                  ║gs
-  ║ [ yes, do it ]  > cancel <                       ║  
+  ║                                                  ║  
+  ║ [ yes, do it ]  [ enter cancel ]                 ║gs
   ║ y yes, do it  n/esc/enter cancel                 ║  
   ╚══════════════════════════════════════════════════╝  
                                                      1/6

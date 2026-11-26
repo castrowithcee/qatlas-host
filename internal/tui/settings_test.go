@@ -193,7 +193,7 @@ func TestCredentialIsSetWithADerivedNameAndNeverShown(t *testing.T) {
 	m := newSettingsModel(t, b)
 	hidden := []string{hiddenA}
 	send(m, toCreds...)
-	send(m, "a")
+	send(m, "n")
 	sendHidden(t, m, hidden, "down")
 	sendHidden(t, m, hidden, typed("Registry.Example.test:5000")...)
 	sendHidden(t, m, hidden, "down")
@@ -218,7 +218,7 @@ func TestGitHubTokenCredentialTakesOnlyTheToken(t *testing.T) {
 	m := newSettingsModel(t, b)
 	hidden := []string{hiddenA}
 	send(m, toCreds...)
-	send(m, "a", "right")
+	send(m, "n", "right")
 	// The registry fields stay empty and are not asked for.
 	sendHidden(t, m, hidden, "down", "down", "down")
 	sendHidden(t, m, hidden, typed(hiddenA)...)
@@ -234,9 +234,9 @@ func TestCredentialFormRefusesWhatCannotBeStored(t *testing.T) {
 	b := settingsBackend()
 	m := newSettingsModel(t, b)
 	send(m, toCreds...)
-	send(m, "a", "f2")
+	send(m, "n", "f2")
 	contains(t, m, "no registry host", "user is required", "4 to 8192")
-	send(m, "esc", "a", "down")
+	send(m, "esc", "n", "down")
 	send(m, typed("reg.example.test")...)
 	send(m, "down")
 	send(m, typed("al:ice")...)
@@ -254,11 +254,11 @@ func TestCredentialIsDeletedAfterConfirmation(t *testing.T) {
 	b := settingsBackend()
 	m := newSettingsModel(t, b)
 	send(m, toCreds...)
-	send(m, "x", "n")
+	send(m, "d", "n")
 	if len(b.actions()) != 0 {
 		t.Fatalf("calls %v", b.actions())
 	}
-	send(m, "x", "y")
+	send(m, "d", "y")
 	if got := b.actions(); !slices.Equal(got, []string{"creddel:registry.docker.io"}) {
 		t.Fatalf("calls = %v", got)
 	}
@@ -325,7 +325,7 @@ func TestWebhookChannelIsAddedWithMaskedSecrets(t *testing.T) {
 	m := newSettingsModel(t, b)
 	hidden := []string{hiddenA, hiddenB}
 	send(m, toNotify...)
-	send(m, "a")
+	send(m, "n")
 	sendHidden(t, m, hidden, typed("deploy-hook")...)
 	// The type is a webhook, and the first event is ticked.
 	sendHidden(t, m, hidden, "down", "down", "space", "f2")
@@ -356,7 +356,7 @@ func TestSMTPChannelTakesItsSettings(t *testing.T) {
 	m := newSettingsModel(t, b)
 	hidden := []string{hiddenA}
 	send(m, toNotify...)
-	send(m, "a")
+	send(m, "n")
 	send(m, typed("alerts")...)
 	send(m, "down", "right", "right", "right", "f2")
 	contains(t, m, "SMTP host", "Password")
@@ -388,12 +388,12 @@ func TestChannelFormsRefuseWhatTheServiceWouldRefuse(t *testing.T) {
 	b := settingsBackend()
 	m := newSettingsModel(t, b)
 	send(m, toNotify...)
-	send(m, "a", "f2")
+	send(m, "n", "f2")
 	contains(t, m, "1 to 32 characters")
 	send(m, typed("Bad Name")...)
 	send(m, "f2")
 	contains(t, m, "1 to 32 characters")
-	send(m, "esc", "y", "a")
+	send(m, "esc", "y", "n")
 	send(m, typed("hook")...)
 	send(m, "down", "right", "f2", "f2") // slack without a URL
 	contains(t, m, "4 to 8192")
@@ -401,7 +401,7 @@ func TestChannelFormsRefuseWhatTheServiceWouldRefuse(t *testing.T) {
 		t.Fatal("a refused channel went on")
 	}
 	// A password without a user is refused for smtp.
-	send(m, "esc", "y", "a")
+	send(m, "esc", "y", "n")
 	send(m, typed("mail")...)
 	send(m, "down", "right", "right", "right", "f2")
 	send(m, typed("mail.example.test")...)
@@ -416,13 +416,13 @@ func TestChannelTestAndRemovalAskFirst(t *testing.T) {
 	b := settingsBackend()
 	m := newSettingsModel(t, b)
 	send(m, toNotify...)
-	send(m, "s", "n", "x", "n")
+	send(m, "s", "n", "d", "n")
 	if len(b.actions()) != 0 {
 		t.Fatalf("calls %v", b.actions())
 	}
 	send(m, "s", "y")
 	contains(t, m, "ops-hook was delivered")
-	send(m, "enter", "down", "x", "y")
+	send(m, "enter", "down", "d", "y")
 	if got := b.actions(); !slices.Equal(got, []string{"notifytest:ops-hook", "notifyremove:ops-mail"}) {
 		t.Fatalf("calls = %v", got)
 	}
@@ -437,7 +437,7 @@ func TestServiceFailuresOfSettingsAreShownWithoutAValue(t *testing.T) {
 	b.errs["credset:registry.reg.example.test"] = control.NewError(control.CodeInvalid, "the credential store refused the write")
 	m := newSettingsModel(t, b)
 	send(m, toCreds...)
-	send(m, "a", "down")
+	send(m, "n", "down")
 	send(m, typed("reg.example.test")...)
 	send(m, "down")
 	send(m, typed("alice")...)
@@ -454,7 +454,7 @@ func TestServiceFailuresOfSettingsAreShownWithoutAValue(t *testing.T) {
 func TestSettingsKeysDoNothingOutsideTheirPage(t *testing.T) {
 	b := settingsBackend()
 	m := newSettingsModel(t, b)
-	send(m, "x", "e", "b", "F", "G", "s")
+	send(m, "d", "e", "b", "F", "G", "s")
 	if m.modal != nil || m.set.form != nil || len(b.actions()) != 0 {
 		t.Fatal("a settings key acted in the Stacks area")
 	}
@@ -471,7 +471,7 @@ func TestWritesRefuseAKeyWhileOneIsUnderWay(t *testing.T) {
 	m := newSettingsModel(t, b)
 	m.folders = &fakeFolders{}
 	send(m, toFolders...)
-	send(m, "a")
+	send(m, "n")
 	send(m, typed(stackDir)...)
 	cmd := press(m, "f2")
 	if !m.set.busy {

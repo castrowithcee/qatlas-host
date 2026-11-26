@@ -5,6 +5,7 @@
   Dienst: Deploy, Engine system                                                                                         
                                                                                                                         
   ZEIT                 BENUTZER  FUNKTION       STACK  ERGEBNIS      HERKUNFT                                           
+  ───────────────────────────────────────────────────────────────────────────                                           
 > 2026-11-02 09:05:00  ada       stacks.deploy  web    Erfolg        tui                                                
   2026-11-02 09:04:00  4242      stacks.update  db     Fehler: busy  mcp                                                
   2026-11-02 09:03:00  root      log.list       -      Erfolg        cli                                                
@@ -36,5 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-H Dienst  / Suchen  W Log speichern  r Neu laden  1-7 Bereich  q Beenden                              ↑/↓ Auswählen  1/3
+H Dienst  / Suchen  W Log speichern  R Neu laden  1-7 Bereich  q Beenden                              ↑/↓ Auswählen  1/3

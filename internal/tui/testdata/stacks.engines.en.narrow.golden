@@ -2,16 +2,18 @@
   [1 Stacks] 2 3 4 5 6 7                                
 ────────────────────────────────────────────────────────
 ╔═ Engine system ══════════════════════════════════════╗
-║         STACK                      CURRENT  AVAILABL ║
+║           STACK                    CURRENT  AVAILABL ║
+║           ────────────────────────────────────────── ║
 ║   ▾ [ ] ■ /srv/stacks-example (2)  clone           … ║
-║ >   [ ] mail-relay                 -        -      … ║
-║     [ ] wiki                       -        -      … ║
+║ >     [ ] mail-relay               -        -      … ║
+║       [ ] wiki                     -        -      … ║
 ╚══════════════════════════════════════════════════════╝
 ╭─ Engine rootless:alice ──────────────────────────────╮
-│         STACK                             CURRENT  A │
+│           STACK                           CURRENT  A │
+│           ────────────────────────────────────────── │
 │   ▾ [ ] ■ /home/alice/stacks-example (2)  local    … │
-│     [ ] photo-album                       -        … │
-│     [ ] wiki                              -        … │
+│       [ ] photo-album                     -        … │
+│       [ ] wiki                            -        … │
 ╰──────────────────────────────────────────────────────╯
                                                         
                                                         
@@ -20,7 +22,5 @@
                                                         
                                                         
                                                         
-                                                        
-                                                        
-enter details  / search  space tick  u update  d deploy 
-a add  r reload  1-7 area  q quit        ↑/↓ choose  1/2
+enter details  / search  space tick  U update  a deploy 
+n add  R reload  1-7 area  q quit        ↑/↓ choose  1/2

@@ -13,7 +13,7 @@
 ╰───────║ rules, backup, compose files and check, and is pushed to its ║───────╯
 ╭─ Conta║ remote. Afterwards the stack is deployed but never updated.  ║───────╮
 │ No con║                                                              ║       │
-╰───────║ [ yes, do it ]  > cancel <                                   ║───────╯
+╰───────║ [ yes, do it ]  [ enter cancel ]                             ║───────╯
 ╭─ Chang║ y yes, do it  n/esc/enter cancel                             ║───────╮
 │ APP_VE╚══════════════════════════════════════════════════════════════╝       │
 │   source example/app                                                         │

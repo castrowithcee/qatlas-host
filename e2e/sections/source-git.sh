@@ -435,7 +435,7 @@ scenario_tui_move() {
 	tui_send 5
 	tui_wait 'foreign project tuimove' 30
 	tui_ct_cursor_to tuimove-app-1
-	tui_send a
+	tui_send n
 	tui_wait 'Take over as' 30
 	tui_wait 'a source of its own' 10
 	tui_send Enter

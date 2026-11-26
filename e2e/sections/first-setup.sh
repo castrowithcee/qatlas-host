@@ -135,7 +135,7 @@ scenario_tui_setup() {
 	tui_wait 'No stack folders yet' 30
 
 	step 'Stacks: adding the clone stops at the missing deploy key; the key is generated and its public part shown'
-	tui_send a
+	tui_send n
 	tui_wait 'Add a stack folder' 10
 	tui_type /opt/stacks
 	tui_send F2
@@ -165,8 +165,8 @@ scenario_tui_setup() {
 
 	step 'Settings: a registry credential is set after a question'
 	tui_subtab Credentials
-	tui_wait 'x remove' 10
-	tui_send a
+	tui_wait 'd remove' 10
+	tui_send n
 	tui_wait 'Set a credential' 10
 	tui_send Tab
 	tui_type "$tui_registry_host"
@@ -225,7 +225,7 @@ scenario_tui_setup() {
 	tui_wait 's send test' 10
 	tui_send Down
 	sleep 0.3
-	tui_send a
+	tui_send n
 	tui_wait 'Add a notification channel' 10
 	tui_type tui-hook
 	tui_send F2
@@ -253,7 +253,7 @@ scenario_tui_setup() {
 	secret_before=$(docker exec "$host" stat -c '%U:%G %a' "$local_dir/demo-tui-local/secrets.env")
 	tui_send 1
 	tui_wait 'No stack folders yet' 10
-	tui_send a
+	tui_send n
 	tui_wait 'Add a stack folder' 10
 	tui_type "$local_dir"
 	tui_send F2
@@ -271,7 +271,7 @@ scenario_tui_setup() {
 	[ -z "$(docker exec "$host" git -C "$local_dir" config core.sharedRepository)" ] || fail 'the answer n changed the repository configuration'
 
 	step 'Stacks: the clone is added as a stack folder after the host key is shown and confirmed'
-	tui_send a
+	tui_send n
 	tui_wait 'Add a stack folder' 10
 	tui_type /opt/stacks
 	tui_send F2
@@ -303,7 +303,7 @@ scenario_tui_setup() {
 	step 'Stacks: the local repository is added as the second stack folder; the Stacks area lists both folders'
 	tui_send 1
 	tui_wait '/opt/stacks' 10
-	tui_send a
+	tui_send n
 	tui_wait 'Add a stack folder' 10
 	tui_type "$local_dir"
 	tui_send F2
@@ -334,7 +334,7 @@ scenario_tui_setup() {
 	tui_cursor_to demo-echo
 	tui_send Enter
 	tui_wait 'Secrets' 15
-	tui_send a
+	tui_send n
 	tui_wait 'Set a secret' 10
 	tui_type DEMO_ECHO_TAG
 	tui_send Tab
@@ -357,7 +357,7 @@ scenario_tui_setup() {
 	tui_send Escape
 	tui_wait 'CURRENT' 10
 	tui_cursor_to demo-echo
-	tui_send d
+	tui_send a
 	tui_wait 'Deploy demo-echo?' 10
 	tui_send y
 	tui_wait 'deploy finished: 1 ok, 0 failed' 60
@@ -389,9 +389,9 @@ scenario_tui_setup() {
 	tui_cursor_to demo-echo
 	tui_send Enter
 	tui_wait 'Backups' 15
-	tui_send r
-	tui_wait "$newest" 15
 	tui_send R
+	tui_wait "$newest" 15
+	tui_send l
 	tui_wait 'Restore a backup' 10
 	if tui_screen | grep -q "$newest"; then fail 'the newest backup is offered for a restore'; fi
 	tui_pick_to "$older"
@@ -411,8 +411,8 @@ scenario_tui_setup() {
 	tui_send Escape
 	tui_send 1
 	tui_folder_to "$local_dir"
-	tui_wait 'x release' 10
-	tui_send x
+	tui_wait 'd release' 10
+	tui_send d
 	tui_wait "Release the stack folder $local_dir" 10
 	list_has_path "$local_dir" || fail "the question already released $local_dir"
 	tui_send y

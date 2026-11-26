@@ -2,22 +2,22 @@
   1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
   [Users]  Groups   Folders   Proposals   Changes   Log                         
 ────────────────────────────────────────────────────────────────────────────────
-    NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS             
-  ▾ ■ Us╔═ Change the host ════════════════════════════════════════════╗        
->   ada ║ ⚠ Create the user dora with an initial password that must be ║        
-    ben ║   changed at the first login.                                ║        
-    cleo║                                                              ║        
-  ▾ ■ Sy║ Admin and Docker rights allow practically everything on this ║        
-    root║ host. Runs with sudo, goes into the journal and can be       ║        
-    daem║ undone.                                                      ║        
-    nobo║ $ useradd -m -d /home/dora -U -s /bin/bash -G sudo,qhost     ║        
-        ║   dora                                                       ║        
+      NAME       UID    ADMIN               DOCKER  LOGIN    GROUPS             
+      ──╔═ Change the host ════════════════════════════════════════════╗        
+  ▾ ■ Us║ ⚠ Create the user dora with an initial password that must be ║        
+>     ad║   changed at the first login.                                ║        
+      be║                                                              ║        
+      cl║ Admin and Docker rights allow practically everything on this ║        
+  ▾ ■ Sy║ host. Runs with sudo, goes into the journal and can be       ║        
+      ro║ undone.                                                      ║        
+      da║ $ useradd -m -d /home/dora -U -s /bin/bash -G sudo,qhost     ║        
+      no║   dora                                                       ║        
         ║ $ chpasswd < <password>                                      ║        
 ╭─ ada ─║ $ chage -d 0 dora                                            ║───────╮
 │ Home: ║ $ [builtin] authorized-keys-add dora < <ssh key              ║       │
 │ Primar║   SHA256:z/fSv0Z0RZS+Lccbc6ZoOWwt/fbj1VFJGSBKQbo4icE>        ║       │
 │ Furthe║                                                              ║       │
-│ Access║ [ yes, with sudo ]  > cancel <                               ║       │
+│ Access║ [ yes, with sudo ]  [ enter cancel ]                         ║       │
 │ Login:║ y yes, with sudo  n/esc/enter cancel                         ║       │
 │ Login ╚══════════════════════════════════════════════════════════════╝       │
 ╰──────────────────────────────────────────────────────────────────────────────╯

@@ -3,10 +3,10 @@
    Users   Groups   Folders   Proposals  [Changes]  Log                         
 ────────────────────────────────────────────────────────────────────────────────
   TIME              BY    CHANGE                                RESULT  UNDO    
+  ──────────────────────────────────────────────────────────────────────────────
 > 2026-11-02 09:00  ada   Change /srv/media: owner cleo, grou…  done    possible
   2026-11-01 17:00  ada   Delete the user ben together with i…  done    -       
   2026-11-01 08:00  root  Lock cleo: no login is possible any…  undone  -       
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -21,4 +21,4 @@
 │ $ chown -h -- 1000:1000 /srv/media                                           │
 │ $ chmod -- 0755 /srv/media                                                   │
 ╰──────────────────────────────────────────────────────────────────────────────╯
-enter undo  / search  r reload  1-7 area  q quit                 ↑/↓ choose  1/3
+enter undo  / search  R reload  1-7 area  q quit                 ↑/↓ choose  1/3

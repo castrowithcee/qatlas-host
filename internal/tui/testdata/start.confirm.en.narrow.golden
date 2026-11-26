@@ -2,16 +2,16 @@
   [1 Stacks] 2 3 4 5 6 7                                
 ────────────────────────────────────────────────────────
       STACK        CURRENT  AVAILABLE  STATE  FINDINGS  
-  [ ] demo-stack   1.4.2    1.5.0      depl…  1 warning 
-> ╔═ start ══════════════════════════════════════════╗  
-  ║ ⚠ Start mail-relay?                              ║  
+      ──────────────────────────────────────────────────
+  ╔═ start ══════════════════════════════════════════╗g 
+> ║ ⚠ Start mail-relay?                              ║  
   ║                                                  ║  
   ║ Starts the existing containers of the stack,     ║  
-  ║ removes the stopped mark and checks the stack.   ║gs
-  ║ It creates no containers; a stack that was never ║  
+  ║ removes the stopped mark and checks the stack.   ║  
+  ║ It creates no containers; a stack that was never ║gs
   ║ deployed needs a deploy.                         ║  
   ║                                                  ║  
-  ║ [ yes, do it ]  > cancel <                       ║  
+  ║ [ yes, do it ]  [ enter cancel ]                 ║  
   ║ y yes, do it  n/esc/enter cancel                 ║  
   ╚══════════════════════════════════════════════════╝  
                                                         

@@ -2,18 +2,18 @@
   [1 Stacks] 2 3 4 5 6 7                                                        
 ────────────────────────────────────────────────────────────────────────────────
       STACK        VERSION      VERFÜGBAR      ZUSTAND   BEFUNDE                
+      ──────────────────────────────────────────────────────────────            
 > [ ] demo-stack   1.4.2        1.5.0          deployt   1 Warnung              
   [ ] mail-relay   3.1          aktuell        offen     keine                  
   [ ] old-tool     -            ungeprüft      entfernt  keine                  
-  [ ] photo-album  2.0.1        Fehler         Rollback  1 Fehler               
-  [ ] we╔═ Deploy-Dienst ══════════════════════════════════════════════╗        
-  [ ] wi║ ⚠ Welchen Deploy-Dienst möchtest du einrichten?              ║        
-        ║                                                              ║        
+  [ ] ph╔═ Deploy-Dienst ══════════════════════════════════════════════╗        
+  [ ] we║ ⚠ Welchen Deploy-Dienst möchtest du einrichten?              ║        
+  [ ] wi║                                                              ║        
         ║ Die System-Engine bekommt einen Dienst mit eigenem           ║        
         ║ Systembenutzer. Eine rootless Engine bekommt einen Dienst,   ║        
         ║ der als der Benutzer läuft, dem die Engine gehört.           ║        
         ║                                                              ║        
-        ║ [ System-Engine ]  [ rootless Engine ]  > abbrechen <        ║        
+        ║ [ System-Engine ]  [ rootless Engine ]  [ enter abbrechen ]  ║        
         ║ y System-Engine  r rootless Engine  n/esc/enter abbrechen    ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

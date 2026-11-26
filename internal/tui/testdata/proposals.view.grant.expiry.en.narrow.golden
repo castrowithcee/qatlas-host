@@ -20,5 +20,5 @@
     You set this expiry; it is not the one asked for.                           
     backup of the stack: set up                                                 
     health check of the stack: not set up                                       
-esc back  A approve  e expiry  N reject  r reload  1-7 area  q quit             
+esc back  A approve  e expiry  N reject  R reload  1-7 area  q quit             
                                                                ↑/↓ scroll  19/21

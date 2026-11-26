@@ -44,5 +44,5 @@
 │   10-30 14:01  12.0 MiB                                                      │
 │ 20261023T031000Z-4567cdef                                                    │
 │   10-23 03:10  11.0 MiB                                                      │
-B back to before update  e update rules  b backup  C compose  k checks  o log   
-a set secret  x delete secret  R restore backup  r reload  1-7 area  q quit     
+B back to before update  e update rules  b backup  I compose  k checks  o log   
+n set secret  d delete secret  l restore backup  R reload  1-7 area  q quit     

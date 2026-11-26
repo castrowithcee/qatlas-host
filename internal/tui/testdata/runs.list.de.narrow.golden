@@ -2,6 +2,7 @@
   1 2 [3 Läufe] 4 5 6 7                                 
 ────────────────────────────────────────────────────────
   STACK        START        ERGEBNIS                    
+  ─────────────────────────────────────────────────     
 > web-shop     10-30 15:00  läuft                       
   demo-stack   10-30 14:02  erfolgreich                 
   web-shop     10-30 12:00  zurückgerollt               
@@ -9,6 +10,5 @@
   demo-stack   10-29 02:00  fehlgeschlagen              
   mail-relay   10-28 03:10  erfolgreich                 
   wiki         10-27 03:10  erfolgreich                 
-                                                        
 enter Log  / Suchen  f dieser Stack  v Dienstlog        
-r Neu laden  1-7 Bereich  q Beenden   ↑/↓ Auswählen  1/7
+R Neu laden  1-7 Bereich  q Beenden   ↑/↓ Auswählen  1/7

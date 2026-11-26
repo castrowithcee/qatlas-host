@@ -14,7 +14,7 @@
   ║ $ sudo qhost window set --start 04:45 --output   ║─╮
   ║   json --engine rootless:alice                   ║ │
   ║                                                  ║─╯
-  ║ [ yes, with sudo ]  > cancel <                   ║─╮
+  ║ [ yes, with sudo ]  [ enter cancel ]             ║─╮
   ║ y yes, with sudo  n/esc/enter cancel             ║ │
   ╚══════════════════════════════════════════════════╝─╯
                                                         

@@ -13,7 +13,7 @@
 ╰───────║ zum Remote gepusht. Danach wird der Stack nur noch deployt   ║───────╯
 ╭─ Conta║ und nie aktualisiert.                                        ║───────╮
 │ Keine ║                                                              ║       │
-╰───────║ [ ja, ausführen ]  > abbrechen <                             ║───────╯
+╰───────║ [ ja, ausführen ]  [ enter abbrechen ]                       ║───────╯
 ╭─ Chang║ y ja, ausführen  n/esc/enter abbrechen                       ║───────╮
 │ APP_VE╚══════════════════════════════════════════════════════════════╝       │
 │   Quelle example/app                                                         │

@@ -1,22 +1,22 @@
 ◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
   1 2 3 4 [5 Container] 6 7                                                     
 ────────────────────────────────────────────────────────────────────────────────
-    NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS 
-  ▾ ■ ei╔═ stop ═══════════════════════════════════════════════════════╗        
->   demo║ ⚠ Container demo-stack-app-1 (eigener Stack demo-stack)      ║        
-    demo║   stoppen (stop)?                                            ║        
-  ▾ ■ ei║                                                              ║        
-    exam║ Signalisiert dem Container das Ende und beendet ihn nach 10  ║        
-  ▾ ■ fr║ Sekunden gewaltsam. Was er bereitstellt, ist nicht           ║        
-    lega║ erreichbar, bis er wieder gestartet wird. Der Stack wird     ║        
-    lega║ nicht als gestoppt markiert: ein Lauf des Stacks (deploy,    ║        
-  ▾ ■ fr║ update oder das Wartungsfenster) kann den Container wieder   ║ (1)    
-    wiki║ starten.                                                     ║        
-        ║ Zustand: ok (running)                                        ║        
+      NAME               ZUSTAND   IMAGE                     LAUFZEIT  NEUSTARTS
+      ──╔═ stop ═══════════════════════════════════════════════════════╗────────
+  ▾ ■ ei║ ⚠ Container demo-stack-app-1 (eigener Stack demo-stack)      ║        
+>     de║   stoppen (stop)?                                            ║        
+      de║                                                              ║        
+  ▾ ■ ei║ Signalisiert dem Container das Ende und beendet ihn nach 10  ║        
+      ex║ Sekunden gewaltsam. Was er bereitstellt, ist nicht           ║        
+  ▾ ■ fr║ erreichbar, bis er wieder gestartet wird. Der Stack wird     ║        
+      le║ nicht als gestoppt markiert: ein Lauf des Stacks (deploy,    ║        
+      le║ update oder das Wartungsfenster) kann den Container wieder   ║        
+  ▾ ■ fr║ starten.                                                     ║ (1)    
+      wi║ Zustand: ok (running)                                        ║4       
         ║ $ sudo qhost container stop --yes --output json --           ║        
         ║   0123456789ab                                               ║        
         ║                                                              ║        
-        ║ [ ja, mit sudo ]  > abbrechen <                              ║        
+        ║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║        
         ║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

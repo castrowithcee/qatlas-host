@@ -15,7 +15,7 @@
   HTTP c║ 10s                                                          ║     ▾ │
         ║ compare images on promotion: off                             ║───────╯
         ║                                                              ║───────╮
-  Addres║ [ yes, do it ]  > cancel <                                   ║       │
+  Addres║ [ yes, do it ]  [ enter cancel ]                             ║       │
         ║ y yes, do it  n/esc/enter cancel                             ║───────╯
   …     ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

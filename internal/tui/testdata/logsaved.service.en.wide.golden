@@ -10,5 +10,5 @@
                                                                                                                         
 [ L following ]  [ / search ]  [ T period: all ]  [ w wrap lines off ]  [ t timestamps off ]              lines 1-4 of 4
 Log saved to /home/demo/qhost/qhost-service-qhost-20261030-180000.log                                                   
-/ search  L follow  T period  w wrap lines  t timestamps  W save log  V level  D diagnose  r reload  1-7 area  q quit   
+/ search  L follow  T period  w wrap lines  t timestamps  W save log  V level  D diagnose  R reload  1-7 area  q quit   
                                                                                                               ↑/↓ scroll

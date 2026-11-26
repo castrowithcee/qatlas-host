@@ -2,16 +2,16 @@
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
   [Users]  Groups   Folders   Proposals   Changes   Log                                                                 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS                                                     
+      NAME       UID    ADMIN               DOCKER  LOGIN    GROUPS                                                     
+      ─────────────────────────────────────────────────────────────                                                     
   ▾ ■ Users (3)                                                                                                         
-    ada          1000   yes                 yes     unknown                                                             
-    ben          1001   yes, without qhost  no      unknown                                                             
->   cleo         1002   no                  no      unknown  media                                                      
+      ada        1000   yes                 yes     unknown                                                             
+      ben        1001   yes, without qhost  no      unknown                                                             
+>     cleo       1002   no                  no      unknown  media                                                      
   ▾ ■ System accounts (3)                                                                                               
-    root         0      no                  no      unknown                                                             
-    daemon       1      no                  no      unknown                                                             
-    nobody       65534  no                  no      unknown                                                             
-                                                                                                                        
+      root       0      no                  no      unknown                                                             
+      daemon     1      no                  no      unknown                                                             
+      nobody     65534  no                  no      unknown                                                             
                                                                                                                         
                                                                                                                         
                             ╔═ Change the host ════════════════════════════════════════════╗                            
@@ -22,7 +22,7 @@
                             ║ spool are deleted with all their files.                      ║                            
                             ║ $ userdel -r cleo                                            ║                            
                             ║                                                              ║                            
-                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ [ yes, with sudo ]  [ enter cancel ]                         ║                            
                             ║ y yes, with sudo  n/esc/enter cancel                         ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

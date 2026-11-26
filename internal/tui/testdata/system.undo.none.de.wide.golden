@@ -3,10 +3,10 @@
    Benutzer   Gruppen   Ordner   Vorschläge  [Änderungen]  Protokoll                                                    
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   ZEIT              VON   ÄNDERUNG                                                        ERGEBNIS            RÜCKGÄNGIG
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   2026-11-02 09:00  ada   Change /srv/media: owner cleo, group media; the owner gets re…  erledigt            möglich   
 > 2026-11-01 17:00  ada   Delete the user ben together with its home and mail spool.      erledigt            -         
   2026-11-01 08:00  root  Lock cleo: no login is possible any more, with a password or …  rückgängig gemacht  -         
-                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         
@@ -21,7 +21,7 @@
                             ║ Diese Änderung lässt sich nicht rückgängig machen, etwa ein  ║                            
                             ║ gelöschtes Home oder ein Rückgängigmachen selbst.            ║                            
                             ║                                                              ║                            
-                            ║ > schließen <                                                ║                            
+                            ║ [ enter schließen ]                                          ║                            
                             ║ n/esc/enter schließen                                        ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

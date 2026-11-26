@@ -11,4 +11,4 @@
   info all services healthy                                                                                             
 [ L following ]  [ / search ]  [ T period: all ]  [ w wrap lines off ]  [ t timestamps off ]              lines 3-9 of 9
 Log saved to /home/demo/qhost/qhost-run-20261030T140200Z-0000000c-20261030-180000.log                                   
-/ search  L follow  T period  w wrap lines  t timestamps  W save log  r reload  1-7 area  q quit              ↑/↓ scroll
+/ search  L follow  T period  w wrap lines  t timestamps  W save log  R reload  1-7 area  q quit              ↑/↓ scroll

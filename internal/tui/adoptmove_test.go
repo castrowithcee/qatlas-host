@@ -77,7 +77,7 @@ func moveModel(t *testing.T, lang i18n.Lang, b *fakeBackend, root bool, width, r
 func toMoveChoice(m *Model) {
 	send(m, "5")
 	m.ctList.Select(kittui.ItemID("legacy-blog-db-1"))
-	send(m, "a")
+	send(m, "n")
 }
 
 func TestMoveTargetsAreTheSourcesOfTheEngineThatAreNoRootStack(t *testing.T) {

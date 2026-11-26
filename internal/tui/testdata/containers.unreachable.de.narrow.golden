@@ -2,7 +2,7 @@
   1 2 3 4 [5 Container] 6 7                                                     
 ────────────────────────────────────────────────────────────────────────────────
   Fehler: die Container-Engine ist nicht erreichbar; starte sie und drücke dann 
-  r                                                                             
+  R                                                                             
                                                                                 
                                                                                 
                                                                                 
@@ -21,4 +21,4 @@
                                                                                 
                                                                                 
                                                                                 
-r Neu laden  1-7 Bereich  q Beenden                                             
+R Neu laden  1-7 Bereich  q Beenden                                             

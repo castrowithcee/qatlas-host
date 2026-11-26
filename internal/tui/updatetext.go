@@ -131,9 +131,9 @@ func updateEnglish() map[kittui.TextID]string {
 		textHintPattern:    "a regular expression, e.g. ^[0-9.]+$",
 		textHintRepository: "owner/name on GitHub",
 		textTagsIntro:      "Only tags that match the pattern are offered as updates of the variable.",
-		textTagsEmpty:      "No tag filters. {add} adds one.",
+		textTagsEmpty:      "No tag filters. {new} adds one.",
 		textChangelogIntro: "The releases of this repository are shown as the changelog of the variable.",
-		textChangelogEmpty: "No changelog repositories. {add} adds one.",
+		textChangelogEmpty: "No changelog repositories. {new} adds one.",
 
 		textProblemObserve:   "The observation time is a whole number of minutes from 0 to %d.",
 		textProblemVarName:   "A variable name has letters, digits, _, . and -, and starts with a letter or _.",
@@ -208,9 +208,9 @@ func updateGerman() map[kittui.TextID]string {
 		textHintPattern:    "ein regulärer Ausdruck, z. B. ^[0-9.]+$",
 		textHintRepository: "owner/name auf GitHub",
 		textTagsIntro:      "Nur Tags, die zum Muster passen, werden als Update der Variable angeboten.",
-		textTagsEmpty:      "Keine Tag-Filter. {add} fügt einen hinzu.",
+		textTagsEmpty:      "Keine Tag-Filter. {new} fügt einen hinzu.",
 		textChangelogIntro: "Die Releases dieses Repositorys werden als Changelog der Variable gezeigt.",
-		textChangelogEmpty: "Keine Changelog-Repositories. {add} fügt eines hinzu.",
+		textChangelogEmpty: "Keine Changelog-Repositories. {new} fügt eines hinzu.",
 
 		textProblemObserve:   "Die Beobachtungszeit ist eine ganze Zahl von Minuten von 0 bis %d.",
 		textProblemVarName:   "Ein Variablenname hat Buchstaben, Ziffern, _, . und - und beginnt mit einem Buchstaben oder _.",

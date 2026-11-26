@@ -2,6 +2,7 @@
   1 2 [3 Runs] 4 5 6 7                                  
 ────────────────────────────────────────────────────────
   STACK        STARTED      RESULT           TRIGGER    
+  ──────────────────────────────────────────────────    
 > web-shop     10-30 15:00  running          manual     
   demo-stack   10-30 14:02  succeeded        update     
   web-shop     10-30 12:00  rolled back      poll       
@@ -9,6 +10,5 @@
   demo-stack   10-29 02:00  failed           poll       
   mail-relay   10-28 03:10  succeeded        poll       
   wiki         10-27 03:10  succeeded        manual     
-                                                        
 enter log  / search  f this stack  v service log        
-r reload  1-7 area  q quit               ↑/↓ choose  1/7
+R reload  1-7 area  q quit               ↑/↓ choose  1/7

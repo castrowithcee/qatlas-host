@@ -93,7 +93,7 @@ func TestGoldenSudoAdopt(t *testing.T) {
 				if !m.ctList.Select(kittui.ItemID("legacy-blog-db-1")) {
 					t.Fatal("the container of the foreign project is not in the list")
 				}
-				send(m, "a")
+				send(m, "n")
 				screen := m.render()
 				checkScreen(t, screen, dim[0], dim[1])
 				checkGolden(t, "containers.adopt.sudo."+name+"."+size+".golden", screen+"\n")

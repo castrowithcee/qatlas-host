@@ -21,7 +21,7 @@
 │     Adds a dark theme.    ║ rules, backup, compose files and check, and is pushed to its ║                           │
 │                           ║ remote. Afterwards the stack is deployed but never updated.  ║                           │
 │     - faster start        ║                                                              ║                           │
-│     - fixes the upload lim║ [ yes, do it ]  > cancel <                                   ║                           │
+│     - fixes the upload lim║ [ yes, do it ]  [ enter cancel ]                             ║                           │
 │   1.4.3  2026-10-20       ║ y yes, do it  n/esc/enter cancel                             ║                           │
 │     Fixes a crash on empty╚══════════════════════════════════════════════════════════════╝                           │
 │   more at https://example.invalid/app/releases                                                                       │

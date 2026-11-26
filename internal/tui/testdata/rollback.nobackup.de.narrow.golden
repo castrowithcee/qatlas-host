@@ -17,7 +17,7 @@
 ╭─║ Dieser Lauf hat kein Backup gemacht, daher kann  ║─╮
 │ ║ nur die Version zurück.                          ║ │
 │ ║                                                  ║ │
-│ ║ [ nur Version ]  > abbrechen <                   ║ │
+│ ║ [ nur Version ]  [ enter abbrechen ]             ║ │
 │ ║ v nur Version  n/esc/enter abbrechen             ║ │
 │ ╚══════════════════════════════════════════════════╝ │
 │     - faster start                                   │

@@ -1,20 +1,20 @@
 ◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
   1 2 3 4 [5 Container] 6 7                                                     
 ────────────────────────────────────────────────────────────────────────────────
-    NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS 
+      NAME               ZUSTAND   IMAGE                     LAUFZEIT  NEUSTARTS
+      ──────────────────────────────────────────────────────────────────────────
   ▾ ■ eigener Stack demo-stack (2)                                              
-    demo-stack-app-1   ok        example.invalid/app:1.4.2  3h2m      0         
-    demo╔═ restart ════════════════════════════════════════════════════╗        
-  ▾ ■ ei║ ⚠ Container example-cache (einzelner Container) neu starten  ║        
->   exam║   (restart)?                                                 ║        
-  ▾ ■ fr║                                                              ║        
-    lega║ Stoppt den Container wie stop, startet ihn wieder und wartet ║        
-    lega║ bis zu eine Minute, bis er läuft und, falls er einen Health- ║        
-  ▾ ■ fr║ Check hat, gesund ist. Was er bereitstellt, ist solange      ║ (1)    
-    wiki║ nicht erreichbar.                                            ║        
-        ║ Zustand: ok (running)                                        ║        
+      de╔═ restart ════════════════════════════════════════════════════╗        
+      de║ ⚠ Container example-cache (einzelner Container) neu starten  ║        
+  ▾ ■ ei║   (restart)?                                                 ║        
+>     ex║                                                              ║        
+  ▾ ■ fr║ Stoppt den Container wie stop, startet ihn wieder und wartet ║        
+      le║ bis zu eine Minute, bis er läuft und, falls er einen Health- ║        
+      le║ Check hat, gesund ist. Was er bereitstellt, ist solange      ║        
+  ▾ ■ fr║ nicht erreichbar.                                            ║ (1)    
+      wi║ Zustand: ok (running)                                        ║4       
         ║                                                              ║        
-        ║ [ ja, ausführen ]  > abbrechen <                             ║        
+        ║ [ ja, ausführen ]  [ enter abbrechen ]                       ║        
         ║ y ja, ausführen  n/esc/enter abbrechen                       ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

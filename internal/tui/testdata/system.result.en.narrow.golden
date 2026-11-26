@@ -2,19 +2,19 @@
   1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
   [Users]  Groups   Folders   Proposals   Changes   Log                         
 ────────────────────────────────────────────────────────────────────────────────
-    NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS             
+      NAME       UID    ADMIN               DOCKER  LOGIN    GROUPS             
+      ─────────────────────────────────────────────────────────────             
   ▾ ■ Users (3)                                                                 
-    ada          1000   yes                 yes     unknown                     
-    ben ╔═ Host ═══════════════════════════════════════════════════════╗        
->   cleo║ Done: Lock cleo: no login is possible any more, with a       ║        
-  ▾ ■ Sy║ password or an SSH key.                                      ║        
-    root║                                                              ║        
-    daem║ Journal entry 20261102T090000-0001. System > Changes takes   ║        
-    nobo║ it back.                                                     ║        
-        ║                                                              ║        
+      ad╔═ Host ═══════════════════════════════════════════════════════╗        
+      be║ Done: Lock cleo: no login is possible any more, with a       ║        
+>     cl║ password or an SSH key.                                      ║        
+  ▾ ■ Sy║                                                              ║        
+      ro║ Journal entry 20261102T090000-0001. System > Changes takes   ║        
+      da║ it back.                                                     ║        
+      no║                                                              ║        
         ║ Check: passed.                                               ║        
 ╭─ cleo ║                                                              ║───────╮
-│ Home: ║ > close <                                                    ║       │
+│ Home: ║ [ enter close ]                                              ║       │
 │ Primar║ n/esc/enter close                                            ║       │
 │ Furthe╚══════════════════════════════════════════════════════════════╝       │
 │ Access: no administrator                                                     │

@@ -22,7 +22,7 @@
   ║ $ sudo qhost proposal reject p-0005 --reason     ║  
   ║   'not this host' --output json                  ║  
   ║                                                  ║  
-  ║ [ ja, mit sudo ]  > abbrechen <                  ║  
+  ║ [ ja, mit sudo ]  [ enter abbrechen ]            ║  
   ║ y ja, mit sudo  n/esc/enter abbrechen            ║  
   ╚══════════════════════════════════════════════════╝  
                                                         

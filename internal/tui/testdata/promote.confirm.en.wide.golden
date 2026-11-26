@@ -16,7 +16,7 @@
 ╰───────────────────────────║ promote.compare_images is off).                              ║───────────────────────────╯
 ╭─ Changelog ───────────────║ APP_VERSION: 1.4.2 -> 1.5.0                                  ║───────────────────────────╮
 │ APP_VERSION  1.4.2 -> 1.5.║                                                              ║                           │
-│   source example/app      ║ [ yes, do it ]  > cancel <                                   ║                           │
+│   source example/app      ║ [ yes, do it ]  [ enter cancel ]                             ║                           │
 │   1.5.0  Spring release  2║ y yes, do it  n/esc/enter cancel                             ║                           │
 │     Adds a dark theme.    ╚══════════════════════════════════════════════════════════════╝                           │
 │                                                                                                                      │

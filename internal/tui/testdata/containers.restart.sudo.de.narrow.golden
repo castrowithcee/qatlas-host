@@ -1,21 +1,21 @@
 ◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
   1 2 3 4 [5 Container] 6 7                                                     
 ────────────────────────────────────────────────────────────────────────────────
-    NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS 
-  ▾ ■ eigener Stack demo-stack (2)                                              
-    demo╔═ restart ════════════════════════════════════════════════════╗        
-    demo║ ⚠ Container example-cache (einzelner Container) neu starten  ║        
-  ▾ ■ ei║   (restart)?                                                 ║        
->   exam║                                                              ║        
-  ▾ ■ fr║ Stoppt den Container wie stop, startet ihn wieder und wartet ║        
-    lega║ bis zu eine Minute, bis er läuft und, falls er einen Health- ║        
-    lega║ Check hat, gesund ist. Was er bereitstellt, ist solange      ║        
-  ▾ ■ fr║ nicht erreichbar.                                            ║ (1)    
-    wiki║ Zustand: ok (running)                                        ║        
-        ║ $ sudo qhost container restart --yes --output json --        ║        
+      NAME               ZUSTAND   IMAGE                     LAUFZEIT  NEUSTARTS
+      ──────────────────────────────────────────────────────────────────────────
+  ▾ ■ ei╔═ restart ════════════════════════════════════════════════════╗        
+      de║ ⚠ Container example-cache (einzelner Container) neu starten  ║        
+      de║   (restart)?                                                 ║        
+  ▾ ■ ei║                                                              ║        
+>     ex║ Stoppt den Container wie stop, startet ihn wieder und wartet ║        
+  ▾ ■ fr║ bis zu eine Minute, bis er läuft und, falls er einen Health- ║        
+      le║ Check hat, gesund ist. Was er bereitstellt, ist solange      ║        
+      le║ nicht erreichbar.                                            ║        
+  ▾ ■ fr║ Zustand: ok (running)                                        ║ (1)    
+      wi║ $ sudo qhost container restart --yes --output json --        ║4       
         ║   feedfacecafe                                               ║        
         ║                                                              ║        
-        ║ [ ja, mit sudo ]  > abbrechen <                              ║        
+        ║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║        
         ║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

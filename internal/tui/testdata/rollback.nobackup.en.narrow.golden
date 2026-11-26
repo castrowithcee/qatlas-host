@@ -17,7 +17,7 @@
 ╭─║ This run made no backup, so only the version can ║─╮
 │ ║ go back.                                         ║ │
 │ ║                                                  ║ │
-│ ║ [ version only ]  > cancel <                     ║ │
+│ ║ [ version only ]  [ enter cancel ]               ║ │
 │ ║ v version only  n/esc/enter cancel               ║ │
 │ ╚══════════════════════════════════════════════════╝ │
 │     - faster start                                   │

@@ -3,6 +3,7 @@
   [Credentials]                                         
 ────────────────────────────────────────────────────────
   NAME                STORED                            
+  ────────────────────────────────────                  
 > registry.docker.io  2026-10-30 09:00                  
   github.com          2026-10-29 09:00                  
                                                         
@@ -19,6 +20,5 @@
                                                         
                                                         
                                                         
-                                                        
-a add  x remove  esc back  r reload  1-7 area  q quit   
+n add  d remove  esc back  R reload  1-7 area  q quit   
                                          ↑/↓ choose  1/2

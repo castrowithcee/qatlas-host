@@ -1,15 +1,16 @@
 ◆ qhost  maintenance window closed                                      [?] help
   [1 Stacks] 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
 ────────────────────────────────────────────────────────────────────────────────
-        STACK              CURRENT      AVAILABLE      STATE     FINDINGS       
+          STACK            CURRENT      AVAILABLE      STATE     FINDINGS       
+          ─────────────────────────────────────────────────────────────────     
   ▾ [ ] ■ /srv/stacks (0)  clone                                 -              
   ▾ [ ] ■ no group (6)                                                          
->   [ ] demo-stack         1.4.2        1.5.0          deployed  1 warning      
-    [ ] mail-relay         3.1          up to date     pending   none           
-    [ ] old-tool           -            unchecked      removed   none           
-    [ ] photo-album        2.0.1        error          rollback  1 error        
-    [ ] web-shop           5.2.0, 16.4  6.0.0 (major)  running   none           
-    [ ] wiki               1.41.0       unchecked      pinned    2 warnings     
+>     [ ] demo-stack       1.4.2        1.5.0          deployed  1 warning      
+      [ ] mail-relay       3.1          up to date     pending   none           
+      [ ] old-tool         -            unchecked      removed   none           
+      [ ] photo-album      2.0.1        error          rollback  1 error        
+      [ ] web-shop         5.2.0, 16.4  6.0.0 (major)  running   none           
+      [ ] wiki             1.41.0       unchecked      pinned    2 warnings     
                                                                                 
                                                                                 
                                                                                 
@@ -19,6 +20,5 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-enter details  / search  space tick  u update  d deploy  a add  r reload        
+enter details  / search  space tick  U update  a deploy  n add  R reload        
 1-7 area  q quit                                                 ↑/↓ choose  1/6

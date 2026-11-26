@@ -5,6 +5,7 @@
   The program and its arguments, in order. K and J move the entry.              
                                                                                 
   ARGUMENT                                                                      
+  ────────                                                                      
 > pg_dump                                                                       
   --clean                                                                       
                                                                                 
@@ -20,5 +21,4 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-a add  e edit  x remove  K move up  J move down  esc done                       
+n add  e edit  d remove  K move up  J move down  esc done                       

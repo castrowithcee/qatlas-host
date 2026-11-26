@@ -3,12 +3,12 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Nur Läufe von demo-stack. f zeigt alle Stacks.                                                                        
   STACK       START        ERGEBNIS        AUSLÖSER  DAUER  LAUF                       TAG                              
+  ────────────────────────────────────────────────────────────────────────────────────────                              
 > demo-stack  10-30 14:02  erfolgreich     update    48s    20261030T140200Z-0000000c  -                                
   demo-stack  10-29 02:00  fehlgeschlagen  poll      850ms  20261029T020000Z-00000010  -                                
                                                                                                                         
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-enter Log  / Suchen  f alle Stacks  v Dienstlog  B zurück auf Stand davor  r Neu laden  1-7 Bereich  q Beenden          
+enter Log  / Suchen  f alle Stacks  v Dienstlog  B zurück auf Stand davor  R Neu laden  1-7 Bereich  q Beenden          
                                                                                                       ↑/↓ Auswählen  1/2

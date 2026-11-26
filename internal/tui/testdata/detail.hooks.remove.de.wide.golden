@@ -32,7 +32,7 @@
 ╰───────────────────────────║ Seine Adresse wirkt nach spätestens zehn Sekunden nicht      ║───────────────────────────╯
 ╭─ Webhooks ────────────────║ mehr. Das lässt sich nicht rückgängig machen.                ║───────────────────────────╮
 │ h-a1b2c3d0  2026-01-02 03:║                                                              ║                           │
-│ h-a1b2c3d1  -             ║ [ ja, ausführen ]  > abbrechen <                             ║                           │
+│ h-a1b2c3d1  -             ║ [ ja, ausführen ]  [ enter abbrechen ]                       ║                           │
 ╰───────────────────────────║ y ja, ausführen  n/esc/enter abbrechen                       ║───────────────────────────╯
 ╭─ Freigaben ───────────────╚══════════════════════════════════════════════════════════════╝───────────────────────────╮
 │ Eine Freigabe gilt für den Benutzer und für jeden Agenten, der unter seinem Konto arbeitet.                          │

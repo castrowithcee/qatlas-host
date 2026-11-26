@@ -4,6 +4,7 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Instance: rootless:alice                                                                                              
   NAME     STORED                                                                                                       
+  ─────────────────────────                                                                                             
 > ghcr.io  2026-10-29 09:00                                                                                             
                                                                                                                         
                                                                                                                         
@@ -20,5 +21,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-H instance  a add  x remove  esc back  r reload  1-7 area  q quit                                        ↑/↓ choose  1/1
+H instance  n add  d remove  esc back  R reload  1-7 area  q quit                                        ↑/↓ choose  1/1

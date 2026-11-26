@@ -2,19 +2,19 @@
   [1 Stacks] 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
 ────────────────────────────────────────────────────────────────────────────────
       STACK        CURRENT      AVAILABLE      MODE       STATE     FINDINGS    
+      ────────────────────────────────────────────────────────────────────────  
 > [ ] demo-stack   1.4.2        1.5.0          automatic  deployed  1 warning   
   [ ] mail-relay   3.1          up to date     manual     pending   none        
-  [ ] old-tool     -            unchecked      -          removed   none        
-  [ ] ph╔═ check registries ═══════════════════════════════════════════╗ror     
-  [ ] we║ ⚠ Ask the registries now about all stacks?                   ║        
-  [ ] wi║                                                              ║rnings  
-        ║ This asks the registries of the images, so the requests      ║        
+  [ ] ol╔═ check registries ═══════════════════════════════════════════╗        
+  [ ] ph║ ⚠ Ask the registries now about all stacks?                   ║ror     
+  [ ] we║                                                              ║        
+  [ ] wi║ This asks the registries of the images, so the requests      ║rnings  
         ║ leave the host. Asks the registries for newer image versions ║        
         ║ now. This can take minutes and changes nothing in the        ║        
         ║ stacks.                                                      ║        
         ║ $ sudo qhost stack updates --refresh --output json           ║        
         ║                                                              ║        
-        ║ [ yes, with sudo ]  > cancel <                               ║        
+        ║ [ yes, with sudo ]  [ enter cancel ]                         ║        
         ║ y yes, with sudo  n/esc/enter cancel                         ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

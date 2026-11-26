@@ -30,7 +30,7 @@ func clickOn(t *testing.T, m *Model, needle string) {
 
 func TestAClickOnSaveActsLikeEnterOnSave(t *testing.T) {
 	m := newFormMouseModel(t, toFolders...)
-	send(m, "a")
+	send(m, "n")
 	clickOn(t, m, saveButton)
 	if !formOpen(m) || m.modal != nil {
 		t.Fatal("save of an empty form")
@@ -46,7 +46,7 @@ func TestAClickOnSaveActsLikeEnterOnSave(t *testing.T) {
 
 func TestAClickOnDiscardActsLikeEscape(t *testing.T) {
 	m := newFormMouseModel(t, toFolders...)
-	send(m, "a")
+	send(m, "n")
 	clickOn(t, m, discardButton)
 	if formOpen(m) || m.modal != nil {
 		t.Fatal("an unchanged form stays or asks")
@@ -75,7 +75,7 @@ func TestAClickOnDiscardActsLikeEscape(t *testing.T) {
 }
 
 func TestAClickOnATextFieldTakesTheFocusAndTypesNothing(t *testing.T) {
-	m := newFormMouseModel(t, seq(toCreds, keys("a"))...)
+	m := newFormMouseModel(t, seq(toCreds, keys("n"))...)
 	form := m.set.form.form
 	before := form.Focused()
 	clickOn(t, m, "Registry user")
@@ -93,7 +93,7 @@ func TestAClickOnATextFieldTakesTheFocusAndTypesNothing(t *testing.T) {
 }
 
 func TestAClickOnAChoiceValueSelectsIt(t *testing.T) {
-	m := newFormMouseModel(t, seq(toCreds, keys("a"))...)
+	m := newFormMouseModel(t, seq(toCreds, keys("n"))...)
 	form := m.set.form.form
 	clickOn(t, m, "registry login")
 	clickOn(t, m, "GitHub token for changelogs")
@@ -103,7 +103,7 @@ func TestAClickOnAChoiceValueSelectsIt(t *testing.T) {
 }
 
 func TestTheWheelMovesTheFocusOfTheForm(t *testing.T) {
-	m := newFormMouseModel(t, seq(toCreds, keys("a"))...)
+	m := newFormMouseModel(t, seq(toCreds, keys("n"))...)
 	form := m.set.form.form
 	before := form.Focused()
 	x, y := cellOf(t, m, "Registry host")
@@ -115,7 +115,7 @@ func TestTheWheelMovesTheFocusOfTheForm(t *testing.T) {
 }
 
 func TestNoClickActsWhileAKeyIsCaptured(t *testing.T) {
-	m := newFormMouseModel(t, seq(toFolders, keys("a"))...)
+	m := newFormMouseModel(t, seq(toFolders, keys("n"))...)
 	f := m.set.form
 	key, err := kittui.NewForm(kittui.FormSpec{Fields: []kittui.FormField{
 		{ID: "k", Kind: kittui.FieldKey, Label: textFieldFolderPath},
@@ -136,7 +136,7 @@ func TestNoClickActsWhileAKeyIsCaptured(t *testing.T) {
 }
 
 func TestAFormTargetOfAnEarlierFrameDoesNotAct(t *testing.T) {
-	m := newFormMouseModel(t, seq(toFolders, keys("a"))...)
+	m := newFormMouseModel(t, seq(toFolders, keys("n"))...)
 	x, y := cellOf(t, m, discardButton)
 	m.set.form = nil
 	m.render() // the Settings page: the old button target is gone

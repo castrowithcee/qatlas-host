@@ -1,20 +1,20 @@
 ◆ qhost  maintenance window closed                          [esc] back  [?] help
   1 Stacks 2 Stack detail 3 Runs 4 Settings [5 Containers] 6 Proposals 7 System 
 ────────────────────────────────────────────────────────────────────────────────
-    NAME               STATE       IMAGE                      UPTIME  RESTARTS  
+      NAME               STATE       IMAGE                      UPTIME  RESTARTS
+      ──────────────────────────────────────────────────────────────────────────
   ▾ ■ foreign project legacy-blog (2)                                           
-    legacy-blog-db-1   stopped     example.invalid/db:15      -       0         
-    lega╔═ restart ════════════════════════════════════════════════════╗        
-  ▾ ■ fo║ ⚠ Restart container example-cache (single container)?        ║        
-    wiki║                                                              ║        
-  ▾ ■ ow║ Stops the container as stop does, starts it again and waits  ║        
-    demo║ up to a minute until it runs and, if it has a health check,  ║        
-    demo║ is healthy. Whatever it serves is unavailable meanwhile.     ║        
-  ▾ ■ si║ State: ok (running)                                          ║        
->   exam║ $ sudo qhost container restart --yes --output json --        ║        
-        ║   feedfacecafe                                               ║        
+      le╔═ restart ════════════════════════════════════════════════════╗0       
+      le║ ⚠ Restart container example-cache (single container)?        ║0       
+  ▾ ■ fo║                                                              ║        
+      wi║ Stops the container as stop does, starts it again and waits  ║14      
+  ▾ ■ ow║ up to a minute until it runs and, if it has a health check,  ║        
+      de║ is healthy. Whatever it serves is unavailable meanwhile.     ║0       
+      de║ State: ok (running)                                          ║2       
+  ▾ ■ si║ $ sudo qhost container restart --yes --output json --        ║        
+>     ex║   feedfacecafe                                               ║0       
         ║                                                              ║        
-        ║ [ yes, with sudo ]  > cancel <                               ║        
+        ║ [ yes, with sudo ]  [ enter cancel ]                         ║        
         ║ y yes, with sudo  n/esc/enter cancel                         ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

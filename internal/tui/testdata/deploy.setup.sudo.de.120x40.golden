@@ -25,7 +25,7 @@
                             ║ $ sudo qhost deploy-service setup --confirm --yes --output   ║                            
                             ║   json                                                       ║                            
                             ║                                                              ║                            
-                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║                            
                             ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

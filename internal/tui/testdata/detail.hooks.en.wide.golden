@@ -60,5 +60,5 @@
 │   the maintenance window updates APP_VERSION by itself                                                               │
 │ Rollback with data  works                                                                                            │
 │   a failed run goes back to the previous commit and restores the backup it made before the change                    │
-B back to before update  e update rules  b backup  C compose  k checks  E clear settings  o log  a set secret           
-x delete secret  R restore backup  h add hook  U remove hook  z grant  r reload  1-7 area  q quit      ↑/↓ scroll  59/67
+B back to before update  e update rules  b backup  I compose  k checks  E clear settings  o log  n set secret           
+d delete secret  l restore backup  h add hook  j remove hook  z grant  R reload  1-7 area  q quit      ↑/↓ scroll  59/67

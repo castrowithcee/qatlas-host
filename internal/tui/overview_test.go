@@ -69,7 +69,7 @@ func TestDetailReadsOncePerStackAndAgainOnReload(t *testing.T) {
 	if b.called("changelog") != 1 || b.called("backups") != 1 {
 		t.Fatalf("calls %v", b.calls)
 	}
-	send(m, "r")
+	send(m, "R")
 	if b.called("changelog") != 2 || b.called("backups") != 2 || b.called("status") != 2 {
 		t.Fatalf("reload: calls %v", b.calls)
 	}
@@ -289,7 +289,7 @@ func TestFollowingStopsWhenTheRunEnds(t *testing.T) {
 		t.Fatalf("%d status reads after the end, want the poll and the refresh", got)
 	}
 	logs := b.called("log")
-	send(m, "r")
+	send(m, "R")
 	if b.called("log") != logs+1 {
 		t.Fatal("reload did not read the log once")
 	}
@@ -452,7 +452,7 @@ func TestLogTextIsEscaped(t *testing.T) {
 func TestOverviewOnlyReads(t *testing.T) {
 	b := demoBackend()
 	m := newTestModel(t, i18n.English, b, wideWidth, 30)
-	send(m, "enter", "r", "esc", "3", "enter", "L", "r", "esc", "esc")
+	send(m, "enter", "R", "esc", "3", "enter", "L", "R", "esc", "esc")
 	for name := range b.calls {
 		switch name {
 		case "status", "stacks", "check", "updates", "runs", "log", "changelog", "backups", "secrets", "containers", "proposals", "grantlist":

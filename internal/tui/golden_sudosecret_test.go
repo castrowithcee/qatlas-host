@@ -41,7 +41,7 @@ func TestGoldenSudoCredentialQuestion(t *testing.T) {
 func TestGoldenSudoNotifyAddQuestion(t *testing.T) {
 	goldenSecretSudo(t, "settings.notify.sudo", settingsBackend, func(m *Model, _ string) {
 		send(m, toNotify...)
-		send(m, "a")
+		send(m, "n")
 		send(m, typed("deploy-hook")...)
 		send(m, "down", "down", "space", "f2")
 		send(m, typed(hiddenA)...)

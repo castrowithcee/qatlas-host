@@ -89,7 +89,7 @@ func TestWindowChangesAsRootGoToTheHostFileOrTheChosenInstance(t *testing.T) {
 	if b.windowBy[control.EngineSystem].Start != "05:00" || b.windowBy["rootless:alice"].Start != "04:30" {
 		t.Fatalf("windows %+v", b.windowBy)
 	}
-	send(m, "enter", "H", "a")
+	send(m, "enter", "H", "n")
 	contains(t, m, "Own window of rootless:alice")
 	send(m, "tab", "backspace", "backspace", "backspace", "backspace", "backspace")
 	send(m, typed("06:15")...)
@@ -118,12 +118,12 @@ func TestWindowResetOnlyForAnInstanceWithAnOwnWindow(t *testing.T) {
 	m := newTestModel(t, i18n.English, b, wideWidth, 30)
 	m.euid = func() int { return 0 }
 	send(m, toWindowPage...)
-	send(m, "x")
+	send(m, "d")
 	contains(t, m, "system has no own window and follows the host window.")
 	if m.modal != nil {
 		t.Fatal("a reset was asked for an instance without an own window")
 	}
-	send(m, "H", "x")
+	send(m, "H", "d")
 	contains(t, m, "Let rootless:alice follow the host window again?")
 	send(m, "y")
 	if !slices.Contains(b.engineLog, "windowreset:@rootless:alice") {
@@ -143,7 +143,7 @@ func TestWindowOwnActionsNeedAChosenInstanceWhenNothingIsTheDefault(t *testing.T
 	m := newTestModel(t, i18n.English, b, wideWidth, 30)
 	m.euid = func() int { return 0 }
 	send(m, toWindowPage...)
-	send(m, "a")
+	send(m, "n")
 	if m.set.form != nil {
 		t.Fatal("a form opened without an instance")
 	}
@@ -164,11 +164,11 @@ func TestWindowChangesWithoutRootRunTheCommands(t *testing.T) {
 	}{
 		{"host", twoWindowsBackend, seq(toWindowPage, keys("e", "tab", "backspace", "backspace", "backspace", "backspace", "backspace"),
 			typed("05:00"), keys("f2")), []string{"window", "set", "--start", "05:00", "--output", "json"}},
-		{"own", twoWindowsBackend, seq(toWindowPage, keys("H", "a", "tab", "backspace", "backspace", "backspace", "backspace", "backspace"),
+		{"own", twoWindowsBackend, seq(toWindowPage, keys("H", "n", "tab", "backspace", "backspace", "backspace", "backspace", "backspace"),
 			typed("05:00"), keys("f2")), []string{"window", "set", "--start", "05:00", "--output", "json", "--engine", "rootless:alice"}},
-		{"reset", twoWindowsBackend, seq(toWindowPage, keys("H", "x")),
+		{"reset", twoWindowsBackend, seq(toWindowPage, keys("H", "d")),
 			[]string{"window", "reset", "--output", "json", "--engine", "rootless:alice"}},
-		{"own of the only instance", settingsBackend, seq(toWindow, keys("a", "tab", "backspace", "backspace", "backspace", "backspace", "backspace"),
+		{"own of the only instance", settingsBackend, seq(toWindow, keys("n", "tab", "backspace", "backspace", "backspace", "backspace", "backspace"),
 			typed("05:00"), keys("f2")), []string{"window", "set", "--start", "05:00", "--output", "json", "--engine", "system"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -192,5 +192,5 @@ func TestWindowChangesWithoutRootRunTheCommands(t *testing.T) {
 
 func TestGoldenSudoWindowOfTwoInstancesQuestion(t *testing.T) {
 	goldenSudoSettings(t, "settings.window.instances.sudo", twoWindowsBackend,
-		seq(toWindowPage, keys("H", "a", "tab", "backspace", "backspace", "backspace", "backspace", "backspace"), typed("04:45"), keys("f2"))...)
+		seq(toWindowPage, keys("H", "n", "tab", "backspace", "backspace", "backspace", "backspace", "backspace"), typed("04:45"), keys("f2"))...)
 }

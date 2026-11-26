@@ -15,7 +15,7 @@
   HTTP-P║ innerhalb von 10s                                            ║     ▾ │
         ║ Images bei Übernahme vergleichen: aus                        ║───────╯
         ║                                                              ║───────╮
-  Adress║ [ ja, ausführen ]  > abbrechen <                             ║       │
+  Adress║ [ ja, ausführen ]  [ enter abbrechen ]                       ║       │
         ║ y ja, ausführen  n/esc/enter abbrechen                       ║───────╯
   …     ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

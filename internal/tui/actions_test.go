@@ -23,8 +23,8 @@ func newActionModel(t *testing.T, b *fakeBackend) *Model {
 
 func TestEveryActionCallsTheServiceOnlyAfterConfirmation(t *testing.T) {
 	for _, tt := range []struct{ key, want string }{
-		{"d", "deploy:demo-stack"}, {"u", "update:demo-stack"}, {"p", "pause:demo-stack"},
-		{"P", "unpause:demo-stack"}, {"i", "pin:demo-stack"}, {"I", "unpin:demo-stack"}, {"c", "refresh:*"},
+		{"a", "deploy:demo-stack"}, {"U", "update:demo-stack"}, {"p", "pause:demo-stack"},
+		{"P", "unpause:demo-stack"}, {"y", "pin:demo-stack"}, {"Y", "unpin:demo-stack"}, {"u", "refresh:*"},
 	} {
 		t.Run(tt.key, func(t *testing.T) {
 			b := demoBackend()
@@ -116,7 +116,7 @@ func TestResumeOnTheCursorStack(t *testing.T) {
 func TestUpdateShowsWhatChangesAndTheChangelogBeforeConfirming(t *testing.T) {
 	b := demoBackend()
 	m := newActionModel(t, b)
-	cmd := press(m, "u")
+	cmd := press(m, "U")
 	screen := m.render()
 	for _, want := range []string{"Update demo-stack?", "APP_VERSION", "1.4.2 -> 1.5.0", "update available", "Loading"} {
 		if !strings.Contains(screen, want) {
@@ -147,7 +147,7 @@ func TestUpdateShowsWhatChangesAndTheChangelogBeforeConfirming(t *testing.T) {
 func TestUpdatePreviewFlagsANewerMajorAndWorksWithoutChangelog(t *testing.T) {
 	b := demoBackend()
 	m := newActionModel(t, b)
-	send(m, "down", "down", "down", "down", "u")
+	send(m, "down", "down", "down", "down", "U")
 	screen := m.render()
 	for _, want := range []string{"Update web-shop?", "newer major 6.0.0", "not installed automatically",
 		"The stored detection shows no update"} {
@@ -167,7 +167,7 @@ func TestUpdatePreviewShowsAFailedChangelogAndStillAllowsTheUpdate(t *testing.T)
 	b := demoBackend()
 	b.errs["changelog:demo-stack"] = errServiceBusy()
 	m := newActionModel(t, b)
-	send(m, "u")
+	send(m, "U")
 	if !strings.Contains(m.render(), "the service is busy") {
 		t.Errorf("the failure is not shown:\n%s", m.render())
 	}
@@ -180,13 +180,13 @@ func TestUpdatePreviewShowsAFailedChangelogAndStillAllowsTheUpdate(t *testing.T)
 func TestLeavingThePreviewDropsLateChangelogs(t *testing.T) {
 	b := demoBackend()
 	m := newActionModel(t, b)
-	cmd := press(m, "u")
+	cmd := press(m, "U")
 	send(m, "esc")
 	drain(m, cmd)
 	if m.modal != nil {
 		t.Fatal("a late changelog reopened the question")
 	}
-	send(m, "d")
+	send(m, "a")
 	if m.modal == nil || m.modal.kind != modalAsk {
 		t.Fatal("the next question did not open")
 	}
@@ -215,7 +215,7 @@ func TestMultiSelectionRunsInListOrderAndContinuesAfterAFailure(t *testing.T) {
 	if got := m.list.Ticked(); len(got) != 3 {
 		t.Fatalf("ticked = %v", got)
 	}
-	send(m, "i")
+	send(m, "y")
 	if len(b.actions()) != 0 {
 		t.Fatal("pin ran before the confirmation")
 	}
@@ -272,7 +272,7 @@ func TestUpdateOfSeveralStacksIsOneCallPerStack(t *testing.T) {
 	}
 	m := newActionModel(t, b)
 	tick(m, 0, 1, 5)
-	send(m, "u")
+	send(m, "U")
 	for _, want := range []string{"Update 3 stacks?", "demo-stack", "mail-relay", "wiki"} {
 		if !strings.Contains(m.render(), want) {
 			t.Errorf("preview misses %q:\n%s", want, m.render())
@@ -298,11 +298,11 @@ func TestUpdateOfSeveralStacksIsOneCallPerStack(t *testing.T) {
 func TestASecondActionIsRefusedWhileOneRuns(t *testing.T) {
 	b := demoBackend()
 	m := newActionModel(t, b)
-	cmd := press(m, "d", "y")
+	cmd := press(m, "a", "y")
 	if !m.busy() {
 		t.Fatal("the action does not run")
 	}
-	for _, key := range []string{"p", "u", "c", "i"} {
+	for _, key := range []string{"p", "U", "u", "y"} {
 		send(m, key)
 		if m.modal != nil {
 			t.Fatalf("%s opened a question while an action runs", key)
@@ -320,7 +320,7 @@ func TestASecondActionIsRefusedWhileOneRuns(t *testing.T) {
 	}
 	// The interface stays usable while the call runs: keys move, areas change.
 	m = newActionModel(t, demoBackend())
-	press(m, "d", "y")
+	press(m, "a", "y")
 	send(m, "2")
 	if m.area != areaDetail {
 		t.Error("the interface does not react while an action runs")
@@ -335,7 +335,7 @@ func TestOnlyAConfirmedKeyTriggersAnAction(t *testing.T) {
 	m.render()
 	m.Update(tea.MouseWheelMsg{X: 3, Y: 5, Button: tea.MouseWheelDown})
 	m.Update(tea.MouseClickMsg{X: 3, Y: 5, Button: tea.MouseLeft})
-	send(m, "u", "d", "p", "i", "g", "c", "esc", "enter", "r")
+	send(m, "U", "d", "p", "i", "g", "c", "esc", "enter", "R")
 	if got := b.actions(); len(got) != 0 {
 		t.Fatalf("calls = %v", got)
 	}
@@ -345,7 +345,7 @@ func TestActionsAreOnlyOnTheStacksArea(t *testing.T) {
 	b := demoBackend()
 	m := newActionModel(t, b)
 	for _, area := range []string{"2", "3"} {
-		send(m, area, "d", "u", "p", "i", "c")
+		send(m, area, "a", "U", "p", "y", "u")
 		if m.modal != nil {
 			t.Fatalf("area %s opened a question", area)
 		}
@@ -355,7 +355,7 @@ func TestActionsAreOnlyOnTheStacksArea(t *testing.T) {
 func TestRegistryQueryAsksAllStacksAndReportsCounts(t *testing.T) {
 	b := demoBackend()
 	m := newActionModel(t, b)
-	send(m, "c")
+	send(m, "u")
 	if !strings.Contains(m.render(), "Ask the registries now about all stacks?") {
 		t.Fatalf("question:\n%s", m.render())
 	}
@@ -374,7 +374,7 @@ func TestDeployJumpsToTheLogOfTheRun(t *testing.T) {
 	run := "20261031T100000Z-demo-stack"
 	b.logs[run] = "2026-10-31T10:00:00Z step check\n2026-10-31T10:00:01Z info compose file is valid\n"
 	m := newActionModel(t, b)
-	send(m, "d", "y")
+	send(m, "a", "y")
 	screen := m.render()
 	for _, want := range []string{"run " + run + " started at commit " + commitB[:12], "l show log"} {
 		if !strings.Contains(screen, want) {
@@ -394,7 +394,7 @@ func TestSeveralRunsJumpToTheRunsList(t *testing.T) {
 	b := demoBackend()
 	m := newActionModel(t, b)
 	tick(m, 0, 5)
-	send(m, "u", "y", "l")
+	send(m, "U", "y", "l")
 	if m.area != areaRuns || m.log.open {
 		t.Fatalf("area %s, log open %v", m.area, m.log.open)
 	}
@@ -403,7 +403,7 @@ func TestSeveralRunsJumpToTheRunsList(t *testing.T) {
 func TestSummaryWithoutRunsOffersNoLog(t *testing.T) {
 	b := demoBackend()
 	m := newActionModel(t, b)
-	send(m, "i", "y")
+	send(m, "y", "y")
 	if strings.Contains(m.render(), "show log") {
 		t.Errorf("a log is offered for no run:\n%s", m.render())
 	}
@@ -427,7 +427,7 @@ func TestServiceErrorsOfActionsAreSanitized(t *testing.T) {
 		m := newActionModel(t, b)
 		m.profile = profile
 		m.restyle()
-		send(m, "d")
+		send(m, "a")
 		noBadBytes(t, "deploy question", m.render(), profile)
 		send(m, "y")
 		screen := m.render()
@@ -435,18 +435,18 @@ func TestServiceErrorsOfActionsAreSanitized(t *testing.T) {
 		if !strings.Contains(screen, `evil\x1b[2J`) {
 			t.Errorf("profile %d: the escaped message is not shown:\n%s", profile, screen)
 		}
-		send(m, "enter", "u")
+		send(m, "enter", "U")
 		noBadBytes(t, "update preview", m.render(), profile)
 		send(m, "esc")
 		tick(m, 1, 5)
-		send(m, "u", "y")
+		send(m, "U", "y")
 		noBadBytes(t, "update summary", m.render(), profile)
 		send(m, "enter")
 		// A refused call that comes back as a failed channel.
 		b2 := demoBackend()
 		b2.errs["pin:demo-stack"] = bad2()
 		m = newActionModel(t, b2)
-		send(m, "i", "y")
+		send(m, "y", "y")
 		noBadBytes(t, "pin failure", m.render(), profile)
 	}
 }
@@ -457,7 +457,7 @@ func TestSmallTerminalsKeepTheirSizeWithAnOpenQuestion(t *testing.T) {
 	for _, width := range []int{minWidth, 44, 56, 80, 120, 200} {
 		for _, rows := range []int{minHeight, 14, 24} {
 			for _, lang := range []i18n.Lang{i18n.English, i18n.German} {
-				for _, keys := range [][]string{{"i"}, {"u"}, {"u", "y"}, {"space", "d", "y"}, {"c"}, {"c", "y"}} {
+				for _, keys := range [][]string{{"y"}, {"U"}, {"U", "y"}, {"space", "a", "y"}, {"u"}, {"u", "y"}} {
 					m := newTestModel(t, lang, demoBackend(), width, rows)
 					send(m, keys...)
 					checkScreen(t, m.render(), width, rows)
@@ -471,7 +471,7 @@ func TestSmallTerminalsKeepTheirSizeWithAnOpenQuestion(t *testing.T) {
 
 func TestQuitStillWorksUnderAQuestion(t *testing.T) {
 	m := newActionModel(t, demoBackend())
-	send(m, "d")
+	send(m, "a")
 	if cmd := press(m, "q"); isQuit(cmd) {
 		t.Error("q quits under a question")
 	}
@@ -499,8 +499,8 @@ func TestRefreshUnderWayIsFollowedByAnother(t *testing.T) {
 	b := demoBackend()
 	m := newActionModel(t, b)
 	before := b.called("status")
-	pending := press(m, "r")
-	send(m, "i", "y")
+	pending := press(m, "R")
+	send(m, "y", "y")
 	if b.called("status") != before {
 		t.Fatal("a second refresh started beside the first")
 	}

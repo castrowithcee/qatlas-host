@@ -1,20 +1,20 @@
 ◆ qhost  maintenance window closed                          [esc] back  [?] help
   1 Stacks 2 Stack detail 3 Runs 4 Settings [5 Containers] 6 Proposals 7 System 
 ────────────────────────────────────────────────────────────────────────────────
-    NAME               STATE       IMAGE                      UPTIME  RESTARTS  
+      NAME               STATE       IMAGE                      UPTIME  RESTARTS
+      ──────────────────────────────────────────────────────────────────────────
   ▾ ■ foreign project legacy-blog (2)                                           
->   legacy-blog-db-1   stopped     example.invalid/db:15      -       0         
-    legacy-blog-web-1  ok          example.invalid/blog:2     5d1h    0         
-  ▾ ■ fo╔═ start ══════════════════════════════════════════════════════╗        
-    wiki║ ⚠ Start container legacy-blog-db-1 (foreign project legacy-  ║        
-  ▾ ■ ow║   blog)?                                                     ║        
-    demo║                                                              ║        
-    demo║ Starts the container and waits up to a minute until it runs  ║        
-  ▾ ■ si║ and, if it has a health check, is healthy. A container that  ║        
-    exam║ already runs is left as it is.                               ║        
-        ║ State: stopped (exited)                                      ║        
+>     legacy-blog-db-1   stopped     example.invalid/db:15      -       0       
+      le╔═ start ══════════════════════════════════════════════════════╗0       
+  ▾ ■ fo║ ⚠ Start container legacy-blog-db-1 (foreign project legacy-  ║        
+      wi║   blog)?                                                     ║14      
+  ▾ ■ ow║                                                              ║        
+      de║ Starts the container and waits up to a minute until it runs  ║0       
+      de║ and, if it has a health check, is healthy. A container that  ║2       
+  ▾ ■ si║ already runs is left as it is.                               ║        
+      ex║ State: stopped (exited)                                      ║0       
         ║                                                              ║        
-        ║ [ yes, do it ]  > cancel <                                   ║        
+        ║ [ yes, do it ]  [ enter cancel ]                             ║        
         ║ y yes, do it  n/esc/enter cancel                             ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

@@ -21,4 +21,4 @@
 Backup 20261023T031000Z-4567cdef restored for the stack 
 demo-stack.                                             
 B back to before update  e update rules  b backup       
-C compose  o log  a set secret  r reload  q quit        
+I compose  o log  n set secret  R reload  q quit        

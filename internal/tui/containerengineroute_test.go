@@ -92,7 +92,7 @@ func TestAdoptPreselectsTheEngineOfTheProject(t *testing.T) {
 	m := newTestModel(t, i18n.English, b, wideWidth, 40)
 	send(m, "5")
 	selectIn(t, m, ctAlice, "legacy-blog-db-1")
-	send(m, "a")
+	send(m, "n")
 	if got := engineChoiceOf(t, m); got != ctAlice {
 		t.Fatalf("preselected %q", got)
 	}

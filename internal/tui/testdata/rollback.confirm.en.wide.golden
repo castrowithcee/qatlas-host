@@ -2,19 +2,19 @@
    1 ▤ Stacks   2 ▣ Stack detail  [3 ▶ Runs]  4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   STACK        STARTED      RESULT           TRIGGER  DURATION  RUN                                                     
+  ───────────────────────────────────────────────────────────────────────────────────────                               
   web-shop     10-30 15:00  running          manual   -         20261030T150000Z-0000000b                               
 > demo-stack   10-30 14:02  succeeded        update   48s       20261030T140200Z-0000000c                               
-  web-shop     10-30 12:00  rolled back      poll     3m35s     20261030T120000Z-0000000d                               
-  photo-album  10-29 03:10  ╔═ Back to the state before ═══════════════════════════════════╗                            
-  demo-stack   10-29 02:00  ║ ⚠ Return demo-stack to the versions before the update run    ║                            
-  mail-relay   10-28 03:10  ║   20261030T140200Z-0000000c?                                 ║                            
-  wiki         10-27 03:10  ║                                                              ║                            
-                            ║ The stack is stopped, its current data is backed up if it    ║                            
+  web-shop     10-30 12:00  ╔═ Back to the state before ═══════════════════════════════════╗                            
+  photo-album  10-29 03:10  ║ ⚠ Return demo-stack to the versions before the update run    ║                            
+  demo-stack   10-29 02:00  ║   20261030T140200Z-0000000c?                                 ║                            
+  mail-relay   10-28 03:10  ║                                                              ║                            
+  wiki         10-27 03:10  ║ The stack is stopped, its current data is backed up if it    ║                            
                             ║ has backup rules, the backup of that update is restored and  ║                            
                             ║ the stack starts on the old versions. The stack is pinned    ║                            
                             ║ afterwards.                                                  ║                            
                             ║                                                              ║                            
-                            ║ [ yes, do it ]  > cancel <                                   ║                            
+                            ║ [ yes, do it ]  [ enter cancel ]                             ║                            
                             ║ y yes, do it  n/esc/enter cancel                             ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

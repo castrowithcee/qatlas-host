@@ -3,8 +3,8 @@
 ────────────────────────────────────────────────────────
   STACK        START        ERGEBNIS                    
   ╔═ Zurück auf den Stand davor ═════════════════════╗  
-> ║ ⚠ demo-stack auf den Stand vor dem Update-Lauf   ║  
-  ║   20261030T140200Z-0000000c zurücksetzen?        ║  
+  ║ ⚠ demo-stack auf den Stand vor dem Update-Lauf   ║  
+> ║   20261030T140200Z-0000000c zurücksetzen?        ║  
   ║                                                  ║  
   ║ Danach ist der Stack festgehalten, kein Update   ║  
   ║ und kein Fenster bewegt ihn weiter. Wähle, was   ║  
@@ -16,9 +16,9 @@
   ║ Nur Version: Die Daten bleiben, die alte Version ║  
   ║ versteht migrierte Daten womöglich nicht.        ║  
   ║                                                  ║  
-  ║ [ mit Daten ]  [ nur Version ]  > abbrechen <    ║  
+  ║ [ mit Daten ]  [ nur Version ]                   ║  
+  ║ [ enter abbrechen ]                              ║  
   ║ d mit Daten  v nur Versi…  n/esc/enter abbrechen ║  
   ╚══════════════════════════════════════════════════╝  
-                                                        
                                                         
                                                      2/7

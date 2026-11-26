@@ -1,18 +1,18 @@
 ◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
    1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen  [5 ▦ Container]  6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS                                         
+      NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS                                       
+      ───────────────────────────────────────────────────────────────────────────                                       
   ▾ ■ eigener Stack demo-stack (2)                                                                                      
->   demo-stack-app-1   ok        example.invalid/app:1.4.2  3h2m      0                                                 
-    demo-stack-db-1    ungesund  example.invalid/db:16      1m        2                                                 
+>     demo-stack-app-1   ok        example.invalid/app:1.4.2  3h2m      0                                               
+      demo-stack-db-1    ungesund  example.invalid/db:16      1m        2                                               
   ▾ ■ einzelne Container (1)                                                                                            
-    example-cache      ok        example.invalid/cache:7    45s       0                                                 
+      example-cache      ok        example.invalid/cache:7    45s       0                                               
   ▾ ■ fremdes Projekt legacy-blog (2)                                                                                   
-    legacy-blog-db-1   gestoppt  example.invalid/db:15      -         0                                                 
-    legacy-blog-web-1  ok        example.invalid/blog:2     5d1h      0                                                 
-  ▾ ■ fremdes Projekt wiki [╔═ stop ═══════════════════════════════════════════════════════╗                            
-    wiki-app-1         Neust║ ⚠ Container demo-stack-app-1 (eigener Stack demo-stack)      ║                            
-                            ║   stoppen (stop)?                                            ║                            
+      legacy-blog-db-1   gestoppt  example.invalid/db:15      -         0                                               
+      legacy-blog-web-1  ok ╔═ stop ═══════════════════════════════════════════════════════╗                            
+  ▾ ■ fremdes Projekt wiki [║ ⚠ Container demo-stack-app-1 (eigener Stack demo-stack)      ║                            
+      wiki-app-1         Neu║   stoppen (stop)?                                            ║                            
                             ║                                                              ║                            
                             ║ Signalisiert dem Container das Ende und beendet ihn nach 10  ║                            
                             ║ Sekunden gewaltsam. Was er bereitstellt, ist nicht           ║                            
@@ -24,7 +24,7 @@
                             ║ $ sudo qhost container stop --yes --output json --           ║                            
                             ║   0123456789ab                                               ║                            
                             ║                                                              ║                            
-                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║                            
                             ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

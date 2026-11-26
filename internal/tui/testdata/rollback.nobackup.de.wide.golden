@@ -17,7 +17,7 @@
 ╭─ Changelog ───────────────║ Dieser Lauf hat kein Backup gemacht, daher kann nur die      ║───────────────────────────╮
 │ APP_VERSION  1.4.2 -> 1.5.║ Version zurück.                                              ║                           │
 │   Quelle example/app      ║                                                              ║                           │
-│   1.5.0  Spring release  2║ [ nur Version ]  > abbrechen <                               ║                           │
+│   1.5.0  Spring release  2║ [ nur Version ]  [ enter abbrechen ]                         ║                           │
 │     Adds a dark theme.    ║ v nur Version  n/esc/enter abbrechen                         ║                           │
 │                           ╚══════════════════════════════════════════════════════════════╝                           │
 │     - faster start                                                                                                   │

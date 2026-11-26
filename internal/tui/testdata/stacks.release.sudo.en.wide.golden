@@ -1,20 +1,20 @@
 ◆ qhost  maintenance window closed                                                                              [?] help
   [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-        STACK                      CURRENT      AVAILABLE      MODE       STATE     FINDINGS                            
+          STACK                    CURRENT      AVAILABLE      MODE       STATE     FINDINGS                            
+          ─────────────────────────────────────────────────────────────────────────────────────────────────             
 > ▾ [ ] ■ /srv/stacks-example (6)  clone                                            polled 2026-10-30 14:30             
-    [ ] demo-stack                 1.4.2        1.5.0          automatic  deployed  1 warning                           
-    [ ] mail-relay                 3.1          up to date     manual     pending   none                                
-    [ ] old-tool            ╔═ Stack folders ══════════════════════════════════════════════╗                            
-    [ ] photo-album         ║ ⚠ Release the stack folder /srv/stacks-example?              ║                            
-    [ ] web-shop            ║                                                              ║                            
-    [ ] wiki                ║ qhost no longer deploys from it. Nothing is deleted and no   ║gs                          
-                            ║ container is stopped; the permissions, the systemd drop-in   ║                            
+      [ ] demo-stack               1.4.2        1.5.0          automatic  deployed  1 warning                           
+      [ ] mail-relay        ╔═ Stack folders ══════════════════════════════════════════════╗                            
+      [ ] old-tool          ║ ⚠ Release the stack folder /srv/stacks-example?              ║                            
+      [ ] photo-album       ║                                                              ║                            
+      [ ] web-shop          ║ qhost no longer deploys from it. Nothing is deleted and no   ║                            
+      [ ] wiki              ║ container is stopped; the permissions, the systemd drop-in   ║gs                          
                             ║ entry and the deploy key stay.                               ║                            
                             ║ $ sudo qhost source remove --yes --output json --            ║                            
                             ║   /srv/stacks-example                                        ║                            
                             ║                                                              ║                            
-                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ [ yes, with sudo ]  [ enter cancel ]                         ║                            
                             ║ y yes, with sudo  n/esc/enter cancel                         ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
 ╭─ /srv/stacks-example ────────────────────────────────────────────────────────────────────────────────────────────────╮

@@ -43,5 +43,5 @@
 │ erfolgreich  10-28 03:10  poll  31s                  │
 │   20261028T031000Z-0000000e                          │
 │   qhost/example-host/mail-relay/20261028T031000Z-00… │
-e Update-Regeln  b Backup  C Compose  o Log             
-a Geheimnis setzen  r Neu laden  q Beenden              
+e Update-Regeln  b Backup  I Compose  o Log             
+n Geheimnis setzen  R Neu laden  q Beenden              

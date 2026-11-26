@@ -145,8 +145,8 @@ func TestFilterTakesLettersAsText(t *testing.T) {
 func TestReloadReadsAgainWithoutRefreshingRegistries(t *testing.T) {
 	b := demoBackend()
 	m := newTestModel(t, i18n.English, b, wideWidth, goldenRows)
-	cmd := press(m, "r")
-	if cmd == nil || press(m, "r") != nil {
+	cmd := press(m, "R")
+	if cmd == nil || press(m, "R") != nil {
 		t.Fatal("reload did not start exactly one refresh")
 	}
 	if !strings.Contains(m.render(), "refreshing") {
@@ -178,7 +178,7 @@ func TestFailedRefreshKeepsTheRows(t *testing.T) {
 	b.statusErr = fmt.Errorf("dial: %w", client.ErrNotRunning)
 	load(t, m)
 	screen := m.render()
-	if !strings.Contains(screen, "demo-stack") || !strings.Contains(screen, "error: the qhost service is not running; start it, then press r") {
+	if !strings.Contains(screen, "demo-stack") || !strings.Contains(screen, "error: the qhost service is not running; start it, then press R") {
 		t.Fatalf("screen:\n%s", screen)
 	}
 	b.statusErr = nil

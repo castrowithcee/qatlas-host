@@ -2,16 +2,16 @@
   1 2 3 4 5 6 [7 System]                                                        
   [Benutzer]  Gruppen   Ordner   Vorschläge   Änderungen   Protokoll            
 ────────────────────────────────────────────────────────────────────────────────
-    NAME            UID    ADMIN           DOCKER  LOGIN      GRUPPEN           
+      NAME          UID    ADMIN           DOCKER  LOGIN      GRUPPEN           
+      ───────────────────────────────────────────────────────────────           
   ▾ ■ Benutzer (3)                                                              
->   ada             1000   ja              ja      unbekannt                    
-    ben             1001   ja, ohne qhost  nein    unbekannt                    
-    cleo            1002   nein            nein    unbekannt  media             
+>     ada           1000   ja              ja      unbekannt                    
+      ben           1001   ja, ohne qhost  nein    unbekannt                    
+      cleo          1002   nein            nein    unbekannt  media             
   ▾ ■ Systemkonten (3)                                                          
-    root            0      nein            nein    unbekannt                    
-    daemon          1      nein            nein    unbekannt                    
-    nobody          65534  nein            nein    unbekannt                    
-                                                                                
+      root          0      nein            nein    unbekannt                    
+      daemon        1      nein            nein    unbekannt                    
+      nobody        65534  nein            nein    unbekannt                    
 ╭─ ada ────────────────────────────────────────────────────────────────────────╮
 │ Home: /home/ada                                                              │
 │ Primäre Gruppe: ada                                                          │
@@ -20,5 +20,5 @@
 │ Login: unbekannt                                                             │
 │ Login-Zustand und SSH-Schlüssel sieht nur root.                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
-enter/e ändern  / Suchen  a neuer Benutzer  x löschen  r Neu laden  1-7 Bereich 
+enter/e ändern  / Suchen  n neuer Benutzer  d löschen  R Neu laden  1-7 Bereich 
 q Beenden                                                     ↑/↓ Auswählen  1/6
