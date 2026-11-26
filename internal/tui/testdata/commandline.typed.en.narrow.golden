@@ -1,0 +1,14 @@
+◆ ╔═ Commands ═══════════════════════════════════════╗lp
+  ║ : res_                                           ║  
+──║                                                  ║──
+  ║ > resume          Resume the marked or ticked… g ║  
+  ║   restart stack   Restart the containers of t… Z ║──
+> ║   restore backup  Choose a backup of the stac… l ║g 
+  ║                                                  ║  
+  ║ enter open or confirm  esc back                  ║  
+  ╚══════════════════════════════════════════════════╝  
+  [ ] web-shop     5.2.0,…  6.0.0 (m…  runn…  none      
+  [ ] wiki         1.41.0   unchecked  pinn…  2 warnings
+                                                        
+enter details  / search  space tick  U update  a deploy 
+n add  R reload  1-7 area  q quit        ↑/↓ choose  1/6

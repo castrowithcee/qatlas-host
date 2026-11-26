@@ -180,14 +180,15 @@ type Model struct {
 	modal                                     *modal
 	run                                       *running
 	modalGen, runGen, rollbackGen, promoteGen int
-	stale                                     bool
+	stale, helpOpen                           bool
 	// after starts a timer; tests replace it.
 	after func(time.Duration, func(time.Time) tea.Msg) tea.Cmd
 	// euid and makeDirs are the user the interface runs as and the creation of data directories; tests replace them.
 	euid     func() int
 	makeDirs func(datadir.Request) (datadir.Result, error)
 	help     *kittui.Help
-	helpOpen bool
+	// cmdline is the open command line, nil while it is closed.
+	cmdline *kittui.CommandLine
 	// mouseOn is the mouse preference, mouseMap the click targets of the frame drawn last, sel the text selection.
 	mouseOn  bool
 	mouseMap *kittui.MouseMap
@@ -439,7 +440,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		return m, m.press(msg)
 	case tea.MouseMsg:
-		return m, m.selectMouse(msg)
+		return m, m.pointer(msg)
 	}
 	return m, nil
 }
@@ -1397,8 +1398,7 @@ func (m *Model) render() string {
 		pt, parts := m.partTargets(room)
 		targets, m.mouseParts = append(targets, pt...), parts
 	}
-	m.setMouse(targets)
-	return m.styles.Paint(view, m.width, m.height)
+	return m.paint(view, targets)
 }
 
 // filteringLogView is the log view whose period form is open, nil when none is.

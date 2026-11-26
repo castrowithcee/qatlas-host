@@ -1,0 +1,14 @@
+◆ ╔═ Commands ═══════════════════════════════════════╗lp
+  ║ : search or run a command…                       ║  
+──║                                                  ║──
+  ║ > stacks        Open the area Stacks           1 ║  
+  ║   stack detail  Open the area Stack detail     2 ║──
+> ║   runs          Open the area Runs             3 ║g 
+  ║   settings      Open the area Settings         4 ║  
+  ║   containers    Open the area Containers       5 ║  
+  ║   proposals     Open the area Proposals        6 ║  
+  ║   system        Open the area System           7 ║  
+  ║ 1-7 of 56                                        ║gs
+  ║                                                  ║  
+en║ enter open or confirm  esc back                  ║y 
+n ╚══════════════════════════════════════════════════╝/6

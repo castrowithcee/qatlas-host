@@ -1,0 +1,14 @@
+◆ qhost  Wartungsfenster zu ╔═ Befehle ════════════════════════════════════════════════════╗                   [?] Hilfe
+  [1 ▤ Stacks]  2 ▣ Stack-De║ : res_                                                       ║chläge   7 ◎ System         
+────────────────────────────║                                                              ║────────────────────────────
+      STACK        VERSION  ║ > wiederaufnehmen    Die markierten oder angehakten Stack… g ║               BEFUNDE      
+      ──────────────────────║   stack neu starten  Die Container der markierten oder an… Z ║──────────────────────────  
+> [ ] demo-stack   1.4.2    ║   backup einspielen  Ein Backup des Stacks zum Einspielen… l ║2              1 Warnung    
+  [ ] mail-relay   3.1      ║                                                              ║0              keine        
+  [ ] old-tool     -        ║ enter Öffnen oder bestätigen  esc Zurück                     ║               keine        
+  [ ] photo-album  2.0.1    ╚══════════════════════════════════════════════════════════════╝n 10-29 03:10  1 Fehler     
+  [ ] web-shop     5.2.0, 16.4  6.0.0 (Major)  automatisch  läuft     zurückgerollt 10-30 12:00            keine        
+  [ ] wiki         1.41.0       ungeprüft      keiner       gepinnt   erfolgreich 10-27 03:10              2 Warnungen  
+                                                                                                                        
+enter Details  / Suchen  space markieren  U update  a deploy  n hinzufügen  R Neu laden  1-7 Bereich  q Beenden         
+                                                                                                      ↑/↓ Auswählen  1/6
