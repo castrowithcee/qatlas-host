@@ -152,14 +152,14 @@ func TestHookRemoveDeletesOneAndRefusesUnknown(t *testing.T) {
 	root := hookFixture(t, map[string]string{"web": "webhook"})
 	id1, _, _ := addHook(t, "web")
 	id2, _, _ := addHook(t, "web")
-	code, _, stderr := run(t, "hook", "remove", "h-00000000")
+	code, _, stderr := run(t, "hook", "remove", "h-00000000", "--yes")
 	if code == 0 || !strings.Contains(stderr, "no such webhook") || !strings.Contains(stderr, "not-found") {
 		t.Fatalf("code %d, stderr %q", code, stderr)
 	}
 	if cfg, _ := deploysetup.HookConfig(root); len(cfg.Hooks) != 2 {
 		t.Fatalf("unknown id changed the hooks: %+v", cfg)
 	}
-	if code, _, stderr := run(t, "hook", "remove", id1); code != 0 {
+	if code, _, stderr := run(t, "hook", "remove", id1, "--yes"); code != 0 {
 		t.Fatalf("code %d, stderr %q", code, stderr)
 	}
 	cfg, err := deploysetup.HookConfig(root)
@@ -175,7 +175,7 @@ func TestHookCommandsKeepADamagedFile(t *testing.T) {
 	if err := os.WriteFile(hookConfigPath(root), []byte(damaged), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"hook", "add", "web"}, {"hook", "remove", "h-0a1b2c3d"}} {
+	for _, args := range [][]string{{"hook", "add", "web"}, {"hook", "remove", "h-0a1b2c3d", "--yes"}} {
 		code, stdout, stderr := run(t, args...)
 		if code == 0 || stdout != "" || !strings.Contains(stderr, "hook configuration") {
 			t.Fatalf("%v: code %d, stdout %q, stderr %q", args, code, stdout, stderr)
@@ -190,7 +190,7 @@ func TestHookCommandsKeepADamagedFile(t *testing.T) {
 func TestHookAddAndRemoveNeedTheReceiver(t *testing.T) {
 	startFakeService(t, stacksWithTrigger(map[string]string{"web": "webhook"}))
 	useHookHostRoot(t, 0)
-	for _, args := range [][]string{{"hook", "add", "web"}, {"hook", "remove", "h-0a1b2c3d"}} {
+	for _, args := range [][]string{{"hook", "add", "web"}, {"hook", "remove", "h-0a1b2c3d", "--yes"}} {
 		code, stdout, stderr := run(t, args...)
 		if code == 0 || stdout != "" || !strings.Contains(stderr, "qhost hook-service setup") {
 			t.Fatalf("%v: code %d, stdout %q, stderr %q", args, code, stdout, stderr)
@@ -201,7 +201,7 @@ func TestHookAddAndRemoveNeedTheReceiver(t *testing.T) {
 func TestHookAddAndRemoveNeedRoot(t *testing.T) {
 	root := hookFixture(t, map[string]string{"web": "webhook"})
 	deploySetup.euid = func() int { return 1000 }
-	for _, args := range [][]string{{"hook", "add", "web"}, {"hook", "remove", "h-0a1b2c3d"}} {
+	for _, args := range [][]string{{"hook", "add", "web"}, {"hook", "remove", "h-0a1b2c3d", "--yes"}} {
 		code, _, stderr := run(t, args...)
 		if code == 0 || !strings.Contains(stderr, "needs root") {
 			t.Fatalf("%v: code %d, stderr %q", args, code, stderr)

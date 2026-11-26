@@ -763,7 +763,7 @@ func (m *Model) askCredentialDelete() tea.Cmd {
 	m.askSetting(settingChange{title: textPageCreds, question: m.text.Lookup(textAskCredDelete, c.Name),
 		consequence: m.text.Lookup(textWhatCredDelete), danger: true, op: opCredDelete, name: c.Name,
 		direct: func(b Backend) (any, error) { return nil, b.CredentialDelete(ctx, c.Name) },
-		args:   m.settingsArgs([]string{"credential", "delete", "--output", "json", "--", c.Name}),
+		args:   m.settingsArgs([]string{"credential", "delete", "--yes", "--output", "json", "--", c.Name}),
 		decode: decodeFlag("deleted")})
 	return nil
 }
@@ -778,7 +778,7 @@ func (m *Model) askNotifyRemove() tea.Cmd {
 	m.askSetting(settingChange{title: textPageNotify, question: m.text.Lookup(textAskNotifyRemove, c.Name),
 		consequence: m.text.Lookup(textWhatNotifyRemove), danger: true, op: opNotifyRemove, name: c.Name,
 		direct: func(b Backend) (any, error) { return nil, b.NotifyRemove(ctx, c.Name) },
-		args:   m.settingsArgs([]string{"notify", "remove", "--output", "json", "--", c.Name}),
+		args:   m.settingsArgs([]string{"notify", "remove", "--yes", "--output", "json", "--", c.Name}),
 		decode: decodeFlag("removed")})
 	return nil
 }

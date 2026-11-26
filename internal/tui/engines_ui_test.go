@@ -389,7 +389,7 @@ func TestSettingsSudoCommandsNameTheInstance(t *testing.T) {
 	m, f := sudoStackModel(t, i18n.English, b, wideWidth, settingsRows)
 	send(m, toInstanceCreds...)
 	send(m, "H", "x")
-	if !shows(m.render(), "sudo qhost credential delete --output json --engine rootless:alice -- ghcr.io") {
+	if !shows(m.render(), "sudo qhost credential delete --yes --output json --engine rootless:alice -- ghcr.io") {
 		t.Fatalf("the question lacks the instance:\n%s", m.render())
 	}
 	send(m, "y")

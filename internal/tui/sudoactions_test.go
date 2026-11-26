@@ -423,7 +423,7 @@ func TestDetailChangesWithoutRootRunTheirCommand(t *testing.T) {
 		{"restore", `{"backup":"` + olderBackup + `","stack":"demo-stack","restored":true}`, "Backup " + olderBackup + " restored for the stack demo-stack.",
 			seq(toRestore, keys("enter")), []string{"stack", "backup", "restore", "--yes", "--output", "json", "--", "demo-stack", olderBackup}},
 		{"secret delete", `{"stack":"demo-stack","key":"API_SIGNING_KEY","deleted":true}`, "Secret API_SIGNING_KEY of the stack demo-stack deleted.",
-			seq(toSecretPick, keys("enter")), []string{"stack", "secret", "delete", "--output", "json", "--", "demo-stack", "API_SIGNING_KEY"}},
+			seq(toSecretPick, keys("enter")), []string{"stack", "secret", "delete", "--yes", "--output", "json", "--", "demo-stack", "API_SIGNING_KEY"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			b := settingsBackend()

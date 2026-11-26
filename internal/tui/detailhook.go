@@ -147,7 +147,7 @@ func (m *Model) askHookRemove(stack, id string) {
 	m.askSetting(settingChange{title: textTitleHookRemove, question: m.text.Lookup(textAskHookRemove, id, stack),
 		consequence: m.text.Lookup(textWhatHookRemove), danger: true, op: opHookRemove, name: id,
 		direct: func(b Backend) (any, error) { return hookRemoved{id}, b.HookRemove(ctx, id) },
-		args:   []string{"hook", "remove", "--output", "json", "--", id},
+		args:   []string{"hook", "remove", "--yes", "--output", "json", "--", id},
 		decode: func(r sudoRun) (any, bool) {
 			_, ok := decodeFlag("removed")(r)
 			return hookRemoved{id}, ok

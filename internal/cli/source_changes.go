@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -126,16 +127,18 @@ func newSourceDiffCommand(program *cobracli.Program, state *notRunning) *cobra.C
 
 func newSourceDiscardCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
 	var engine string
+	var gate *cobracli.Gate
 	cmd := &cobra.Command{
-		Use:   "discard <path> <file>...",
+		Use:   "discard <path> <file>... [--yes]",
 		Short: "Take uncommitted changes of a stack folder back, for the named files only",
 		Long: "discard takes the changes at the named files back. A modified or deleted file is restored to the last\n" +
 			"commit. A new file is removed, because you named it; nothing else is ever removed, and a folder, a pattern,\n" +
 			"a path outside the stack folder or a file the host owns is refused. Each file must be one 'qhost source\n" +
 			"changes' lists, and when one is not, nothing is changed. The edit is gone afterwards: there is no way back\n" +
 			"except a copy you made. A stack of the files with an active run is refused. When nothing else holds a stack\n" +
-			"back, its finding local-changes goes at the next poll, which starts at once. Run it with sudo; --output json\n" +
-			"gives the discarded files as data.\n\n" + wrapHelp(changesNote),
+			"back, its finding local-changes goes at the next poll, which starts at once. At a terminal it names the files\n" +
+			"and asks first (default no); without a terminal it refuses unless --yes is given (with --agent, --yes is\n" +
+			"always needed). Run it with sudo; --output json gives the discarded files as data.\n\n" + wrapHelp(changesNote),
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) < 2 || len(args) > control.MaxDiscardPaths+1 {
 				return usageFailure("source discard takes the stack folder and between one and 200 files",
@@ -150,25 +153,30 @@ func newSourceDiscardCommand(program *cobracli.Program, state *notRunning) *cobr
 			if err := routeFolder(c, state, engine, args[0]); err != nil {
 				return err
 			}
-			var res control.SourceDiscardResult
-			if err := credentialCall(c, state, control.SourceDiscardCommand, control.SourceDiscardArgs{Path: args[0], Files: args[1:]}, &res); err != nil {
-				return err
-			}
-			if res.Discarded == nil {
-				res.Discarded = []string{}
-			}
-			fields := []output.Field{{Name: "path", Value: res.Path}}
-			if structuredFormat(program.Format()) {
-				fields = append(fields, output.Field{Name: "discarded", Value: structured(program.Format(), res.Discarded)})
-			} else {
-				for i, p := range res.Discarded {
-					fields = append(fields, output.Field{Name: fmt.Sprintf("discarded.%d", i+1), Value: p})
+			question := fmt.Sprintf("Discard the changes at %s in %s? The edits are lost and cannot be brought back.",
+				strings.Join(args[1:], ", "), args[0])
+			return gate.Run(cobracli.Request{Question: question}, func() error {
+				var res control.SourceDiscardResult
+				if err := credentialCall(c, state, control.SourceDiscardCommand, control.SourceDiscardArgs{Path: args[0], Files: args[1:]}, &res); err != nil {
+					return err
 				}
-			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: fields})
+				if res.Discarded == nil {
+					res.Discarded = []string{}
+				}
+				fields := []output.Field{{Name: "path", Value: res.Path}}
+				if structuredFormat(program.Format()) {
+					fields = append(fields, output.Field{Name: "discarded", Value: structured(program.Format(), res.Discarded)})
+				} else {
+					for i, p := range res.Discarded {
+						fields = append(fields, output.Field{Name: fmt.Sprintf("discarded.%d", i+1), Value: p})
+					}
+				}
+				return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: fields})
+			})
 		},
 	}
 	addEngineFlag(cmd, &engine, folderEngineUsage, folderEngineNote)
+	gate = program.AddGate(cmd, cobracli.Gates{Question: true})
 	return cmd
 }
 

@@ -31,7 +31,7 @@
 │ DB_PASSWORD               ║                                                              ║                           │
 ╰───────────────────────────║ Its address stops working within ten seconds. This cannot be ║───────────────────────────╯
 ╭─ Webhooks ────────────────║ undone.                                                      ║───────────────────────────╮
-│ h-a1b2c3d0  2026-01-02 03:║ $ sudo qhost hook remove --output json -- h-a1b2c3d0         ║                           │
+│ h-a1b2c3d0  2026-01-02 03:║ $ sudo qhost hook remove --yes --output json -- h-a1b2c3d0   ║                           │
 │ h-a1b2c3d1  -             ║                                                              ║                           │
 ╰───────────────────────────║ [ yes, with sudo ]  > cancel <                               ║───────────────────────────╯
 ╭─ Grants ──────────────────║ y yes, with sudo  n/esc/enter cancel                         ║───────────────────────────╮

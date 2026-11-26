@@ -214,7 +214,7 @@ scenario_source_engine() {
 		fail "the instance does not list the credential: $(qd credential list --engine "$se_engine")"
 	qd --output json credential list | jq -e --arg n "$se_cred" 'any(.[]; .name == $n) | not' >/dev/null ||
 		fail "the system service lists the credential of the instance: $(qd credential list)"
-	out=$(as_admin "sudo qhost credential delete $se_cred --engine $se_engine 2>&1") || fail "credential delete --engine $se_engine failed: $out"
+	out=$(as_admin "sudo qhost credential delete $se_cred --engine $se_engine --yes 2>&1") || fail "credential delete --engine $se_engine failed: $out"
 	qd --output json credential list --engine "$se_engine" | jq -e --arg n "$se_cred" 'any(.[]; .name == $n) | not' >/dev/null ||
 		fail 'the credential is still listed by the instance after its deletion'
 	log "scenario: stack list, deploy, settings and credential reached the instance of $rootless_user and not the system service"

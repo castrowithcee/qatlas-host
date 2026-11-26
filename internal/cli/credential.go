@@ -39,7 +39,7 @@ func newCredentialCommand(program *cobracli.Program, state *notRunning, secrets 
 		Long: "Credentials are stored by the service and never shown again. list reads and needs no sudo for an\n" +
 			"administrator in the group qhost; set and delete need sudo.",
 	}
-	var setEngine, listEngine, delEngine string
+	var setEngine, listEngine string
 	set := &cobra.Command{
 		Use:   "set <name>",
 		Short: "Store a credential read from the terminal or stdin",
@@ -101,31 +101,44 @@ func newCredentialCommand(program *cobracli.Program, state *notRunning, secrets 
 				output.Collection{Columns: []string{"name", "modified"}, Rows: rows})
 		},
 	}
+	del := newCredentialDeleteCommand(program, state)
+	addEngineFlag(set, &setEngine, instanceEngineUsage, credentialEngineNote)
+	addEngineFlag(list, &listEngine, instanceEngineUsage, credentialEngineNote)
+	group.AddCommand(set, list, del)
+	return group
+}
+
+func newCredentialDeleteCommand(program *cobracli.Program, state *notRunning) *cobra.Command {
+	var engine string
+	var gate *cobracli.Gate
 	del := &cobra.Command{
-		Use:   "delete <name>",
+		Use:   "delete <name> [--yes]",
 		Short: "Delete a stored credential",
-		Long:  "delete removes the credential of that name from the service's store.",
-		Args:  cobra.ExactArgs(1),
+		Long: "delete removes the credential of that name from the service's store. It cannot be brought back: at a\n" +
+			"terminal the command asks first (default no); without a terminal it refuses unless --yes is given (with\n" +
+			"--agent, --yes is always needed).",
+		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			if !credentials.ValidName(args[0]) {
 				return usageFailure(credentials.ErrInvalidName.Error(), "Check the names with 'qhost credential list'.")
 			}
-			if err := routeInstance(c, delEngine); err != nil {
+			if err := routeInstance(c, engine); err != nil {
 				return err
 			}
-			if err := credentialCall(c, state, control.CredentialDeleteCommand, control.CredentialNameArgs{Name: args[0]}, nil); err != nil {
-				return err
-			}
-			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
-				{Name: "name", Value: args[0]}, {Name: "deleted", Value: true},
-			}})
+			question := fmt.Sprintf("Delete the credential %s? It is lost and cannot be brought back.", args[0])
+			return gate.Run(cobracli.Request{Question: question}, func() error {
+				if err := credentialCall(c, state, control.CredentialDeleteCommand, control.CredentialNameArgs{Name: args[0]}, nil); err != nil {
+					return err
+				}
+				return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
+					{Name: "name", Value: args[0]}, {Name: "deleted", Value: true},
+				}})
+			})
 		},
 	}
-	addEngineFlag(set, &setEngine, instanceEngineUsage, credentialEngineNote)
-	addEngineFlag(list, &listEngine, instanceEngineUsage, credentialEngineNote)
-	addEngineFlag(del, &delEngine, instanceEngineUsage, credentialEngineNote)
-	group.AddCommand(set, list, del)
-	return group
+	gate = program.AddGate(del, cobracli.Gates{Question: true})
+	addEngineFlag(del, &engine, instanceEngineUsage, credentialEngineNote)
+	return del
 }
 
 func credentialCall(c *cobra.Command, state *notRunning, command string, args, result any) error {

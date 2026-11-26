@@ -162,10 +162,10 @@ scenario_hook() {
 	[ -z "$(stack_field demo-stack active_run)" ] || fail 'a wrong secret started a run in progress'
 
 	step 'hook remove needs root, refuses an unknown id and then the old secret gets 404'
-	if out=$(as_admin "qhost hook remove $hook_id 2>&1"); then fail "hook remove without root succeeded: $out"; fi
-	if out=$(qd hook remove h-00000000); then fail "hook remove of an unknown id succeeded: $out"; fi
+	if out=$(as_admin "qhost hook remove $hook_id --yes 2>&1"); then fail "hook remove without root succeeded: $out"; fi
+	if out=$(qd hook remove h-00000000 --yes); then fail "hook remove of an unknown id succeeded: $out"; fi
 	printf '%s' "$out" | grep -q 'no such webhook' || fail "the refusal of an unknown id is unclear: $out"
-	out=$(qd hook remove "$hook_id") || fail "hook remove failed: $out"
+	out=$(qd hook remove "$hook_id" --yes) || fail "hook remove failed: $out"
 	qd hook list | grep -q "$hook_id" && fail 'the removed hook is still listed'
 	wait_for 'the removed secret to get 404' 30 hook_rejects "$hook_path"
 	as_admin 'qhost --output json status 2>&1' | grep -q '"hook_count": *0' || fail "the hook count is not 0 after the removal: $(as_admin 'qhost --output json status 2>&1')"
