@@ -13,7 +13,7 @@
   ║ The service stores the value and never shows it  ║─╮
   ║ again. A credential of that name is replaced.    ║ │
   ║                                                  ║─╯
-  ║ [ yes, do it ]  > cancel <                       ║═╗
+  ║ [ yes, do it ]  [ enter cancel ]                 ║═╗
 > ║ y yes, do it  n/esc/enter cancel                 ║ ║
   ╚══════════════════════════════════════════════════╝═╝
                 hidden; the registry token, or the      

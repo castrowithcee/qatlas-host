@@ -1,15 +1,16 @@
 ◆ qhost  Wartungsfenster zu                                                                      [esc] Zurück  [?] Hilfe
    1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen  [5 ▦ Container]  6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS                                         
+      NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS                                       
+      ───────────────────────────────────────────────────────────────────────────                                       
 > ▸ ■ eigener Stack demo-stack (2)                                                                                      
   ▾ ■ einzelne Container (1)                                                                                            
-    example-cache      ok        example.invalid/cache:7    45s       0                                                 
+      example-cache      ok        example.invalid/cache:7    45s       0                                               
   ▾ ■ fremdes Projekt legacy-blog (2)                                                                                   
-    legacy-blog-db-1   gestoppt  example.invalid/db:15      -         0                                                 
-    legacy-blog-web-1  ok        example.invalid/blog:2     5d1h      0                                                 
+      legacy-blog-db-1   gestoppt  example.invalid/db:15      -         0                                               
+      legacy-blog-web-1  ok        example.invalid/blog:2     5d1h      0                                               
   ▾ ■ fremdes Projekt wiki [Konflikt: Name eines Stacks, anderer Ordner] (1)                                            
-    wiki-app-1         Neustart  example.invalid/wiki:1     -         14                                                
+      wiki-app-1         Neustart  example.invalid/wiki:1     -         14                                              
                                                                                                                         
                                                                                                                         
                                                                                                                         
@@ -36,5 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-enter Details  / Suchen  o Log  S start  X stop  Z restart  r Neu laden  1-7 Bereich  q Beenden       ↑/↓ Auswählen  1/6
+enter Details  / Suchen  o Log  S start  X stop  Z restart  R Neu laden  1-7 Bereich  q Beenden       ↑/↓ Auswählen  1/6

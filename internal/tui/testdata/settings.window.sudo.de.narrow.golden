@@ -14,7 +14,7 @@
   ║ $ sudo qhost window set --start 04:30 --output   ║─╮
   ║   json                                           ║ │
   ║                                                  ║─╯
-  ║ [ ja, mit sudo ]  > abbrechen <                  ║─╮
+  ║ [ ja, mit sudo ]  [ enter abbrechen ]            ║─╮
   ║ y ja, mit sudo  n/esc/enter abbrechen            ║ │
   ╚══════════════════════════════════════════════════╝─╯
                                                         

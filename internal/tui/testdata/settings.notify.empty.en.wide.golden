@@ -2,7 +2,7 @@
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs  [4 ⚙ Settings]  5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
    General   Credentials   Maintenance window  [Notifications]  Webhooks                                                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  No notification channels. a adds one.                                                                                 
+  No notification channels. n adds one.                                                                                 
                                                                                                                         
                                                                                                                         
                                                                                                                         
@@ -21,4 +21,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-a add  s send test  x remove  esc back  r reload  1-7 area  q quit                                            ↑/↓ choose
+n add  s send test  d remove  esc back  R reload  1-7 area  q quit                                            ↑/↓ choose

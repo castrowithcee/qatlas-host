@@ -34,7 +34,7 @@
 │ ║ $ sudo qhost hook add --output json --           ║ │
 ╰─║   demo-stack                                     ║─╯
 ╭─║                                                  ║─╮
-│ ║ [ ja, mit sudo ]  > abbrechen <                  ║ │
+│ ║ [ ja, mit sudo ]  [ enter abbrechen ]            ║ │
 │ ║ y ja, mit sudo  n/esc/enter abbrechen            ║ │
 │ ╚══════════════════════════════════════════════════╝ │
 ╰──────────────────────────────────────────────────────╯

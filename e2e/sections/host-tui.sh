@@ -41,7 +41,7 @@ scenario_tui_system() {
 	tui_wait 'DOCKER' 15
 	tui_system_tab Groups
 	tui_wait 'MEMBERS' 10
-	tui_send a
+	tui_send n
 	tui_wait 'The system gives the group a regular group number.' 10
 	tui_type "$ts_group"
 	tui_send F2
@@ -55,7 +55,7 @@ scenario_tui_system() {
 	step 'the interface without sudo creates a user with an initial password in that group, through sudo -v and sudo -n'
 	tui_system_tab Users
 	tui_wait 'DOCKER' 10
-	tui_send a
+	tui_send n
 	tui_wait 'The user must change the initial password at the first login.' 10
 	tui_type "$ts_user"
 	tui_send Down
@@ -111,7 +111,7 @@ scenario_tui_system() {
 
 # scenario_tui_changes proves System > Folders, Changes and Log of the interface started without sudo. The
 # administrator takes the permissions of everyone else from a test folder through sudo qhost host apply; Changes reads
-# the journal through sudo qhost host journal on r and lists the change; its undo through sudo qhost host undo brings
+# the journal through sudo qhost host journal on R and lists the change; its undo through sudo qhost host undo brings
 # back owner, group and mode, as stat shows; Log shows the change of the host under an intact chain of hashes. The
 # rule of $admin lets sudo run a command without the password, so none is asked here.
 scenario_tui_changes() {
@@ -151,10 +151,10 @@ scenario_tui_changes() {
 	tui_send Enter
 	[ "$(as_admin "stat -c %a '$tc_dir'")" = 750 ] || fail "the folder has the mode $(as_admin "stat -c %a '$tc_dir'") after the change, want 750"
 
-	step 'System > Changes reads the journal through sudo on r and lists the change of the folder'
+	step 'System > Changes reads the journal through sudo on R and lists the change of the folder'
 	tui_system_tab Changes
 	tui_wait 'only root can read' 10
-	tui_send r
+	tui_send R
 	tui_wait "Change $tc_dir" 60
 	i=0
 	until tui_screen | grep "^> " | grep -q "Change $tc_dir"; do
@@ -328,7 +328,7 @@ scenario_tui_host_proposal() {
 	step 'the undo on System > Changes removes the user again'
 	tui_system_tab Changes
 	tui_wait 'only root can read' 10
-	tui_send r
+	tui_send R
 	tui_wait "Create the user $hp_user" 60
 	i=0
 	until tui_screen | grep "^> " | grep -q "Create the user $hp_user"; do

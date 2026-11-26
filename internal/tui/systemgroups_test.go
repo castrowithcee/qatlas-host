@@ -36,17 +36,17 @@ func lastTail(t *testing.T, f *fakeRoot, n int) []string {
 func TestGroupCreateChecksTheNameAndRunsTheAction(t *testing.T) {
 	m, f := systemModel(t, i18n.English, wideWidth, 40)
 	toGroup(t, m, "media")
-	send(m, seq(keys("a"), typed("media"), keys("f2"))...)
+	send(m, seq(keys("n"), typed("media"), keys("f2"))...)
 	if m.modal != nil || !strings.Contains(m.render(), "This group exists already.") {
 		t.Fatalf("a taken name was not refused:\n%s", m.render())
 	}
 	send(m, "esc", "y")
-	send(m, seq(keys("a"), typed("Crew"), keys("f2"))...)
+	send(m, seq(keys("n"), typed("Crew"), keys("f2"))...)
 	if m.modal != nil || !strings.Contains(m.render(), "Enter a name of lower-case letters") {
 		t.Fatalf("a bad name was not refused:\n%s", m.render())
 	}
 	send(m, "esc", "y")
-	send(m, seq(keys("a"), typed("crew"), keys("f2"))...)
+	send(m, seq(keys("n"), typed("crew"), keys("f2"))...)
 	if screen := flat(m.render()); !strings.Contains(screen, "Create the group crew.") || !strings.Contains(screen, "groupadd") {
 		t.Fatalf("the question:\n%s", screen)
 	}
@@ -129,13 +129,13 @@ func TestSystemGroupMembersAskInRed(t *testing.T) {
 func TestGroupRenameAsksInRedAndNamesTheConsequence(t *testing.T) {
 	m, f := systemModel(t, i18n.English, wideWidth, 40)
 	toGroup(t, m, "media")
-	send(m, "n")
+	send(m, "r")
 	if m.set.form == nil || m.set.form.kind != formGroupRename || !strings.Contains(m.render(), "Rename media") {
 		t.Fatalf("no rename form:\n%s", m.render())
 	}
 	send(m, seq(typed("studio"), keys("f2"))...)
 	screen := flat(m.render())
-	for _, want := range []string{"Rename the group media to studio.", "groupmod -n studio media", "they stop working until they are changed too"} {
+	for _, want := range []string{"Rename the group media to studio.", "groupmod -n studio media", "they stop working until they are"} {
 		if !strings.Contains(screen, want) {
 			t.Errorf("the question lacks %q:\n%s", want, screen)
 		}
@@ -149,9 +149,9 @@ func TestGroupRenameAsksInRedAndNamesTheConsequence(t *testing.T) {
 func TestProtectedAndPrimaryGroupsAreLeftAlone(t *testing.T) {
 	m, f := systemModel(t, i18n.English, wideWidth, 40)
 	for _, tt := range []struct{ group, key, want string }{
-		{"sudo", "n", "sudo keeps its name"},
-		{"qhost", "x", "qhost is never deleted"},
-		{"ada", "x", "ada is the primary group of ada and cannot be deleted."},
+		{"sudo", "r", "sudo keeps its name"},
+		{"qhost", "d", "qhost is never deleted"},
+		{"ada", "d", "ada is the primary group of ada and cannot be deleted."},
 	} {
 		toGroup(t, m, tt.group)
 		send(m, tt.key)
@@ -167,7 +167,7 @@ func TestProtectedAndPrimaryGroupsAreLeftAlone(t *testing.T) {
 func TestGroupDeleteAsks(t *testing.T) {
 	m, f := systemModel(t, i18n.English, wideWidth, 40)
 	toGroup(t, m, "backup-ops")
-	send(m, "x")
+	send(m, "d")
 	if screen := flat(m.render()); !strings.Contains(screen, "Delete the group backup-ops.") || !strings.Contains(screen, "groupdel backup-ops") {
 		t.Fatalf("the question:\n%s", screen)
 	}
@@ -176,7 +176,7 @@ func TestGroupDeleteAsks(t *testing.T) {
 		t.Fatal("a cancelled delete asked for a command")
 	}
 	toGroup(t, m, "backup-ops")
-	send(m, "x", "y")
+	send(m, "d", "y")
 	if got := lastTail(t, f, 2); !slices.Equal(got, []string{hostchange.ActionGroupDelete, "backup-ops"}) {
 		t.Fatalf("arguments %q", got)
 	}

@@ -17,7 +17,7 @@ var (
 	toCommand     = seq(toBackupForm, keys("down", "down"))
 	toKeep        = seq(toBackupForm, keys("down", "down", "down"))
 	toMaxAge      = seq(toBackupForm, keys("down", "down", "down", "down"))
-	toComposeForm = keys("enter", "C")
+	toComposeForm = keys("enter", "I")
 )
 
 // backupBackend has stored settings that hold a backup with a volume the compose files no longer have, and
@@ -102,11 +102,11 @@ func TestBackupEditsTheListsOfPathsAndCommand(t *testing.T) {
 	b := backupBackend()
 	m := newSettingsModel(t, b)
 	send(m, toBackupForm...)
-	send(m, "enter", "a")
+	send(m, "enter", "n")
 	send(m, typed("data/files")...)
 	send(m, "f2", "esc")
 	contains(t, m, "data/db, data/files")
-	send(m, "down", "down", "enter", "a")
+	send(m, "down", "down", "enter", "n")
 	send(m, typed("--clean")...)
 	send(m, "f2", "esc")
 	contains(t, m, "pg_dump, --clean, --clean")
@@ -217,7 +217,7 @@ func TestComposeFilesTakeTheSectionOutWhenEmptied(t *testing.T) {
 	b := backupBackend()
 	m := newSettingsModel(t, b)
 	send(m, toComposeForm...)
-	send(m, "enter", "x", "x", "esc", "f2")
+	send(m, "enter", "d", "d", "esc", "f2")
 	contains(t, m, "the files Compose finds itself")
 	send(m, "y")
 	if got := b.settingsSets[0].Settings; got.Compose != nil || got.Backup == nil {
@@ -245,12 +245,12 @@ func TestComposeMoreThanSixteenFilesAreRefusedAtTheField(t *testing.T) {
 func TestComposeRefusesAFileOnTheEntryForm(t *testing.T) {
 	m := newSettingsModel(t, backupBackend())
 	send(m, toComposeForm...)
-	send(m, "enter", "a")
+	send(m, "enter", "n")
 	send(m, typed("-bad.yaml")...)
 	send(m, "f2")
 	contains(t, m, "must not start with a dash")
 	send(m, "esc")
-	send(m, "a")
+	send(m, "n")
 	send(m, typed("../x.yaml")...)
 	send(m, "f2")
 	contains(t, m, "clean path relative to the stack folder")
@@ -290,5 +290,5 @@ func TestOrderedListMovesAnEntryAndKeepsTheCursorOnIt(t *testing.T) {
 func TestDetailOffersTheBackupAndComposeForms(t *testing.T) {
 	m := newSettingsModel(t, backupBackend())
 	send(m, "enter")
-	contains(t, m, "b backup", "C compose")
+	contains(t, m, "b backup", "I compose")
 }

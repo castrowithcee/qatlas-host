@@ -3,17 +3,17 @@
    Users   Groups   Folders   Proposals  [Changes]  Log                         
 ────────────────────────────────────────────────────────────────────────────────
   TIME              BY    CHANGE                                RESULT  UNDO    
+  ──────────────────────────────────────────────────────────────────────────────
   2026-11-02 09:00  ada   Change /srv/media: owner cleo, grou…  done    possible
 > 2026-11-01 17:00  ada   Delete the user ben together with i…  done    -       
-  2026-11-01 08:00  root  Lock cleo: no login is possible any…  undone  -       
-        ╔═ Host ═══════════════════════════════════════════════════════╗        
+  2026-1╔═ Host ═══════════════════════════════════════════════════════╗-       
         ║ Not undone: Delete the user ben together with its home and   ║        
         ║ mail spool.                                                  ║        
         ║                                                              ║        
         ║ This change cannot be undone, as a deleted home or an undo   ║        
         ║ itself.                                                      ║        
         ║                                                              ║        
-        ║ > close <                                                    ║        
+        ║ [ enter close ]                                              ║        
         ║ n/esc/enter close                                            ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

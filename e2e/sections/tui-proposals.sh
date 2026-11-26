@@ -55,8 +55,8 @@ EOF2
 	log 'scenario: the detail of a container of the foreign project shows its folder and files:'
 	tui_excerpt 'folder' 8
 
-	step 'a opens the takeover; it shows the labels, no warning, and changes nothing before the answer'
-	tui_send a
+	step 'n opens the takeover; it shows the labels, no warning, and changes nothing before the answer'
+	tui_send n
 	tui_adopt_own
 	tui_keep_engine 30
 	tui_wait 'Start a git repository in /srv/qd-foreign/app and take it over?' 30

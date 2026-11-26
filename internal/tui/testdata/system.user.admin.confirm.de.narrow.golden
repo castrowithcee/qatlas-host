@@ -2,19 +2,19 @@
   1 2 3 4 5 6 [7 System]                                                        
   [Benutzer]  Gruppen   Ordner   Vorschläge   Änderungen   Protokoll            
 ────────────────────────────────────────────────────────────────────────────────
-    NAME            UID    ADMIN           DOCKER  LOGIN      GRUPPEN           
+      NAME          UID    ADMIN           DOCKER  LOGIN      GRUPPEN           
+      ───────────────────────────────────────────────────────────────           
   ▾ ■ Benutzer (3)                                                              
-    ada             1000   ja              ja      unbekannt                    
-    ben             1001   ja, ohne qhost  nein    unbekannt                    
->   cleo╔═ Host ändern ════════════════════════════════════════════════╗        
-  ▾ ■ Sy║ ⚠ cleo zum Administrator mit Zugang zu qhost machen.         ║        
-    root║                                                              ║        
-    daem║ Admin- und Docker-Rechte erlauben praktisch alles auf diesem ║        
-    nobo║ Host. Läuft mit sudo, steht im Journal und lässt sich        ║        
-        ║ rückgängig machen.                                           ║        
+      ada           1000   ja              ja      unbekannt                    
+      be╔═ Host ändern ════════════════════════════════════════════════╗        
+>     cl║ ⚠ cleo zum Administrator mit Zugang zu qhost machen.         ║        
+  ▾ ■ Sy║                                                              ║        
+      ro║ Admin- und Docker-Rechte erlauben praktisch alles auf diesem ║        
+      da║ Host. Läuft mit sudo, steht im Journal und lässt sich        ║        
+      no║ rückgängig machen.                                           ║        
         ║ $ usermod -aG sudo,qhost cleo                                ║        
 ╭─ cleo ║                                                              ║───────╮
-│ Home: ║ [ ja, mit sudo ]  > abbrechen <                              ║       │
+│ Home: ║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║       │
 │ Primär║ y ja, mit sudo  n/esc/enter abbrechen                        ║       │
 │ Weiter╚══════════════════════════════════════════════════════════════╝       │
 │ Zugang: kein Administrator                                                   │

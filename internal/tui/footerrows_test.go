@@ -33,7 +33,7 @@ func TestScrolledToTheEndShowsTheLastLineAndTheCounter(t *testing.T) {
 		{"detail", []string{"enter", "end"},
 			func(m *Model, w int) []string { return m.detailLines(m.rows[m.chosen], w) },
 			func(m *Model) int { return m.detail.total }},
-		{"preview", []string{"u", "end"},
+		{"preview", []string{"U", "end"},
 			func(m *Model, w int) []string { return m.previewLines(w) },
 			func(m *Model) int { return m.modal.total }},
 	}

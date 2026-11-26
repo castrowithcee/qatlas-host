@@ -37,4 +37,4 @@
        after:  "data"                                                                                                   
        update.mode                                                                                                      
        before: "manual"                                                                                                 
-esc back  A approve  N reject  r reload  1-7 area  q quit                                              ↑/↓ scroll  36/39
+esc back  A approve  N reject  R reload  1-7 area  q quit                                              ↑/↓ scroll  36/39

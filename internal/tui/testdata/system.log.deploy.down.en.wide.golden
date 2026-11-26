@@ -37,4 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-H service  r reload  1-7 area  q quit                                                                         ↑/↓ choose
+H service  R reload  1-7 area  q quit                                                                         ↑/↓ choose

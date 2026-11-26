@@ -33,7 +33,7 @@
 ╭─║ danach einmal gezeigt und ist nicht wieder       ║─╮
 │ ║ lesbar.                                          ║ │
 ╰─║                                                  ║─╯
-╭─║ [ ja, ausführen ]  > abbrechen <                 ║─╮
+╭─║ [ ja, ausführen ]  [ enter abbrechen ]           ║─╮
 │ ║ y ja, ausführen  n/esc/enter abbrechen           ║ │
 │ ╚══════════════════════════════════════════════════╝ │
 │ Keine Freigaben für diesen Stack.                    │

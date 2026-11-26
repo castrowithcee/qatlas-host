@@ -61,4 +61,4 @@
 │ Update  works, automatic                             │
 │   the maintenance window updates APP_VERSION by      │
 B back to before update  e update rules  b backup       
-C compose  o log  a set secret  r reload  q quit        
+I compose  o log  n set secret  R reload  q quit        

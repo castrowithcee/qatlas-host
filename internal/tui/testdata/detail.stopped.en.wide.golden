@@ -43,5 +43,5 @@
 │ Not checked.                                                                                                         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
                                                                                                                         
-e update rules  b backup  C compose  k checks  E clear settings  o log  a set secret  x delete secret  R restore backup 
-z grant  r reload  1-7 area  q quit                                                                           ↑/↓ scroll
+e update rules  b backup  I compose  k checks  E clear settings  o log  n set secret  d delete secret  l restore backup 
+z grant  R reload  1-7 area  q quit                                                                           ↑/↓ scroll

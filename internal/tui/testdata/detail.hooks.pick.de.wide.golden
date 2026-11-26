@@ -4,6 +4,7 @@
   Webhook entfernen                                                                                                     
                                                                                                                         
   ID                                                                                                                    
+  ──────────                                                                                                            
 > h-a1b2c3d0                                                                                                            
   h-a1b2c3d1                                                                                                            
                                                                                                                         
@@ -60,5 +61,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-enter wählen  esc Zurück  r Neu laden  1-7 Bereich  q Beenden                                              ↑/↓ Auswählen
+enter wählen  esc Zurück  R Neu laden  1-7 Bereich  q Beenden                                              ↑/↓ Auswählen

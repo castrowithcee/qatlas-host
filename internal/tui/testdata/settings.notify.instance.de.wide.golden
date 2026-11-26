@@ -4,6 +4,7 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   Instanz: rootless:alice                                                                                               
   NAME     GESPEICHERT                                                                                                  
+  ─────────────────────────                                                                                             
 > ghcr.io  2026-10-29 09:00                                                                                             
                                                                                                                         
                                                                                                                         
@@ -20,5 +21,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-H Instanz  a hinzufügen  x entfernen  esc Zurück  r Neu laden  1-7 Bereich  q Beenden                 ↑/↓ Auswählen  1/1
+H Instanz  n hinzufügen  d entfernen  esc Zurück  R Neu laden  1-7 Bereich  q Beenden                 ↑/↓ Auswählen  1/1

@@ -21,4 +21,4 @@
     !! The backup command runs on the host later, before each update. Read every
     word of it.                                                                 
                                                                                 
-esc back  A approve  N reject  r reload  1-7 area  q quit      ↑/↓ scroll  20/41
+esc back  A approve  N reject  R reload  1-7 area  q quit      ↑/↓ scroll  20/41

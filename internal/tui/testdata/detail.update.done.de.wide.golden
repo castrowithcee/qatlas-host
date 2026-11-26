@@ -20,7 +20,7 @@
 │   1.5.0  Spring release  2║                                                              ║                           │
 │     Adds a dark theme.    ║ Commit: 222222222222                                         ║                           │
 │                           ║                                                              ║                           │
-│     - faster start        ║ > schließen <                                                ║                           │
+│     - faster start        ║ [ enter schließen ]                                          ║                           │
 │     - fixes the upload lim║ n/esc/enter schließen                                        ║                           │
 │   1.4.3  2026-10-20       ╚══════════════════════════════════════════════════════════════╝                           │
 │     Fixes a crash on empty input.                                                                                    │

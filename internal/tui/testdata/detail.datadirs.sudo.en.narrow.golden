@@ -17,7 +17,7 @@
   ║ $ sudo qhost stack datadir --owner 1000:1000     ║─╯
   ║   --mode 0750 --yes --output json -- demo-stack  ║  
   ║                                                  ║  
-  ║ [ yes, with sudo ]  > cancel <                   ║  
+  ║ [ yes, with sudo ]  [ enter cancel ]             ║  
   ║ y yes, with sudo  n/esc/enter cancel             ║  
   ╚══════════════════════════════════════════════════╝  
 [ F2 save ]  [ esc discard ]                            

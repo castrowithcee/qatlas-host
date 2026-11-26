@@ -1,20 +1,20 @@
 ◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
   1 2 3 4 [5 Container] 6 7                                                     
 ────────────────────────────────────────────────────────────────────────────────
-    NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS 
+      NAME               ZUSTAND   IMAGE                     LAUFZEIT  NEUSTARTS
+      ──────────────────────────────────────────────────────────────────────────
   ▾ ■ eigener Stack demo-stack (2)                                              
-    demo-stack-app-1   ok        example.invalid/app:1.4.2  3h2m      0         
-    demo-stack-db-1    ungesund  example.invalid/db:16      1m        2         
-  ▾ ■ ei╔═ start ══════════════════════════════════════════════════════╗        
-    exam║ ⚠ Container legacy-blog-db-1 (fremdes Projekt legacy-blog)   ║        
-  ▾ ■ fr║   starten (start)?                                           ║        
->   lega║                                                              ║        
-    lega║ Startet den Container und wartet bis zu eine Minute, bis er  ║        
-  ▾ ■ fr║ läuft und, falls er einen Health-Check hat, gesund ist. Ein  ║ (1)    
-    wiki║ Container, der schon läuft, bleibt unverändert.              ║        
-        ║ Zustand: gestoppt (exited)                                   ║        
+      demo-stack-app-1   ok        example.invalid/app:1.4…  3h2m      0        
+      de╔═ start ══════════════════════════════════════════════════════╗        
+  ▾ ■ ei║ ⚠ Container legacy-blog-db-1 (fremdes Projekt legacy-blog)   ║        
+      ex║   starten (start)?                                           ║        
+  ▾ ■ fr║                                                              ║        
+>     le║ Startet den Container und wartet bis zu eine Minute, bis er  ║        
+      le║ läuft und, falls er einen Health-Check hat, gesund ist. Ein  ║        
+  ▾ ■ fr║ Container, der schon läuft, bleibt unverändert.              ║ (1)    
+      wi║ Zustand: gestoppt (exited)                                   ║4       
         ║                                                              ║        
-        ║ [ ja, ausführen ]  > abbrechen <                             ║        
+        ║ [ ja, ausführen ]  [ enter abbrechen ]                       ║        
         ║ y ja, ausführen  n/esc/enter abbrechen                       ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

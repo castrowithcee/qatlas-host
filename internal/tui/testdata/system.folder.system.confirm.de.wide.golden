@@ -24,7 +24,7 @@
                             ║ $ chown -- cleo:media /etc/demo                              ║                            
                             ║ $ chmod -- u=rwX,g=rX,o= /etc/demo                           ║                            
                             ║                                                              ║                            
-                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║                            
                             ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

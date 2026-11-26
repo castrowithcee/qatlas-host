@@ -186,7 +186,7 @@ func TestContainerLogErrors(t *testing.T) {
 			}
 			// The reload key tries again.
 			delete(b.errs, "containerlogs:"+clogApp)
-			send(m, "r")
+			send(m, "R")
 			contains(t, m, "app started on port 8080")
 			noLeak(t, m.render(), tc.want)
 		})

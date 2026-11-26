@@ -29,7 +29,7 @@ func goldenSystem(t *testing.T, prefix string, steps func(t *testing.T, m *Model
 
 // fillCreate types a new user dora with an initial password, Admin on and a pasted key.
 func fillCreate(t *testing.T, m *Model) {
-	send(m, seq(keys("a"), typed("dora"), keys("down"), typed(hiddenA), keys("down"), typed(hiddenA), keys("down", "right", "tab", "tab", "tab"))...)
+	send(m, seq(keys("n"), typed("dora"), keys("down"), typed(hiddenA), keys("down"), typed(hiddenA), keys("down", "right", "tab", "tab", "tab"))...)
 	m.Update(tea.PasteMsg{Content: demoKey(t, 7)})
 }
 
@@ -50,7 +50,7 @@ func TestGoldenSystemCreateForm(t *testing.T) {
 
 func TestGoldenSystemCreateProblem(t *testing.T) {
 	goldenSystem(t, "system.user.create.problem", func(_ *testing.T, m *Model) {
-		send(m, seq(keys("a"), typed("cleo"), keys("down"), typed(hiddenA), keys("down"), typed(hiddenB), keys("f2"))...)
+		send(m, seq(keys("n"), typed("cleo"), keys("down"), typed(hiddenA), keys("down"), typed(hiddenB), keys("f2"))...)
 	})
 }
 
@@ -86,14 +86,14 @@ func TestGoldenSystemAdminConfirm(t *testing.T) {
 func TestGoldenSystemDeleteForm(t *testing.T) {
 	goldenSystem(t, "system.user.delete", func(t *testing.T, m *Model) {
 		toUser(t, m, "cleo")
-		send(m, "x")
+		send(m, "d")
 	})
 }
 
 func TestGoldenSystemDeleteHomeConfirm(t *testing.T) {
 	goldenSystem(t, "system.user.delete.confirm", func(t *testing.T, m *Model) {
 		toUser(t, m, "cleo")
-		send(m, "x", "right", "f2")
+		send(m, "d", "right", "f2")
 	})
 }
 
@@ -115,7 +115,7 @@ func TestGoldenSystemResult(t *testing.T) {
 func TestGoldenSystemGroupCreateForm(t *testing.T) {
 	goldenSystem(t, "system.group.create", func(t *testing.T, m *Model) {
 		toGroup(t, m, "media")
-		send(m, seq(keys("a"), typed("crew"))...)
+		send(m, seq(keys("n"), typed("crew"))...)
 	})
 }
 
@@ -143,21 +143,21 @@ func TestGoldenSystemGroupSystemConfirm(t *testing.T) {
 func TestGoldenSystemGroupRenameForm(t *testing.T) {
 	goldenSystem(t, "system.group.rename", func(t *testing.T, m *Model) {
 		toGroup(t, m, "media")
-		send(m, seq(keys("n"), typed("studio"))...)
+		send(m, seq(keys("r"), typed("studio"))...)
 	})
 }
 
 func TestGoldenSystemGroupRenameConfirm(t *testing.T) {
 	goldenSystem(t, "system.group.rename.confirm", func(t *testing.T, m *Model) {
 		toGroup(t, m, "media")
-		send(m, seq(keys("n"), typed("studio"), keys("f2"))...)
+		send(m, seq(keys("r"), typed("studio"), keys("f2"))...)
 	})
 }
 
 func TestGoldenSystemGroupDeleteConfirm(t *testing.T) {
 	goldenSystem(t, "system.group.delete.confirm", func(t *testing.T, m *Model) {
 		toGroup(t, m, "backup-ops")
-		send(m, "x")
+		send(m, "d")
 	})
 }
 

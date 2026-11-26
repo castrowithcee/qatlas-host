@@ -2,28 +2,28 @@
    1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge  [7 ◎ System]        
    Benutzer  [Gruppen]  Ordner   Vorschläge   Änderungen   Protokoll                                                    
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    NAME           GID    MITGLIEDER                                                                                    
+      NAME         GID    MITGLIEDER                                                                                    
+      ──────────────────────────────                                                                                    
   ▾ ■ Gruppen (5)                                                                                                       
-    ada            1000   ada                                                                                           
-    ben            1001   ben                                                                                           
-    cleo           1002   cleo                                                                                          
->   media          1003   cleo                                                                                          
-    backup-ops     1004                                                                                                 
+      ada          1000   ada                                                                                           
+      ben          1001   ben                                                                                           
+      cleo         1002   cleo                                                                                          
+>     media        1003   cleo                                                                                          
+      backup-ops   1004                                                                                                 
   ▾ ■ Systemgruppen (8)                                                                                                 
-    root           0      root                                                                                          
-    daemon         1      daemon                                                                                        
-    adm            4                                                                                                    
-    sudo           27     ad╔═ Host ändern ════════════════════════════════════════════════╗                            
-    users          100      ║ ⚠ ada, ben zur Gruppe media hinzufügen. cleo aus der Gruppe  ║                            
-    qhost          998    ad║   media entfernen.                                           ║                            
-    docker         999    ad║                                                              ║                            
-    nogroup        65534  no║ Läuft mit sudo, steht im Journal und lässt sich rückgängig   ║                            
-                            ║ machen.                                                      ║                            
+      root         0      root                                                                                          
+      daemon       1      daemon                                                                                        
+      adm          4        ╔═ Host ändern ════════════════════════════════════════════════╗                            
+      sudo         27     ad║ ⚠ ada, ben zur Gruppe media hinzufügen. cleo aus der Gruppe  ║                            
+      users        100      ║   media entfernen.                                           ║                            
+      qhost        998    ad║                                                              ║                            
+      docker       999    ad║ Läuft mit sudo, steht im Journal und lässt sich rückgängig   ║                            
+      nogroup      65534  no║ machen.                                                      ║                            
                             ║ $ gpasswd -a ada media                                       ║                            
                             ║ $ gpasswd -a ben media                                       ║                            
                             ║ $ gpasswd -d cleo media                                      ║                            
                             ║                                                              ║                            
-                            ║ [ ja, mit sudo ]  > abbrechen <                              ║                            
+                            ║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║                            
                             ║ y ja, mit sudo  n/esc/enter abbrechen                        ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

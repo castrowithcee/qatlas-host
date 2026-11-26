@@ -6,6 +6,7 @@
   Chain of hashes intact: 2 days with 42 entries checked.                       
                                                                                 
   TIME                 USER  ACTION          RESULT              CHANGE         
+  ──────────────────────────────────────────────────────────────────────────────
 > 2026-11-02 09:05:00  ada   host.change     success             folder.set-per…
   2026-11-02 09:04:00  root  control.refuse  failure: not-admin                 
   2026-11-02 09:03:00  ada   log.list        success                            
@@ -20,5 +21,4 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-H service  / search  W save log  r reload  1-7 area  q quit      ↑/↓ choose  1/3
+H service  / search  W save log  R reload  1-7 area  q quit      ↑/↓ choose  1/3

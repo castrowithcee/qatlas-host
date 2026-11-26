@@ -2,7 +2,7 @@
   1 2 3 [4 Settings] 5 6 7                              
   [Credentials]                                         
 ────────────────────────────────────────────────────────
-  No credentials stored; qhost works anonymously. a adds
+  No credentials stored; qhost works anonymously. n adds
   one.                                                  
                                                         
                                                         
@@ -20,5 +20,5 @@
                                                         
                                                         
                                                         
-a add  x remove  esc back  r reload  1-7 area  q quit   
+n add  d remove  esc back  R reload  1-7 area  q quit   
                                               ↑/↓ choose

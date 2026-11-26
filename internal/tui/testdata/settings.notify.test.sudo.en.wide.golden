@@ -3,9 +3,9 @@
    General   Credentials   Maintenance window  [Notifications]  Webhooks                                                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   NAME      TYPE     EVENTS              TARGET                                                                         
+  ────────────────────────────────────────────────────────────────────────────────                                      
 > ops-hook  webhook  failed,rolled-back  -                                                                              
   ops-mail  smtp     all                 mail.example.test:587 -> ops@example.test                                      
-                                                                                                                        
                                                                                                                         
                             ╔═ Notifications ══════════════════════════════════════════════╗                            
                             ║ ⚠ Send a test message through ops-hook?                      ║                            
@@ -13,7 +13,7 @@
                             ║ One short message is sent to the channel, without retries.   ║                            
                             ║ $ sudo qhost notify test --output json -- ops-hook           ║                            
                             ║                                                              ║                            
-                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ [ yes, with sudo ]  [ enter cancel ]                         ║                            
                             ║ y yes, with sudo  n/esc/enter cancel                         ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

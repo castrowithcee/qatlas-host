@@ -38,7 +38,7 @@ scenario_tui_sudo() {
 	tui_wait '[ ] demo-cache' 30
 	tui_send Home
 	tui_cursor_to demo-cache
-	tui_send d
+	tui_send a
 	tui_wait 'Deploy demo-cache?' 15
 	tui_has 'sudo qhost stack deploy' || fail "the question does not show the command: $(tui_screen)"
 	tui_excerpt 'Deploy demo-cache' 12
@@ -57,7 +57,7 @@ scenario_tui_sudo() {
 	log 'scenario: a Ctrl-C at the password prompt started no run and the interface reported the interruption'
 
 	step 'the interface without sudo deploys demo-cache after the password is typed in the terminal'
-	tui_send d
+	tui_send a
 	tui_wait 'Deploy demo-cache?' 15
 	tui_send y
 	tui_wait "[sudo] password for $admin" 30
@@ -142,7 +142,7 @@ scenario_tui_sudo() {
 	tui_wait 'DOCKER' 15
 	tui_system_tab Groups
 	tui_wait 'MEMBERS' 10
-	tui_send a
+	tui_send n
 	tui_wait 'The system gives the group a regular group number.' 10
 	tui_type "$sa_group"
 	tui_send F2
@@ -302,7 +302,7 @@ EOF2
 	tui_send Enter
 	tui_wait 'Missing data directories' 15
 	tui_wait 'owner 1000:1000' 10
-	tui_send m
+	tui_send +
 	tui_wait 'Create data directories' 10
 	tui_wait '1000:1000' 10
 	tui_send Tab
@@ -624,7 +624,7 @@ scenario_tui_secrets() {
 	tui_cursor_to demo-stack
 	tui_send Enter
 	tui_wait 'Secrets' 15
-	tui_send a
+	tui_send n
 	tui_wait 'Set a secret' 10
 	tui_type "$ts_key"
 	tui_send Tab
@@ -652,8 +652,8 @@ scenario_tui_secrets() {
 	tui_send Escape
 	tui_wait 'CURRENT' 10
 	tui_subtab Credentials
-	tui_wait 'x remove' 10
-	tui_send a
+	tui_wait 'd remove' 10
+	tui_send n
 	tui_wait 'Set a credential' 10
 	tui_send Tab
 	tui_type "$ts_reg_host"
@@ -765,7 +765,7 @@ scenario_tui_folder_sudo() {
 	tui_wait "1 $tui_icon_stacks Stacks" 30
 	tui_send 1
 	tui_wait '[ ] demo-cache' 30
-	tui_send a
+	tui_send n
 	tui_wait 'Add a stack folder' 10
 	tui_type "$fs_clone"
 	tui_send F2
@@ -837,7 +837,7 @@ EOF2
 	tui_ct_cursor_to "$fs_proj-app-1"
 	tui_send Enter
 	tui_wait 'Compose files' 15
-	tui_send a
+	tui_send n
 	tui_adopt_own
 	fs_password
 	tui_keep_engine 60

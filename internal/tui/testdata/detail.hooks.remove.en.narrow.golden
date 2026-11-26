@@ -33,7 +33,7 @@
 ╭─║ Its address stops working within ten seconds.    ║─╮
 │ ║ This cannot be undone.                           ║ │
 │ ║                                                  ║ │
-╰─║ [ yes, do it ]  > cancel <                       ║─╯
+╰─║ [ yes, do it ]  [ enter cancel ]                 ║─╯
 ╭─║ y yes, do it  n/esc/enter cancel                 ║─╮
 │ ╚══════════════════════════════════════════════════╝ │
 │ working under the account of the user.               │

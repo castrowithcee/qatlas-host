@@ -148,11 +148,11 @@ func TestAdoptNeedsAForeignProject(t *testing.T) {
 	b := adoptBackend(localResult(foreignStack()))
 	m := newTestModel(t, i18n.English, b, wideWidth, 40)
 	// Down to the single container: the own stack and the single containers are no foreign project.
-	send(m, "5", "end", "a")
+	send(m, "5", "end", "n")
 	if m.modal != nil || b.called("sourceinspect") != 0 {
 		t.Fatalf("a key on a single container did something: %v", m.modal)
 	}
-	send(m, "home", "down", "down", "down", "down", "down", "a")
+	send(m, "home", "down", "down", "down", "down", "down", "n")
 	if m.modal != nil || b.called("sourceinspect") != 0 {
 		t.Fatalf("a key on an own container did something: %v", m.modal)
 	}
@@ -160,8 +160,8 @@ func TestAdoptNeedsAForeignProject(t *testing.T) {
 
 func TestAdoptFromListGroupAndDetailChangesNothingWithoutYes(t *testing.T) {
 	for name, keys := range map[string][]string{
-		"container": {"5", "a", "n"}, "group": {"5", "up", "a", "n"}, "detail": {"5", "enter", "a", "n"},
-		"enter does not confirm": {"5", "a", "enter"},
+		"container": {"5", "n", "n"}, "group": {"5", "up", "n", "n"}, "detail": {"5", "enter", "n", "n"},
+		"enter does not confirm": {"5", "n", "enter"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			b := adoptBackend(localResult(foreignStack()))
@@ -181,7 +181,7 @@ func TestAdoptFromListGroupAndDetailChangesNothingWithoutYes(t *testing.T) {
 func TestAdoptShowsTheFormAndAddsTheFolderAfterYes(t *testing.T) {
 	b := adoptBackend(localResult(foreignStack()))
 	m := newTestModel(t, i18n.English, b, wideWidth, 40)
-	send(m, "5", "a")
+	send(m, "5", "n")
 	contains(t, m, "Foreign project", "folder: "+foreignDir, "project: legacy-blog",
 		"compose files (labels): "+foreignDir+"/compose.yaml", "env files (labels): "+foreignDir+"/.env", "works: deploy", "does not work: backup")
 	if m.modal == nil || b.called("sourceinspect") != 1 {
@@ -209,7 +209,7 @@ func TestAdoptWithTwoEnginesAsksForTheEngineInTheContainersArea(t *testing.T) {
 	b := adoptBackend(localResult(foreignStack()))
 	b.engines = []string{control.EngineSystem, aliceEngine}
 	m := newTestModel(t, i18n.English, b, wideWidth, 40)
-	send(m, "5", "a")
+	send(m, "5", "n")
 	if got := engineChoiceOf(t, m); got != control.EngineSystem {
 		t.Fatalf("preselected %q", got)
 	}
@@ -234,7 +234,7 @@ func TestAdoptWarnsAboutAnotherProjectAndFilesWithoutBlocking(t *testing.T) {
 	st.EnvFiles = nil
 	b := adoptBackend(localResult(st))
 	m := newTestModel(t, i18n.English, b, wideWidth, 50)
-	send(m, "5", "a")
+	send(m, "5", "n")
 	contains(t, m, "Warning", "belong to legacy-blog, a deploy would use blog", "compose files: the running containers use", "a deploy would pass -", "create new containers instead of taking over")
 	send(m, "y")
 	if len(b.sourceAdds) != 1 {
@@ -250,7 +250,7 @@ func TestAdoptWarningStaysBeforeTheLastQuestionOfAClone(t *testing.T) {
 	b := adoptBackend(res)
 	b.dirKeys = map[string]control.KeyResult{foreignDir: {Fingerprint: fingerprint}}
 	m := newTestModel(t, i18n.English, b, wideWidth, 50)
-	send(m, "5", "a")
+	send(m, "5", "n")
 	contains(t, m, "Warning")
 	send(m, "y", "y")
 	contains(t, m, "Warning", "create new containers instead of taking over", "Changes after yes")
@@ -283,7 +283,7 @@ func TestAdoptRejectsWithTheCauseAndNoWayOn(t *testing.T) {
 				c.edit(b)
 			}
 			m := newTestModel(t, i18n.English, b, wideWidth, 40)
-			send(m, "5", "up", "a")
+			send(m, "5", "up", "n")
 			contains(t, m, "cannot be taken over", c.want)
 			if b.called("sourceinspect") != c.call {
 				t.Fatalf("inspections = %d, want %d", b.called("sourceinspect"), c.call)

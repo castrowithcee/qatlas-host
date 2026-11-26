@@ -3,9 +3,9 @@
   [Benachrichtigungen]                                  
 ────────────────────────────────────────────────────────
   NAME      TYP      EREIGNISSE          ZIEL           
+  ──────────────────────────────────────────────────────
   ops-hook  webhook  failed,rolled-back  -              
 > ops-mail  smtp     alle                mail.example.t…
-                                                        
                                                         
   ╔═ Benachrichtigungen ═════════════════════════════╗  
   ║ ⚠ Den Kanal ops-mail entfernen?                  ║  
@@ -13,7 +13,7 @@
   ║ Der Kanal und seine gespeicherten Geheimnisse    ║  
   ║ werden gelöscht.                                 ║  
   ║                                                  ║  
-  ║ [ ja, ausführen ]  > abbrechen <                 ║  
+  ║ [ ja, ausführen ]  [ enter abbrechen ]           ║  
   ║ y ja, ausführen  n/esc/enter abbrechen           ║  
   ╚══════════════════════════════════════════════════╝  
                                                         

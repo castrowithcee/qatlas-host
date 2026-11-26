@@ -23,7 +23,7 @@
                             ║ $ chown -R -h -- cleo:media /srv/media                       ║                            
                             ║ $ chmod -R -- u=rwX,g=rX,o= /srv/media                       ║                            
                             ║                                                              ║                            
-                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ [ yes, with sudo ]  [ enter cancel ]                         ║                            
                             ║ y yes, with sudo  n/esc/enter cancel                         ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

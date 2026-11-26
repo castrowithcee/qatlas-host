@@ -20,5 +20,5 @@
 ╭─ Networks ───────────────────────────────────────────────────────────────────╮
 │ demo-stack_default 172.18.0.2                                                │
 ╰──────────────────────────────────────────────────────────────────────────────╯
-esc back  o log  S start  X stop  Z restart  r reload  1-7 area  q quit         
+esc back  o log  S start  X stop  Z restart  R reload  1-7 area  q quit         
                                                                ↑/↓ scroll  19/27

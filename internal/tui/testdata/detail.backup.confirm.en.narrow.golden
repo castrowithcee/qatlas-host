@@ -15,7 +15,7 @@
         ║ keep the newest 3                                            ║───────╯
         ║ remove after 30 days                                         ║───────╮
   Comman║                                                              ║       │
-        ║ [ yes, do it ]  > cancel <                                   ║───────╯
+        ║ [ yes, do it ]  [ enter cancel ]                             ║───────╯
   …     ║ y yes, do it  n/esc/enter cancel                             ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

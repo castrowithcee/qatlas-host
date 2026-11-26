@@ -6,6 +6,7 @@
   Kette der Hashes intakt: 2 Tage mit 42 Einträgen geprüft.                     
                                                                                 
   ZEIT                 BENUTZER  AKTION          ERGEBNIS           ÄNDERUNG    
+  ──────────────────────────────────────────────────────────────────────────────
 > 2026-11-02 09:05:00  ada       host.change     Erfolg             folder.set-…
   2026-11-02 09:04:00  root      control.refuse  Fehler: not-admin              
   2026-11-02 09:03:00  ada       log.list        Erfolg                         
@@ -19,6 +20,5 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-H Dienst  / Suchen  W Log speichern  r Neu laden  1-7 Bereich  q Beenden        
+H Dienst  / Suchen  W Log speichern  R Neu laden  1-7 Bereich  q Beenden        
                                                               ↑/↓ Auswählen  1/3

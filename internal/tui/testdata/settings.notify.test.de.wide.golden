@@ -3,9 +3,9 @@
    Allgemein   Zugangsdaten   Wartungsfenster  [Benachrichtigungen]  Webhooks                                           
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   NAME      TYP      EREIGNISSE          ZIEL                                                                           
+  ────────────────────────────────────────────────────────────────────────────────                                      
 > ops-hook  webhook  failed,rolled-back  -                                                                              
   ops-mail  smtp     alle                mail.example.test:587 -> ops@example.test                                      
-                                                                                                                        
                                                                                                                         
                             ╔═ Benachrichtigungen ═════════════════════════════════════════╗                            
                             ║ ⚠ Eine Testnachricht über ops-hook senden?                   ║                            
@@ -13,7 +13,7 @@
                             ║ Eine kurze Nachricht geht einmal an den Kanal, ohne          ║                            
                             ║ Wiederholung.                                                ║                            
                             ║                                                              ║                            
-                            ║ [ ja, ausführen ]  > abbrechen <                             ║                            
+                            ║ [ ja, ausführen ]  [ enter abbrechen ]                       ║                            
                             ║ y ja, ausführen  n/esc/enter abbrechen                       ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

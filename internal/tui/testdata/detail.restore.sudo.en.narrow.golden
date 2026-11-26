@@ -15,7 +15,7 @@
 │ No con║ $ sudo qhost stack backup restore --yes --output json --     ║       │
 ╰───────║   demo-stack 20261023T031000Z-4567cdef                       ║───────╯
 ╭─ Chang║                                                              ║───────╮
-│ APP_VE║ [ yes, with sudo ]  > cancel <                               ║       │
+│ APP_VE║ [ yes, with sudo ]  [ enter cancel ]                         ║       │
 │   sour║ y yes, with sudo  n/esc/enter cancel                         ║       │
 │   1.5.╚══════════════════════════════════════════════════════════════╝       │
 │     Adds a dark theme.                                                       │

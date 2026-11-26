@@ -32,7 +32,7 @@
 ╰───────────────────────────║ Its address stops working within ten seconds. This cannot be ║───────────────────────────╯
 ╭─ Webhooks ────────────────║ undone.                                                      ║───────────────────────────╮
 │ h-a1b2c3d0  2026-01-02 03:║                                                              ║                           │
-│ h-a1b2c3d1  -             ║ [ yes, do it ]  > cancel <                                   ║                           │
+│ h-a1b2c3d1  -             ║ [ yes, do it ]  [ enter cancel ]                             ║                           │
 ╰───────────────────────────║ y yes, do it  n/esc/enter cancel                             ║───────────────────────────╯
 ╭─ Grants ──────────────────╚══════════════════════════════════════════════════════════════╝───────────────────────────╮
 │ A grant applies to the user and to every agent working under the account of the user.                                │

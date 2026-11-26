@@ -61,7 +61,7 @@ func TestGoldenStacksAddReject(t *testing.T) {
 }
 
 func TestGoldenStacksAddDiscardQuestion(t *testing.T) {
-	goldenScreens(t, "stacks.add.discard", settingsRows, settingsBackend, seq(toFolders, keys("a"), typed(stackDir), keys("esc"))...)
+	goldenScreens(t, "stacks.add.discard", settingsRows, settingsBackend, seq(toFolders, keys("n"), typed(stackDir), keys("esc"))...)
 }
 
 func TestGoldenStacksFetchFailed(t *testing.T) {

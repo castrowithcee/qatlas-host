@@ -61,7 +61,7 @@ func TestStackActionThroughSudoNamesTheEngineWhenSeveralAreShown(t *testing.T) {
 	b := twoEngineBackend()
 	m, f := sudoStackModel(t, i18n.English, b, wideWidth, 60)
 	selectStack(t, m, "demo-stack")
-	send(m, "d")
+	send(m, "a")
 	want := []string{"stack", "deploy", "--output", "json", "--engine", "rootless:alice", "--", "demo-stack"}
 	if !shows(m.render(), "sudo qhost "+"stack deploy --output json --engine rootless:alice -- demo-stack") {
 		t.Fatalf("the question lacks the engine:\n%s", m.render())

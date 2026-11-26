@@ -2,13 +2,13 @@
   [1 Stacks] 2 3 4 5 6 7                                
 ────────────────────────────────────────────────────────
   ╔═ pin ════════════════════════════════════════════╗E 
-> ║ ⚠ demo-stack pinnen?                             ║u…
-  ║                                                  ║  
+  ║ ⚠ demo-stack pinnen?                             ║──
+> ║                                                  ║u…
   ║ Wartungsfenster und update lassen die Image-     ║  
-  ║ Versionen des Stacks unverändert, bis du den Pin ║er
-  ║ aufhebst.                                        ║  
-  ║                                                  ║u…
-  ║ [ ja, ausführen ]  > abbrechen <                 ║  
+  ║ Versionen des Stacks unverändert, bis du den Pin ║  
+  ║ aufhebst.                                        ║er
+  ║                                                  ║  
+  ║ [ ja, ausführen ]  [ enter abbrechen ]           ║u…
   ║ y ja, ausführen  n/esc/enter abbrechen           ║  
   ╚══════════════════════════════════════════════════╝  
                                                      1/6

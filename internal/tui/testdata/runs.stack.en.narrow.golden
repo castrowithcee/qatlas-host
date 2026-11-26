@@ -3,12 +3,12 @@
 ────────────────────────────────────────────────────────
   Runs of demo-stack only. f shows all stacks.          
   STACK       STARTED      RESULT     TRIGGER  DURATION 
+  ───────────────────────────────────────────────────── 
 > demo-stack  10-30 14:02  succeeded  update   48s      
   demo-stack  10-29 02:00  failed     poll     850ms    
                                                         
                                                         
                                                         
                                                         
-                                                        
 enter log  / search  f all stacks  v service log        
-B back to before update  r reload  1-7 area  q quit  1/2
+B back to before update  R reload  1-7 area  q quit  1/2

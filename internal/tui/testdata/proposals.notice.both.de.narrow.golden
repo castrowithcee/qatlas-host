@@ -1,16 +1,16 @@
 ◆ qhost  Wartungsfenster zu                                            [?] Hilfe
 > [1 Stacks] 2 3 4 5 6 7                                                        
 ────────────────────────────────────────────────────────────────────────────────
-        STACK                      VERSION     VERFÜGBAR  ZUSTAND   BEFUNDE     
+          STACK                    VERSION     VERFÜGBAR  ZUSTAND   BEFUNDE     
+          ──────────────────────────────────────────────────────────────────────
   ▾ [ ] ■ /srv/local-example (0)   lokal                            Abruf fehlg…
   ▾ [ ] ■ /srv/stacks-example (6)  Klon                             abgerufen 2…
-    [ ] demo-stack                 1.4.2       1.5.0      deployt   1 Warnung   
-    [ ] mail-relay                 3.1         aktuell    offen     keine       
-    [ ] old-tool                   -           ungeprüft  entfernt  keine       
-    [ ] photo-album                2.0.1       Fehler     Rollback  1 Fehler    
-    [ ] web-shop                   5.2.0, 16…  6.0.0 (M…  läuft     keine       
-    [ ] wiki                       1.41.0      ungeprüft  gepinnt   2 Warnungen 
-                                                                                
+      [ ] demo-stack               1.4.2       1.5.0      deployt   1 Warnung   
+      [ ] mail-relay               3.1         aktuell    offen     keine       
+      [ ] old-tool                 -           ungeprüft  entfernt  keine       
+      [ ] photo-album              2.0.1       Fehler     Rollback  1 Fehler    
+      [ ] web-shop                 5.2.0, 16…  6.0.0 (M…  läuft     keine       
+      [ ] wiki                     1.41.0      ungeprüft  gepinnt   2 Warnungen 
                                                                                 
                                                                                 
                                                                                 
@@ -20,5 +20,5 @@
                                                                                 
 Warnung: 5 offene Vorschläge warten auf dich: 3 unter 6 (Vorschläge), 2 unter 7 
 (System).                                                                       
-enter Details  / Suchen  space markieren  u update  d deploy  a hinzufügen      
-← voriger Bereich  → nächster Bereich  tab Zone  r Neu laden  q Beenden         
+enter Details  / Suchen  space markieren  U update  a deploy  n hinzufügen      
+← voriger Bereich  → nächster Bereich  tab Zone  R Neu laden  q Beenden         

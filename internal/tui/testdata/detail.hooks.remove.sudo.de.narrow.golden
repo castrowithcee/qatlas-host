@@ -34,7 +34,7 @@
 │ ║ $ sudo qhost hook remove --yes --output json --  ║ │
 │ ║   h-a1b2c3d0                                     ║ │
 ╰─║                                                  ║─╯
-╭─║ [ ja, mit sudo ]  > abbrechen <                  ║─╮
+╭─║ [ ja, mit sudo ]  [ enter abbrechen ]            ║─╮
 │ ║ y ja, mit sudo  n/esc/enter abbrechen            ║ │
 │ ╚══════════════════════════════════════════════════╝ │
 │ Keine Freigaben für diesen Stack.                    │

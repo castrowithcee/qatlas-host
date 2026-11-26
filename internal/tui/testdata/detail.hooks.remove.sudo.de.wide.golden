@@ -33,7 +33,7 @@
 ╭─ Webhooks ────────────────║ mehr. Das lässt sich nicht rückgängig machen.                ║───────────────────────────╮
 │ h-a1b2c3d0  2026-01-02 03:║ $ sudo qhost hook remove --yes --output json -- h-a1b2c3d0   ║                           │
 │ h-a1b2c3d1  -             ║                                                              ║                           │
-╰───────────────────────────║ [ ja, mit sudo ]  > abbrechen <                              ║───────────────────────────╯
+╰───────────────────────────║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║───────────────────────────╯
 ╭─ Freigaben ───────────────║ y ja, mit sudo  n/esc/enter abbrechen                        ║───────────────────────────╮
 │ Eine Freigabe gilt für den╚══════════════════════════════════════════════════════════════╝.                          │
 │ Keine Freigaben für diesen Stack.                                                                                    │

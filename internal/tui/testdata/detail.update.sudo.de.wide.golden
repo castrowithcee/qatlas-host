@@ -25,7 +25,7 @@
   Abstand (Sekunden)     │ 6║ $ sudo qhost stack settings set --file - --output json --    ║                           │
                          ╰──║   demo-stack                                                 ║───────────────────────────╯
                          ╭──║                                                              ║───────────────────────────╮
-  Tag-Filter             │ A║ [ ja, mit sudo ]  > abbrechen <                              ║                           │
+  Tag-Filter             │ A║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║                           │
                          ╰──║ y ja, mit sudo  n/esc/enter abbrechen                        ║───────────────────────────╯
                          ╭──╚══════════════════════════════════════════════════════════════╝───────────────────────────╮
   Changelog-Repositories │ APP_VERSION → example/app                                                                   │

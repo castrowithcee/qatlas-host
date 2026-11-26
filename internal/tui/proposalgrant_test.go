@@ -156,7 +156,7 @@ func TestGrantExpiryStaysWhenTheProposalIsReadAgain(t *testing.T) {
 	clearField(m)
 	send(m, typed("2031-05-06")...)
 	send(m, "f2")
-	send(m, "r")
+	send(m, "R")
 	if got := m.pv.kind.expires; got != "2031-05-06" {
 		t.Fatalf("expiry %q after reading again", got)
 	}

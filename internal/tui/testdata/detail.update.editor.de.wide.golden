@@ -5,6 +5,7 @@
   Nur Tags, die zum Muster passen, werden als Update der Variable angeboten.                                            
                                                                                                                         
   VARIABLE     MUSTER                                                                                                   
+  ─────────────────────────                                                                                             
 > APP_VERSION  ^1\.[0-9.]+$                                                                                             
                                                                                                                         
                                                                                                                         
@@ -36,5 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-a hinzufügen  e ändern  x entfernen  esc fertig                                                                         
+n hinzufügen  e ändern  d entfernen  esc fertig                                                                         

@@ -3,12 +3,12 @@
    Users   Groups   Folders  [Proposals]  Changes   Log                                                                 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   PROPOSAL  KIND           FROM  SUBMITTED    EXPIRES      STATE                                                        
+  ─────────────────────────────────────────────────────────────────                                                     
   h-0001    host change    ben   10-30 16:00  11-13 16:00  open                                                         
   h-0002    host change    ada   10-30 09:00  11-13 09:00  open                                                         
   h-0003    host change    ada   10-29 12:00  11-12 12:00  applied                                                      
   h-0004    host change    ben   10-28 08:00  11-11 08:00  rejected                                                     
 > h-0005    free commands  ben   10-30 18:00  11-13 18:00  open                                                         
-                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         
@@ -22,7 +22,7 @@
                             ║ $ sudo qhost proposal run h-0005 --fingerprint fp-h-0005     ║                            
                             ║   --confirm --output json                                    ║                            
                             ║                                                              ║                            
-                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ [ yes, with sudo ]  [ enter cancel ]                         ║                            
                             ║ y yes, with sudo  n/esc/enter cancel                         ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

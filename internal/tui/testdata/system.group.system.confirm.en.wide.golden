@@ -2,27 +2,27 @@
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
    Users  [Groups]  Folders   Proposals   Changes   Log                                                                 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    NAME          GID    MEMBERS                                                                                        
+      NAME        GID    MEMBERS                                                                                        
+      ──────────────────────────                                                                                        
   ▾ ■ Groups (5)                                                                                                        
-    ada           1000   ada                                                                                            
-    ben           1001   ben                                                                                            
-    cleo          1002   cleo                                                                                           
-    media         1003   cleo                                                                                           
-    backup-ops    1004                                                                                                  
+      ada         1000   ada                                                                                            
+      ben         1001   ben                                                                                            
+      cleo        1002   cleo                                                                                           
+      media       1003   cleo                                                                                           
+      backup-ops  1004                                                                                                  
   ▾ ■ System groups (8)                                                                                                 
-    root          0      root                                                                                           
-    daemon        1      daemon                                                                                         
-    adm           4                                                                                                     
-    sudo          27     ada╔═ Change the host ════════════════════════════════════════════╗                            
-    users         100       ║ ⚠ Add ben to the group docker.                               ║                            
-    qhost         998    ada║                                                              ║                            
->   docker        999    ada║ Members of the group docker use Docker, which is practically ║                            
-    nogroup       65534  nob║ root. Packages or services may depend on a system group of   ║                            
-                            ║ this change. Runs with sudo, goes into the journal and can   ║                            
+      root        0      root                                                                                           
+      daemon      1      daemon                                                                                         
+      adm         4         ╔═ Change the host ════════════════════════════════════════════╗                            
+      sudo        27     ada║ ⚠ Add ben to the group docker.                               ║                            
+      users       100       ║                                                              ║                            
+      qhost       998    ada║ Members of the group docker use Docker, which is practically ║                            
+>     docker      999    ada║ root. Packages or services may depend on a system group of   ║                            
+      nogroup     65534  nob║ this change. Runs with sudo, goes into the journal and can   ║                            
                             ║ be undone.                                                   ║                            
                             ║ $ gpasswd -a ben docker                                      ║                            
                             ║                                                              ║                            
-                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ [ yes, with sudo ]  [ enter cancel ]                         ║                            
                             ║ y yes, with sudo  n/esc/enter cancel                         ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

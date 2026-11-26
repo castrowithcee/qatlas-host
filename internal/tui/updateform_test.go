@@ -159,7 +159,7 @@ func TestEditorShowsTheEntriesAndTheVariablesOfTheStack(t *testing.T) {
 	m := newSettingsModel(t, updateBackend())
 	send(m, toTags...)
 	send(m, "enter")
-	contains(t, m, "Tag filters", "VARIABLE", `APP_VERSION  ^1\.[0-9.]+$`, "a add", "e edit", "x remove")
+	contains(t, m, "Tag filters", "VARIABLE", `APP_VERSION  ^1\.[0-9.]+$`, "n add", "e edit", "d remove")
 	send(m, "e")
 	contains(t, m, "APP_VERSION", `^1\.[0-9.]+$`)
 }
@@ -167,7 +167,7 @@ func TestEditorShowsTheEntriesAndTheVariablesOfTheStack(t *testing.T) {
 func TestEditorAddsChangesAndRemovesPairs(t *testing.T) {
 	m := newSettingsModel(t, settingsBackend())
 	send(m, toTags...)
-	send(m, "enter", "a", "down")
+	send(m, "enter", "n", "down")
 	send(m, typed("^2")...)
 	send(m, "f2")
 	contains(t, m, "APP_VERSION  ^2")
@@ -178,7 +178,7 @@ func TestEditorAddsChangesAndRemovesPairs(t *testing.T) {
 	// Leaving the editor gives the summary to the field of the form.
 	send(m, "esc")
 	contains(t, m, "APP_VERSION → ^3")
-	send(m, "enter", "x")
+	send(m, "enter", "d")
 	contains(t, m, "No tag filters")
 	send(m, "esc")
 	contains(t, m, "none")
@@ -187,12 +187,12 @@ func TestEditorAddsChangesAndRemovesPairs(t *testing.T) {
 func TestEditorRefusesWhatTheRulesRefuse(t *testing.T) {
 	m := newSettingsModel(t, settingsBackend())
 	send(m, toTags...)
-	send(m, "enter", "a", "down")
+	send(m, "enter", "n", "down")
 	send(m, "(")
 	send(m, "f2")
 	contains(t, m, "Not a valid regular expression")
 	send(m, "esc", "esc", "down")
-	send(m, "enter", "a", "down")
+	send(m, "enter", "n", "down")
 	send(m, typed("nowhere")...)
 	send(m, "f2")
 	contains(t, m, "Use a GitHub repository as owner/name.")
@@ -205,7 +205,7 @@ func TestEditorRefusesWhatTheRulesRefuse(t *testing.T) {
 func TestEditorRefusesAKeyTwice(t *testing.T) {
 	m := newSettingsModel(t, updateBackend())
 	send(m, toTags...)
-	send(m, "enter", "a", "down")
+	send(m, "enter", "n", "down")
 	send(m, typed("^1")...)
 	send(m, "f2")
 	contains(t, m, "APP_VERSION is already in the list.")

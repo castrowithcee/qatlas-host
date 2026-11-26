@@ -3,9 +3,9 @@
    General  [Credentials]  Maintenance window   Notifications   Webhooks                                                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   NAME                STORED                                                                                            
+  ────────────────────────────────────                                                                                  
 > registry.docker.io  2026-10-30 09:00                                                                                  
   github.com          2026-10-29 09:00                                                                                  
-                                                                                                                        
                                                                                                                         
                             ╔═ Credentials ════════════════════════════════════════════════╗                            
                             ║ ⚠ Delete the credential registry.docker.io?                  ║                            
@@ -13,7 +13,7 @@
                             ║ Without it qhost works anonymously for this service. The     ║                            
                             ║ value cannot be recovered.                                   ║                            
                             ║                                                              ║                            
-                            ║ [ yes, do it ]  > cancel <                                   ║                            
+                            ║ [ yes, do it ]  [ enter cancel ]                             ║                            
                             ║ y yes, do it  n/esc/enter cancel                             ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

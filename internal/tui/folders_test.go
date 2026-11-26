@@ -81,7 +81,7 @@ func onFolder(t *testing.T, m *Model, dir string) {
 	t.Fatalf("the folder %s cannot be marked", dir)
 }
 
-func addKeys(dir string) []string { return seq(toFolders, keys("a"), typed(dir), keys("f2")) }
+func addKeys(dir string) []string { return seq(toFolders, keys("n"), typed(dir), keys("f2")) }
 
 // noChange fails when the service or the host changed anything; the probe of a host key only reads.
 func noChange(t *testing.T, b *fakeBackend) {
@@ -331,14 +331,14 @@ func TestFolderReleaseOnlyAfterYes(t *testing.T) {
 	m := newSettingsModel(t, b)
 	send(m, toFolders...)
 	onFolder(t, m, stackDir)
-	send(m, "x")
+	send(m, "d")
 	contains(t, m, "Release the stack folder "+stackDir, "Nothing is deleted")
 	send(m, "n")
-	send(m, "x", "enter")
+	send(m, "d", "enter")
 	if len(b.removes) != 0 {
 		t.Fatalf("released without yes: %v", b.removes)
 	}
-	send(m, "x", "y")
+	send(m, "d", "y")
 	if !slices.Equal(b.removes, []string{stackDir}) {
 		t.Fatalf("released %v", b.removes)
 	}

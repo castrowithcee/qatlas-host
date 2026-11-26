@@ -2,17 +2,17 @@
   [1 Stacks] 2 3 4 5 6 7                                
 ────────────────────────────────────────────────────────
       STACK        CURRENT  AVAILABLE  STATE  FINDINGS  
-> [ ] demo-stack   1.4.2    1.5.0      depl…  1 warning 
-  ╔═ stop ═══════════════════════════════════════════╗  
+      ──────────────────────────────────────────────────
+> ╔═ stop ═══════════════════════════════════════════╗g 
   ║ ⚠ Stop demo-stack and keep it stopped until it   ║  
   ║   is started?                                    ║  
   ║                                                  ║  
-  ║ Stops the containers of the stack without        ║gs
-  ║ removing them. The stack stays stopped until it  ║  
+  ║ Stops the containers of the stack without        ║  
+  ║ removing them. The stack stays stopped until it  ║gs
   ║ is started: commits, the maintenance window and  ║  
   ║ updates leave it out.                            ║  
   ║                                                  ║  
-  ║ [ yes, do it ]  > cancel <                       ║  
+  ║ [ yes, do it ]  [ enter cancel ]                 ║  
   ║ y yes, do it  n/esc/enter cancel                 ║  
   ╚══════════════════════════════════════════════════╝  
                                                         

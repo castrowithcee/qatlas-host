@@ -33,7 +33,7 @@
 ╭─║ $ sudo qhost hook add --output json --           ║─╮
 │ ║   demo-stack                                     ║ │
 ╰─║                                                  ║─╯
-╭─║ [ yes, with sudo ]  > cancel <                   ║─╮
+╭─║ [ yes, with sudo ]  [ enter cancel ]             ║─╮
 │ ║ y yes, with sudo  n/esc/enter cancel             ║ │
 │ ╚══════════════════════════════════════════════════╝ │
 │ No grants for this stack.                            │

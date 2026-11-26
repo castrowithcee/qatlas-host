@@ -113,16 +113,16 @@ func TestStackActionWithoutRootRunsTheCommandThroughSudo(t *testing.T) {
 		args             []string
 		done             string
 	}{
-		{"deploy", "d", "demo-stack", []string{"stack", "deploy", "--output", "json", "--", "demo-stack"}, "run 20261030T160000Z-0123abcd started at commit 0123456789ab"},
+		{"deploy", "a", "demo-stack", []string{"stack", "deploy", "--output", "json", "--", "demo-stack"}, "run 20261030T160000Z-0123abcd started at commit 0123456789ab"},
 		{"pause", "p", "demo-stack", []string{"stack", "pause", "--output", "json", "--", "demo-stack"}, "paused"},
 		{"unpause", "P", "demo-stack", []string{"stack", "unpause", "--output", "json", "--", "demo-stack"}, "no longer paused"},
-		{"pin", "i", "demo-stack", []string{"stack", "pin", "--output", "json", "--", "demo-stack"}, "pinned"},
-		{"unpin", "I", "demo-stack", []string{"stack", "unpin", "--output", "json", "--", "demo-stack"}, "no longer pinned"},
+		{"pin", "y", "demo-stack", []string{"stack", "pin", "--output", "json", "--", "demo-stack"}, "pinned"},
+		{"unpin", "Y", "demo-stack", []string{"stack", "unpin", "--output", "json", "--", "demo-stack"}, "no longer pinned"},
 		{"resume", "g", "photo-album", []string{"stack", "resume", "--output", "json", "--", "photo-album"}, "pause or repair halt cleared"},
 		{"start", "S", "demo-stack", []string{"stack", "start", "--yes", "--output", "json", "--", "demo-stack"}, "started, the stopped mark is removed"},
 		{"stop", "X", "demo-stack", []string{"stack", "stop", "--yes", "--output", "json", "--", "demo-stack"}, "stopped, it stays stopped"},
 		{"restart", "Z", "demo-stack", []string{"stack", "restart", "--yes", "--output", "json", "--", "demo-stack"}, "restarted"},
-		{"check", "c", "", []string{"stack", "updates", "--refresh", "--output", "json"}, "2 stacks: 1 with an update available, 1 could not be checked"},
+		{"check", "u", "", []string{"stack", "updates", "--refresh", "--output", "json"}, "2 stacks: 1 with an update available, 1 could not be checked"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			b := demoBackend()
@@ -207,7 +207,7 @@ func TestStackActionFailureOfTheCommandIsShownAndEndsTheSequence(t *testing.T) {
 func TestUpdateWithoutRootAsksForTheNotesThenForTheUpdate(t *testing.T) {
 	b := demoBackend()
 	m, f := sudoStackModel(t, i18n.English, b, wideWidth, 60)
-	send(m, "u")
+	send(m, "U")
 	if screen := flat(m.render()); !strings.Contains(screen, "This asks GitHub, so the request leaves the host.") ||
 		!shows(m.render(), "sudo qhost stack updates --changelog --output json -- demo-stack") {
 		t.Fatalf("the question lacks the sentence on GitHub or the command:\n%s", m.render())
@@ -246,7 +246,7 @@ func TestUpdateWithoutRootAsksForTheNotesThenForTheUpdate(t *testing.T) {
 // Declining the notes opens no preview and runs nothing.
 func TestUpdateWithoutRootDeclinedRunsNothing(t *testing.T) {
 	m, f := sudoStackModel(t, i18n.English, demoBackend(), wideWidth, 60)
-	send(m, "u", "n")
+	send(m, "U", "n")
 	if m.modal != nil || len(f.reqs) != 0 {
 		t.Fatalf("modal %v, requests %+v", m.modal != nil, f.reqs)
 	}
@@ -256,7 +256,7 @@ func TestUpdateWithoutRootDeclinedRunsNothing(t *testing.T) {
 func TestUpdateWithoutRootOfAStackWithoutUpdateSkipsTheNotes(t *testing.T) {
 	m, f := sudoStackModel(t, i18n.English, demoBackend(), wideWidth, 60)
 	selectStack(t, m, "mail-relay")
-	send(m, "u")
+	send(m, "U")
 	if !strings.Contains(flat(m.render()), "Update mail-relay?") || len(f.reqs) != 0 {
 		t.Fatalf("no preview:\n%s", m.render())
 	}
@@ -274,7 +274,7 @@ func TestUpdateWithoutRootReadsARefusalFromTheRows(t *testing.T) {
 	}
 	f.runErr = exitCode(t, "1")
 	f.stderr = "qhost: runtime: 1 of 1 stack(s) were not updated completely\n"
-	send(m, "u", "y", "y", "y")
+	send(m, "U", "y", "y", "y")
 	screen := flat(m.render())
 	for _, want := range []string{"refused: the stack has local changes", "0 ok, 1 failed"} {
 		if !strings.Contains(screen, want) {
@@ -289,7 +289,7 @@ func TestUpdateWithoutRootNotesFailureIsShown(t *testing.T) {
 	f.stderr = "qhost: permission: the service refused\n"
 	f.runErr = exitCode(t, "1")
 	f.reports = func([]string) string { return "" }
-	send(m, "u", "y")
+	send(m, "U", "y")
 	if !strings.Contains(flat(m.render()), "qhost reported: the service refused") {
 		t.Fatalf("no failure:\n%s", m.render())
 	}
@@ -301,7 +301,7 @@ func TestUpdateWithoutRootNotesFailureIsShown(t *testing.T) {
 // The check says that the registries are asked before the command.
 func TestCheckWithoutRootSaysThatTheRegistriesAreAsked(t *testing.T) {
 	m, _ := sudoStackModel(t, i18n.English, demoBackend(), wideWidth, 60)
-	send(m, "c")
+	send(m, "u")
 	if !strings.Contains(flat(m.render()), "This asks the registries of the images, so the requests leave the host.") {
 		t.Fatalf("no sentence on the registries:\n%s", m.render())
 	}
@@ -309,7 +309,7 @@ func TestCheckWithoutRootSaysThatTheRegistriesAreAsked(t *testing.T) {
 
 // Cancelling any of the questions runs nothing.
 func TestStackActionWithoutRootCancelledRunsNothing(t *testing.T) {
-	for _, key := range []string{"d", "p", "S", "c"} {
+	for _, key := range []string{"a", "p", "S", "u"} {
 		for _, no := range []string{"n", "esc", "enter"} {
 			m, f := sudoStackModel(t, i18n.English, demoBackend(), wideWidth, 60)
 			send(m, key)
@@ -490,7 +490,7 @@ func goldenSudo(t *testing.T, prefix string, setup func() *fakeBackend, ks ...st
 }
 
 func TestGoldenSudoDeployQuestion(t *testing.T) {
-	goldenSudo(t, "stacks.deploy.sudo", demoBackend, "d")
+	goldenSudo(t, "stacks.deploy.sudo", demoBackend, "a")
 }
 
 func TestGoldenSudoPauseOfSeveralStacksQuestion(t *testing.T) {
@@ -498,15 +498,15 @@ func TestGoldenSudoPauseOfSeveralStacksQuestion(t *testing.T) {
 }
 
 func TestGoldenSudoChangelogQuestion(t *testing.T) {
-	goldenSudo(t, "stacks.changelog.sudo", demoBackend, "u")
+	goldenSudo(t, "stacks.changelog.sudo", demoBackend, "U")
 }
 
 func TestGoldenSudoCheckQuestion(t *testing.T) {
-	goldenSudo(t, "stacks.check.sudo", demoBackend, "c")
+	goldenSudo(t, "stacks.check.sudo", demoBackend, "u")
 }
 
 func TestGoldenSudoDeploySummary(t *testing.T) {
-	goldenSudo(t, "stacks.deploy.sudosummary", demoBackend, "d", "y")
+	goldenSudo(t, "stacks.deploy.sudosummary", demoBackend, "a", "y")
 }
 
 func TestGoldenSudoUpdateSettingsQuestion(t *testing.T) {

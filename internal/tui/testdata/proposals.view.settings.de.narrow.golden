@@ -20,5 +20,5 @@
     version: 1                                                                  
     !! Der Backup-Befehl läuft später auf dem Host, vor jedem Update. Lies jedes
     Wort davon.                                                                 
-esc Zurück  A freigeben  N ablehnen  r Neu laden  1-7 Bereich  q Beenden        
+esc Zurück  A freigeben  N ablehnen  R Neu laden  1-7 Bereich  q Beenden        
                                                              ↑/↓ Scrollen  19/41

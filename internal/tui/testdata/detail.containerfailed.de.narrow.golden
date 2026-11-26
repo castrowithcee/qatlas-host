@@ -43,5 +43,5 @@
 │ Nicht geprüft.                                       │
 ╰──────────────────────────────────────────────────────╯
                                                         
-e Update-Regeln  b Backup  C Compose  o Log             
-a Geheimnis setzen  r Neu laden  q Beenden              
+e Update-Regeln  b Backup  I Compose  o Log             
+n Geheimnis setzen  R Neu laden  q Beenden              

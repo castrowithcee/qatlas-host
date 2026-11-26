@@ -115,7 +115,7 @@ func TestDigitsLeadToTheContentZone(t *testing.T) {
 
 func TestTabStaysTheFieldKeyInForms(t *testing.T) {
 	m := newTestModel(t, i18n.English, demoBackend(), wideWidth, detailRows)
-	send(m, "enter", "a")
+	send(m, "enter", "n")
 	if m.set.form == nil {
 		t.Fatal("no form")
 	}

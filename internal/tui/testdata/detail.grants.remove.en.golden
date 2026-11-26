@@ -14,7 +14,7 @@
 ╭─ Conta║ $ sudo qhost grant remove --confirm --output json --         ║───────╮
 │ No con║   g-0a1b2c3d                                                 ║       │
 ╰───────║                                                              ║───────╯
-╭─ Chang║ [ yes, with sudo ]  > cancel <                               ║───────╮
+╭─ Chang║ [ yes, with sudo ]  [ enter cancel ]                         ║───────╮
 │ APP_VE║ y yes, with sudo  n/esc/enter cancel                         ║       │
 │   sour╚══════════════════════════════════════════════════════════════╝       │
 │   1.5.0  Spring release  2026-10-29                                          │

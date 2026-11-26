@@ -3,10 +3,10 @@
    Users   Groups   Folders   Proposals  [Changes]  Log                                                                 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   TIME              BY    CHANGE                                                                        RESULT  UNDO    
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 > 2026-11-02 09:00  ada   Change /srv/media: owner cleo, group media; the owner gets read and write, …  done    possible
   2026-11-01 17:00  ada   Delete the user ben together with its home and mail spool.                    done    -       
   2026-11-01 08:00  root  Lock cleo: no login is possible any more, with a password or an SSH key.      undone  -       
-                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         
@@ -24,7 +24,7 @@
                             ║ $ chown -h -- 1000:1000 /srv/media                           ║                            
                             ║ $ chmod -- 0755 /srv/media                                   ║                            
                             ║                                                              ║                            
-                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ [ yes, with sudo ]  [ enter cancel ]                         ║                            
                             ║ y yes, with sudo  n/esc/enter cancel                         ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

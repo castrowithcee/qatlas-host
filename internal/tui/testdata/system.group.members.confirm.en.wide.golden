@@ -2,27 +2,27 @@
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
    Users  [Groups]  Folders   Proposals   Changes   Log                                                                 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    NAME          GID    MEMBERS                                                                                        
+      NAME        GID    MEMBERS                                                                                        
+      ──────────────────────────                                                                                        
   ▾ ■ Groups (5)                                                                                                        
-    ada           1000   ada                                                                                            
-    ben           1001   ben                                                                                            
-    cleo          1002   cleo                                                                                           
->   media         1003   cleo                                                                                           
-    backup-ops    1004                                                                                                  
+      ada         1000   ada                                                                                            
+      ben         1001   ben                                                                                            
+      cleo        1002   cleo                                                                                           
+>     media       1003   cleo                                                                                           
+      backup-ops  1004                                                                                                  
   ▾ ■ System groups (8)                                                                                                 
-    root          0      root                                                                                           
-    daemon        1      daemon                                                                                         
-    adm           4                                                                                                     
-    sudo          27     ada╔═ Change the host ════════════════════════════════════════════╗                            
-    users         100       ║ ⚠ Add ada, ben to the group media. Remove cleo from the      ║                            
-    qhost         998    ada║   group media.                                               ║                            
-    docker        999    ada║                                                              ║                            
-    nogroup       65534  nob║ Runs with sudo, goes into the journal and can be undone.     ║                            
-                            ║ $ gpasswd -a ada media                                       ║                            
+      root        0      root                                                                                           
+      daemon      1      daemon                                                                                         
+      adm         4         ╔═ Change the host ════════════════════════════════════════════╗                            
+      sudo        27     ada║ ⚠ Add ada, ben to the group media. Remove cleo from the      ║                            
+      users       100       ║   group media.                                               ║                            
+      qhost       998    ada║                                                              ║                            
+      docker      999    ada║ Runs with sudo, goes into the journal and can be undone.     ║                            
+      nogroup     65534  nob║ $ gpasswd -a ada media                                       ║                            
                             ║ $ gpasswd -a ben media                                       ║                            
                             ║ $ gpasswd -d cleo media                                      ║                            
                             ║                                                              ║                            
-                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ [ yes, with sudo ]  [ enter cancel ]                         ║                            
                             ║ y yes, with sudo  n/esc/enter cancel                         ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

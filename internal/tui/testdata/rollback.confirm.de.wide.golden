@@ -2,19 +2,19 @@
    1 ▤ Stacks   2 ▣ Stack-Details  [3 ▶ Läufe]  4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   STACK        START        ERGEBNIS                 AUSLÖSER  DAUER  LAUF                                              
+  ─────────────────────────────────────────────────────────────────────────────────────────────                         
   web-shop     10-30 15:00  läuft                    manual    -      20261030T150000Z-0000000b                         
 > demo-stack   10-30 14:02  erfolgreich              update    48s    20261030T140200Z-0000000c                         
-  web-shop     10-30 12:00  zurückgerollt            poll      3m35s  20261030T120000Z-0000000d                         
-  photo-album  10-29 03:10  ╔═ Zurück auf den Stand davor ═════════════════════════════════╗00a                         
-  demo-stack   10-29 02:00  ║ ⚠ demo-stack auf die Versionen vor dem Update-Lauf           ║010                         
-  mail-relay   10-28 03:10  ║   20261030T140200Z-0000000c zurücksetzen?                    ║00e                         
-  wiki         10-27 03:10  ║                                                              ║00f                         
-                            ║ Der Stack wird gestoppt, seine aktuellen Daten werden        ║                            
+  web-shop     10-30 12:00  ╔═ Zurück auf den Stand davor ═════════════════════════════════╗00d                         
+  photo-album  10-29 03:10  ║ ⚠ demo-stack auf die Versionen vor dem Update-Lauf           ║00a                         
+  demo-stack   10-29 02:00  ║   20261030T140200Z-0000000c zurücksetzen?                    ║010                         
+  mail-relay   10-28 03:10  ║                                                              ║00e                         
+  wiki         10-27 03:10  ║ Der Stack wird gestoppt, seine aktuellen Daten werden        ║00f                         
                             ║ gesichert, wenn er Backup-Regeln hat, das Backup dieses      ║                            
                             ║ Updates wird eingespielt und der Stack startet auf den alten ║                            
                             ║ Versionen. Danach ist der Stack festgehalten.                ║                            
                             ║                                                              ║                            
-                            ║ [ ja, ausführen ]  > abbrechen <                             ║                            
+                            ║ [ ja, ausführen ]  [ enter abbrechen ]                       ║                            
                             ║ y ja, ausführen  n/esc/enter abbrechen                       ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

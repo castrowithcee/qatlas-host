@@ -137,7 +137,7 @@ func TestLogSaveOfTheHostServiceHoldsHostEntries(t *testing.T) {
 func TestLogReloadReadsTheChosenService(t *testing.T) {
 	m, _ := systemModel(t, i18n.English, wideWidth, 40)
 	b := deployLogPage(t, m, control.EngineSystem, aliceEngine)
-	send(m, "H", "H", "r")
+	send(m, "H", "H", "R")
 	if got := strings.Join(b.deployLogArgs, ","); got != control.EngineSystem+","+aliceEngine+","+aliceEngine {
 		t.Errorf("engines asked %q", got)
 	}

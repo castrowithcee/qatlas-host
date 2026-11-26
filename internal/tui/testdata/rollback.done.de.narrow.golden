@@ -2,9 +2,9 @@
   1 2 [3 Läufe] 4 5 6 7                                 
 ────────────────────────────────────────────────────────
   STACK        START        ERGEBNIS                    
+  ─────────────────────────────────────────────────     
   web-shop     10-30 15:00  läuft                       
-> demo-stack   10-30 14:02  erfolgreich                 
-  ╔═ Erledigt ═══════════════════════════════════════╗  
+> ╔═ Erledigt ═══════════════════════════════════════╗  
   ║ Stack demo-stack läuft wieder auf den Versionen  ║  
   ║ vor dem Update-Lauf 20261030T140200Z-0000000c.   ║  
   ║                                                  ║  
@@ -14,7 +14,7 @@
   ║ lassen ihn in Ruhe. Gib ihn mit unpin in Stacks  ║  
   ║ wieder frei.                                     ║  
   ║                                                  ║  
-  ║ > schließen <                                    ║  
+  ║ [ enter schließen ]                              ║  
   ║ n/esc/enter schließen                            ║  
   ╚══════════════════════════════════════════════════╝  
                                                         

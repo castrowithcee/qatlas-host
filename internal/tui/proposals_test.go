@@ -145,7 +145,7 @@ func TestProposalViewWorksOutTheEffectOnlyAsRoot(t *testing.T) {
 func TestProposalViewChangesNothing(t *testing.T) {
 	b := proposalBackend()
 	m := proposalModel(t, i18n.English, b, true, 120, 40)
-	send(m, "6", "enter", "down", "esc", "enter", "y", "n", "r")
+	send(m, "6", "enter", "down", "esc", "enter", "y", "r", "R")
 	if len(b.proposalActs) != 0 || len(b.sourceAdds) != 0 {
 		t.Fatalf("a call that changes something: %v %v", b.proposalActs, b.sourceAdds)
 	}

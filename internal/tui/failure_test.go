@@ -100,7 +100,7 @@ func TestSelectedContainerFailedEventIsSentWithTheChannel(t *testing.T) {
 	m := newSettingsModel(t, b)
 	hidden := []string{hiddenA, hiddenB}
 	send(m, toNotify...)
-	send(m, "a")
+	send(m, "n")
 	sendHidden(t, m, hidden, typed("deploy-hook")...)
 	// The events are listed in the order of the notifier; container-failed is the fifth.
 	sendHidden(t, m, hidden, "down", "down", "right", "right", "right", "right", "space", "f2")

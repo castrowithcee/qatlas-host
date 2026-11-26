@@ -11,4 +11,4 @@
 Log saved to /home/demo/qhost/qhost-run-                
 20261030T140200Z-0000000c-20261030-180000.log           
 / search  L follow  T period  w wrap lines  t timestamps
-W save log  r reload  1-7 area  q quit        ↑/↓ scroll
+W save log  R reload  1-7 area  q quit        ↑/↓ scroll

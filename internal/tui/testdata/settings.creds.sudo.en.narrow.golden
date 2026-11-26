@@ -14,7 +14,7 @@
   Regist║ $ sudo qhost credential set --output json --                 ║       │
         ║   registry.registry.example.test-5000                        ║───────╯
         ║                                                              ║═══════╗
-> Token ║ [ yes, with sudo ]  > cancel <                               ║       ║
+> Token ║ [ yes, with sudo ]  [ enter cancel ]                         ║       ║
         ║ y yes, with sudo  n/esc/enter cancel                         ║═══════╝
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

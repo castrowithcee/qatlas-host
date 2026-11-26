@@ -17,7 +17,7 @@
         ║ $ sudo qhost stack settings set --file - --output json --    ║───────╮
   Major ║   demo-stack                                                 ║     ▾ │
         ║                                                              ║───────╯
-  …     ║ [ yes, with sudo ]  > cancel <                               ║        
+  …     ║ [ yes, with sudo ]  [ enter cancel ]                         ║        
         ║ y yes, with sudo  n/esc/enter cancel                         ║        
         ╚══════════════════════════════════════════════════════════════╝        
 [ F2 save ]  [ esc discard ]                                                    

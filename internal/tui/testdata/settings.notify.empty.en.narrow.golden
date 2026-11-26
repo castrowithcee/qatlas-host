@@ -2,7 +2,7 @@
   1 2 3 [4 Settings] 5 6 7                              
   [Notifications]                                       
 ────────────────────────────────────────────────────────
-  No notification channels. a adds one.                 
+  No notification channels. n adds one.                 
                                                         
                                                         
                                                         
@@ -20,5 +20,5 @@
                                                         
                                                         
                                                         
-a add  s send test  x remove  esc back  r reload        
+n add  s send test  d remove  esc back  R reload        
 1-7 area  q quit                              ↑/↓ choose

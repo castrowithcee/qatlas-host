@@ -2,23 +2,23 @@
   1 2 3 4 5 6 [7 System]                                                        
    Benutzer  [Gruppen]  Ordner   Vorschläge   Änderungen   Protokoll            
 ────────────────────────────────────────────────────────────────────────────────
-    NAME           GID    MITGLIEDER                                            
+      NAME         GID    MITGLIEDER                                            
+      ──────────────────────────────                                            
   ▾ ■ Gruppen (5)                                                               
-    ada            1000   ada                                                   
-    ben ╔═ Host ändern ════════════════════════════════════════════════╗        
-    cleo║ ⚠ ben zur Gruppe docker hinzufügen.                          ║        
-    medi║                                                              ║        
-    back║ Mitglieder der Gruppe docker nutzen Docker, und das ist      ║        
-  ▾ ■ Sy║ praktisch root. Pakete oder Dienste können von einer         ║        
-    root║ Systemgruppe dieser Änderung abhängen. Läuft mit sudo, steht ║        
-    daem║ im Journal und lässt sich rückgängig machen.                 ║        
-    adm ║ $ gpasswd -a ben docker                                      ║        
-    sudo║                                                              ║        
-    user║ [ ja, mit sudo ]  > abbrechen <                              ║        
-    qhos║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
->   dock╚══════════════════════════════════════════════════════════════╝        
-    nogroup        65534  nobody                                                
-                                                                                
+      ad╔═ Host ändern ════════════════════════════════════════════════╗        
+      be║ ⚠ ben zur Gruppe docker hinzufügen.                          ║        
+      cl║                                                              ║        
+      me║ Mitglieder der Gruppe docker nutzen Docker, und das ist      ║        
+      ba║ praktisch root. Pakete oder Dienste können von einer         ║        
+  ▾ ■ Sy║ Systemgruppe dieser Änderung abhängen. Läuft mit sudo, steht ║        
+      ro║ im Journal und lässt sich rückgängig machen.                 ║        
+      da║ $ gpasswd -a ben docker                                      ║        
+      ad║                                                              ║        
+      su║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║        
+      us║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+      qh╚══════════════════════════════════════════════════════════════╝        
+>     docker       999    ada                                                   
+      nogroup      65534  nobody                                                
                                                                                 
                                                                                 
                                                                            12/13

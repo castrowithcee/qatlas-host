@@ -246,7 +246,7 @@ func TestActionsGoToTheEngineOfTheMarkedStack(t *testing.T) {
 			m := newTestModel(t, i18n.English, b, wideWidth, 26)
 			m.euid = func() int { return 0 }
 			markStack(t, m, engine, "wiki")
-			send(m, "d", "y")
+			send(m, "a", "y")
 			want := "deploy:wiki@" + engine
 			if !slices.Contains(b.engineLog, want) || len(b.acts) != 1 {
 				t.Fatalf("log %v, acts %v, want %q once", b.engineLog, b.acts, want)
@@ -262,7 +262,7 @@ func TestTickedStacksOfTwoEnginesEachGoToTheirOwn(t *testing.T) {
 	markStack(t, m, control.EngineSystem, "wiki")
 	send(m, "space")
 	markStack(t, m, "rootless:alice", "wiki")
-	send(m, "space", "d", "y")
+	send(m, "space", "a", "y")
 	var got []string
 	for _, e := range b.engineLog {
 		if strings.HasPrefix(e, "deploy:") {
@@ -278,7 +278,7 @@ func TestSudoCommandsNameTheEngineOfEachStep(t *testing.T) {
 	b := twoEnginesBackend()
 	m, f := sudoStackModel(t, i18n.English, b, wideWidth, 26)
 	markStack(t, m, "rootless:alice", "wiki")
-	send(m, "d")
+	send(m, "a")
 	if !shows(m.render(), "sudo qhost stack deploy --output json --engine rootless:alice -- wiki") {
 		t.Fatalf("the question lacks the engine:\n%s", m.render())
 	}
@@ -319,7 +319,7 @@ func TestFolderActionsGoToTheEngineOfTheFolder(t *testing.T) {
 	if f, ok := m.selectedFolder(); !ok || f.Engine != "rootless:alice" {
 		t.Fatalf("the marked folder is %+v", f)
 	}
-	send(m, "x", "y")
+	send(m, "d", "y")
 	if !slices.Contains(b.engineLog, "sourceremove:"+aliceDir+"@rootless:alice") {
 		t.Fatalf("log %v", b.engineLog)
 	}
@@ -359,7 +359,7 @@ func TestCredentialsFollowTheChosenInstance(t *testing.T) {
 		strings.Contains(screen, "registry.docker.io") {
 		t.Fatalf("not the instance of alice:\n%s", screen)
 	}
-	send(m, "x", "y")
+	send(m, "d", "y")
 	if !slices.Contains(b.engineLog, "creddel:ghcr.io@rootless:alice") {
 		t.Fatalf("log %v", b.engineLog)
 	}
@@ -388,7 +388,7 @@ func TestSettingsSudoCommandsNameTheInstance(t *testing.T) {
 	b := twoEnginesBackend()
 	m, f := sudoStackModel(t, i18n.English, b, wideWidth, settingsRows)
 	send(m, toInstanceCreds...)
-	send(m, "H", "x")
+	send(m, "H", "d")
 	if !shows(m.render(), "sudo qhost credential delete --yes --output json --engine rootless:alice -- ghcr.io") {
 		t.Fatalf("the question lacks the instance:\n%s", m.render())
 	}
@@ -408,7 +408,7 @@ func TestNoInstanceIsGuessed(t *testing.T) {
 	if slices.ContainsFunc(b.engineLog, func(e string) bool { return strings.HasPrefix(e, "credentials:") }) {
 		t.Fatalf("a read before the choice: %v", b.engineLog)
 	}
-	send(m, "a")
+	send(m, "n")
 	if m.set.form != nil || !strings.Contains(flat(m.render()), "Choose the instance first.") {
 		t.Fatalf("a form opened without an instance:\n%s", m.render())
 	}

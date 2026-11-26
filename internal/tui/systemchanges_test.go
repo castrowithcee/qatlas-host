@@ -44,7 +44,7 @@ func toChangesPage(t *testing.T, m *Model) {
 func readChanges(t *testing.T, m *Model, f *fakeRoot) {
 	t.Helper()
 	f.report = demoJournal
-	send(m, "r")
+	send(m, "R")
 	if !m.sys.jrnl.read {
 		t.Fatalf("the journal was not read:\n%s", m.render())
 	}
@@ -56,7 +56,7 @@ func TestChangesWithoutRootReadTheJournalOnlyOnReload(t *testing.T) {
 	if len(f.reqs) != 0 {
 		t.Fatalf("the journal was read without being asked for: %v", f.reqs)
 	}
-	if screen := flat(m.render()); !strings.Contains(screen, "only root can read. Press r to read it through sudo.") {
+	if screen := flat(m.render()); !strings.Contains(screen, "only root can read. Press R to read it through sudo.") {
 		t.Fatalf("no hint how to read the journal:\n%s", screen)
 	}
 	readChanges(t, m, f)

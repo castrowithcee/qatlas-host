@@ -32,7 +32,7 @@ func TestGoldenSettingsCredentialsEmpty(t *testing.T) {
 }
 
 func registryFormKeys() []string {
-	return seq(toCreds, keys("a", "down"), typed("Registry.Example.test:5000"), keys("down"), typed("alice"), keys("down"), typed(hiddenA))
+	return seq(toCreds, keys("n", "down"), typed("Registry.Example.test:5000"), keys("down"), typed("alice"), keys("down"), typed(hiddenA))
 }
 
 func TestGoldenSettingsCredentialForm(t *testing.T) {
@@ -40,7 +40,7 @@ func TestGoldenSettingsCredentialForm(t *testing.T) {
 }
 
 func TestGoldenSettingsCredentialFormProblem(t *testing.T) {
-	goldenScreens(t, "settings.creds.problem", settingsRows+6, settingsBackend, seq(toCreds, keys("a", "f2"))...)
+	goldenScreens(t, "settings.creds.problem", settingsRows+6, settingsBackend, seq(toCreds, keys("n", "f2"))...)
 }
 
 func TestGoldenSettingsCredentialQuestion(t *testing.T) {
@@ -48,7 +48,7 @@ func TestGoldenSettingsCredentialQuestion(t *testing.T) {
 }
 
 func TestGoldenSettingsCredentialDeleteQuestion(t *testing.T) {
-	goldenScreens(t, "settings.creds.delete", settingsRows, settingsBackend, seq(toCreds, keys("x"))...)
+	goldenScreens(t, "settings.creds.delete", settingsRows, settingsBackend, seq(toCreds, keys("d"))...)
 }
 
 func TestGoldenSettingsWindow(t *testing.T) {
@@ -77,11 +77,11 @@ func TestGoldenSettingsNotificationsEmpty(t *testing.T) {
 }
 
 func TestGoldenSettingsNotifyForm(t *testing.T) {
-	goldenScreens(t, "settings.notify.form", settingsRows, settingsBackend, seq(toNotify, keys("a"), typed("deploy-hook"), keys("down", "down", "space"))...)
+	goldenScreens(t, "settings.notify.form", settingsRows, settingsBackend, seq(toNotify, keys("n"), typed("deploy-hook"), keys("down", "down", "space"))...)
 }
 
 func webhookFormKeys() []string {
-	return seq(toNotify, keys("a"), typed("deploy-hook"), keys("f2"), typed(hiddenA), keys("down"), typed(hiddenB))
+	return seq(toNotify, keys("n"), typed("deploy-hook"), keys("f2"), typed(hiddenA), keys("down"), typed(hiddenB))
 }
 
 func TestGoldenSettingsNotifyWebhookForm(t *testing.T) {
@@ -90,7 +90,7 @@ func TestGoldenSettingsNotifyWebhookForm(t *testing.T) {
 
 func TestGoldenSettingsNotifySMTPForm(t *testing.T) {
 	goldenScreens(t, "settings.notify.smtp", settingsRows+8, settingsBackend,
-		seq(toNotify, keys("a"), typed("alerts"), keys("down", "right", "right", "right", "f2"), typed("mail.example.test"),
+		seq(toNotify, keys("n"), typed("alerts"), keys("down", "right", "right", "right", "f2"), typed("mail.example.test"),
 			keys("down", "down", "down", "down"), typed(hiddenA))...)
 }
 
@@ -103,7 +103,7 @@ func TestGoldenSettingsNotifyTestQuestion(t *testing.T) {
 }
 
 func TestGoldenSettingsNotifyRemoveQuestion(t *testing.T) {
-	goldenScreens(t, "settings.notify.remove", settingsRows, settingsBackend, seq(toNotify, keys("down", "x"))...)
+	goldenScreens(t, "settings.notify.remove", settingsRows, settingsBackend, seq(toNotify, keys("down", "d"))...)
 }
 
 func TestGoldenDetailDiscardQuestion(t *testing.T) {

@@ -22,7 +22,7 @@
                             ║ $ sudo qhost notify add --type webhook --events succeeded    ║                            
                             ║   --output json -- deploy-hook                               ║                            
                             ║                                                              ║                            
-                            ║ [ yes, with sudo ]  > cancel <                               ║                            
+                            ║ [ yes, with sudo ]  [ enter cancel ]                         ║                            
                             ║ y yes, with sudo  n/esc/enter cancel                         ║                            
                             ╚══════════════════════════════════════════════════════════════╝                            
                                                                                                                         

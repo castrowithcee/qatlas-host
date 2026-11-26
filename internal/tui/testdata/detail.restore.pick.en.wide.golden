@@ -4,6 +4,7 @@
   Restore a backup                                                                                                      
                                                                                                                         
   BACKUP                     CREATED      SIZE                                                                          
+  ────────────────────────────────────────────────                                                                      
 > 20261023T031000Z-4567cdef  10-23 03:10  11.0 MiB                                                                      
                                                                                                                         
                                                                                                                         
@@ -20,5 +21,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-enter choose  esc back  r reload  1-7 area  q quit                                                            ↑/↓ choose
+enter choose  esc back  R reload  1-7 area  q quit                                                            ↑/↓ choose

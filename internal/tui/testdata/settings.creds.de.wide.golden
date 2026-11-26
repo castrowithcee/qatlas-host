@@ -3,6 +3,7 @@
    Allgemein  [Zugangsdaten]  Wartungsfenster   Benachrichtigungen   Webhooks                                           
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   NAME                GESPEICHERT                                                                                       
+  ────────────────────────────────────                                                                                  
 > registry.docker.io  2026-10-30 09:00                                                                                  
   github.com          2026-10-29 09:00                                                                                  
                                                                                                                         
@@ -20,5 +21,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-a hinzufügen  x entfernen  esc Zurück  r Neu laden  1-7 Bereich  q Beenden                            ↑/↓ Auswählen  1/2
+n hinzufügen  d entfernen  esc Zurück  R Neu laden  1-7 Bereich  q Beenden                            ↑/↓ Auswählen  1/2

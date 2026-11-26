@@ -72,7 +72,7 @@ func TestFolderKeysActOnTheMarkedFolderAndNotOnAStack(t *testing.T) {
 	if _, ok := m.selectedFolder(); ok {
 		t.Fatal("a folder is marked at the start")
 	}
-	send(m, "F", "x", "e")
+	send(m, "F", "d", "e")
 	if m.modal != nil || m.set.keyOpen || len(b.actions()) != 0 {
 		t.Fatalf("a folder key acted on a stack: calls %v", b.actions())
 	}
@@ -86,7 +86,7 @@ func TestFolderKeysActOnTheMarkedFolderAndNotOnAStack(t *testing.T) {
 			t.Fatalf("the key line lacks %q on a folder: %v", want, hints)
 		}
 	}
-	send(m, "x")
+	send(m, "d")
 	contains(t, m, "Release the stack folder "+stackDir)
 	send(m, "y")
 	if !slices.Equal(b.removes, []string{stackDir}) {
@@ -113,9 +113,9 @@ func TestAddOpensTheFormFromTheEmptyAndFromTheFilledList(t *testing.T) {
 	for name, b := range map[string]*fakeBackend{"empty": emptyHost(), "filled": settingsBackend(), "folders": foldersBackend()} {
 		t.Run(name, func(t *testing.T) {
 			m := folderModel(t, b)
-			send(m, "a")
+			send(m, "n")
 			if m.set.form == nil || m.set.form.kind != formFolder {
-				t.Fatal("a did not open the form to add a folder")
+				t.Fatal("n did not open the form to add a folder")
 			}
 			contains(t, m, "Add a stack folder")
 			send(m, "esc")
@@ -135,7 +135,7 @@ func emptyHost() *fakeBackend {
 
 func TestWithoutFolderStacksLeadsToAdding(t *testing.T) {
 	m := folderModel(t, emptyHost())
-	contains(t, m, "No stack folders yet.", "a adds one", "sudo qhost source add <path>")
+	contains(t, m, "No stack folders yet.", "n adds one", "sudo qhost source add <path>")
 	x, y := cellOf(t, m, "No stack folders yet.")
 	clickAt(m, x, y)
 	if m.set.form == nil || m.set.form.kind != formFolder {
@@ -155,7 +155,7 @@ func TestAClickOnAFolderRowMarksItAndTheKeysOfTheLineAct(t *testing.T) {
 	clickAt(m, x, y)
 	contains(t, m, "Release the stack folder "+localDir)
 	send(m, "n")
-	x, y = cellOf(t, m, "a add")
+	x, y = cellOf(t, m, "n add")
 	clickAt(m, x, y)
 	if m.set.form == nil || m.set.form.kind != formFolder {
 		t.Fatal("a click on the key to add did not open the form")
@@ -175,7 +175,7 @@ func TestTheMarkStaysOnTheFolderPathWhenTheListChanges(t *testing.T) {
 		t.Fatalf("marked %q (%v) after the reload", f.Path, ok)
 	}
 	// A question names the path it was opened for, whatever the list does afterwards.
-	send(m, "x")
+	send(m, "d")
 	contains(t, m, "Release the stack folder "+localDir)
 	b.status.Engine.Sources = b.status.Engine.Sources[1:]
 	load(t, m)

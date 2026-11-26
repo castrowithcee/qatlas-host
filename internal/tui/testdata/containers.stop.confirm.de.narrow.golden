@@ -1,21 +1,21 @@
 ◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe
   1 2 3 4 [5 Container] 6 7                                                     
 ────────────────────────────────────────────────────────────────────────────────
-    NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS 
-  ▾ ■ eigener Stack demo-stack (2)                                              
->   demo╔═ stop ═══════════════════════════════════════════════════════╗        
-    demo║ ⚠ Container demo-stack-app-1 (eigener Stack demo-stack)      ║        
-  ▾ ■ ei║   stoppen (stop)?                                            ║        
-    exam║                                                              ║        
-  ▾ ■ fr║ Signalisiert dem Container das Ende und beendet ihn nach 10  ║        
-    lega║ Sekunden gewaltsam. Was er bereitstellt, ist nicht           ║        
-    lega║ erreichbar, bis er wieder gestartet wird. Der Stack wird     ║        
-  ▾ ■ fr║ nicht als gestoppt markiert: ein Lauf des Stacks (deploy,    ║ (1)    
-    wiki║ update oder das Wartungsfenster) kann den Container wieder   ║        
-        ║ starten.                                                     ║        
+      NAME               ZUSTAND   IMAGE                     LAUFZEIT  NEUSTARTS
+      ──────────────────────────────────────────────────────────────────────────
+  ▾ ■ ei╔═ stop ═══════════════════════════════════════════════════════╗        
+>     de║ ⚠ Container demo-stack-app-1 (eigener Stack demo-stack)      ║        
+      de║   stoppen (stop)?                                            ║        
+  ▾ ■ ei║                                                              ║        
+      ex║ Signalisiert dem Container das Ende und beendet ihn nach 10  ║        
+  ▾ ■ fr║ Sekunden gewaltsam. Was er bereitstellt, ist nicht           ║        
+      le║ erreichbar, bis er wieder gestartet wird. Der Stack wird     ║        
+      le║ nicht als gestoppt markiert: ein Lauf des Stacks (deploy,    ║        
+  ▾ ■ fr║ update oder das Wartungsfenster) kann den Container wieder   ║ (1)    
+      wi║ starten.                                                     ║4       
         ║ Zustand: ok (running)                                        ║        
         ║                                                              ║        
-        ║ [ ja, ausführen ]  > abbrechen <                             ║        
+        ║ [ ja, ausführen ]  [ enter abbrechen ]                       ║        
         ║ y ja, ausführen  n/esc/enter abbrechen                       ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

@@ -79,7 +79,7 @@ func TestGoldenGrantConfirm(t *testing.T) {
 }
 
 func TestGoldenGrantRemoveQuestion(t *testing.T) {
-	goldenDetailGrant(t, "detail.grants.remove", 24, detailGrantBackend, seq(toDetail, keys("Y", "enter"))...)
+	goldenDetailGrant(t, "detail.grants.remove", 24, detailGrantBackend, seq(toDetail, keys("x", "enter"))...)
 }
 
 func TestGrantSectionShowsStatesAndWordsInBothLanguages(t *testing.T) {
@@ -216,7 +216,7 @@ func TestGrantRemoveAsksThenRunsTheCommandAndReadsTheListAgain(t *testing.T) {
 	m, f := sudoDetailModel(t, i18n.English, b, grantWidth, grantRows)
 	f.report = reportGrantRm
 	send(m, toDetail...)
-	send(m, "Y", "enter")
+	send(m, "x", "enter")
 	containsFlat(t, m, "Withdraw the grant of ada to restart the stack (demo-", "under the account need sudo for")
 	if !shows(m.render(), sudoCommand(grantRmSudo)) {
 		t.Fatalf("the question lacks the command:\n%s", m.render())
@@ -238,7 +238,7 @@ func TestGrantRemoveAsksThenRunsTheCommandAndReadsTheListAgain(t *testing.T) {
 func TestGrantRemoveWithoutGrantOnlyWarns(t *testing.T) {
 	m, _ := sudoDetailModel(t, i18n.English, emptyGrantBackend(), grantWidth, grantRows)
 	send(m, toDetail...)
-	send(m, "Y")
+	send(m, "x")
 	if m.pick != nil || m.notice == "" {
 		t.Fatalf("pick %v notice %q", m.pick != nil, m.notice)
 	}

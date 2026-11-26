@@ -2,24 +2,26 @@
    1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen  [5 ▦ Container]  6 ◈ Vorschläge   7 ◎ System         
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ╔═ Engine system ══════════════════════════════════════════════════════════════════════════════════════════════════════╗
-║     NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS                                      ║
+║       NAME               ZUSTAND   IMAGE                      LAUFZEIT  NEUSTARTS                                    ║
+║       ───────────────────────────────────────────────────────────────────────────                                    ║
 ║   ▾ ■ eigener Stack demo-stack (2)                                                                                   ║
-║ >   demo-stack-app-1   ok        example.invalid/app:1.4.2  3h2m      0                                              ║
-║     demo-stack-db-1    ungesund  example.invalid/db:16      1m        2                                              ║
+║ >     demo-stack-app-1   ok        example.invalid/app:1.4.2  3h2m      0                                            ║
+║       demo-stack-db-1    ungesund  example.invalid/db:16      1m        2                                            ║
 ║   ▾ ■ einzelne Container (1)                                                                                         ║
-║     example-cache      ok        example.invalid/cache:7    45s       0                                              ║
+║       example-cache      ok        example.invalid/cache:7    45s       0                                            ║
 ║   ▾ ■ fremdes Projekt legacy-blog (2)                                                                                ║
-║     legacy-blog-db-1   gestoppt  example.invalid/db:15      -         0                                              ║
-║     legacy-blog-web-1  ok        example.invalid/blog:2     5d1h      0                                              ║
+║       legacy-blog-db-1   gestoppt  example.invalid/db:15      -         0                                            ║
+║       legacy-blog-web-1  ok        example.invalid/blog:2     5d1h      0                                            ║
 ║   ▾ ■ fremdes Projekt wiki [Konflikt: Name eines Stacks, anderer Ordner] (1)                                         ║
-║     wiki-app-1         Neustart  example.invalid/wiki:1     -         14                                             ║
+║       wiki-app-1         Neustart  example.invalid/wiki:1     -         14                                           ║
 ╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 ╭─ Engine rootless:alice ──────────────────────────────────────────────────────────────────────────────────────────────╮
-│     NAME               ZUSTAND  IMAGE                          LAUFZEIT  NEUSTARTS                                   │
+│       NAME               ZUSTAND  IMAGE                          LAUFZEIT  NEUSTARTS                                 │
+│       ──────────────────────────────────────────────────────────────────────────────                                 │
 │   ▾ ■ eigener Stack photo-album (1)                                                                                  │
-│     photo-album-web-1  ok       example.invalid/photo:3        10m       0                                           │
+│       photo-album-web-1  ok       example.invalid/photo:3        10m       0                                         │
 │   ▾ ■ einzelne Container (1)                                                                                         │
-│     example-cache      ok       example.invalid/alice-cache:8  30s       0                                           │
+│       example-cache      ok       example.invalid/alice-cache:8  30s       0                                         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
   Engines ohne Deploy-Dienst werden nur mit sudo gezeigt.                                                               
                                                                                                                         
@@ -35,6 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-                                                                                                                        
-enter Details  / Suchen  o Log  S start  X stop  Z restart  r Neu laden  1-7 Bereich  q Beenden       ↑/↓ Auswählen  1/6
+enter Details  / Suchen  o Log  S start  X stop  Z restart  R Neu laden  1-7 Bereich  q Beenden       ↑/↓ Auswählen  1/6

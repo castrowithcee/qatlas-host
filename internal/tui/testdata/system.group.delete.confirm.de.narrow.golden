@@ -2,23 +2,23 @@
   1 2 3 4 5 6 [7 System]                                                        
    Benutzer  [Gruppen]  Ordner   Vorschläge   Änderungen   Protokoll            
 ────────────────────────────────────────────────────────────────────────────────
-    NAME           GID    MITGLIEDER                                            
+      NAME         GID    MITGLIEDER                                            
+      ──────────────────────────────                                            
   ▾ ■ Gruppen (5)                                                               
-    ada            1000   ada                                                   
-    ben            1001   ben                                                   
-    cleo╔═ Host ändern ════════════════════════════════════════════════╗        
-    medi║ ⚠ Die Gruppe backup-ops löschen.                             ║        
->   back║                                                              ║        
-  ▾ ■ Sy║ Läuft mit sudo, steht im Journal und lässt sich rückgängig   ║        
-    root║ machen.                                                      ║        
-    daem║ $ groupdel backup-ops                                        ║        
-    adm ║                                                              ║        
-    sudo║ [ ja, mit sudo ]  > abbrechen <                              ║        
-    user║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
-    qhos╚══════════════════════════════════════════════════════════════╝        
-    docker         999    ada                                                   
-    nogroup        65534  nobody                                                
-                                                                                
+      ada          1000   ada                                                   
+      be╔═ Host ändern ════════════════════════════════════════════════╗        
+      cl║ ⚠ Die Gruppe backup-ops löschen.                             ║        
+      me║                                                              ║        
+>     ba║ Läuft mit sudo, steht im Journal und lässt sich rückgängig   ║        
+  ▾ ■ Sy║ machen.                                                      ║        
+      ro║ $ groupdel backup-ops                                        ║        
+      da║                                                              ║        
+      ad║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║        
+      su║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+      us╚══════════════════════════════════════════════════════════════╝        
+      qhost        998    ada                                                   
+      docker       999    ada                                                   
+      nogroup      65534  nobody                                                
                                                                                 
                                                                                 
                                                                             5/13

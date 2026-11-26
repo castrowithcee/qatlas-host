@@ -31,7 +31,7 @@ func TestCoveredStackActionCallsTheServiceWithoutSudo(t *testing.T) {
 		taps                           int
 	}{
 		{"restart", control.GrantActionStackRestart, "Z", "restart:demo-stack", "restarted", 1},
-		{"update", control.GrantActionUpdateRun, "u", "update:demo-stack", "APP_VERSION: 1.4.2 -> 1.5.0", 1},
+		{"update", control.GrantActionUpdateRun, "U", "update:demo-stack", "APP_VERSION: 1.4.2 -> 1.5.0", 1},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			b := demoBackend()
@@ -110,7 +110,7 @@ func TestCoveredCheckOfTheOnlyStack(t *testing.T) {
 	b.updates.Stacks, b.check.Stacks = b.updates.Stacks[:1], nil
 	b.grants = map[string][]control.GrantInfo{"demo-stack": {grantFor("demo-stack", control.GrantActionUpdateCheck)}}
 	m, f := grantStackModel(t, b)
-	send(m, "c")
+	send(m, "u")
 	if strings.Contains(m.render(), "sudo") {
 		t.Fatalf("the covered check names sudo:\n%s", m.render())
 	}
@@ -123,7 +123,7 @@ func TestCoveredCheckOfTheOnlyStack(t *testing.T) {
 	b = demoBackend()
 	b.grants = map[string][]control.GrantInfo{"demo-stack": {grantFor("demo-stack", control.GrantActionUpdateCheck)}}
 	m, _ = grantStackModel(t, b)
-	send(m, "c")
+	send(m, "u")
 	if !strings.Contains(flat(m.render()), "sudo qhost stack updates --refresh") {
 		t.Fatalf("no sudo question:\n%s", m.render())
 	}

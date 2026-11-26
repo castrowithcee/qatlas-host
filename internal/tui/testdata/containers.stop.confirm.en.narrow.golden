@@ -1,20 +1,20 @@
 ◆ qhost  maintenance window closed                          [esc] back  [?] help
   1 Stacks 2 Stack detail 3 Runs 4 Settings [5 Containers] 6 Proposals 7 System 
 ────────────────────────────────────────────────────────────────────────────────
-    NAME               STATE       IMAGE                      UPTIME  RESTARTS  
+      NAME               STATE       IMAGE                      UPTIME  RESTARTS
+      ──────────────────────────────────────────────────────────────────────────
   ▾ ■ foreign project legacy-blog (2)                                           
-    legacy-blog-db-1   stopped     example.invalid/db:15      -       0         
-    lega╔═ stop ═══════════════════════════════════════════════════════╗        
-  ▾ ■ fo║ ⚠ Stop container demo-stack-app-1 (own stack demo-stack)?    ║        
-    wiki║                                                              ║        
-  ▾ ■ ow║ Signals the container to end and kills it after 10 seconds.  ║        
->   demo║ Whatever it serves is unavailable until it is started again. ║        
-    demo║ The stack is not marked as stopped: a run of the stack       ║        
-  ▾ ■ si║ (deploy, update or the maintenance window) can start the     ║        
-    exam║ container again.                                             ║        
-        ║ State: ok (running)                                          ║        
+      le╔═ stop ═══════════════════════════════════════════════════════╗0       
+      le║ ⚠ Stop container demo-stack-app-1 (own stack demo-stack)?    ║0       
+  ▾ ■ fo║                                                              ║        
+      wi║ Signals the container to end and kills it after 10 seconds.  ║14      
+  ▾ ■ ow║ Whatever it serves is unavailable until it is started again. ║        
+>     de║ The stack is not marked as stopped: a run of the stack       ║0       
+      de║ (deploy, update or the maintenance window) can start the     ║2       
+  ▾ ■ si║ container again.                                             ║        
+      ex║ State: ok (running)                                          ║0       
         ║                                                              ║        
-        ║ [ yes, do it ]  > cancel <                                   ║        
+        ║ [ yes, do it ]  [ enter cancel ]                             ║        
         ║ y yes, do it  n/esc/enter cancel                             ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

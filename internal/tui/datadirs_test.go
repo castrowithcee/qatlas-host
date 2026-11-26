@@ -20,7 +20,7 @@ func dataDirBackend() *fakeBackend {
 	return b
 }
 
-var toDataDirs = keys("enter", "m")
+var toDataDirs = keys("enter", "+")
 
 // dirMaker records the requests of the creation instead of touching the disk.
 type dirMaker struct {
@@ -48,7 +48,7 @@ func TestDataDirFindingIsShownInTheDetailWithTheAction(t *testing.T) {
 	m, _ := dataDirModel(t, dataDirBackend(), 0)
 	contains(t, m, "needs data dirs")
 	send(m, "enter")
-	contains(t, m, "Missing data directories", "data/db  owner 1000:1000", "data/files", "m creates them", "create data directories")
+	contains(t, m, "Missing data directories", "data/db  owner 1000:1000", "data/files", "+ creates them", "create data directories")
 }
 
 func TestDataDirActionIsAbsentWithoutTheFinding(t *testing.T) {
@@ -58,7 +58,7 @@ func TestDataDirActionIsAbsentWithoutTheFinding(t *testing.T) {
 	if contains2(screen, "Missing data directories") || contains2(screen, "create data directories") {
 		t.Fatalf("the finding or action is offered:\n%s", screen)
 	}
-	send(m, "m")
+	send(m, "+")
 	contains(t, m, "no missing data directories")
 	if m.set.form != nil || len(d.reqs) != 0 {
 		t.Fatal("a form was opened without a finding")
@@ -139,7 +139,7 @@ func TestDataDirsCancelAtEveryStepCreatesNothing(t *testing.T) {
 	if m.set.form != nil {
 		t.Fatal("esc keeps the form")
 	}
-	send(m, "m", "f2", "n")
+	send(m, "+", "f2", "n")
 	if m.modal != nil || m.set.form == nil {
 		t.Fatal("n should close the question and keep the form")
 	}

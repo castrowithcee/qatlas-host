@@ -232,7 +232,7 @@ func systemEnglish() map[kittui.TextID]string {
 		textColMembers: "Members",
 		textColChange:  "Change",
 
-		textUsersEmpty:         "No local user. Press {add} to create one.",
+		textUsersEmpty:         "No local user. Press {new} to create one.",
 		textGroupsEmpty:        "No local group.",
 		textGroupRegularUsers:  "Users",
 		textGroupSystemUsers:   "System accounts",
@@ -446,7 +446,7 @@ func systemGerman() map[kittui.TextID]string {
 		textColMembers: "Mitglieder",
 		textColChange:  "Änderung",
 
-		textUsersEmpty:         "Kein lokaler Benutzer. {add} legt einen an.",
+		textUsersEmpty:         "Kein lokaler Benutzer. {new} legt einen an.",
 		textGroupsEmpty:        "Keine lokale Gruppe.",
 		textGroupRegularUsers:  "Benutzer",
 		textGroupSystemUsers:   "Systemkonten",

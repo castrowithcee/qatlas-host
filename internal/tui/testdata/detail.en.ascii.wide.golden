@@ -10,5 +10,5 @@ qhost  maintenance window closed                                                
 +- Image versions -----------------------------------------------------------------------------------------------------+
 | APP_VERSION  example/app                                                                                             |
 |   1.4.2 -> 1.5.0  update available                                                                                   |
-B back to before update  e update rules  b backup  C compose  k checks  E clear settings  o log  a set secret           
-x delete secret  R restore backup  z grant  r reload  1-7 area  q quit                              up/down scroll  9/66
+B back to before update  e update rules  b backup  I compose  k checks  E clear settings  o log  n set secret           
+d delete secret  l restore backup  z grant  R reload  1-7 area  q quit                              up/down scroll  9/66

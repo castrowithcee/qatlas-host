@@ -15,7 +15,7 @@
   Obergr║ Tag-Filter APP_VERSION: ^1\.[0-9.]+$                         ║     ▾ │
         ║ Changelog APP_VERSION: example/app                           ║───────╯
         ║                                                              ║───────╮
-  Major-║ [ ja, ausführen ]  > abbrechen <                             ║     ▾ │
+  Major-║ [ ja, ausführen ]  [ enter abbrechen ]                       ║     ▾ │
         ║ y ja, ausführen  n/esc/enter abbrechen                       ║───────╯
   …     ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

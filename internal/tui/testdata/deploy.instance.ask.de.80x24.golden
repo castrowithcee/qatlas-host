@@ -2,13 +2,13 @@
   [1 Stacks] 2 3 4 5 6 7                                                        
 ────────────────────────────────────────────────────────────────────────────────
       ST╔═ Deploy-Dienst ══════════════════════════════════════════════╗        
-> [ ] de║ ⚠ Den Deploy-Dienst für die rootless Engine von demo_ops     ║        
-  [ ] ma║   jetzt einrichten?                                          ║        
-  [ ] ol║                                                              ║        
-  [ ] ph║ Er läuft als demo_ops mit eigener Unit, eigenem Kanal und    ║        
-  [ ] we║ eigenem Zustand, nutzt nur die Engine dieses Benutzers und   ║        
-  [ ] wi║ startet beim Boot. Es wird kein Benutzer angelegt und keine  ║        
-        ║ Gruppe geändert.                                             ║        
+      ──║ ⚠ Den Deploy-Dienst für die rootless Engine von demo_ops     ║        
+> [ ] de║   jetzt einrichten?                                          ║        
+  [ ] ma║                                                              ║        
+  [ ] ol║ Er läuft als demo_ops mit eigener Unit, eigenem Kanal und    ║        
+  [ ] ph║ eigenem Zustand, nutzt nur die Engine dieses Benutzers und   ║        
+  [ ] we║ startet beim Boot. Es wird kein Benutzer angelegt und keine  ║        
+  [ ] wi║ Gruppe geändert.                                             ║        
         ║ ! demo_ops is an administrator: the damage of a taken-over   ║        
         ║   instance is not limited.                                   ║        
         ║ Diese Schritte laufen als root:                              ║        
@@ -17,7 +17,7 @@
         ║   0644)                                                      ║        
         ║ $ systemctl enable --now qhost-deploy@demo_ops.service       ║        
         ║                                                              ║        
-        ║ [ ja, ausführen ]  > abbrechen <                             ║        
+        ║ [ ja, ausführen ]  [ enter abbrechen ]                       ║        
         ║ y ja, ausführen  n/esc/enter abbrechen                       ║        
         ╚══════════════════════════════════════════════════════════════╝        
                                                                                 

@@ -4,6 +4,7 @@
   Backup einspielen                                     
                                                         
   BACKUP                     ERSTELLT     GRÖßE         
+  ────────────────────────────────────────────────      
 > 20261023T031000Z-4567cdef  10-23 03:10  11.0 MiB      
                                                         
                                                         
@@ -19,6 +20,5 @@
                                                         
                                                         
                                                         
-                                                        
-enter wählen  esc Zurück  r Neu laden  1-7 Bereich      
+enter wählen  esc Zurück  R Neu laden  1-7 Bereich      
 q Beenden                                  ↑/↓ Auswählen

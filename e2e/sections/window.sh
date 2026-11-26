@@ -287,11 +287,11 @@ scenario_tui() {
 	tui_click_row bookstack
 	log 'scenario: mouse clicks switched the area and marked a row'
 
-	step 'u asks first: the question shows the versions and the changelog, nothing changes yet'
+	step 'U asks first: the question shows the versions and the changelog, nothing changes yet'
 	head_before=$(as_admin 'cd ~/stacks && git pull -q --ff-only && git rev-parse HEAD')
 	runs_before=$(stack_run_count demo-cache)
 	tui_cursor_to demo-cache
-	tui_send u
+	tui_send U
 	tui_wait 'Update demo-cache?' 15
 	tui_wait '1.0.1 -> 1.1.0' 15
 	tui_wait 'Fixes an invented crash on empty input.' 30
@@ -304,12 +304,12 @@ scenario_tui() {
 	step 'a click on the answer runs the update as y does; while it runs the Runs area lists the run and opens its log, which follows it'
 	tui_click 'yes, do it'
 	tui_send 3
-	# The list is read again on r. The run lasts a few seconds, long enough for a poll every 0.3 seconds.
+	# The list is read again on R. The run lasts a few seconds, long enough for a poll every 0.3 seconds.
 	i=0
 	until tui_screen | grep -qE 'demo-cache +[0-9-]+ +[0-9:]+ +running'; do
 		i=$((i + 1))
 		[ "$i" -lt 30 ] || fail "the Runs area never listed the running update: $(tui_screen)"
-		tui_send r
+		tui_send R
 		sleep 0.3
 	done
 	tui_send Home Enter
@@ -369,7 +369,7 @@ scenario_tui() {
 	tui_send Space
 	tui_wait '[x] demo-paused' 10
 	tui_wait '[x] demo-pinned' 10
-	tui_send u
+	tui_send U
 	tui_wait 'Update 2 stacks?' 15
 	tui_wait '  demo-pinned' 15
 	# The question offers yes only once the changelogs of both stacks are read; an earlier y is ignored.
@@ -423,7 +423,7 @@ scenario_tui() {
 	until tui_screen | grep -qE 'demo-cache .* stopped '; do
 		i=$((i + 1))
 		[ "$i" -lt 30 ] || fail "the Stacks area does not show demo-cache as stopped: $(tui_screen)"
-		tui_send r
+		tui_send R
 		sleep 0.3
 	done
 	log 'scenario: the Stacks area shows demo-cache as stopped:'
@@ -442,7 +442,7 @@ scenario_tui() {
 	[ "$(stack_run_count demo-cache)" = "$count" ] || fail 'a run of the stopped demo-cache was started by the poll'
 	[ "$(running_containers demo-cache)" -eq 0 ] || fail 'demo-cache runs again after a new commit'
 	[ -n "$(stack_field demo-cache stopped)" ] || fail 'the stopped mark did not survive the service restart'
-	tui_send r
+	tui_send R
 	tui_send Home
 	tui_cursor_to demo-cache
 	tui_screen | grep -qE 'demo-cache .* stopped ' || fail "the Stacks area does not show demo-cache as stopped after the commit: $(tui_screen)"
@@ -457,12 +457,12 @@ scenario_tui() {
 	[ "$(running_containers demo-cache)" -gt 0 ] || fail 'demo-cache does not run after the start in the interface'
 	stack_healthy demo-cache || fail 'demo-cache is not healthy after the start'
 	tui_send Escape
-	tui_send r
+	tui_send R
 	i=0
 	while tui_screen | grep -qE 'demo-cache .* stopped '; do
 		i=$((i + 1))
 		[ "$i" -lt 30 ] || fail "the Stacks area still shows demo-cache as stopped: $(tui_screen)"
-		tui_send r
+		tui_send R
 		sleep 0.3
 	done
 	log "scenario: demo-cache stayed stopped against commit $pushed until S started it"

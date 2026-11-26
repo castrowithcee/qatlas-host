@@ -5,6 +5,7 @@
   Change cleo                                                                                                           
                                                                                                                         
   CHANGE                                                                                                                
+  ─────────────────────                                                                                                 
 > Make administrator                                                                                                    
   Give access to Docker                                                                                                 
   Add to groups                                                                                                         
@@ -36,5 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-enter choose  esc back  r reload  1-7 area  q quit                                                       ↑/↓ choose  1/9
+enter choose  esc back  R reload  1-7 area  q quit                                                       ↑/↓ choose  1/9

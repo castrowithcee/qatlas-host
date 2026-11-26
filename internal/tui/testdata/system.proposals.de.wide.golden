@@ -3,6 +3,7 @@
    Benutzer   Gruppen   Ordner  [Vorschläge]  Änderungen   Protokoll                                                    
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   VORSCHLAG  ART            VON  EINGEREICHT  LÄUFT AB     ZUSTAND                                                      
+  ───────────────────────────────────────────────────────────────────                                                   
 > h-0001     Host-Änderung  ben  10-30 16:00  11-13 16:00  offen                                                        
   h-0002     Host-Änderung  ada  10-30 09:00  11-13 09:00  offen                                                        
   h-0003     Host-Änderung  ada  10-29 12:00  11-12 12:00  angewendet                                                   
@@ -36,5 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-enter Details  / Suchen  A freigeben  N ablehnen  r Neu laden  1-7 Bereich  q Beenden                 ↑/↓ Auswählen  1/4
+enter Details  / Suchen  A freigeben  N ablehnen  R Neu laden  1-7 Bereich  q Beenden                 ↑/↓ Auswählen  1/4

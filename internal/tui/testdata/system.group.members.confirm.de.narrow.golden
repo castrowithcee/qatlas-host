@@ -2,23 +2,23 @@
   1 2 3 4 5 6 [7 System]                                                        
    Benutzer  [Gruppen]  Ordner   Vorschläge   Änderungen   Protokoll            
 ────────────────────────────────────────────────────────────────────────────────
-    NAME           GID    MITGLIEDER                                            
+      NAME         GID    MITGLIEDER                                            
+      ──────────────────────────────                                            
   ▾ ■ Gruppen (5)                                                               
-    ada            1000   ada                                                   
-    ben ╔═ Host ändern ════════════════════════════════════════════════╗        
-    cleo║ ⚠ ada, ben zur Gruppe media hinzufügen. cleo aus der Gruppe  ║        
->   medi║   media entfernen.                                           ║        
-    back║                                                              ║        
-  ▾ ■ Sy║ Läuft mit sudo, steht im Journal und lässt sich rückgängig   ║        
-    root║ machen.                                                      ║        
-    daem║ $ gpasswd -a ada media                                       ║        
-    adm ║ $ gpasswd -a ben media                                       ║        
-    sudo║ $ gpasswd -d cleo media                                      ║        
-    user║                                                              ║        
-    qhos║ [ ja, mit sudo ]  > abbrechen <                              ║        
-    dock║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
-    nogr╚══════════════════════════════════════════════════════════════╝        
-                                                                                
+      ad╔═ Host ändern ════════════════════════════════════════════════╗        
+      be║ ⚠ ada, ben zur Gruppe media hinzufügen. cleo aus der Gruppe  ║        
+      cl║   media entfernen.                                           ║        
+>     me║                                                              ║        
+      ba║ Läuft mit sudo, steht im Journal und lässt sich rückgängig   ║        
+  ▾ ■ Sy║ machen.                                                      ║        
+      ro║ $ gpasswd -a ada media                                       ║        
+      da║ $ gpasswd -a ben media                                       ║        
+      ad║ $ gpasswd -d cleo media                                      ║        
+      su║                                                              ║        
+      us║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║        
+      qh║ y ja, mit sudo  n/esc/enter abbrechen                        ║        
+      do╚══════════════════════════════════════════════════════════════╝        
+      nogroup      65534  nobody                                                
                                                                                 
                                                                                 
                                                                             4/13

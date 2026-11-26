@@ -2,9 +2,9 @@
   1 2 [3 Runs] 4 5 6 7                                  
 ────────────────────────────────────────────────────────
   STACK        STARTED      RESULT           TRIGGER    
+  ──────────────────────────────────────────────────    
   web-shop     10-30 15:00  running          manual     
-> demo-stack   10-30 14:02  succeeded        update     
-  ╔═ Done ═══════════════════════════════════════════╗  
+> ╔═ Done ═══════════════════════════════════════════╗  
   ║ Stack demo-stack is back on the versions before  ║  
   ║ the update run 20261030T140200Z-0000000c.        ║  
   ║                                                  ║  
@@ -14,7 +14,7 @@
   ║ webhooks leave it alone. Release it with unpin   ║  
   ║ in Stacks.                                       ║  
   ║                                                  ║  
-  ║ > close <                                        ║  
+  ║ [ enter close ]                                  ║  
   ║ n/esc/enter close                                ║  
   ╚══════════════════════════════════════════════════╝  
                                                         

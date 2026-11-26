@@ -2,7 +2,7 @@
   1 2 3 [4 Einstellungen] 5 6 7                         
   [Benachrichtigungen]                                  
 ────────────────────────────────────────────────────────
-  Keine Benachrichtigungskanäle. a legt einen an.       
+  Keine Benachrichtigungskanäle. n legt einen an.       
                                                         
                                                         
                                                         
@@ -20,5 +20,5 @@
                                                         
                                                         
                                                         
-a hinzufügen  s Test senden  x entfernen  esc Zurück    
-r Neu laden  1-7 Bereich  q Beenden        ↑/↓ Auswählen
+n hinzufügen  s Test senden  d entfernen  esc Zurück    
+R Neu laden  1-7 Bereich  q Beenden        ↑/↓ Auswählen

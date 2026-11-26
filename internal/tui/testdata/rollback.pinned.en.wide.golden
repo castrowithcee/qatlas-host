@@ -2,6 +2,7 @@
   [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
       STACK        CURRENT      AVAILABLE      MODE       STATE                  LAST RUN                     FINDINGS  
+      ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 > [ ] demo-stack   1.4.2        1.5.0          automatic  pinned                 succeeded 10-30 14:02        1 warning 
   [ ] mail-relay   3.1          up to date     manual     pending                succeeded 10-28 03:10        none      
   [ ] old-tool     -            unchecked      -          removed                succeeded                    none      
@@ -20,5 +21,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-enter details  / search  space tick  u update  d deploy  a add  r reload  1-7 area  q quit               ↑/↓ choose  1/6
+enter details  / search  space tick  U update  a deploy  n add  R reload  1-7 area  q quit               ↑/↓ choose  1/6

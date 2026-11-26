@@ -34,7 +34,7 @@ func TestGoldenForeignContainerDetail(t *testing.T) {
 }
 
 func TestGoldenAdoptForm(t *testing.T) {
-	goldenForeign(t, "containers.adopt", sameFiles, "a")
+	goldenForeign(t, "containers.adopt", sameFiles, "n")
 }
 
 func TestGoldenAdoptWarning(t *testing.T) {
@@ -44,7 +44,7 @@ func TestGoldenAdoptWarning(t *testing.T) {
 		st.ComposeFiles = []string{foreignDir + "/compose.yml"}
 		st.EnvFiles = nil
 		return adoptBackend(localResult(st))
-	}, "a")
+	}, "n")
 }
 
 func TestGoldenAdoptRejected(t *testing.T) {
@@ -56,5 +56,5 @@ func TestGoldenAdoptRejected(t *testing.T) {
 			}
 		}
 		return b
-	}, "a")
+	}, "n")
 }

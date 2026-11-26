@@ -16,7 +16,7 @@
 ╰───────────────────────────║ understand migrated data.                                    ║───────────────────────────╯
 ╭─ Changelog ───────────────║ This run made no backup, so only the version can go back.    ║───────────────────────────╮
 │ APP_VERSION  1.4.2 -> 1.5.║                                                              ║                           │
-│   source example/app      ║ [ version only ]  > cancel <                                 ║                           │
+│   source example/app      ║ [ version only ]  [ enter cancel ]                           ║                           │
 │   1.5.0  Spring release  2║ v version only  n/esc/enter cancel                           ║                           │
 │     Adds a dark theme.    ╚══════════════════════════════════════════════════════════════╝                           │
 │                                                                                                                      │

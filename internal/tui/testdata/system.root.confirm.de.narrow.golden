@@ -2,19 +2,19 @@
   1 2 3 4 5 6 [7 System]                                                        
   [Benutzer]  Gruppen   Ordner   Vorschläge   Änderungen   Protokoll            
 ────────────────────────────────────────────────────────────────────────────────
-    NAME            UID    ADMIN           DOCKER  LOGIN      GRUPPEN           
+      NAME          UID    ADMIN           DOCKER  LOGIN      GRUPPEN           
+      ───────────────────────────────────────────────────────────────           
   ▾ ■ Benutzer (3)                                                              
-    ada             1000   ja              ja      unbekannt                    
-    ben ╔═ Host ändern ════════════════════════════════════════════════╗        
-    cleo║ ⚠ root sperren: Danach ist kein Login mehr möglich, weder    ║        
-  ▾ ■ Sy║   mit Passwort noch mit SSH-Schlüssel.                       ║        
->   root║                                                              ║        
-    daem║ root ist das Konto mit allen Rechten auf diesem Host.        ║        
-    nobo║ Laufende Sitzungen bleiben offen, bis sie enden. Läuft mit   ║        
-        ║ sudo, steht im Journal und lässt sich rückgängig machen.     ║        
+      ad╔═ Host ändern ════════════════════════════════════════════════╗        
+      be║ ⚠ root sperren: Danach ist kein Login mehr möglich, weder    ║        
+      cl║   mit Passwort noch mit SSH-Schlüssel.                       ║        
+  ▾ ■ Sy║                                                              ║        
+>     ro║ root ist das Konto mit allen Rechten auf diesem Host.        ║        
+      da║ Laufende Sitzungen bleiben offen, bis sie enden. Läuft mit   ║        
+      no║ sudo, steht im Journal und lässt sich rückgängig machen.     ║        
         ║ $ usermod -L -e 1 root                                       ║        
 ╭─ root ║                                                              ║───────╮
-│ Home: ║ [ ja, mit sudo ]  > abbrechen <                              ║       │
+│ Home: ║ [ ja, mit sudo ]  [ enter abbrechen ]                        ║       │
 │ Primär║ y ja, mit sudo  n/esc/enter abbrechen                        ║       │
 │ Weiter╚══════════════════════════════════════════════════════════════╝       │
 │ Zugang: kein Administrator                                                   │

@@ -32,7 +32,7 @@
 ╰─║ A secret address is created. It is shown once    ║─╯
 ╭─║ after this and cannot be read again.             ║─╮
 │ ║                                                  ║ │
-╰─║ [ yes, do it ]  > cancel <                       ║─╯
+╰─║ [ yes, do it ]  [ enter cancel ]                 ║─╯
 ╭─║ y yes, do it  n/esc/enter cancel                 ║─╮
 │ ╚══════════════════════════════════════════════════╝ │
 │ working under the account of the user.               │

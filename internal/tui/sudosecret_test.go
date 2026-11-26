@@ -118,7 +118,7 @@ func TestCredentialSetWithoutRootHandsTheLoginOnStandardInput(t *testing.T) {
 	f.report = `{"name":"registry.registry.example.test-5000","stored":true}`
 	hidden := []string{hiddenA}
 	send(m, toCreds...)
-	send(m, "a", "down")
+	send(m, "n", "down")
 	sendHidden(t, m, hidden, typed("Registry.Example.test:5000")...)
 	sendHidden(t, m, hidden, "down")
 	sendHidden(t, m, hidden, typed("alice")...)
@@ -146,7 +146,7 @@ func TestWebhookChannelWithoutRootHandsBothSecretsOnStandardInput(t *testing.T) 
 	f.report = `{"name":"deploy-hook","type":"webhook","events":"succeeded"}`
 	hidden := []string{hiddenA, hiddenB}
 	send(m, toNotify...)
-	send(m, "a")
+	send(m, "n")
 	sendHidden(t, m, hidden, typed("deploy-hook")...)
 	sendHidden(t, m, hidden, "down", "down", "space", "f2")
 	sendHidden(t, m, hidden, typed(hiddenA)...)
@@ -175,7 +175,7 @@ func TestChannelFailureTextHoldsNoPartOfTheSecrets(t *testing.T) {
 	f.runErr = exitCode(t, "1")
 	hidden := []string{hiddenA, hiddenB}
 	send(m, toNotify...)
-	send(m, "a")
+	send(m, "n")
 	sendHidden(t, m, hidden, typed("deploy-hook")...)
 	sendHidden(t, m, hidden, "down", "down", "space", "f2")
 	sendHidden(t, m, hidden, typed(hiddenA)...)
@@ -192,7 +192,7 @@ func TestSMTPChannelWithoutRootHandsOnlyThePasswordOnStandardInput(t *testing.T)
 	f.report = `{"name":"alerts","type":"smtp","events":"","settings":"host=mail.example.test"}`
 	hidden := []string{hiddenA}
 	send(m, toNotify...)
-	send(m, "a")
+	send(m, "n")
 	send(m, typed("alerts")...)
 	send(m, "down", "right", "right", "right", "f2")
 	send(m, typed("mail.example.test")...)
@@ -226,7 +226,7 @@ func TestSMTPChannelWithoutUserNeedsNoStandardInput(t *testing.T) {
 	m, f := sudoDetailModel(t, i18n.English, settingsBackend(), wideWidth, 40)
 	f.report = `{"name":"alerts","type":"smtp","events":""}`
 	send(m, toNotify...)
-	send(m, "a")
+	send(m, "n")
 	send(m, typed("alerts")...)
 	send(m, "down", "right", "right", "right", "f2")
 	send(m, typed("mail.example.test")...)

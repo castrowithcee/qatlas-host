@@ -2,6 +2,7 @@
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers  [6 ◈ Proposals]  7 ◎ System                
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   KIND          FROM  SUBMITTED    EXPIRES      STATE                                                                   
+  ──────────────────────────────────────────────────────                                                                
 > stack folder  ana   10-30 16:00  11-13 16:00  open                                                                    
   stack folder  ben   10-30 09:00  11-13 09:00  open                                                                    
   network-rule  ana   10-29 12:00  11-12 12:00  open                                                                    
@@ -36,5 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-enter details  / search  r reload  1-7 area  q quit                                                      ↑/↓ choose  1/5
+enter details  / search  R reload  1-7 area  q quit                                                      ↑/↓ choose  1/5

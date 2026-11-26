@@ -33,7 +33,7 @@
 ╭─ Webhooks ────────────────║ cannot be read again.                                        ║───────────────────────────╮
 │ No webhook for this stack.║ $ sudo qhost hook add --output json -- demo-stack            ║                           │
 ╰───────────────────────────║                                                              ║───────────────────────────╯
-╭─ Grants ──────────────────║ [ yes, with sudo ]  > cancel <                               ║───────────────────────────╮
+╭─ Grants ──────────────────║ [ yes, with sudo ]  [ enter cancel ]                         ║───────────────────────────╮
 │ A grant applies to the use║ y yes, with sudo  n/esc/enter cancel                         ║                           │
 │ No grants for this stack. ╚══════════════════════════════════════════════════════════════╝                           │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯

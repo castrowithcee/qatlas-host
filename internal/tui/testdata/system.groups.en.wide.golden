@@ -2,22 +2,23 @@
    1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals  [7 ◎ System]               
    Users  [Groups]  Folders   Proposals   Changes   Log                                                                 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    NAME          GID    MEMBERS                                                                                        
+      NAME        GID    MEMBERS                                                                                        
+      ──────────────────────────                                                                                        
   ▾ ■ Groups (5)                                                                                                        
->   ada           1000   ada                                                                                            
-    ben           1001   ben                                                                                            
-    cleo          1002   cleo                                                                                           
-    media         1003   cleo                                                                                           
-    backup-ops    1004                                                                                                  
+>     ada         1000   ada                                                                                            
+      ben         1001   ben                                                                                            
+      cleo        1002   cleo                                                                                           
+      media       1003   cleo                                                                                           
+      backup-ops  1004                                                                                                  
   ▾ ■ System groups (8)                                                                                                 
-    root          0      root                                                                                           
-    daemon        1      daemon                                                                                         
-    adm           4                                                                                                     
-    sudo          27     ada,ben                                                                                        
-    users         100                                                                                                   
-    qhost         998    ada                                                                                            
-    docker        999    ada                                                                                            
-    nogroup       65534  nobody                                                                                         
+      root        0      root                                                                                           
+      daemon      1      daemon                                                                                         
+      adm         4                                                                                                     
+      sudo        27     ada,ben                                                                                        
+      users       100                                                                                                   
+      qhost       998    ada                                                                                            
+      docker      999    ada                                                                                            
+      nogroup     65534  nobody                                                                                         
                                                                                                                         
                                                                                                                         
                                                                                                                         
@@ -36,5 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-enter/e members  / search  a new group  n rename  x delete  r reload  1-7 area  q quit                  ↑/↓ choose  1/13
+enter/e members  / search  n new group  r rename  d delete  R reload  1-7 area  q quit                  ↑/↓ choose  1/13

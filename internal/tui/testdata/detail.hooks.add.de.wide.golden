@@ -32,7 +32,7 @@
 ╰───────────────────────────║ Es entsteht eine geheime Adresse. Sie wird danach einmal     ║───────────────────────────╯
 ╭─ Webhooks ────────────────║ gezeigt und ist nicht wieder lesbar.                         ║───────────────────────────╮
 │ Kein Webhook für diesen St║                                                              ║                           │
-╰───────────────────────────║ [ ja, ausführen ]  > abbrechen <                             ║───────────────────────────╯
+╰───────────────────────────║ [ ja, ausführen ]  [ enter abbrechen ]                       ║───────────────────────────╯
 ╭─ Freigaben ───────────────║ y ja, ausführen  n/esc/enter abbrechen                       ║───────────────────────────╮
 │ Eine Freigabe gilt für den╚══════════════════════════════════════════════════════════════╝.                          │
 │ Keine Freigaben für diesen Stack.                                                                                    │

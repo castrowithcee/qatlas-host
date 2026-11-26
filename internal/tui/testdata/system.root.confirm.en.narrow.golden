@@ -2,19 +2,19 @@
   1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
   [Users]  Groups   Folders   Proposals   Changes   Log                         
 ────────────────────────────────────────────────────────────────────────────────
-    NAME         UID    ADMIN               DOCKER  LOGIN    GROUPS             
+      NAME       UID    ADMIN               DOCKER  LOGIN    GROUPS             
+      ─────────────────────────────────────────────────────────────             
   ▾ ■ Users (3)                                                                 
-    ada          1000   yes                 yes     unknown                     
-    ben ╔═ Change the host ════════════════════════════════════════════╗        
-    cleo║ ⚠ Lock root: no login is possible any more, with a password  ║        
-  ▾ ■ Sy║   or an SSH key.                                             ║        
->   root║                                                              ║        
-    daem║ root is the account with all rights on this host. Running    ║        
-    nobo║ sessions stay open until they end. Runs with sudo, goes into ║        
-        ║ the journal and can be undone.                               ║        
+      ad╔═ Change the host ════════════════════════════════════════════╗        
+      be║ ⚠ Lock root: no login is possible any more, with a password  ║        
+      cl║   or an SSH key.                                             ║        
+  ▾ ■ Sy║                                                              ║        
+>     ro║ root is the account with all rights on this host. Running    ║        
+      da║ sessions stay open until they end. Runs with sudo, goes into ║        
+      no║ the journal and can be undone.                               ║        
         ║ $ usermod -L -e 1 root                                       ║        
 ╭─ root ║                                                              ║───────╮
-│ Home: ║ [ yes, with sudo ]  > cancel <                               ║       │
+│ Home: ║ [ yes, with sudo ]  [ enter cancel ]                         ║       │
 │ Primar║ y yes, with sudo  n/esc/enter cancel                         ║       │
 │ Furthe╚══════════════════════════════════════════════════════════════╝       │
 │ Access: no administrator                                                     │

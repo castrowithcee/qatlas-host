@@ -3,6 +3,7 @@
    Users   Groups   Folders  [Proposals]  Changes   Log                                                                 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   PROPOSAL  KIND           FROM  SUBMITTED    EXPIRES      STATE                                                        
+  ─────────────────────────────────────────────────────────────────                                                     
   h-0001    host change    ben   10-30 16:00  11-13 16:00  open                                                         
   h-0002    host change    ada   10-30 09:00  11-13 09:00  open                                                         
   h-0003    host change    ada   10-29 12:00  11-12 12:00  applied                                                      
@@ -36,5 +37,4 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
-enter details  / search  A run  N reject  r reload  1-7 area  q quit                                     ↑/↓ choose  5/5
+enter details  / search  A run  N reject  R reload  1-7 area  q quit                                     ↑/↓ choose  5/5

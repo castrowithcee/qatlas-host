@@ -23,7 +23,7 @@
 │     - faster start        ║ $ sudo qhost stack backup restore --yes --output json --     ║                           │
 │     - fixes the upload lim║   demo-stack 20261023T031000Z-4567cdef                       ║                           │
 │   1.4.3  2026-10-20       ║                                                              ║                           │
-│     Fixes a crash on empty║ [ yes, with sudo ]  > cancel <                               ║                           │
+│     Fixes a crash on empty║ [ yes, with sudo ]  [ enter cancel ]                         ║                           │
 │   more at https://example.║ y yes, with sudo  n/esc/enter cancel                         ║                           │
 ╰───────────────────────────╚══════════════════════════════════════════════════════════════╝───────────────────────────╯
 ╭─ Secrets ────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
