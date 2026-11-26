@@ -21,6 +21,9 @@ type snapshot struct {
 	status  control.StatusResult
 	stacks  control.StacksResult
 	sources map[stackRef]sourceRead // the promote sources of the stacks that name one
+	// changes counts the uncommitted changes of each stack folder by engine and path; a folder whose changes
+	// could not be read is missing.
+	changes map[stackRef]int
 	// noRepo is set when no stacks repository is bound; check and updates are not asked then.
 	noRepo  bool
 	check   control.StacksCheckResult
@@ -54,6 +57,7 @@ func fetch(ctx context.Context, b Backend) refreshMsg {
 	}
 	// The list of engines only widens what the interface shows; the lists name their engines themselves.
 	msg.snap.engines, _ = b.Engines(ctx)
+	msg.snap.changes = readFolderChanges(ctx, b, msg.snap.status.Engine.Sources)
 	var remote *control.Error
 	msg.snap.stacks, err = b.Stacks(ctx)
 	if errors.As(err, &remote) && remote.Code == control.CodeNoRepo {

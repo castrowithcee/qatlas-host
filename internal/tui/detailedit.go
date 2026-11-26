@@ -78,20 +78,32 @@ func (m *Model) detailAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 		return m.grantAction(id), true
 	case actRollback, actPromote:
 		return m.versionAction(id), true
-	case actDataDirs:
-		return m.openDataDirForm(), true
-	case actEdit:
-		return m.openUpdateForm(), true
-	case actBackup:
-		return m.openBackupForm(), true
-	case actCompose:
-		return m.openComposeForm(), true
-	case actCheckForm:
-		return m.openCheckForm(), true
-	case actRemoveSettings:
-		return m.openRemoveSettings(), true
+	}
+	if open := m.detailOpener(id); open != nil {
+		return open(), true
 	}
 	return nil, false
+}
+
+// detailOpener is what a key of the detail opens: a form, or the files of the stack; nil for any other key.
+func (m *Model) detailOpener(id kittui.ActionID) func() tea.Cmd {
+	switch id {
+	case actDataDirs:
+		return m.openDataDirForm
+	case actEdit:
+		return m.openUpdateForm
+	case actBackup:
+		return m.openBackupForm
+	case actCompose:
+		return m.openComposeForm
+	case actCheckForm:
+		return m.openCheckForm
+	case actRemoveSettings:
+		return m.openRemoveSettings
+	case actFiles:
+		return m.openDetailFiles
+	}
+	return nil
 }
 
 func (m *Model) openSecretForm() tea.Cmd {
@@ -301,7 +313,7 @@ func (m *Model) detailHints() []kittui.Hint {
 		kittui.Hint{Action: actCompose, Label: textKeyComposeForm, Priority: 3},
 		kittui.Hint{Action: actCheckForm, Label: textKeyCheckForm, Priority: 4},
 		kittui.Hint{Action: actRemoveSettings, Label: textKeyRemoveSettings, Priority: 4})
-	hints = append(hints, containerLogsHint(),
+	hints = append(hints, containerLogsHint(), kittui.Hint{Action: actFiles, Label: textKeyFiles, Priority: 4},
 		kittui.Hint{Action: actAdd, Label: textKeySecretSet, Priority: 3},
 		kittui.Hint{Action: actRemove, Label: textKeySecretDelete, Priority: 3},
 		kittui.Hint{Action: actRestore, Label: textKeyRestore, Priority: 3})

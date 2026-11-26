@@ -33,27 +33,43 @@ const (
 	fieldFolderBelow  = "below"
 )
 
-// folderPage is what the folders page holds: the browser and its preview, and while Rights is open the path asked
-// for and what was read for it. read, count, readPath and hooks reach the file system and the editor; tests replace
-// them.
+// folderPage is what the folders page holds: the file browser over the host, and while Rights is open the path
+// asked for and what was read for it. read and count reach the file system; tests replace them.
 type folderPage struct {
-	browser *kittui.FileBrowser
-	started bool
-	preview *filePreview
-	text    *kittui.TextView
-	fileGen int
-	edit    *fileEdit
-	hooks   editHooks
-	chg     fileChanges
+	files fileView
 
-	asked    string
-	gen      int
-	reading  bool
-	folder   *hostadmin.Folder
-	err      string
-	read     func(path string) (hostadmin.Folder, error)
-	count    func(path string, recursive bool) (int, error)
-	readPath func(path string) (hostchange.PathContent, error)
+	asked   string
+	gen     int
+	reading bool
+	folder  *hostadmin.Folder
+	err     string
+	read    func(path string) (hostadmin.Folder, error)
+	count   func(path string, recursive bool) (int, error)
+}
+
+// hostFiles is the file browser of the page: the whole host from /, a .git folder only read, with Rights.
+func (m *Model) hostFiles() *fileView {
+	v := &m.sys.fold.files
+	if v.root == "" {
+		v.root = "/"
+		v.rules = fileRules{readOnly: gitReadOnly, rights: m.openRights, covered: func() bool { return m.sys.fold.asked != "" }}
+	}
+	return v
+}
+
+// gitReadOnly is the rule of the host: nothing inside a .git folder is changed.
+func gitReadOnly(path string) kittui.TextID {
+	if gitPath(path) {
+		return textFileGitReadOnly
+	}
+	return ""
+}
+
+// openRights shows the permissions of path, read again.
+func (m *Model) openRights(path string) tea.Cmd {
+	p := &m.sys.fold
+	p.asked, p.folder, p.err = path, nil, ""
+	return m.readFolder(path)
 }
 
 // folderMsg carries a read of a folder.
@@ -189,10 +205,8 @@ func (m *Model) foldersView(width, height int) string {
 	p := &m.sys.fold
 	var lines []string
 	switch {
-	case p.preview != nil && p.asked == "":
-		return m.previewView(width, height)
 	case p.asked == "":
-		return m.browserView(width, height)
+		return m.filesView(m.hostFiles(), width, height)
 	case p.err != "":
 		lines = append([]string{m.line(detailMargin, kittui.StyleActive, p.asked, width), ""},
 			m.wrapped(detailMargin, kittui.StyleFail, p.err, width)...)

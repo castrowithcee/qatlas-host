@@ -46,9 +46,10 @@ type hostRead struct {
 	Binary   bool        `json:"binary"`
 }
 
-// fileReadMsg carries a direct read of path. load is the request of the browser a folder answers; a file read
-// for the preview has none and carries the gen of its preview.
+// fileReadMsg carries a direct read of path for the place view. load is the request of the browser a folder
+// answers; a file read for the preview has none and carries the gen of its preview.
 type fileReadMsg struct {
+	view *fileView
 	gen  int
 	path string
 	load *kittui.FileLoad
@@ -58,130 +59,134 @@ type fileReadMsg struct {
 
 func (msg fileReadMsg) applyTo(m *Model) { m.applyFileRead(msg) }
 
-// folderBrowser is the browser of the page, made on first use.
-func (m *Model) folderBrowser() *kittui.FileBrowser {
-	p := &m.sys.fold
-	if p.browser == nil {
-		b, err := kittui.NewFileBrowser(kittui.FileBrowserSpec{Keys: fileBrowserKeys(),
-			Actions: []kittui.FormButton{{Action: actEdit, Label: textKeyEditFile}, {Action: actAdd, Label: kittui.TextKeyNew},
-				{Action: actRename, Label: kittui.TextKeyRename}, {Action: actCopy, Label: kittui.TextKeyCopy},
-				{Action: actRemove, Label: kittui.TextKeyDelete}, {Action: actRights, Label: textKeyRights}}},
+// fileBrowser is the browser of the place, made on first use.
+func (m *Model) fileBrowser(v *fileView) *kittui.FileBrowser {
+	if v.browser == nil {
+		actions := []kittui.FormButton{{Action: actEdit, Label: textKeyEditFile}, {Action: actAdd, Label: kittui.TextKeyNew},
+			{Action: actRename, Label: kittui.TextKeyRename}, {Action: actCopy, Label: kittui.TextKeyCopy},
+			{Action: actRemove, Label: kittui.TextKeyDelete}}
+		if v.rules.rights != nil {
+			actions = append(actions, kittui.FormButton{Action: actRights, Label: textKeyRights})
+		}
+		b, err := kittui.NewFileBrowser(kittui.FileBrowserSpec{Keys: fileBrowserKeys(), Actions: actions, RootLabel: v.rules.rootLabel},
 			m.keys, m.text)
 		if err != nil {
 			m.failure = m.text.Lookup(kittui.TextError, err.Error())
 			return nil
 		}
-		p.browser = b
+		v.browser = b
 	}
-	return p.browser
+	return v.browser
 }
 
 // showFolders reads the root when the page is shown for the first time.
-func (m *Model) showFolders() tea.Cmd {
-	p := &m.sys.fold
-	b := m.folderBrowser()
-	if b == nil || p.started {
+func (m *Model) showFolders() tea.Cmd { return m.startFiles(m.hostFiles()) }
+
+// startFiles reads the root of the place when it is shown for the first time.
+func (m *Model) startFiles(v *fileView) tea.Cmd {
+	b := m.fileBrowser(v)
+	if b == nil || v.started {
 		return nil
 	}
-	p.started = true
-	return m.fileResult(b.Load(nil))
+	v.started = true
+	return m.fileResult(v, b.Load(nil))
 }
 
 // reloadFolders reads what the page shows again, as on R; the permissions are read again by loadSystem.
 func (m *Model) reloadFolders() tea.Cmd {
-	p := &m.sys.fold
-	switch {
-	case p.asked != "":
+	if m.sys.fold.asked != "" {
 		return nil
-	case p.preview != nil:
-		return m.openFilePreview(p.preview.path)
 	}
-	if b := m.folderBrowser(); b != nil {
+	return m.reloadFiles(m.hostFiles())
+}
+
+// reloadFiles reads what the place shows again: the preview, or the folder of the browser.
+func (m *Model) reloadFiles(v *fileView) tea.Cmd {
+	if v.preview != nil {
+		return m.openFilePreview(v, v.preview.path)
+	}
+	if b := m.fileBrowser(v); b != nil {
 		r, _ := b.Act(actReload)
-		return m.fileResult(r)
+		return m.fileResult(v, r)
 	}
 	return nil
 }
-
-// hostPath is the absolute path of the parts below the root.
-func hostPath(parts ...string) string { return "/" + strings.Join(parts, "/") }
 
 // gitPath reports whether path lies in a .git folder or is one, which the page only reads.
 func gitPath(path string) bool { return slices.Contains(strings.Split(path, "/"), ".git") }
 
-// fileResult does what a key or a click on the browser asked for.
-func (m *Model) fileResult(r kittui.FileResult) tea.Cmd {
+// fileResult does what a key or a click on the browser of the place asked for.
+func (m *Model) fileResult(v *fileView, r kittui.FileResult) tea.Cmd {
 	switch {
 	case r.Load != nil:
 		load := *r.Load
-		return m.readHostPath(hostPath(load.Dir...), &load, 0)
+		return m.readHostPath(v, v.path(load.Dir...), &load, 0)
 	case r.Action == nil:
 		return nil
 	}
 	a := *r.Action
-	if cmd, ok := m.fileChange(a); ok {
+	if cmd, ok := m.fileChange(v, a); ok {
 		return cmd
 	}
-	path := hostPath(a.Dir...)
+	path := v.path(a.Dir...)
 	if a.HasEntry {
-		path = hostPath(append(a.Dir, a.Entry.Name)...)
+		path = v.path(append(a.Dir, a.Entry.Name)...)
 	}
 	switch {
-	case a.Action == actRights:
-		p := &m.sys.fold
-		p.asked, p.folder, p.err = path, nil, ""
-		return m.readFolder(path)
+	case a.Action == actRights && v.rules.rights != nil:
+		return v.rules.rights(path)
 	case a.Action == actEnter && a.HasEntry:
-		return m.openFilePreview(path)
+		return m.openFilePreview(v, path)
 	case a.Action == actEdit && a.HasEntry:
-		return m.editFile(path, a.Entry.Kind)
+		return m.editFile(v, path, a.Entry.Kind)
 	}
 	return nil
 }
 
-// readHostPath reads path directly, off the event loop.
-func (m *Model) readHostPath(path string, load *kittui.FileLoad, gen int) tea.Cmd {
-	read := m.sys.fold.readPath
+// readHostPath reads path directly for the place, off the event loop.
+func (m *Model) readHostPath(v *fileView, path string, load *kittui.FileLoad, gen int) tea.Cmd {
+	read := v.readPath
 	if read == nil {
 		read = hostchange.ReadPath
 	}
 	return func() tea.Msg {
 		c, err := read(path)
-		return fileReadMsg{gen: gen, path: path, load: load, read: c, err: err}
+		return fileReadMsg{view: v, gen: gen, path: path, load: load, read: c, err: err}
 	}
 }
 
 // applyFileRead shows a direct read. What the rights of the administrator do not reach is asked for through sudo.
 func (m *Model) applyFileRead(msg fileReadMsg) {
-	if msg.load == nil && !m.previewCurrent(msg.gen) {
+	v := msg.view
+	if msg.load == nil && !v.previewCurrent(msg.gen) {
 		return
 	}
 	switch {
 	case msg.err == nil:
-		m.sys.fold.chg.listed(msg.load, false)
-		m.showHostRead(msg.load, msg.gen, m.directRead(msg.read))
+		v.chg.listed(msg.load, false)
+		m.showHostRead(v, msg.load, msg.gen, m.directRead(msg.read))
 	case errors.Is(msg.err, fs.ErrPermission) && m.euid() != 0:
-		m.askReadRoot(msg.path, msg.load, msg.gen)
+		m.askReadRoot(v, msg.path, msg.load, msg.gen)
 	default:
-		m.failHostRead(msg.load, msg.gen, msg.err.Error())
+		m.failHostRead(v, msg.load, msg.gen, msg.err.Error())
 	}
 }
 
 // askReadRoot asks to read path as root; y hands the terminal to sudo qhost host file.
-func (m *Model) askReadRoot(path string, load *kittui.FileLoad, gen int) {
+func (m *Model) askReadRoot(v *fileView, path string, load *kittui.FileLoad, gen int) {
 	t := m.text
 	m.askSudo(sudoAsk{title: textTitleReadRoot, question: t.Lookup(textAskReadRoot, path), consequence: t.Lookup(textWhatReadRoot),
 		args: []string{"host", "file", "--output", "json", "--", path},
 		done: func(r sudoRun) tea.Cmd {
 			if read, ok := decodeHostFile(r.out); ok {
-				m.sys.fold.chg.listed(load, true)
-				m.showHostRead(load, gen, read)
+				v.chg.listed(load, true)
+				m.showHostRead(v, load, gen, read)
 			} else {
-				m.failHostRead(load, gen, r.problem)
+				m.failHostRead(v, load, gen, r.problem)
 			}
 			return nil
 		},
-		drop: func() { m.failHostRead(load, gen, fs.ErrPermission.Error()) }})
+		drop: func() { m.failHostRead(v, load, gen, fs.ErrPermission.Error()) }})
 }
 
 // decodeHostFile reads the answer of qhost host file: a list for a folder, an object for anything else.
@@ -235,12 +240,12 @@ func fileEntry(e hostEntry) kittui.FileEntry {
 }
 
 // showHostRead shows a read: the entries of a folder in the browser, or a file in the preview.
-func (m *Model) showHostRead(load *kittui.FileLoad, gen int, r hostRead) {
+func (m *Model) showHostRead(v *fileView, load *kittui.FileLoad, gen int, r hostRead) {
 	if load == nil {
-		m.showPreview(gen, r)
+		m.showPreview(v, gen, r)
 		return
 	}
-	b := m.folderBrowser()
+	b := m.fileBrowser(v)
 	if b == nil {
 		return
 	}
@@ -254,111 +259,145 @@ func (m *Model) showHostRead(load *kittui.FileLoad, gen int, r hostRead) {
 	}
 	// A refused folder is shown as failed with its reason.
 	if current, err := b.SetEntries(*load, entries); current && err == nil {
-		m.sys.fold.chg.setNames(r.Entries)
+		v.chg.setNames(r.Entries)
 	}
 }
 
 // failHostRead shows why a read gave nothing.
-func (m *Model) failHostRead(load *kittui.FileLoad, gen int, reason string) {
+func (m *Model) failHostRead(v *fileView, load *kittui.FileLoad, gen int, reason string) {
 	if load == nil {
-		if m.previewCurrent(gen) {
-			p := m.sys.fold.preview
+		if v.previewCurrent(gen) {
+			p := v.preview
 			p.reading, p.note = false, m.text.Lookup(textFolderFailed, p.path, reason)
 		}
 		return
 	}
-	if b := m.folderBrowser(); b != nil {
+	if b := m.fileBrowser(v); b != nil {
 		b.SetError(*load, errors.New(reason))
-		m.sys.fold.chg.names = nil
+		v.chg.names = nil
 	}
 }
 
 // foldersInput is the input focus of the folders page.
 func (m *Model) foldersInput() kittui.InputFocus {
-	p := &m.sys.fold
-	switch {
-	case m.sys.page != pageFolders || p.asked != "":
+	if m.sys.page != pageFolders || m.sys.fold.asked != "" {
 		return kittui.InputNavigation
-	case p.preview != nil:
-		if v := p.previewText(); v != nil {
-			return v.Input()
+	}
+	return m.filesInput(m.hostFiles())
+}
+
+// filesInput is the input focus of the place.
+func (m *Model) filesInput(v *fileView) kittui.InputFocus {
+	switch {
+	case v.preview != nil:
+		if t := v.previewText(); t != nil {
+			return t.Input()
 		}
 		return kittui.InputNavigation
-	case p.browser != nil:
-		return p.browser.Input()
+	case v.browser != nil:
+		return v.browser.Input()
 	}
 	return kittui.InputNavigation
 }
 
 // foldersTyped gives a key to the browser or the open preview.
 func (m *Model) foldersTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
-	p := &m.sys.fold
-	switch {
-	case m.sys.page != pageFolders || p.asked != "":
+	if m.sys.page != pageFolders || m.sys.fold.asked != "" {
 		return nil, false
-	case p.preview != nil:
-		v := p.previewText()
-		return nil, v != nil && v.Update(msg)
 	}
-	b := m.folderBrowser()
+	return m.filesTyped(m.hostFiles(), msg)
+}
+
+// filesTyped gives a key to the browser of the place or its open preview.
+func (m *Model) filesTyped(v *fileView, msg tea.KeyPressMsg) (tea.Cmd, bool) {
+	if v.preview != nil {
+		t := v.previewText()
+		handled := t != nil && t.Update(msg)
+		revealAsked(t)
+		return nil, handled
+	}
+	b := m.fileBrowser(v)
 	if b == nil {
 		return nil, false
 	}
 	r, handled := b.Update(msg)
-	return m.fileResult(r), handled
+	return m.fileResult(v, r), handled
 }
 
 // foldersBack is esc on the folders page: it closes the permissions or the preview, clears a filter or a search,
 // goes up one folder, and at the root leads to the sub-tab line.
 func (m *Model) foldersBack(msg tea.KeyPressMsg) tea.Cmd {
 	p := &m.sys.fold
-	switch {
-	case p.asked != "":
+	if p.asked != "" {
 		p.gen++
 		p.asked, p.folder, p.err, p.reading = "", nil, "", false
 		return m.reloadFolders()
-	case p.preview != nil:
-		if v := p.previewText(); v != nil && v.Update(msg) {
-			return nil
-		}
-		p.preview = nil
-		p.fileGen++
-		return nil
 	}
-	if b := m.folderBrowser(); b != nil {
-		if r, handled := b.Update(msg); handled {
-			return m.fileResult(r)
-		}
+	if cmd, handled := m.filesBack(m.hostFiles(), msg); handled {
+		return cmd
 	}
 	m.setZone(m.above())
 	return nil
 }
 
+// filesBack is esc in the place: it closes the preview, clears a filter or a search and goes up one folder. At the
+// root it is not handled, so the place is left rather than its root.
+func (m *Model) filesBack(v *fileView, msg tea.KeyPressMsg) (tea.Cmd, bool) {
+	if v.preview != nil {
+		if t := v.previewText(); t != nil && t.Update(msg) {
+			return nil, true
+		}
+		v.preview = nil
+		v.fileGen++
+		return nil, true
+	}
+	if b := m.fileBrowser(v); b != nil {
+		if r, handled := b.Update(msg); handled {
+			return m.fileResult(v, r), true
+		}
+	}
+	return nil, false
+}
+
 // foldersFooter are the own keys of the folders page.
 func (m *Model) foldersFooter() []kittui.Hint {
-	p := &m.sys.fold
-	back := kittui.Hint{Action: actBack, Label: kittui.TextKeyBack, Priority: 1}
-	switch {
-	case p.asked != "":
+	if m.sys.fold.asked != "" {
+		back := kittui.Hint{Action: actBack, Label: kittui.TextKeyBack, Priority: 1}
 		if _, ok := m.changeableFolder(); ok {
 			return []kittui.Hint{{Action: actEdit, Label: textKeyChange, Priority: 3}, back}
 		}
 		return []kittui.Hint{back}
-	case p.preview != nil:
-		if v := p.previewText(); v != nil {
-			return append(v.Hints(), kittui.Hint{Action: actEdit, Label: textKeyEditFile, Priority: 3}, back)
+	}
+	return m.filesFooter(m.hostFiles())
+}
+
+// filesFooter are the own keys of the place.
+func (m *Model) filesFooter(v *fileView) []kittui.Hint {
+	back := kittui.Hint{Action: actBack, Label: kittui.TextKeyBack, Priority: 1}
+	switch {
+	case v.preview != nil:
+		if t := v.previewText(); t != nil {
+			return append(t.Hints(), kittui.Hint{Action: actEdit, Label: textKeyEditFile, Priority: 3}, back)
 		}
 		return []kittui.Hint{back}
-	case p.browser == nil:
+	case v.browser == nil:
 		return nil
 	}
 	// The reload key stands among the common keys already.
-	return slices.DeleteFunc(p.browser.Hints(), func(h kittui.Hint) bool { return h.Action == actReload })
+	return slices.DeleteFunc(v.browser.Hints(), func(h kittui.Hint) bool { return h.Action == actReload })
 }
 
-// browserView draws the browser and registers it for the mouse.
-func (m *Model) browserView(width, height int) string {
-	b := m.folderBrowser()
+// filesView draws the place: the preview, or the browser.
+func (m *Model) filesView(v *fileView, width, height int) string {
+	if v.preview != nil {
+		return m.previewView(v, width, height)
+	}
+	return m.browserView(v, width, height)
+}
+
+// browserView draws the browser of the place and registers it for the mouse.
+func (m *Model) browserView(v *fileView, width, height int) string {
+	b := m.fileBrowser(v)
 	if b == nil {
 		return ""
 	}
@@ -368,7 +407,7 @@ func (m *Model) browserView(width, height int) string {
 		click: func(res kittui.MouseResult) tea.Cmd {
 			r, _ := b.Click(res)
 			m.setZone(kittui.ZoneRows)
-			return m.fileResult(r)
+			return m.fileResult(v, r)
 		}})
 	return view
 }

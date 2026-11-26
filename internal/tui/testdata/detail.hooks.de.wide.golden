@@ -60,5 +60,5 @@
 │   the maintenance window updates APP_VERSION by itself                                                               │
 │ Rollback mit Daten  geht                                                                                             │
 │   a failed run goes back to the previous commit and restores the backup it made before the change                    │
-B zurück auf Stand davor  e Update-Regeln  b Backup  I Compose  k Prüfung  E Einstellungen entfernen  o Log             
+B zurück auf Stand davor  e Update-Regeln  b Backup  I Compose  k Prüfung  E Einstellungen entfernen  o Log  Q Dateien  
 n Geheimnis setzen  d Geheimnis löschen  l Backup einspielen  h Hook anlegen  R Neu laden  1-7 Bereich  q Beenden       

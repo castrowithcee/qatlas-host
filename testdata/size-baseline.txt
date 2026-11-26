@@ -352,11 +352,11 @@ file internal/service/sourceremote.go 639
 file internal/service/sources.go 842
 file internal/stacks/stacks.go 545
 file internal/tui/actions.go 911
-file internal/tui/backend.go 610
+file internal/tui/backend.go 582
 file internal/tui/detail.go 647
-file internal/tui/fakebackend_test.go 1260
-file internal/tui/folders.go 855
-file internal/tui/model.go 1523
+file internal/tui/fakebackend_test.go 1192
+file internal/tui/folders.go 792
+file internal/tui/model.go 1440
 file internal/tui/settings.go 938
 file internal/tui/settingsform.go 544
 file internal/tui/settingstext.go permanent: text catalog of the terminal interface, pure data
@@ -534,7 +534,7 @@ len internal/tui/keys.go:keyTable 74
 len internal/tui/listeditor.go:Model.editorKey 65
 len internal/tui/model.go:Model.Update 101
 len internal/tui/model.go:Model.footer 76
-len internal/tui/model.go:Model.key 247
+len internal/tui/model.go:Model.key 245
 len internal/tui/model.go:Model.render 80
 len internal/tui/model.go:newModel 63
 len internal/tui/mouse.go:Model.mouse 62

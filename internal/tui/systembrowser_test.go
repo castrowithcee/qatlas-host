@@ -147,7 +147,7 @@ func mark(t *testing.T, m *Model, name string) {
 	send(m, "/")
 	send(m, typed(name)...)
 	send(m, "enter")
-	if e, ok := m.sys.fold.browser.Selected(); !ok || e.Name != name {
+	if e, ok := m.sys.fold.files.browser.Selected(); !ok || e.Name != name {
 		t.Fatalf("marked %+v, want %s:\n%s", e, name, m.render())
 	}
 }
@@ -163,14 +163,14 @@ func browseTo(t *testing.T, m *Model, p string) {
 
 func TestBrowserStartsAtTheRootAndGoesUpWithEsc(t *testing.T) {
 	m, _ := browserModel(t, i18n.English, wideWidth, 40)
-	if got := m.sys.fold.browser.Dir(); len(got) != 0 {
+	if got := m.sys.fold.files.browser.Dir(); len(got) != 0 {
 		t.Fatalf("the browser starts in %v, want the root", got)
 	}
 	contains(t, m, "etc/", "srv/")
 	browseTo(t, m, "/etc")
 	contains(t, m, "hosts", "motd -> /srv/media/motd.txt", "rw-r--r--", "root")
 	send(m, "esc")
-	if got := m.sys.fold.browser.Dir(); len(got) != 0 {
+	if got := m.sys.fold.files.browser.Dir(); len(got) != 0 {
 		t.Fatalf("esc went to %v, want the root", got)
 	}
 	send(m, "esc")
@@ -281,7 +281,7 @@ func TestNamesAndContentsAreEscaped(t *testing.T) {
 		"/":            {kind: hostchange.KindFolder, mode: 0o755},
 		"/bad\x1b[2Jx": {kind: hostchange.KindFile, mode: 0o644, content: "a\x1b]0;owned\x07b\n"},
 	}
-	m.sys.fold.readPath = func(p string) (hostchange.PathContent, error) { return readDemo(tree, p, false) }
+	m.sys.fold.files.readPath = func(p string) (hostchange.PathContent, error) { return readDemo(tree, p, false) }
 	send(m, "R")
 	send(m, "enter")
 	screen := m.render()

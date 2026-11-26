@@ -70,6 +70,8 @@ var commandRows = []commandRow{
 	{actGrantAdd, areaDetail, "grant", "Grant an action on the stack to a user", "freigabe erteilen|grant", "Einem Benutzer eine Aktion auf dem Stack freigeben"},
 	{actGrantRemove, areaDetail, "withdraw grant", "Withdraw a grant on the stack", "freigabe entziehen|withdraw grant", "Eine Freigabe auf dem Stack entziehen"},
 	{actPromote, areaDetail, "take versions", "Take over the image versions of another stack", "versionen übernehmen|take versions", "Die Image-Versionen eines anderen Stacks übernehmen"},
+	{actFiles, areaStacks, "files", "Open the files of the marked stack folder or of the stack", "dateien|files",
+		"Die Dateien des markierten Stack-Ordners oder des Stacks öffnen"},
 	{actRights, areaSystem, "permissions", "Show the permissions of the marked entry", "rechte|permissions", "Die Rechte des markierten Eintrags zeigen"},
 	{kittui.ActionTextNumbers, "", "line numbers", "Show or hide the line numbers of the text", "zeilennummern|line numbers", "Die Zeilennummern des Textes zeigen oder ausblenden"},
 	{kittui.ActionTextReveal, "", "reveal", "Show or hide the masked values of the text", "aufdecken|reveal", "Die maskierten Werte des Textes zeigen oder verbergen"},

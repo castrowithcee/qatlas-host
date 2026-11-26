@@ -1,7 +1,8 @@
 #!/bin/sh
 # Section tui-sudo: the terminal interface without sudo asks for a deploy, a container restart and a change of the
 # maintenance window and runs each through the real sudo, which asks for the password; a Ctrl-C there changes nothing.
-# Nested data folders, the forms with a secret and the folders that need sudo follow.
+# Nested data folders, the forms with a secret, the file browser over a stack folder and the folders that need sudo
+# follow.
 # Needs deploy: the bound /opt/stacks with demo-stack and demo-cache; the choice of the engine in
 # scenario_tui_folder_sudo needs the rootless instance, which deploy needs.
 # Sourced by run.sh; defines only functions and constants.
@@ -708,6 +709,153 @@ scenario_tui_secrets() {
 	out=$(qd stack secret delete demo-stack "$ts_key" --yes) || fail "secret delete failed: $out"
 	[ "$ts_had_env" = yes ] || docker exec "$host" rm -f "$ts_env"
 	out=$(qd credential delete "registry.$ts_reg_host" --yes) || fail "credential delete failed: $out"
+	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
+	docker exec -u "$admin" "$host" sudo -K || fail "cannot remove the sudo timestamp of $admin"
+	docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1 || fail "sudo of $admin asks for a password after the scenario"
+}
+
+# scenario_tui_stack_files proves the file browser over a stack folder in the interface started without sudo, with
+# a script as the editor set through VISUAL, which qhost does not know. Like scenario_tui_file_edit the rule of
+# $admin stays and timestamp_timeout=0 makes every sudo -v ask for the password, which is typed in the terminal. In
+# demo-stack, whose container reads DEMO_SECRET, secrets.env is only root's: the preview asks to read it with sudo and
+# shows the value masked; the edit writes a new value through sudo, the question after it offers to deploy now, and
+# the deploy through sudo gives the container the new value. Then .env is edited: owner, group and mode stay, the
+# browser shows the line about uncommitted changes and the row of the folder in Stacks shows the note. The change is
+# discarded again, secrets.env and the container get their old value back, the rule and the locked password are put
+# back, and neither password nor a secret shows on a captured screen.
+scenario_tui_stack_files() {
+	tui_log=$work/tui-stack-files-screens.log
+	: >"$tui_log"
+	sf_login=E2e-admin-Login-4417
+	sf_dir=/opt/stacks/demo-stack
+	sf_secrets=$sf_dir/secrets.env
+	sf_env=$sf_dir/.env
+	sf_editor=/home/$admin/e2e-fake-stack-editor.sh
+	sf_new=tui-stack-secret-e2e-3392
+	sf_mark=E2E_STACK_FILES=5527
+	docker exec "$host" test -f "$sf_secrets" || fail "$sf_secrets does not exist"
+	sf_old_line=$(docker exec "$host" cat "$sf_secrets")
+	sf_old=${sf_old_line#DEMO_SECRET=}
+	[ -n "$sf_old" ] && [ "$sf_old" != "$sf_old_line" ] || fail "$sf_secrets does not hold a single DEMO_SECRET line"
+	[ "$(docker exec "$host" stat -c %U:%a "$sf_secrets")" = qhost-deploy:600 ] || fail "$sf_secrets has the wrong owner or mode"
+	# The copy of the file for the editor lies in memory only when /dev/shm is tmpfs.
+	[ "$(docker exec "$host" stat -f -c %T /dev/shm)" = tmpfs ] || fail '/dev/shm of the host is no tmpfs, so a secret is not edited'
+	sf_dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sf_dirty"
+	[ -z "$sf_dirty" ] || fail "the stack folder has uncommitted changes before the scenario: $sf_dirty"
+	sf_stat=$(docker exec "$host" stat -c %U:%G:%a "$sf_env")
+	printf '%s\n' '#!/bin/sh' "printf '%s\\n' \"\$(cat '$sf_editor.text')\" >\"\$1\"" | as_admin "cat >'$sf_editor' && chmod 0755 '$sf_editor'" ||
+		fail 'cannot make the script that stands in for the editor'
+	printf '%s\n' "DEMO_SECRET=$sf_new" | as_admin "cat >'$sf_editor.text'" || fail 'cannot make the text of the editor'
+	printf '%s:%s\n' "$admin" "$sf_login" | docker exec -i "$host" chpasswd || fail "cannot give $admin a password"
+	docker exec "$host" sh -ec "printf 'Defaults:%s timestamp_timeout=0\n' '$admin' >/etc/sudoers.d/e2e-ask && chmod 0440 /etc/sudoers.d/e2e-ask &&
+		visudo -c >/dev/null" || fail 'cannot make sudo ask for the password each time'
+
+	step 'the preview of secrets.env asks to read it with sudo and masks the value'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 VISUAL=$sf_editor sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_wait '[ ] demo-stack' 30
+	tui_folder_to /opt/stacks
+	tui_send Q
+	tui_wait 'demo-stack/' 15
+	tui_browse_to demo-stack
+	tui_wait 'compose.yaml' 10
+	tui_browse_mark secrets.env
+	tui_send Enter
+	tui_wait 'Only root may read' 15
+	# A read runs as sudo qhost host file, which the rule of $admin lets through without a password.
+	tui_send y
+	tui_wait '••••••' 30
+	tui_has "$sf_old" && fail "the preview shows the value of secrets.env: $(tui_screen)"
+	tui_excerpt 'DEMO_SECRET' 4
+	tui_send Escape
+
+	step 'the editor changes secrets.env through sudo; the question afterwards offers to deploy, which gives the container the new value'
+	tui_send e
+	tui_wait 'Only root may read' 15
+	tui_send y
+	tui_wait 'Unknown editor' 30
+	tui_send y
+	tui_wait 'Write the edited file' 30
+	tui_has "file-write $sf_secrets" || fail "the question does not show the command: $(tui_screen)"
+	tui_has "$sf_new" && fail "the question shows the new value: $(tui_screen)"
+	tui_send y
+	tui_sudo_password "$sf_login"
+	tui_wait 'Done: Write the edited file' 60
+	tui_send Enter
+	tui_wait 'secrets.env saved' 15
+	tui_has 'deploy now' || fail "the question does not offer to deploy now: $(tui_screen)"
+	[ "$(docker exec "$host" cat "$sf_secrets")" = "DEMO_SECRET=$sf_new" ] || fail "$sf_secrets does not hold the new value"
+	[ "$(docker exec "$host" stat -c %U:%a "$sf_secrets")" = qhost-deploy:600 ] || fail "$sf_secrets has the wrong owner or mode after the write"
+	sf_prev=$(newest_run demo-stack)
+	tui_send y
+	tui_wait 'Deploy demo-stack?' 15
+	tui_has 'sudo qhost stack deploy' || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	tui_wait 'deploy finished: 1 ok, 0 failed' 240
+	tui_send Escape
+	sf_run=$(next_run demo-stack "$sf_prev") || fail 'the deploy through sudo started no run of demo-stack'
+	wait_for "the run $sf_run" 240 run_finished demo-stack "$sf_run"
+	qd stack log "$sf_run" | grep -q ' result succeeded' || fail "the run $sf_run did not succeed: $(qd stack log "$sf_run")"
+	docker exec "$host" docker inspect -f '{{.Config.Env}}' "$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=demo-stack)" |
+		grep -q "DEMO_SECRET=$sf_new" || fail 'the container did not get the new value of secrets.env'
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	log "scenario: the interface changed secrets.env of demo-stack through sudo and deployed it, run $sf_run"
+
+	step 'the editor changes .env: owner, group and mode stay, the browser and the row of the folder name the uncommitted change'
+	printf '%s\n' "DEMO_APP_VERSION=1.0.0" "DEMO_HEALTH=ok" "$sf_mark" | as_admin "cat >'$sf_editor.text'" || fail 'cannot make the text of the editor'
+	tui_tmux new-session -d -s qdtui -x 120 -y 40 "env LANG=C.UTF-8 VISUAL=$sf_editor sh -c 'qhost tui; echo qhost-exit=\$?; sleep 600'" ||
+		fail 'cannot start tmux for the interface'
+	tui_wait "1 $tui_icon_stacks Stacks" 30
+	tui_wait '[ ] demo-stack' 30
+	tui_folder_to /opt/stacks
+	tui_send Q
+	tui_wait 'demo-stack/' 15
+	tui_browse_to demo-stack
+	tui_wait 'compose.yaml' 10
+	tui_browse_mark .env
+	tui_send e
+	tui_wait 'Unknown editor' 15
+	tui_send y
+	tui_wait 'Write the edited file' 30
+	tui_has "file-write $sf_env" || fail "the question does not show the command: $(tui_screen)"
+	tui_send y
+	tui_sudo_password "$sf_login"
+	tui_wait 'Done: Write the edited file' 60
+	tui_send Enter
+	docker exec "$host" grep -qxF "$sf_mark" "$sf_env" || fail "$sf_env does not hold the new text: $(docker exec "$host" cat "$sf_env")"
+	[ "$(docker exec "$host" stat -c %U:%G:%a "$sf_env")" = "$sf_stat" ] ||
+		fail "$sf_env is $(docker exec "$host" stat -c %U:%G:%a "$sf_env") after the write, want $sf_stat"
+	tui_wait 'This folder has uncommitted changes' 30
+	i=0
+	until tui_screen | grep -q '/opt/stacks (.*uncommitted'; do
+		i=$((i + 1))
+		[ "$i" -lt 20 ] || fail "the row of the folder shows no note about uncommitted changes: $(tui_screen)"
+		tui_send Escape
+		sleep 0.4
+	done
+	tui_has 'updates leave it out until they are committed' || fail "the panel of the folder does not say that updates leave it out: $(tui_screen)"
+	tui_excerpt '/opt/stacks (' 1
+	tui_tmux kill-server >/dev/null 2>&1 || true
+	log 'scenario: the interface changed .env of demo-stack and the folder row shows the uncommitted change'
+
+	step 'the change is discarded, secrets.env and the container get the old value back, the rule of the administrator is put back'
+	docker exec -u qhost-deploy "$host" git -C /opt/stacks checkout -- demo-stack/.env || fail "cannot discard the change of $sf_env"
+	sf_dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sf_dirty"
+	[ -z "$sf_dirty" ] || fail "the stack folder is not clean after the discard: $sf_dirty"
+	printf '%s\n' "$sf_old_line" | docker exec -i -u qhost-deploy "$host" sh -ec "umask 077 && cat >'$sf_secrets'" || fail "cannot restore $sf_secrets"
+	out=$(qd --output json stack deploy demo-stack) || fail "deploy failed: $out"
+	sf_run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
+	[ -n "$sf_run" ] || fail "deploy did not report a run: $out"
+	wait_for "the run $sf_run" 240 run_finished demo-stack "$sf_run"
+	qd stack log "$sf_run" | grep -q ' result succeeded' || fail "the run $sf_run did not succeed: $(qd stack log "$sf_run")"
+	as_admin "rm -f '$sf_editor' '$sf_editor.text'"
+	[ "$(wc -l <"$tui_log")" -gt 40 ] || fail 'too few screens were captured to check'
+	for v in "$sf_login" "$sf_new" "$sf_old"; do
+		if grep -qF -- "$v" "$tui_log"; then fail 'the password or a secret shows on a captured screen'; fi
+	done
+	docker exec "$host" sh -ec 'rm -f /etc/sudoers.d/e2e-ask && visudo -c >/dev/null' || fail 'cannot remove the rule that makes sudo ask'
 	docker exec "$host" usermod -p '!' "$admin" || fail "cannot lock the password of $admin again"
 	docker exec -u "$admin" "$host" sudo -K || fail "cannot remove the sudo timestamp of $admin"
 	docker exec -u "$admin" "$host" sudo -n true >/dev/null 2>&1 || fail "sudo of $admin asks for a password after the scenario"
