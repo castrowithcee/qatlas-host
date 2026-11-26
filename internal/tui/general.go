@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"strings"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/castrowithcee/qatlas-kit/i18n"
@@ -14,7 +16,10 @@ const (
 	mouseChoiceOff = "off"
 )
 
-// generalForm is the form of the General page. It holds finite choices only, so nothing is typed.
+// fieldEditor is the command line of the external editor, as exteditor.Resolve takes it.
+const fieldEditor = "editor"
+
+// generalForm is the form of the General page. Only the editor is typed; everything else is a finite choice.
 func (m *Model) generalForm() *settingsForm {
 	p := m.prefs
 	if p.Theme == "" {
@@ -55,6 +60,7 @@ func (m *Model) generalForm() *settingsForm {
 			choice(mouseChoiceOff, textMouseOff)}, mouse),
 		pick("icons", textFieldIcons, textHintIcons, []kittui.Choice{choice(uiprefs.IconsUnicode, textIconsUnicode),
 			choice(uiprefs.IconsNerdFont, textIconsNerdFont), choice(uiprefs.IconsNone, textIconsNone)}, p.Icons),
+		textField(fieldEditor, textFieldEditor, textHintEditor, p.Editor),
 	}
 	// The switch belongs to the host, not to the preferences; it shows once the host service has answered.
 	if m.free.known {
@@ -75,7 +81,7 @@ func (m *Model) submitGeneral(f *settingsForm) tea.Cmd {
 	v := f.form.Values()
 	next := m.prefs
 	next.Theme, next.Start = string(v["theme"].Choice), string(v["start"].Choice)
-	next.Icons = string(v["icons"].Choice)
+	next.Icons, next.Editor = string(v["icons"].Choice), strings.TrimSpace(v[fieldEditor].Text)
 	next.Language, next.MouseEnabled = string(v["language"].Choice), v["mouse"].Choice == mouseChoiceOn
 	if err := m.savePrefs(next); err != nil {
 		f.problem(t.Lookup(textGeneralSaveFailed, err.Error()), t.Lookup(textFormRetry))

@@ -171,3 +171,18 @@ func TestGeneralEscLeadsToTheSubtabLineWithoutAQuestionWhenNothingChanged(t *tes
 	}
 	wantZone(t, m, kittui.ZoneSubtabs)
 }
+
+func TestGeneralSavesTheEditorCommandLine(t *testing.T) {
+	s := &savedPrefs{}
+	m := generalModel(t, s)
+	send(m, toGeneral...)
+	send(m, "down", "down", "down", "down", "down")
+	send(m, typed(" micro -demo ")...)
+	send(m, save...)
+	if len(s.calls) != 1 || s.calls[0].Editor != "micro -demo" || s.calls[0].Icons != uiprefs.IconsNerdFont {
+		t.Fatalf("saved %+v", s.calls)
+	}
+	if m.prefs.Editor != "micro -demo" {
+		t.Fatalf("the editor %q is not in effect", m.prefs.Editor)
+	}
+}

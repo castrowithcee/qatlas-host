@@ -394,8 +394,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.applySetting(msg)
 	case systemMsg:
 		m.applySystem(msg)
-	case folderMsg:
-		m.applyFolder(msg)
+	case editReadMsg, editorUnchangedMsg, editorChangedMsg, editorFailedMsg:
+		return m, m.applyEdit(msg)
 	case deployLogMsg:
 		m.applyDeployLog(msg)
 	case hostLogMsg:

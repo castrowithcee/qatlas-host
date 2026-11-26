@@ -21,8 +21,8 @@ import (
 // System > Folders is a file browser over the whole host, from /. What the administrator may read is read
 // directly; anything else is read as root through sudo qhost host file, after a question with the sentence and the
 // exact command. Started as root, the interface reads everything directly. A link is shown with its target and never
-// followed. Rights shows the permissions of the marked entry, where e changes them; nothing inside a .git folder
-// is changed here.
+// followed. e edits the marked file in the editor of the person (systemedit.go). Rights shows the permissions of the
+// marked entry, where e changes them; nothing inside a .git folder is changed here.
 
 // hostEntry is one entry of the file system as it was read, a link not followed. The tags are those of
 // qhost host file.
@@ -63,7 +63,8 @@ func (m *Model) folderBrowser() *kittui.FileBrowser {
 	p := &m.sys.fold
 	if p.browser == nil {
 		b, err := kittui.NewFileBrowser(kittui.FileBrowserSpec{Keys: fileBrowserKeys(),
-			Actions: []kittui.FormButton{{Action: actRights, Label: textKeyRights}}}, m.keys, m.text)
+			Actions: []kittui.FormButton{{Action: actEdit, Label: textKeyEditFile}, {Action: actRights, Label: textKeyRights}}},
+			m.keys, m.text)
 		if err != nil {
 			m.failure = m.text.Lookup(kittui.TextError, err.Error())
 			return nil
@@ -127,6 +128,8 @@ func (m *Model) fileResult(r kittui.FileResult) tea.Cmd {
 		return m.readFolder(path)
 	case a.Action == actEnter && a.HasEntry:
 		return m.openFilePreview(path)
+	case a.Action == actEdit && a.HasEntry:
+		return m.editFile(path, a.Entry.Kind)
 	}
 	return nil
 }
@@ -332,7 +335,7 @@ func (m *Model) foldersFooter() []kittui.Hint {
 		return []kittui.Hint{back}
 	case p.preview != nil:
 		if v := p.previewText(); v != nil {
-			return append(v.Hints(), back)
+			return append(v.Hints(), kittui.Hint{Action: actEdit, Label: textKeyEditFile, Priority: 3}, back)
 		}
 		return []kittui.Hint{back}
 	case p.browser == nil:

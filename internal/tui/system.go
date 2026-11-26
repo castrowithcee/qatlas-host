@@ -462,7 +462,7 @@ func (m *Model) systemAction(id kittui.ActionID) (tea.Cmd, bool) {
 	case s.page == pageGroups && id == actRemove:
 		act = m.askGroupDelete
 	case s.page == pageFolders && id == actEdit:
-		act = m.openFolderChange
+		act = m.folderEditKey
 	case s.page == pageProposals && id == actApprove:
 		act = func() tea.Cmd { return m.askHostProposal(true) }
 	case s.page == pageProposals && id == actReject:

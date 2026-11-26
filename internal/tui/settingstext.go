@@ -51,6 +51,8 @@ const (
 	textLangSystem            kittui.TextID = "lang.system"
 	textFieldIcons            kittui.TextID = "field.icons"
 	textHintIcons             kittui.TextID = "hint.icons"
+	textFieldEditor           kittui.TextID = "field.editor"
+	textHintEditor            kittui.TextID = "hint.editor"
 	textIconsUnicode          kittui.TextID = "icons.unicode"
 	textIconsNerdFont         kittui.TextID = "icons.nerdfont"
 	textIconsNone             kittui.TextID = "icons.none"
@@ -347,6 +349,8 @@ func settingsEnglish() map[kittui.TextID]string {
 		textLangSystem:            "System",
 		textFieldIcons:            "Icons",
 		textHintIcons:             "nerd font needs a patched terminal font; ASCII terminals show none",
+		textFieldEditor:           "Editor",
+		textHintEditor:            "the command line of your editor; empty takes VISUAL, EDITOR, then micro, nano or vi",
 		textIconsUnicode:          "Unicode",
 		textIconsNerdFont:         "Nerd Font",
 		textIconsNone:             "none",
@@ -641,6 +645,8 @@ func settingsGerman() map[kittui.TextID]string {
 		textLangSystem:            "System",
 		textFieldIcons:            "Symbole",
 		textHintIcons:             "Nerd Font braucht eine gepatchte Terminalschrift; ASCII-Terminals zeigen keine",
+		textFieldEditor:           "Editor",
+		textHintEditor:            "die Befehlszeile deines Editors; leer nimmt VISUAL, EDITOR, dann micro, nano oder vi",
 		textIconsUnicode:          "Unicode",
 		textIconsNerdFont:         "Nerd Font",
 		textIconsNone:             "keine",

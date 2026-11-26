@@ -15,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/castrowithcee/qatlas-kit/exteditor"
 	"github.com/castrowithcee/qatlas-kit/i18n"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 
@@ -153,6 +154,10 @@ func systemModel(t *testing.T, lang i18n.Lang, width, rows int) (*Model, *fakeRo
 	m.human = func() int { return 1000 }
 	f := &fakeRoot{report: appliedReport("demo")}
 	m.root = f.hook()
+	// No edit reaches a real private folder or editor unless a test sets fakeEdit.
+	m.sys.fold.hooks.pick = func(int, *exteditor.Target) (privateDir, error) {
+		return privateDir{}, errors.New("no private folder in tests")
+	}
 	send(m, "7")
 	if !m.sys.loaded {
 		t.Fatalf("the users were not read: %v", m.sys.err)

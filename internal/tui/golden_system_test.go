@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/castrowithcee/qatlas-kit/exteditor"
 	kittui "github.com/castrowithcee/qatlas-kit/tui"
 )
 
@@ -266,5 +268,30 @@ func TestGoldenSystemLog(t *testing.T) {
 	goldenSystem(t, "system.log", func(t *testing.T, m *Model) {
 		m.hostLog = demoHostLog()
 		toLogPage(t, m)
+	})
+}
+
+// The confirmation of writing an edited file back, and the red one of a system path, in colour.
+func TestGoldenSystemEditWrite(t *testing.T) {
+	goldenSystem(t, "system.edit.write", func(t *testing.T, m *Model) {
+		m.profile = kittui.ProfileANSI16
+		m.restyle()
+		fakeHostFolders(m, 42)
+		fakeEdit(t, m)
+		toFolderPage(t, m)
+		editEntry(t, m, "/srv/media/motd.txt")
+		edited(m, exteditor.ChangedMsg{Text: []byte("Welcome back.\n")})
+	})
+}
+
+func TestGoldenSystemEditWriteSystem(t *testing.T) {
+	goldenSystem(t, "system.edit.write.system", func(t *testing.T, m *Model) {
+		m.profile = kittui.ProfileANSI16
+		m.restyle()
+		fakeHostFolders(m, 42)
+		fakeEdit(t, m)
+		toFolderPage(t, m)
+		editEntry(t, m, "/etc/hosts")
+		edited(m, exteditor.ChangedMsg{Text: []byte("127.0.0.1 localhost demo\n")})
 	})
 }

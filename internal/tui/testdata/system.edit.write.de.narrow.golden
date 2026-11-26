@@ -1,0 +1,24 @@
+[90m◆ qhost  Wartungsfenster zu                              [esc] Zurück  [?] Hilfe[m
+[90m  1 2 3 4 5 6  7 System                                                         [m
+[90m   Benutzer   Gruppen   Ordner   Vorschläge   Änderungen   Protokoll            [m
+[90m────────────────────────────────────────────────────────────────────────────────[m
+[90m  Wurzel / srv / media                                                          [m
+[90m/ motd.txt                                                                      [m
+[90m  NAME      GRÖßE  GEÄNDERT          RECHTE     BESITZER                        [m
+[90m  ──────────────────────────────────────────────────────                        [m
+[90m> motd.t[m[34m╭─[m[1m Host ändern [m[34m────────────────────────────────────────────────╮[m[90m        [m
+[90m        [m[34m│[m [1;33m⚠[m [1mDie bearbeitete Datei /srv/media/motd.txt an ihrem Ort[m     [34m│[m[90m        [m
+[90m        [m[34m│[m   [1mzurückschreiben.[m                                           [34m│[m[90m        [m
+[90m        [m[34m│[m                                                              [34m│[m[90m        [m
+[90m        [m[34m│[m [90mLäuft mit sudo, steht im Journal und lässt sich rückgängig[m   [34m│[m[90m        [m
+[90m        [m[34m│[m [90mmachen.[m                                                      [34m│[m[90m        [m
+[90m        [m[34m│[m [90m$ [m[90m[builtin] file-write /srv/media/motd.txt < <content>[m       [34m│[m[90m        [m
+[90m        [m[34m│[m                                                              [34m│[m[90m        [m
+[90m        [m[34m│[m [ ja, mit sudo ]  [1;44m[ enter abbrechen ][m                        [34m│[m[90m        [m
+[90m        [m[34m│[m [1;34my[m [90mja, mit sudo[m  [1;34mn/esc[m[1;34m/[m[1;34menter[m [90mabbrechen[m                        [34m│[m[90m        [m
+[90m        [m[34m╰──────────────────────────────────────────────────────────────╯[m[90m        [m
+[90m                                                                                [m
+[90m                                                                                [m
+[90m                                                                                [m
+[90m[ e bearbeiten ]  [ i Rechte ]  [ esc Hoch ]                                    [m
+[90m                                                                                [m

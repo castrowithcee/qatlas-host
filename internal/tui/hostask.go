@@ -41,6 +41,8 @@ type hostAsk struct {
 	apply []string
 	// undo marks the undo of a journal entry, whose report names the new entry, which is not undone in turn.
 	undo bool
+	// then, when set, runs after a run that may have changed the host, as to read again what the page shows.
+	then func() tea.Cmd
 }
 
 // wipe overwrites the secret of the change.
@@ -146,15 +148,19 @@ func (m *Model) runHostChange(a hostAsk) tea.Cmd {
 	req := HostRequest{Args: argv, Secret: a.secret}
 	after := func(out []byte, err error) tea.Cmd {
 		report, ok := parseReport(out)
-		if !ok {
+		if ok {
+			m.hostResult(report, a)
+		} else {
 			m.hostFailed(out, err, true)
-			return tea.Batch(m.loadSystem(true), m.afterHostChange())
 		}
-		m.hostResult(report, a)
-		if report.Result == hostchange.ResultRefused {
+		if ok && report.Result == hostchange.ResultRefused {
 			return nil
 		}
-		return tea.Batch(m.loadSystem(true), m.afterHostChange())
+		var then tea.Cmd
+		if a.then != nil {
+			then = a.then()
+		}
+		return tea.Batch(m.loadSystem(true), m.afterHostChange(), then)
 	}
 	if len(a.secret) > 0 {
 		return m.runHostSecret(req, a.mask, after)
