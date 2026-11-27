@@ -32,6 +32,98 @@ func TestUnknownStateFormatNumberIsRefusedAndKept(t *testing.T) {
 	}
 }
 
+// stateFormat1 is an engine state as the release that wrote format 1 left it: no failed_versions, images,
+// variable or version.
+const stateFormat1 = `{
+  "schema": 1,
+  "head": "0123456789abcdef0123456789abcdef01234567",
+  "remote_head": "0123456789abcdef0123456789abcdef01234567",
+  "stacks": {
+    "web": {
+      "deployed": "0123456789abcdef0123456789abcdef01234567",
+      "observe": {
+        "run": "20260102T030405Z-0a1b2c3d",
+        "from": "89abcdef0123456789abcdef0123456789abcdef",
+        "commit": "0123456789abcdef0123456789abcdef01234567",
+        "since": "2026-01-02T03:04:05Z",
+        "until": "2026-01-02T04:04:05Z"
+      }
+    }
+  },
+  "runs": [
+    {
+      "id": "20260102T030405Z-0a1b2c3d",
+      "stack": "web",
+      "commit": "0123456789abcdef0123456789abcdef01234567",
+      "trigger": "update",
+      "started": "2026-01-02T03:04:05Z",
+      "duration": 1000000000,
+      "result": "succeeded"
+    }
+  ]
+}
+`
+
+func TestStateInFormat1IsReadAndKept(t *testing.T) {
+	r := newRig(t, "web")
+	path := filepath.Join(r.state, engineDir, stateFile)
+	formatnumtest.Seed(t, path, stateFormat1)
+
+	runs, err := r.eng.Runs("")
+	if err != nil || len(runs) != 1 || runs[0].ID != "20260102T030405Z-0a1b2c3d" || runs[0].Result != ResultSucceeded {
+		t.Fatalf("runs = %+v, %v", runs, err)
+	}
+	st, ok, err := r.eng.Stack("web")
+	if err != nil || !ok || st.Deployed != "0123456789abcdef0123456789abcdef01234567" || st.Observe == nil || st.Observe.Run != runs[0].ID {
+		t.Fatalf("stack = %+v, %v, %v", st, ok, err)
+	}
+	if err := CheckFormat(r.state); err != nil {
+		t.Fatal(err)
+	}
+	formatnumtest.Unchanged(t, path, stateFormat1)
+}
+
+func TestStateInFormat1IsWrittenAsFormat2(t *testing.T) {
+	r := newRig(t, "web")
+	path := filepath.Join(r.state, engineDir, stateFile)
+	formatnumtest.Seed(t, path, stateFormat1)
+
+	err := r.eng.update(func(s State) (State, error) {
+		s = normalize(s)
+		s.Note = "changed"
+		return s, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.ReplaceAll(string(b), " ", ""), `"schema":2`) {
+		t.Fatalf("written state has no schema 2:\n%s", b)
+	}
+	if runs, err := r.eng.Runs(""); err != nil || len(runs) != 1 {
+		t.Fatalf("runs after write = %+v, %v", runs, err)
+	}
+}
+
+func TestCheckFormatReadsFormat1AndRefusesOtherNumbers(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, engineDir, stateFile)
+	formatnumtest.Seed(t, path, stateFormat1)
+	if err := CheckFormat(dir); err != nil {
+		t.Fatal(err)
+	}
+	for name, doc := range formatnumtest.Cases("schema", stateSchema, `"stacks":{}`) {
+		t.Run(name, func(t *testing.T) {
+			formatnumtest.Seed(t, path, doc)
+			formatnumtest.Refused(t, CheckFormat(dir), path)
+			formatnumtest.Unchanged(t, path, doc)
+		})
+	}
+}
+
 func TestRunLogsCarryAFormatNumber(t *testing.T) {
 	s := logStore{dir: t.TempDir()}
 	id := "20260102T030405Z-0a1b2c3d"

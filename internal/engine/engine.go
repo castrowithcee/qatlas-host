@@ -282,7 +282,7 @@ func New(cfg Config) (*Engine, error) {
 	store, err := configfile.NewStore(statePath, configfile.Codec[State]{
 		Validate: validateState, Encode: encodeState,
 		Decode: func(b []byte) (State, error) {
-			if err := formatnum.CheckJSON(statePath, "schema", b, stateSchema); err != nil {
+			if err := formatnum.CheckJSON(statePath, "schema", b, stateSchema, stateOlder...); err != nil {
 				return State{}, err
 			}
 			return decodeState(b)
@@ -1180,5 +1180,5 @@ func (e *Engine) finish(held bool) {
 // CheckFormat checks the format number of the engine state below stateDir, the state directory the engine is
 // given, without changing it.
 func CheckFormat(stateDir string) error {
-	return formatnum.CheckFile(filepath.Join(stateDir, engineDir, stateFile), "schema", stateSchema)
+	return formatnum.CheckFile(filepath.Join(stateDir, engineDir, stateFile), "schema", stateSchema, stateOlder...)
 }
