@@ -73,6 +73,7 @@ heal           demo_leftovers_clean
 source-local   scenario_source_local
 source-local   scenario_private_registry
 source-local   scenario_source_files
+source-local   scenario_source_git_root_only
 source-git     scenario_source_remote
 source-git     scenario_source_move
 source-git     scenario_tui_move

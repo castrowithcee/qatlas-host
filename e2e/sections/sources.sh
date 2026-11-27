@@ -174,9 +174,9 @@ scenario_source_inspect() {
 	step 'source inspect classifies an empty folder, a clone, a local repository and a folder of files'
 	docker exec "$host" sh -ec "rm -rf '$base' && mkdir -p '$base/empty' '$base/clone' '$base/local' '$base/files'" ||
 		fail 'cannot prepare the folders to inspect'
-	docker exec "$host" sh -ec "git init -q '$base/clone' && git -C '$base/clone' remote add origin '$url'" ||
+	docker exec "$host" sh -ec "umask 022 && git init -q '$base/clone' && git -C '$base/clone' remote add origin '$url'" ||
 		fail 'cannot prepare the clone to inspect'
-	docker exec "$host" sh -ec "git init -q '$base/local' && echo demo >'$base/local/notes.txt' && git -C '$base/local' add -A &&
+	docker exec "$host" sh -ec "umask 022 && git init -q '$base/local' && echo demo >'$base/local/notes.txt' && git -C '$base/local' add -A &&
 		git -C '$base/local' -c user.name='E2E Inspect' -c user.email=inspect.qhoste2e.test commit -q -m 'First commit'" ||
 		fail 'cannot prepare the local repository to inspect'
 	printf 'services:\n  app:\n    image: registry.%s/demo/app:1.0.0\n' "$domain" |
