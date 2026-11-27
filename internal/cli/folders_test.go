@@ -111,7 +111,10 @@ func useFolderHost(t *testing.T) *hostDouble {
 		// No user, so a test never reads the engines of the real host.
 		detector: rootless.Detector{Users: []rootless.User{}},
 	}
-	t.Cleanup(func() { folders = old })
+	// Root cannot be made the owner of a .git in a test: the user running it stands in for root.
+	oldOwner := gitOwner
+	gitOwner.uid, gitOwner.gid = os.Getuid(), os.Getgid()
+	t.Cleanup(func() { folders, gitOwner = old, oldOwner })
 	return d
 }
 

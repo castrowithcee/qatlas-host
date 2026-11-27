@@ -12,10 +12,11 @@ import (
 
 // planAccess works out what must change so that the service can write the folder of res and read the
 // unversioned env files of its stacks: nil when nothing needs to. The env files are planned whether or not the
-// service can write the folder. It changes nothing. The system engine needs none of it and gets no plan.
+// service can write the folder. It changes nothing. The system engine needs none of that: its service is root.
+// Its plan makes an existing .git root-only.
 func planAccess(ctx context.Context, res control.SourceInspectResult) (*permPlan, error) {
 	if targetOf(ctx).inst == nil {
-		return nil, nil // the deploy service of the system engine is root and writes regardless of owner and mode
+		return planSystemGit(res)
 	}
 	p, err := planFolderAccess(ctx, res)
 	if err != nil || res.Access == nil || len(res.Access.UnreadableEnvFiles) == 0 || res.Case == control.SourceCaseClone {

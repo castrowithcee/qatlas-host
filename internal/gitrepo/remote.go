@@ -648,5 +648,5 @@ func (r *Repo) initFromRemoteIn(ctx context.Context, url, branch, remoteCommit s
 	if err := r.putIgnore(ctx, ignore); err != nil {
 		return "", err
 	}
-	return commit, nil
+	return commit, r.rootOnlyGit()
 }

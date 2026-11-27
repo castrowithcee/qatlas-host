@@ -126,7 +126,7 @@ func (r *Repo) initIn(ctx context.Context, files []string, ignore IgnorePlan) (s
 	if err := r.putIgnore(ctx, ignore); err != nil {
 		return "", err
 	}
-	return commit, nil
+	return commit, r.rootOnlyGit()
 }
 
 // gitFunc runs git in the repository with literal pathspecs and returns its trimmed output.
@@ -152,6 +152,9 @@ func (r *Repo) stage(ctx context.Context, files []string, ignore IgnorePlan, bra
 	}
 	if _, err := r.run(ctx, false, maxErrorText, append(args, "--", r.dir)...); err != nil {
 		return nil, "", fmt.Errorf("init failed: %w", err)
+	}
+	if err := r.rootOnlyGit(); err != nil {
+		return nil, "", err
 	}
 	if sharedInit() {
 		if _, err := r.run(ctx, true, maxErrorText, "config", "--local", "core.sharedRepository", "group"); err != nil {

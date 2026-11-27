@@ -115,7 +115,7 @@ func Clone(ctx context.Context, cfg Config, url, dir string) (*Repo, error) {
 	if _, err := r.run(ctx, false, maxStdout, args...); err != nil {
 		return nil, fmt.Errorf("clone failed: %w", err)
 	}
-	return r, nil
+	return r, r.rootOnlyGit()
 }
 
 // Fetch updates the remote-tracking ref of the checked-out branch and leaves the working copy alone. In local

@@ -59,7 +59,7 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			"users for containers of the stack folders and names each conflict with its engine, and the engines it\n" +
 			"could not check. Conflicts only warn: the question says deploying would create duplicate containers\n" +
 			"and take their ports twice, and the folder can still be taken over.\n" +
-			"For a rootless engine, when its service cannot write the folder or its .git, add gives them to the group\n" +
+			"For the system engine add changes only .git, and only for root: an existing one gets the owner and group root, no write for group and others and loses core.sharedRepository (see 'source secure'); a new repository or a clone is made that way. For a rootless engine, when its service cannot write the folder or its .git, add gives them to the group\n" +
 			"of the user of the instance as root: the group of the folder, of the folders of versioned files and of .git, group write and setgid\n" +
 			"on folders, group read and write on versioned files (for a folder of files, the listed files) and on\n" +
 			"files in .git, and core.sharedRepository group. The owner never changes. Bind-mount sources of the stacks and everything below, unversioned\n" +
@@ -519,7 +519,7 @@ func applyPlan(c *cobra.Command, plan *permPlan) error {
 	if err := folders.applyPermissions(c.Context(), plan); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(c.ErrOrStderr(), "Changed the group and the mode of %d paths in %s.\n", plan.changed(), plan.dir)
+	_, _ = fmt.Fprintf(c.ErrOrStderr(), "Changed the permissions of %d paths in %s.\n", plan.changed(), plan.dir)
 	return nil
 }
 
