@@ -38,11 +38,6 @@ type historyHooks struct {
 	Open   func(path string, cfg usagehistory.Config) (historyStore, error)
 }
 
-func realTicker(d time.Duration) (<-chan time.Time, func()) {
-	t := time.NewTicker(d)
-	return t.C, t.Stop
-}
-
 func realOpen(path string, cfg usagehistory.Config) (historyStore, error) {
 	return usagehistory.Open(path, cfg)
 }
