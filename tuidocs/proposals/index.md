@@ -1,6 +1,6 @@
 ---
 title: Proposals
-order: 6
+order: 7
 keywords: [proposals, submitter, approve, reject, review]
 screens: [proposals]
 ---

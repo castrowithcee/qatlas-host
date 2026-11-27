@@ -1,28 +1,2 @@
 # Screens that have no help page yet, one ID per line. The list only shrinks: `just help-update`
 # drops the entries that got a page and never adds one.
-action:check
-action:deploy
-action:pause
-action:pin
-action:resume
-action:stackrestart
-action:stackstart
-action:stackstop
-action:unpause
-action:unpin
-action:update
-containers/clog
-detail/clog
-runs/clog
-title:setting.done.title
-title:title.discard
-title:title.editinvalid
-title:title.edittraces
-title:title.filecopy
-title:title.filenew
-title:title.filerename
-title:title.hostchange
-title:title.hostresult
-title:title.readroot
-title:title.rollback
-title:title.secretssaved
