@@ -21,6 +21,10 @@ const (
 	keepRuns = 50
 )
 
+// stateOlder are the older numbers of the state that are still read. Format 2 only added optional fields, so
+// a file in format 1 is a valid format 2; it is rewritten with stateSchema on the next change.
+var stateOlder = []int{1}
+
 // Results of a run.
 const (
 	ResultSucceeded = "succeeded"
@@ -301,7 +305,7 @@ type RunRecord struct {
 }
 
 func validateState(s State) error {
-	if err := formatnum.Check(stateFile, "schema", s.Schema, stateSchema); err != nil {
+	if err := formatnum.Check(stateFile, "schema", s.Schema, stateSchema, stateOlder...); err != nil {
 		return err
 	}
 	for name, st := range s.Stacks {

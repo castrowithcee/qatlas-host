@@ -92,6 +92,10 @@ var entries = []Entry{
 		pathArg, "source changes"),
 	deployCmd("source.diff", ClassChange, ScopeDeploy, "Show the diff of one local change of a stack folder; shows file contents, so only root.",
 		object([]string{"path", "file"}, props{"path": str(), "file": str()}), "source diff"),
+	deployCmd("source.log", ClassRead, ScopeDeploy, "List the latest commits of a bound stack folder with their changed paths, without contents.",
+		object([]string{"path"}, props{"path": str(), "limit": integer()}), "source log"),
+	deployCmd("source.show", ClassChange, ScopeDeploy, "Show the diff of one commit of a stack folder; shows file contents, so only root.",
+		object([]string{"path", "commit"}, props{"path": str(), "commit": str()}), "source show"),
 	deployCmd("source.discard", ClassChange, ScopeDeploy, "Take local changes of a stack folder back, for the named files only.",
 		object([]string{"path", "files"}, props{"path": str(), "files": strList()}), "source discard"),
 	deployCmd("source.commit", ClassChange, ScopeDeploy, "Commit the named local changes of a stack folder, with a push when the source has a remote.",
@@ -225,6 +229,7 @@ var entries = []Entry{
 		object(nil, props{"purge": boolean()}), "uninstall"),
 	local("host.update.install", ClassRoot, ScopeHost, "Update qhost to the latest stable release or to a given newer one.",
 		object(nil, props{"version": str()}), "update"),
+	local("host.update.migrate", ClassRoot, ScopeHost, "Run the transitions of this release for a host that ran an earlier one.", none, "update migrate"),
 	local("source.grant", ClassRoot, ScopeDeploy, "Create a stack folder and give the deploy service the access it needs.",
 		object([]string{"path"}, props{"path": str(), "create": boolean()}), "source add", "repo set"),
 }

@@ -4,7 +4,8 @@
   "targets": ["linux/amd64", "linux/arm64"],
   "manpageCommand": ["go", "run", ".", "manpage", "--dir", "{dir}"],
   "files": [
-    {"source": "packaging/qhost-deploy.service", "path": "lib/systemd/system/qhost-deploy.service"}
+    {"source": "packaging/qhost-deploy.service", "path": "lib/systemd/system/qhost-deploy.service"},
+    {"source": "packaging/update.json", "path": "share/qhost/update.json"}
   ],
   "installer": {
     "displayName": "Qatlas Host",

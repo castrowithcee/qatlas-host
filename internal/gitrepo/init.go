@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/castrowithcee/qatlas-host/internal/nofollow"
 )
 
 // ErrHasGit means the folder already has a .git entry.
@@ -31,13 +33,12 @@ func Init(ctx context.Context, cfg Config, dir string, files, excluded []string)
 	if err != nil {
 		return "", err
 	}
-	gitDir, err := r.claimGitDir()
-	if err != nil {
+	if err := r.claimForInit(); err != nil {
 		return "", err
 	}
-	commit, err := r.initIn(ctx, gitDir, files, ignore)
+	commit, err := r.initIn(ctx, files, ignore)
 	if err != nil {
-		_ = os.RemoveAll(gitDir)
+		_ = r.removeGit()
 		return "", err
 	}
 	return commit, nil
@@ -71,20 +72,40 @@ func (r *Repo) checkFiles(files []string) error {
 	return nil
 }
 
-// claimGitDir returns the path of the folder's .git after checking that none exists. From then on the path is
-// ours: it did not exist a moment ago.
-func (r *Repo) claimGitDir() (string, error) {
-	gitDir := filepath.Join(r.dir, ".git")
-	if _, err := os.Lstat(gitDir); err == nil {
-		return "", ErrHasGit
+// claimGit checks that the folder has no .git. From then on the name is ours: it did not exist a moment ago.
+func (r *Repo) claimGit() error {
+	if _, err := os.Lstat(filepath.Join(r.dir, ".git")); err == nil {
+		return ErrHasGit
 	} else if !errors.Is(err, fs.ErrNotExist) {
-		return "", fmt.Errorf("look for .git: %w", err)
+		return fmt.Errorf("look for .git: %w", err)
 	}
-	return gitDir, nil
+	return nil
 }
 
-func (r *Repo) initIn(ctx context.Context, gitDir string, files []string, ignore IgnorePlan) (string, error) {
-	git, tree, err := r.stage(ctx, gitDir, files, ignore, "main")
+// claimForInit is claimGit plus the check that the folder itself is no link, before git writes anything.
+func (r *Repo) claimForInit() error {
+	if err := r.claimGit(); err != nil {
+		return err
+	}
+	d, err := nofollow.Open(r.dir, "")
+	if err != nil {
+		return err
+	}
+	return d.Close()
+}
+
+// removeGit deletes the .git a failed start left; a link in its place is deleted itself and never entered.
+func (r *Repo) removeGit() error {
+	d, err := nofollow.Open(r.dir, "")
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	return d.RemoveAll(".git")
+}
+
+func (r *Repo) initIn(ctx context.Context, files []string, ignore IgnorePlan) (string, error) {
+	git, tree, err := r.stage(ctx, files, ignore, "main")
 	if err != nil {
 		return "", err
 	}
@@ -117,9 +138,9 @@ func (r *Repo) gitIn(ctx context.Context, env []string) gitFunc {
 	}
 }
 
-// stage creates the repository in gitDir on the given branch and stages exactly files and the planned
+// stage creates the repository in the folder on the given branch and stages exactly files and the planned
 // IgnoreName, which is not written yet. It returns the tree of the index and a runner for the next steps.
-func (r *Repo) stage(ctx context.Context, gitDir string, files []string, ignore IgnorePlan, branch string) (gitFunc, string, error) {
+func (r *Repo) stage(ctx context.Context, files []string, ignore IgnorePlan, branch string) (gitFunc, string, error) {
 	// --template= keeps the host's template (hooks, sample files) out of the new repository.
 	if _, err := r.run(ctx, false, maxErrorText, "init", "--quiet", "--template=", "--initial-branch="+branch,
 		"--shared=group", "--", r.dir); err != nil {
@@ -128,16 +149,11 @@ func (r *Repo) stage(ctx context.Context, gitDir string, files []string, ignore 
 	if _, err := r.run(ctx, true, maxErrorText, "config", "--local", "core.sharedRepository", "group"); err != nil {
 		return nil, "", fmt.Errorf("config failed: %w", err)
 	}
-	info := filepath.Join(gitDir, "info")
-	if err := os.MkdirAll(info, 0o755); err != nil {
-		return nil, "", fmt.Errorf("write the attribute rules: %w", err)
+	info, err := putAttributes(r.dir)
+	if err != nil {
+		return nil, "", err
 	}
-	// An attribute rule of the folder could convert line endings or run a filter; this one wins and goes away
-	// with the first commit, so the blobs hold the bytes of the files.
-	attrs := filepath.Join(info, "attributes")
-	if err := os.WriteFile(attrs, []byte(noFilterAttributes), 0o644); err != nil {
-		return nil, "", fmt.Errorf("write the attribute rules: %w", err)
-	}
+	defer info.Close()
 	env := []string{
 		"GIT_AUTHOR_NAME=" + commitName, "GIT_AUTHOR_EMAIL=" + commitEmail,
 		"GIT_COMMITTER_NAME=" + commitName, "GIT_COMMITTER_EMAIL=" + commitEmail,
@@ -146,11 +162,40 @@ func (r *Repo) stage(ctx context.Context, gitDir string, files []string, ignore 
 	if err != nil {
 		return nil, "", err
 	}
-	if err := os.Remove(attrs); err != nil {
+	if err := info.Remove("attributes"); err != nil {
 		return nil, "", fmt.Errorf("remove the attribute rules: %w", err)
 	}
 	git := r.gitIn(ctx, env)
 	return git, tree, nil
+}
+
+// putAttributes writes .git/info/attributes in the folder dir and returns the open info folder. No level from
+// dir down is a link.
+func putAttributes(dir string) (*nofollow.Dir, error) {
+	fail := func(err error) (*nofollow.Dir, error) { return nil, fmt.Errorf("write the attribute rules: %w", err) }
+	git, err := nofollow.Open(dir, ".git")
+	if err != nil {
+		return fail(err)
+	}
+	defer git.Close()
+	// An attribute rule of the folder could convert line endings or run a filter; this one wins and goes away
+	// with the first commit, so the blobs hold the bytes of the files.
+	info, err := git.MkdirSub("info", 0o755)
+	if err != nil {
+		return fail(err)
+	}
+	f, err := info.Create("attributes", 0o644)
+	if err == nil {
+		_, err = f.WriteString(noFilterAttributes)
+		if cerr := f.Close(); err == nil {
+			err = cerr
+		}
+	}
+	if err != nil {
+		_ = info.Close()
+		return fail(err)
+	}
+	return info, nil
 }
 
 const noFilterAttributes = "* -text -filter -ident -working-tree-encoding\n"

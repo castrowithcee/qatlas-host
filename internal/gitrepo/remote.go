@@ -106,7 +106,7 @@ func CompareFolder(ctx context.Context, cfg Config, dir, url string, plan Folder
 	if plan == nil {
 		return Comparison{}, errors.New("there is no file to compare")
 	}
-	if _, err := r.claimGitDir(); err != nil {
+	if err := r.claimGit(); err != nil {
 		return Comparison{}, err
 	}
 	return r.compare(ctx, url, "", plan)
@@ -590,20 +590,19 @@ func InitFromRemote(ctx context.Context, cfg Config, dir, url, branch, remoteCom
 	if err != nil {
 		return "", err
 	}
-	gitDir, err := r.claimGitDir()
-	if err != nil {
+	if err := r.claimForInit(); err != nil {
 		return "", err
 	}
-	commit, err := r.initFromRemoteIn(ctx, gitDir, url, branch, remoteCommit, files, ignore)
+	commit, err := r.initFromRemoteIn(ctx, url, branch, remoteCommit, files, ignore)
 	if err != nil {
-		_ = os.RemoveAll(gitDir)
+		_ = r.removeGit()
 		return "", err
 	}
 	return commit, nil
 }
 
-func (r *Repo) initFromRemoteIn(ctx context.Context, gitDir, url, branch, remoteCommit string, files []string, ignore IgnorePlan) (string, error) {
-	git, tree, err := r.stage(ctx, gitDir, files, ignore, branch)
+func (r *Repo) initFromRemoteIn(ctx context.Context, url, branch, remoteCommit string, files []string, ignore IgnorePlan) (string, error) {
+	git, tree, err := r.stage(ctx, files, ignore, branch)
 	if err != nil {
 		return "", err
 	}

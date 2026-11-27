@@ -98,9 +98,7 @@ type WorkingCopy interface {
 	TagCommit(ctx context.Context, name, commit string) error
 	// PruneTags deletes the old run tags of one host and stack that pick chooses; see gitrepo.Repo.PruneTags.
 	PruneTags(ctx context.Context, hostname, stack string, pick func(ids []string) []string) ([]string, error)
-	Diff(ctx context.Context, path string) (text string, truncated bool, err error)
-	Discard(ctx context.Context, paths []string) error
-	CommitPaths(ctx context.Context, expectHead string, paths []string, list []stacks.Stack, message string) (string, error)
+	LocalChanges
 }
 
 // Binding is the working copy to watch and the directory it lives in. Blocked, when set, maps the names of the
@@ -282,7 +280,7 @@ func New(cfg Config) (*Engine, error) {
 	store, err := configfile.NewStore(statePath, configfile.Codec[State]{
 		Validate: validateState, Encode: encodeState,
 		Decode: func(b []byte) (State, error) {
-			if err := formatnum.CheckJSON(statePath, "schema", b, stateSchema); err != nil {
+			if err := formatnum.CheckJSON(statePath, "schema", b, stateSchema, stateOlder...); err != nil {
 				return State{}, err
 			}
 			return decodeState(b)
@@ -1180,5 +1178,5 @@ func (e *Engine) finish(held bool) {
 // CheckFormat checks the format number of the engine state below stateDir, the state directory the engine is
 // given, without changing it.
 func CheckFormat(stateDir string) error {
-	return formatnum.CheckFile(filepath.Join(stateDir, engineDir, stateFile), "schema", stateSchema)
+	return formatnum.CheckFile(filepath.Join(stateDir, engineDir, stateFile), "schema", stateSchema, stateOlder...)
 }

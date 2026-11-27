@@ -98,28 +98,10 @@ func registerChangeCommands(r *control.Registry, eng *sourceSet) error {
 			}
 			return control.SourceDiffResult{Path: a.Path, File: shown(a.File, false), Diff: shown(text, true), Truncated: truncated}, nil
 		}),
-		control.SourceDiscardCommand: changing(func(ctx context.Context, raw json.RawMessage) (any, error) {
-			var a control.SourceDiscardArgs
-			if err := decodeArgs(raw, &a); err != nil {
-				return nil, err
-			}
-			if len(a.Files) == 0 || len(a.Files) > control.MaxDiscardPaths {
-				return nil, control.NewError(control.CodeInvalid, "name between one and 200 files to discard")
-			}
-			e, err := eng.folderEngine(a.Path)
-			if err != nil {
-				return nil, err
-			}
-			if err := e.Discard(ctx, a.Files); err != nil {
-				return nil, changesAnswer(err)
-			}
-			res := control.SourceDiscardResult{Path: a.Path, Discarded: make([]string, len(a.Files))}
-			for i, p := range a.Files {
-				res.Discarded[i] = shown(p, false)
-			}
-			return res, nil
-		}),
-		control.SourceCommitCommand: commitHandler(eng),
+		control.SourceDiscardCommand: discardHandler(eng),
+		control.SourceLogCommand:     logHandler(eng),
+		control.SourceShowCommand:    showHandler(eng),
+		control.SourceCommitCommand:  commitHandler(eng),
 	}
 	for name, h := range commands {
 		if err := r.Register(name, h); err != nil {
@@ -127,4 +109,28 @@ func registerChangeCommands(r *control.Registry, eng *sourceSet) error {
 		}
 	}
 	return nil
+}
+
+func discardHandler(eng *sourceSet) control.Command {
+	return changing(func(ctx context.Context, raw json.RawMessage) (any, error) {
+		var a control.SourceDiscardArgs
+		if err := decodeArgs(raw, &a); err != nil {
+			return nil, err
+		}
+		if len(a.Files) == 0 || len(a.Files) > control.MaxDiscardPaths {
+			return nil, control.NewError(control.CodeInvalid, "name between one and 200 files to discard")
+		}
+		e, err := eng.folderEngine(a.Path)
+		if err != nil {
+			return nil, err
+		}
+		if err := e.Discard(ctx, a.Files); err != nil {
+			return nil, changesAnswer(err)
+		}
+		res := control.SourceDiscardResult{Path: a.Path, Discarded: make([]string, len(a.Files))}
+		for i, p := range a.Files {
+			res.Discarded[i] = shown(p, false)
+		}
+		return res, nil
+	})
 }
