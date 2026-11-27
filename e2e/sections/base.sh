@@ -10,7 +10,7 @@
 # scenario_environment checks what run.sh up built: the stacks repository over SSH, the registry and the demo
 # image. It sets repo and pushes the commit that puts demo-stack on 1.0.1.
 scenario_environment() {
-	repo=git.$domain:stacks.git
+	repo=git@git.$domain:stacks.git
 
 	step 'clone over SSH'
 	as_admin "rm -rf ~/stacks && git clone -q $repo ~/stacks"

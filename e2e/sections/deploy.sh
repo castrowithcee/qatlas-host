@@ -3,18 +3,21 @@
 # listed and a new commit is deployed; a commit with a failing healthcheck is rolled back with a revert commit on the
 # remote. Notification channels (webhook, Slack, Telegram, e-mail) are added with qhost notify: a webhook hears of a
 # deployed and of a rolled-back run, and every channel type delivers a test message. Containers, their logs and
-# actions, read access without sudo, proposals and the stack actions follow.
+# actions, read access without sudo, proposals and the stack actions follow. The deploy service runs as root: a
+# folder of root does not stop a run, and its sandbox refuses writes outside the stack folders.
 # Needs base: repo and the admin clone ~/stacks, on which bind_source pushes and whose demo-stack 1.0.1 the stack list
 # expects. Needs instance: the deploy service, and the rootless instance every later section finds running; with a
 # second deploy service the interface asks for the engine of a folder (tui_keep_engine).
+# scenario_service_sandbox needs the baseline: it pushes a commit that demo-cache deploys.
 # Sets url, the address the source is bound to, and secret, the value of secrets.env of demo-stack and demo-cache;
-# deploy_baseline leaves good, the commit the poll deployed, for scenario_deploy.
+# deploy_baseline leaves good, the commit the poll deployed, for scenario_deploy; scenario_service_sandbox moves it to
+# its own deployed commit.
 # Sourced by run.sh; defines only functions and constants.
 
 # bind_source binds the stacks repository at /opt/stacks with its own deploy key and a confirmed host key, after
 # the refusals of an unconfirmed binding, and pushes demo-cache 1.1.0 for the first deploys. It sets url.
 bind_source() {
-	url=git.$domain:stacks.git
+	url=git@git.$domain:stacks.git
 	# The default window (daily 03:00) must not open in the middle of the other sections on a real clock.
 	window_far_away >/dev/null || fail 'cannot move the maintenance window out of the way'
 
@@ -59,8 +62,8 @@ bind_source() {
 	printf '%s' "$out" | grep -q "$expected" || fail "repo set does not report the fingerprint $expected: $out"
 	printf '%s' "$out" | grep -q '"cloned": *true' || fail "repo set did not clone: $out"
 	docker exec "$host" test -f /opt/stacks/demo-stack/compose.yaml || fail 'the clone is missing in /opt/stacks'
-	[ "$(docker exec "$host" stat -c %U:%G:%a /opt/stacks)" = qhost-deploy:qhost-deploy:755 ] ||
-		fail "/opt/stacks is $(docker exec "$host" stat -c %U:%G:%a /opt/stacks), want qhost-deploy:qhost-deploy:755"
+	[ "$(docker exec "$host" stat -c %U:%G:%a /opt/stacks)" = root:root:755 ] ||
+		fail "/opt/stacks is $(docker exec "$host" stat -c %U:%G:%a /opt/stacks), want root:root:755"
 	docker exec "$host" grep -qx 'ReadWritePaths=-/opt/stacks' /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf ||
 		fail 'the drop-in does not grant /opt/stacks'
 	docker exec "$host" systemctl show -p ReadWritePaths qhost-deploy | grep -qF /opt/stacks || fail 'the service has no write access to /opt/stacks'
@@ -105,13 +108,13 @@ deploy_baseline() {
 	qd --output json stack list | grep -q -- demo-shop || fail 'stack list does not name demo-shop'
 	if docker exec "$host" test -e /opt/stacks/demo-plain/secrets.env; then fail 'demo-plain has a secrets.env'; fi
 
-	step 'secrets.env is created on the host, owned by the service user'
+	step 'secrets.env is created on the host, owned by root like the clone'
 	for stack in demo-stack demo-cache; do
-		docker exec -u qhost-deploy "$host" sh -ec "umask 077 && printf 'DEMO_SECRET=%s\n' '$secret' >/opt/stacks/$stack/secrets.env"
+		docker exec "$host" sh -ec "umask 077 && printf 'DEMO_SECRET=%s\n' '$secret' >/opt/stacks/$stack/secrets.env"
 	done
-	dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $dirty"
+	dirty=$(docker exec "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $dirty"
 	[ -z "$dirty" ] || fail "secrets.env made the working copy dirty: $dirty"
-	[ "$(docker exec "$host" stat -c %U:%a /opt/stacks/demo-stack/secrets.env)" = qhost-deploy:600 ] || fail 'secrets.env has the wrong owner or mode'
+	[ "$(docker exec "$host" stat -c %U:%a /opt/stacks/demo-stack/secrets.env)" = root:600 ] || fail 'secrets.env has the wrong owner or mode'
 
 	step 'a webhook channel is added from standard input'
 	out=$(qd_in "$hook_url
@@ -154,6 +157,55 @@ $hook_signing_value
 	wait_for 'the run of demo-cache' 240 stack_deployed_at demo-cache succeeded "$good"
 	[ "$(stack_images demo-cache)" = "registry.$domain/demo/app:1.1.0" ] || fail "demo-cache does not run the image 1.1.0: $(stack_images demo-cache)"
 	log "scenario: poll deployed demo-cache at $good"
+}
+
+# scenario_service_sandbox proves what the root service is held to: a folder root made with mode 0755 in a stack
+# folder does not stop the run that writes there, and in the mount namespace of the service, entered as root so
+# that the sandbox and not file rights refuses, a write outside the stack folders fails while one inside works.
+# Every probe has an invented name and is removed afterwards, also when the sandbox did not hold.
+scenario_service_sandbox() {
+	step 'a folder made by root with mode 0755 in a stack folder does not stop a run that writes into it'
+	docker exec "$host" install -d -m 0755 -o root -g root /opt/stacks/demo-cache/e2e-root-made || fail 'cannot make the folder as root'
+	as_admin 'cd ~/stacks && mkdir -p demo-cache/e2e-root-made && printf "inert\n" >demo-cache/e2e-root-made/note.txt &&
+		git add demo-cache/e2e-root-made && git -c user.name="E2E Admin" -c user.email=admin.qhoste2e.test commit -q -m "Add a file below a folder of root" &&
+		git push -q origin main' || fail 'cannot push the commit'
+	head=$(as_admin 'cd ~/stacks && git rev-parse HEAD')
+	restart_service
+	wait_for 'the run of demo-cache after the commit' 240 stack_deployed_at demo-cache succeeded "$head"
+	[ "$(docker exec "$host" cat /opt/stacks/demo-cache/e2e-root-made/note.txt)" = inert ] || fail 'the run did not write the file into the folder of root'
+	[ "$(docker exec "$host" stat -c %U:%a /opt/stacks/demo-cache/e2e-root-made)" = root:755 ] || fail 'the folder of root was changed'
+	good=$head
+	log "scenario: the run of demo-cache at $head wrote below a folder of root with mode 755"
+
+	step 'in its mount namespace the deploy service cannot write outside its folders nor read the state of the host service'
+	spid=$(service_pid)
+	[ -n "$spid" ] && [ "$spid" != 0 ] || fail 'the deploy service has no process'
+	ns="nsenter --target $spid --mount"
+	home_probe=/home/e2e-unlisted-probe
+	etc_probe=/etc/e2e-sandbox-probe
+	in_probe=/opt/stacks/e2e-sandbox-probe
+	docker exec "$host" mkdir "$home_probe" || fail "cannot make $home_probe"
+	# A probe that got through is removed in the namespace of the test, so a failed sandbox leaves nothing behind.
+	out=$(docker exec "$host" $ns sh -c "printf probe >$in_probe && rm -f $in_probe" 2>&1) ||
+		fail "the deploy service cannot write into its stack folder /opt/stacks: $out"
+	if out=$(docker exec "$host" $ns sh -c "printf probe >$etc_probe" 2>&1); then
+		docker exec "$host" rm -f "$etc_probe" "$home_probe/probe"
+		docker exec "$host" rmdir "$home_probe"
+		fail 'the deploy service wrote a file into /etc'
+	fi
+	printf '%s' "$out" | grep -qi 'read-only file system' || fail "the write into /etc failed for another reason: $out"
+	if out=$(docker exec "$host" $ns sh -c "printf probe >$home_probe/probe" 2>&1); then
+		docker exec "$host" rm -f "$home_probe/probe"
+		docker exec "$host" rmdir "$home_probe"
+		fail "the deploy service wrote a file below $home_probe, which is no stack folder"
+	fi
+	docker exec "$host" rmdir "$home_probe" || fail "cannot remove $home_probe"
+	printf '%s' "$out" | grep -qi 'read-only file system' || fail "the write below /home failed for another reason: $out"
+	# InaccessiblePaths leaves an empty folder in place, so the proof is that nothing of the host service shows.
+	[ -n "$(docker exec "$host" ls -A /var/lib/qhost)" ] || fail '/var/lib/qhost is empty on the host, so hiding it proves nothing'
+	out=$(docker exec "$host" $ns ls -A /var/lib/qhost 2>&1) || true
+	[ -z "$out" ] || printf '%s' "$out" | grep -qi 'permission denied' || fail "the deploy service reads /var/lib/qhost: $out"
+	log 'scenario: the deploy service writes into /opt/stacks only; /etc and /home are read-only and /var/lib/qhost is closed'
 }
 
 # scenario_read_access proves the read access without sudo: an administrator of the group qhost reads status,

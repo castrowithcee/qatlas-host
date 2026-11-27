@@ -22,7 +22,7 @@ collision_seen() {
 # the first source is reported with name-collision and never deployed.
 scenario_sources() {
 	state=/var/lib/qhost-deploy
-	url2=git.$domain:stacks2.git
+	url2=git@git.$domain:stacks2.git
 
 	step 'an installation of the earlier single binding is taken over with its state and deploy key'
 	key_before=$(qd --output json key show | sed -n 's/.*"public_key": *"\([^"]*\)".*/\1/p')
@@ -39,7 +39,7 @@ scenario_sources() {
 		rmdir $state/sources/opt-stacks $state/sources
 		rm $state/sources.json
 		printf '{\"version\":1,\"url\":\"$url1\",\"dir\":\"/opt/stacks\"}' >$state/stacks-repo.json
-		chown qhost-deploy:qhost-deploy $state/stacks-repo.json && chmod 600 $state/stacks-repo.json" || fail 'cannot lay out the earlier state'
+		chown root:root $state/stacks-repo.json && chmod 600 $state/stacks-repo.json" || fail 'cannot lay out the earlier state'
 	docker exec "$host" systemctl start qhost-deploy || fail 'cannot start the deploy service on the earlier state'
 	wait_for 'the deploy service channel' 20 docker exec "$host" sh -c 'ls /run/qhost-deploy | grep -q sock'
 	wait_for 'the deploy service to answer' 20 qd status
@@ -108,7 +108,7 @@ root_commit() {
 # stack, a subfolder with a compose file of its own is only reported, a version change by commit is deployed and
 # a failing one is rolled back with a revert commit of the whole folder.
 scenario_root_source() {
-	url3=git.$domain:stacks3.git
+	url3=git@git.$domain:stacks3.git
 	image=registry.$domain/demo/app
 
 	step 'a third repository with its compose file in the root is bound as one more source'

@@ -644,7 +644,7 @@ scenario_tui_secrets() {
 	tui_send Enter
 	# The expected line goes on standard input: on a command line the watcher would catch the value.
 	printf '%s\n' "$ts_key='$ts_secret'" | docker exec -i "$host" grep -qxF -f - "$ts_env" || fail "secrets.env does not hold the secret: $(docker exec "$host" cat "$ts_env")"
-	[ "$(docker exec "$host" stat -c %U:%a "$ts_env")" = qhost-deploy:600 ] || fail 'secrets.env has the wrong owner or mode'
+	[ "$(docker exec "$host" stat -c %U:%a "$ts_env")" = root:600 ] || fail 'secrets.env has the wrong owner or mode'
 	qd stack secret list demo-stack | grep -q "$ts_key" || fail "the key is not listed: $(qd stack secret list demo-stack)"
 	log "scenario: the interface set $ts_key of demo-stack through sudo"
 
@@ -737,10 +737,10 @@ scenario_tui_stack_files() {
 	sf_old_line=$(docker exec "$host" cat "$sf_secrets")
 	sf_old=${sf_old_line#DEMO_SECRET=}
 	[ -n "$sf_old" ] && [ "$sf_old" != "$sf_old_line" ] || fail "$sf_secrets does not hold a single DEMO_SECRET line"
-	[ "$(docker exec "$host" stat -c %U:%a "$sf_secrets")" = qhost-deploy:600 ] || fail "$sf_secrets has the wrong owner or mode"
+	[ "$(docker exec "$host" stat -c %U:%a "$sf_secrets")" = root:600 ] || fail "$sf_secrets has the wrong owner or mode"
 	# The copy of the file for the editor lies in memory only when /dev/shm is tmpfs.
 	[ "$(docker exec "$host" stat -f -c %T /dev/shm)" = tmpfs ] || fail '/dev/shm of the host is no tmpfs, so a secret is not edited'
-	sf_dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sf_dirty"
+	sf_dirty=$(docker exec "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sf_dirty"
 	[ -z "$sf_dirty" ] || fail "the stack folder has uncommitted changes before the scenario: $sf_dirty"
 	sf_stat=$(docker exec "$host" stat -c %U:%G:%a "$sf_env")
 	printf '%s\n' '#!/bin/sh' "printf '%s\\n' \"\$(cat '$sf_editor.text')\" >\"\$1\"" | as_admin "cat >'$sf_editor' && chmod 0755 '$sf_editor'" ||
@@ -787,7 +787,7 @@ scenario_tui_stack_files() {
 	tui_wait 'secrets.env saved' 15
 	tui_has 'deploy now' || fail "the question does not offer to deploy now: $(tui_screen)"
 	[ "$(docker exec "$host" cat "$sf_secrets")" = "DEMO_SECRET=$sf_new" ] || fail "$sf_secrets does not hold the new value"
-	[ "$(docker exec "$host" stat -c %U:%a "$sf_secrets")" = qhost-deploy:600 ] || fail "$sf_secrets has the wrong owner or mode after the write"
+	[ "$(docker exec "$host" stat -c %U:%a "$sf_secrets")" = root:600 ] || fail "$sf_secrets has the wrong owner or mode after the write"
 	sf_prev=$(newest_run demo-stack)
 	tui_send y
 	tui_wait 'Deploy demo-stack?' 15
@@ -841,10 +841,10 @@ scenario_tui_stack_files() {
 	log 'scenario: the interface changed .env of demo-stack and the folder row shows the uncommitted change'
 
 	step 'the change is discarded, secrets.env and the container get the old value back, the rule of the administrator is put back'
-	docker exec -u qhost-deploy "$host" git -C /opt/stacks checkout -- demo-stack/.env || fail "cannot discard the change of $sf_env"
-	sf_dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sf_dirty"
+	docker exec "$host" git -C /opt/stacks checkout -- demo-stack/.env || fail "cannot discard the change of $sf_env"
+	sf_dirty=$(docker exec "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sf_dirty"
 	[ -z "$sf_dirty" ] || fail "the stack folder is not clean after the discard: $sf_dirty"
-	printf '%s\n' "$sf_old_line" | docker exec -i -u qhost-deploy "$host" sh -ec "umask 077 && cat >'$sf_secrets'" || fail "cannot restore $sf_secrets"
+	printf '%s\n' "$sf_old_line" | docker exec -i "$host" sh -ec "umask 077 && cat >'$sf_secrets'" || fail "cannot restore $sf_secrets"
 	out=$(qd --output json stack deploy demo-stack) || fail "deploy failed: $out"
 	sf_run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
 	[ -n "$sf_run" ] || fail "deploy did not report a run: $out"
@@ -875,12 +875,12 @@ scenario_tui_stack_changes() {
 	sc_compose=/opt/stacks/demo-stack/compose.yaml
 	sc_mark=E2E_CHANGES=6181
 	sc_more=E2E_DISCARD=6182
-	sc_dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sc_dirty"
+	sc_dirty=$(docker exec "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sc_dirty"
 	[ -z "$sc_dirty" ] || fail "the stack folder has uncommitted changes before the scenario: $sc_dirty"
 	sc_env_before=$(docker exec "$host" cat "$sc_env") && sc_compose_before=$(docker exec "$host" cat "$sc_compose") ||
 		fail 'cannot read the files of demo-stack'
-	sc_head=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks rev-parse HEAD) || fail 'cannot read the head of /opt/stacks'
-	docker exec -u qhost-deploy "$host" sh -ec "printf '%s\n' '$sc_mark' >>'$sc_env' && printf '# %s\n' '$sc_mark' >>'$sc_compose'" ||
+	sc_head=$(docker exec "$host" git -C /opt/stacks rev-parse HEAD) || fail 'cannot read the head of /opt/stacks'
+	docker exec "$host" sh -ec "printf '%s\n' '$sc_mark' >>'$sc_env' && printf '# %s\n' '$sc_mark' >>'$sc_compose'" ||
 		fail 'cannot change the files of demo-stack'
 
 	step 'the changes of /opt/stacks list both files, and the diff of .env comes through sudo'
@@ -912,14 +912,14 @@ scenario_tui_stack_changes() {
 	tui_has 'sudo qhost source commit' || fail "the question does not show the command: $(tui_screen)"
 	tui_send y
 	tui_wait 'Committed 2 files as' 120
-	sc_commit=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks rev-parse HEAD) || fail 'cannot read the head of /opt/stacks'
+	sc_commit=$(docker exec "$host" git -C /opt/stacks rev-parse HEAD) || fail 'cannot read the head of /opt/stacks'
 	[ "$sc_commit" != "$sc_head" ] || fail 'the commit left the head of /opt/stacks as it was'
 	sc_remote=$(docker exec "$prefix-git" git -c safe.directory='*' --git-dir=/srv/git/stacks.git rev-parse main 2>&1) ||
 		fail "cannot read the remote: $sc_remote"
 	[ "$sc_remote" = "$sc_commit" ] || fail "the remote has $sc_remote, want the commit $sc_commit"
 	sc_files=$(docker exec "$prefix-git" git -c safe.directory='*' --git-dir=/srv/git/stacks.git diff-tree --no-commit-id --name-only -r main 2>&1)
 	[ "$sc_files" = "$(printf 'demo-stack/.env\ndemo-stack/compose.yaml')" ] || fail "the commit holds the wrong files: $sc_files"
-	sc_dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sc_dirty"
+	sc_dirty=$(docker exec "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sc_dirty"
 	[ -z "$sc_dirty" ] || fail "the stack folder has uncommitted changes after the commit: $sc_dirty"
 	tui_send l
 	tui_wait 'TRIGGER' 15
@@ -929,7 +929,7 @@ scenario_tui_stack_changes() {
 	log "scenario: the interface committed .env and compose.yaml of demo-stack as $sc_commit, pushed it, and run $sc_run deployed it"
 
 	step 'a further change of .env is discarded through sudo'
-	docker exec -u qhost-deploy "$host" sh -ec "printf '%s\n' '$sc_more' >>'$sc_env'" || fail "cannot change $sc_env"
+	docker exec "$host" sh -ec "printf '%s\n' '$sc_more' >>'$sc_env'" || fail "cannot change $sc_env"
 	tui_send 1
 	tui_wait 'Uncommitted changes of /opt/stacks' 15
 	tui_send R
@@ -941,7 +941,7 @@ scenario_tui_stack_changes() {
 	tui_wait 'Discarded the changes of demo-stack/.env.' 60
 	docker exec "$host" grep -qxF "$sc_more" "$sc_env" && fail "$sc_env still holds the discarded line"
 	docker exec "$host" grep -qxF "$sc_mark" "$sc_env" || fail "$sc_env lost the committed line"
-	sc_dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sc_dirty"
+	sc_dirty=$(docker exec "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $sc_dirty"
 	[ -z "$sc_dirty" ] || fail "the stack folder is not clean after the discard: $sc_dirty"
 	tui_tmux kill-server >/dev/null 2>&1 || true
 	[ "$(wc -l <"$tui_log")" -gt 40 ] || fail 'too few screens were captured to check'
@@ -980,7 +980,7 @@ scenario_tui_folder_sudo() {
 	: >"$tui_log"
 	fs_login=E2e-admin-Login-7743
 	fs_clone=/srv/qd-fsudo-clone
-	fs_url=git.$domain:stacks8.git
+	fs_url=git@git.$domain:stacks8.git
 	fs_base=/srv/qd-fsudo-foreign/fsapp
 	fs_stack=demo-fsudo
 	fs_proj=fsapp

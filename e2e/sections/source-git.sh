@@ -24,9 +24,9 @@ copy_stacks3() {
 # confirmation. Nothing here pushes with force.
 scenario_source_remote() {
 	base=/srv/qd-files/web
-	url4=git.$domain:stacks4.git
-	url5=git.$domain:stacks5.git
-	url3=git.$domain:stacks3.git
+	url4=git@git.$domain:stacks4.git
+	url5=git@git.$domain:stacks5.git
+	url3=git@git.$domain:stacks3.git
 
 	step 'an empty remote: source remote without the confirmation changes nothing'
 	register_folder_key "$base"
@@ -231,7 +231,7 @@ scenario_source_move() {
 	into=/opt/stacks
 	secret_value=not-a-real-secret-4711
 
-	move_url=git.$domain:stacks.git
+	move_url=git@git.$domain:stacks.git
 
 	step 'a person starts a foreign Compose project with a data folder outside every source'
 	docker exec "$host" rm -rf /opt/qd-move || fail 'cannot clear /opt/qd-move'
@@ -411,7 +411,7 @@ scenario_source_move() {
 scenario_tui_move() {
 	tbase=/opt/qd-tmove/tuimove
 	tinto=/opt/stacks
-	tmove_url=git.$domain:stacks.git
+	tmove_url=git@git.$domain:stacks.git
 
 	step 'a person starts a foreign Compose project with a data folder and a named volume outside every source'
 	docker exec "$host" rm -rf /opt/qd-tmove || fail 'cannot clear /opt/qd-tmove'
@@ -508,8 +508,8 @@ scenario_tui_remote() {
 	: >"$tui_log"
 	tr_a=/srv/qd-tr-a
 	tr_b=/srv/qd-tr-b
-	tr_url6=git.$domain:stacks6.git
-	tr_url3=git.$domain:stacks3.git
+	tr_url6=git@git.$domain:stacks6.git
+	tr_url3=git@git.$domain:stacks3.git
 
 	step 'two local folders without a remote are bound'
 	for tr_dir in "$tr_a" "$tr_b"; do

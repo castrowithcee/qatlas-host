@@ -1,7 +1,8 @@
 #!/bin/sh
 # Section uninstall: the deploy service is put back and sudo qhost uninstall removes both services, the webhook
 # receiver and the rootless instance: the containers of the stacks keep running, the stack folders stay unchanged,
-# the units, the instance, its template and the program are gone and the state, the users and the group stay; sudo
+# the units, the instance, its template and the program are gone, an account qhost-deploy of an earlier setup is
+# removed, and the state, the other users and the group stay; sudo
 # qhost uninstall --purge then removes the state folders, the state and configuration of the instance, the users and
 # the groups. The test user, its home, its rootless engine and its container stay. Nothing runs after it.
 # Needs selfupdate: the deploy unit it put aside and the webhook receiver. Needs rootless: the drop-in of the
@@ -54,7 +55,9 @@ scenario_uninstall() {
 		mv /root/qhost-deploy.service.aside /usr/local/lib/systemd/system/qhost-deploy.service
 		systemctl daemon-reload
 		systemctl enable --now qhost qhost-deploy
-		cp /usr/local/bin/qhost /root/qhost.copy' || fail 'cannot put the deploy service back'
+		cp /usr/local/bin/qhost /root/qhost.copy
+		groupadd --system qhost-deploy
+		useradd --system --no-create-home --shell /usr/sbin/nologin --gid qhost-deploy qhost-deploy' || fail 'cannot put the deploy service back'
 	wait_for 'the services to answer' 30 service_serving
 	image=registry.$domain/demo/app:1.0.0
 	docker exec "$host" docker rm -f "$prefix-uninstall-probe" >/dev/null 2>&1 || true
@@ -125,8 +128,11 @@ scenario_uninstall() {
 		docker exec "$host" test -d "$p" || fail "uninstall without --purge removed $p"
 	done
 	docker exec "$host" test -f /etc/qhost-deploy/window.json || fail 'uninstall without --purge removed the host window file'
-	docker exec "$host" sh -ec 'id qhost && id qhost-deploy && id qhost-hook && getent group qhost && getent group qhost-deploy && getent group qhost-hook' >/dev/null ||
+	docker exec "$host" sh -ec 'id qhost && id qhost-hook && getent group qhost && getent group qhost-hook' >/dev/null ||
 		fail 'uninstall without --purge removed a user or a group'
+	if docker exec "$host" id qhost-deploy >/dev/null 2>&1 || docker exec "$host" getent group qhost-deploy >/dev/null 2>&1; then
+		fail 'uninstall left the user or the group qhost-deploy of an earlier setup'
+	fi
 	log "scenario: uninstalled both services, the containers and stack folders are unchanged: $out"
 
 	step 'sudo qhost uninstall --purge removes the three state folders, the configuration of the deploy services and of the receiver, the state and configuration of the instance, the users and the group'

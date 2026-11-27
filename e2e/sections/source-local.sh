@@ -9,18 +9,13 @@ local_tree() {
 	docker exec "$host" find /srv/qd-local -path /srv/qd-local/.git -prune -o -printf '%p %m %u:%g %s\n' | sort
 }
 
-# local_git runs git on /srv/qd-local as the person $admin; stderr is merged.
-local_git() {
-	docker exec -u "$admin" "$host" git -C /srv/qd-local "$@" 2>&1
-}
-
 # live_containers prints the id and the start time of every container of demo-live.
 live_containers() {
 	docker exec "$host" sh -c "docker ps -q --filter label=com.docker.compose.project=demo-live | sort | xargs -r docker inspect -f '{{.Id}} {{.State.StartedAt}}'"
 }
 
 # scenario_source_local proves source add, list and remove on a local repository without a remote below
-# /srv/qd-local, which no stack folder uses: the service gets the access it needs, a version committed by a person is
+# /srv/qd-local, which no stack folder uses: source add changes no owner, group or mode, a version committed by root is
 # deployed, a failing one is rolled back by a local revert commit, and removing the source leaves the files and the
 # containers alone. Then the existing clone /opt/stacks2 is released and taken over again with its origin and key.
 scenario_source_local() {
@@ -72,9 +67,10 @@ EOF2
 	out=$(qd source list) || fail "source list as text failed: $out"
 	printf '%s' "$out" | grep -qi 'source.opt-stacks.path' || fail "the text list does not show opt-stacks: $out"
 
-	step 'source inspect lists the unversioned secrets file the service cannot read and changes nothing'
-	out=$(qd source inspect "$base") || fail "source inspect failed: $out"
-	printf '%s' "$out" | grep -q 'unversioned env files' || fail "source inspect does not list the unreadable secrets file: $out"
+	step 'source inspect finds that the root service writes the folder and reads its secrets file, and changes nothing'
+	out=$(qd --output json source inspect "$base") || fail "source inspect failed: $out"
+	printf '%s' "$out" | jq -e '.access.service_can_write == true and .access.sets_permissions == false and
+		((.access.unreadable_env_files // []) | length) == 0' >/dev/null || fail "unexpected access of the folder: $out"
 	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/demo-local/secrets.env")" = "$secret_before" ] || fail 'source inspect changed the secrets file'
 
 	step 'source add without a terminal and without --yes is refused and changes nothing'
@@ -92,17 +88,13 @@ EOF2
 	live_before=$(live_containers)
 	[ -n "$live_before" ] || fail 'demo-live has no running container'
 
-	step 'source add --yes binds the repository as a local source and gives the service the group access'
+	step 'source add --yes binds the repository as a local source and changes no owner, group or mode'
+	tree_added=$(local_tree)
 	# qd merges stderr, where the preview and the notices go; the JSON answer is the last line.
 	out=$(qd --output json source add "$base" --yes) || fail "source add failed: $out"
 	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local" and .path == "/srv/qd-local"' >/dev/null || fail "unexpected source add result: $out"
 	wait_for 'the deploy service to answer' 30 qd status
-	[ "$(docker exec "$host" stat -c '%U:%G' "$base")" = root:qhost-deploy ] || fail "the folder has the wrong owner or group: $(docker exec "$host" stat -c '%U:%G' "$base")"
-	case $(docker exec "$host" stat -c '%A' "$base") in d???rws*) ;; *) fail "the folder is not group-writable with setgid: $(docker exec "$host" stat -c '%A' "$base")" ;; esac
-	# The secrets file only gains the group of the service and group read; its owner and the other bits stay.
-	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/demo-local/secrets.env")" = 'root:qhost-deploy 640' ] ||
-		fail "source add did not make the secrets file readable for the service: $(docker exec "$host" stat -c '%U:%G %a' "$base/demo-local/secrets.env")"
-	[ "$(docker exec "$host" git -C "$base" config core.sharedRepository)" = group ] || fail 'core.sharedRepository is not group'
+	[ "$(local_tree)" = "$tree_added" ] || fail "source add changed an owner, group or mode: $(local_tree)"
 	docker exec "$host" grep -qx "ReadWritePaths=-$base" /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf || fail 'the drop-in does not grant /srv/qd-local'
 	list_has_path "$base" || fail "source list does not show the local folder: $(qd --output json source list)"
 	[ "$(qd --output json source list | jq -r --arg p "$base" '.sources[] | select(.path == $p) | .kind')" = local ] || fail 'the local source has the wrong kind'
@@ -131,21 +123,12 @@ EOF2
 	[ "$(live_containers)" = "$live_before" ] || fail "the first run changed the containers of demo-live: before $live_before, now $(live_containers)"
 	# The runs of demo-stack with its backup rules keep the stop before the backup: see the good run of scenario_backup.
 
-	step 'a person in the group qhost-deploy commits a version; git refuses the folder until it is marked safe'
-	docker exec "$host" usermod -aG qhost-deploy "$admin" || fail 'cannot add the admin to the group qhost-deploy'
-	as_admin 'id -nG' | tr ' ' '\n' | grep -qx qhost-deploy || fail "the admin has no group qhost-deploy in a new session: $(as_admin 'id -nG')"
-	out=$(local_git rev-parse HEAD) && fail "git accepted a folder of another owner without safe.directory: $out"
-	printf '%s' "$out" | grep -q 'dubious ownership' || fail "git refused the folder for another reason: $out"
-	as_admin "git config --global --add safe.directory $base" || fail 'cannot mark the folder safe'
-	local_git rev-parse HEAD >/dev/null || fail "git still refuses the folder: $(local_git rev-parse HEAD)"
-	out=$(as_admin "umask 022; mkdir $base/demo-local/probe && stat -c %A $base/demo-local/probe && rmdir $base/demo-local/probe")
-	case $out in d???r-s*) ;; *) fail "a folder made with umask 022 is group-writable: $out" ;; esac
+	step 'root commits a version, which is deployed'
 	prev=$(newest_run demo-local)
-	as_admin "umask 002; cd $base && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.1.0/' demo-local/.env &&
-		mkdir demo-local/notes && echo 'kept by a person' >demo-local/notes/info.txt &&
-		stat -c %A demo-local/notes | grep -q '^d...rws' && git add -A &&
-		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -m 'Update demo-local to 1.1.0'" ||
-		fail 'the admin could not commit a version in the local folder'
+	docker exec "$host" sh -ec "umask 022; cd $base && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.1.0/' demo-local/.env &&
+		mkdir demo-local/notes && echo 'kept by root' >demo-local/notes/info.txt && git add -A &&
+		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Update demo-local to 1.1.0'" ||
+		fail 'cannot commit a version in the local folder'
 	good_local=$(docker exec "$host" git -C "$base" rev-parse HEAD)
 	restart_service
 	run=$(next_run demo-local "$prev") || fail 'no run of demo-local started for the version change'
@@ -156,10 +139,10 @@ EOF2
 
 	step 'a failing version is rolled back by a revert commit of the service, and the folder has no remote'
 	prev=$run
-	as_admin "umask 002; cd $base && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=2.0.0/; s/^DEMO_HEALTH=.*/DEMO_HEALTH=fail/' demo-local/.env &&
+	docker exec "$host" sh -ec "cd $base && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=2.0.0/; s/^DEMO_HEALTH=.*/DEMO_HEALTH=fail/' demo-local/.env &&
 		echo 'edited for 2.0.0' >>demo-local/notes/info.txt &&
-		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -am 'Update demo-local to 2.0.0 with a broken healthcheck'" ||
-		fail 'the admin could not commit the failing version'
+		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -am 'Update demo-local to 2.0.0 with a broken healthcheck'" ||
+		fail 'cannot commit the failing version'
 	bad_local=$(docker exec "$host" git -C "$base" rev-parse HEAD)
 	restart_service
 	run=$(next_run demo-local "$prev") || fail 'no run of demo-local started for the failing commit'
@@ -173,7 +156,7 @@ EOF2
 		fail "the revert commit has the wrong author, subject or parent: $meta"
 	[ -z "$(docker exec "$host" git -C "$base" remote)" ] || fail 'the rollback gave the local repository a remote'
 	docker exec "$host" grep -qx DEMO_APP_VERSION=1.1.0 "$base/demo-local/.env" || fail 'the revert did not restore the version file'
-	[ "$(docker exec "$host" cat "$base/demo-local/notes/info.txt")" = 'kept by a person' ] || fail 'the revert did not restore the folder of the person'
+	[ "$(docker exec "$host" cat "$base/demo-local/notes/info.txt")" = 'kept by root' ] || fail 'the revert did not restore the notes of the folder'
 	[ "$(stack_images demo-local)" = "$image:1.1.0" ] || fail "demo-local does not run the previous image 1.1.0: $(stack_images demo-local)"
 
 	step 'uncommitted changes of a stack folder are listed, shown and discarded, and the stack is deployed again'
@@ -232,7 +215,7 @@ EOF2
 	docker exec "$host" grep -qx "ReadWritePaths=-$base" /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf || fail 'source remove took the folder out of the drop-in'
 	out=$(qd_fails source remove "$base" --yes) || fail "source remove of an unbound folder succeeded: $out"
 	printf '%s' "$out" | grep -q 'not-found' || fail "source remove of an unbound folder is no not-found error: $out"
-	log 'scenario: a local repository was bound with group access, deployed, rolled back by a local revert and released without a change to its files'
+	log 'scenario: a local repository was bound without a permission change, deployed, rolled back by a local revert and released without a change to its files'
 
 	step 'an existing clone is released and taken over again with its origin and its deploy key'
 	key2_before=$(key_pub_field "$(qd --output json key show --dir /opt/stacks2)")
@@ -331,8 +314,8 @@ scenario_private_registry() {
 	step 'the Docker configuration of the service holds only the credential helper'
 	[ "$(docker exec "$host" cat /var/lib/qhost-deploy/docker/config.json)" = '{"credsStore":"qhost"}' ] ||
 		fail "the Docker configuration of the service is not the credential helper configuration: $(docker exec "$host" cat /var/lib/qhost-deploy/docker/config.json 2>&1)"
-	[ "$(docker exec "$host" stat -c %U:%a /var/lib/qhost-deploy/docker/config.json)" = qhost-deploy:600 ] ||
-		fail "config.json of the service is $(docker exec "$host" stat -c %U:%a /var/lib/qhost-deploy/docker/config.json), want qhost-deploy:600"
+	[ "$(docker exec "$host" stat -c %U:%a /var/lib/qhost-deploy/docker/config.json)" = root:600 ] ||
+		fail "config.json of the service is $(docker exec "$host" stat -c %U:%a /var/lib/qhost-deploy/docker/config.json), want root:600"
 	docker exec "$host" test -x /var/lib/qhost-deploy/docker/bin/docker-credential-qhost || fail 'the service has no credential helper link'
 
 	step 'a local repository with a stack from the registry with a login is prepared'
@@ -403,11 +386,10 @@ EOF2
 }
 
 # files_state prints the content hash of every file below /srv/qd-files/web except .git and .gitignore, and the type,
-# owner and size of every other path; modes and groups are left out because source add changes them for the listed
-# files, and .gitignore is the one file it extends.
+# owner, group, mode and size of every other path; .gitignore is the one file source add extends.
 files_state() {
 	docker exec "$host" sh -ec "cd /srv/qd-files/web && find . -path ./.git -prune -o -path ./.gitignore -prune -o -type f -exec sha256sum {} + | sort -k2 &&
-		find . -path ./.git -prune -o -path ./.gitignore -prune -o -printf '%p %y %u %s\n' | sort"
+		find . -path ./.git -prune -o -path ./.gitignore -prune -o -printf '%p %y %u:%g %m %s\n' | sort"
 }
 
 # scenario_source_files proves source add on a folder of files without a repository below /srv/qd-files, which no
@@ -501,16 +483,10 @@ EOF2
 	done
 	if docker exec "$host" git -C "$clone/web" check-ignore -q -- compose.yaml; then fail 'a clone ignores compose.yaml'; fi
 	docker exec "$host" rm -rf "$clone"
-	[ "$(files_git config core.sharedRepository)" = group ] || fail 'core.sharedRepository is not group'
 	[ -z "$(files_git remote)" ] || fail 'the new repository has a remote'
 	[ "$(files_state)" = "$state_before" ] || fail 'source add changed the content, the owner or the size of a file'
 	[ "$(docker exec "$host" stat -c '%a %U:%G' "$base/big.bin")" = "$big_before" ] || fail 'source add changed the large file that is not listed'
-	[ "$(docker exec "$host" stat -c '%U:%G' "$base")" = root:qhost-deploy ] || fail "the folder has the wrong owner or group: $(docker exec "$host" stat -c '%U:%G' "$base")"
-	case $(docker exec "$host" stat -c '%A' "$base") in d???rws*) ;; *) fail "the folder is not group-writable with setgid: $(docker exec "$host" stat -c '%A' "$base")" ;; esac
-	for f in compose.yaml .env; do
-		[ "$(docker exec "$host" stat -c '%G' "$base/$f")" = qhost-deploy ] || fail "$f does not have the group qhost-deploy"
-		case $(docker exec "$host" stat -c '%A' "$base/$f") in -???rw*) ;; *) fail "$f is not group-writable: $(docker exec "$host" stat -c '%A' "$base/$f")" ;; esac
-	done
+	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base")" = "$dir_before" ] || fail 'source add changed the owner, group or mode of the folder'
 	docker exec "$host" grep -qx "ReadWritePaths=-$base" /etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf || fail 'the drop-in does not grant /srv/qd-files/web'
 	[ "$(qd --output json source list | jq -r --arg p "$base" '.sources[] | select(.path == $p) | .kind')" = local ] || fail 'the folder of files is not a local source'
 
@@ -524,12 +500,10 @@ EOF2
 	done
 	[ "$(stack_images demo-files)" = "$image:1.0.0" ] || fail "demo-files does not run 1.0.0: $(stack_images demo-files)"
 
-	step 'a person in the group qhost-deploy commits a version, which is deployed'
-	as_admin "git config --global --add safe.directory $base" || fail 'cannot mark the folder of files safe'
+	step 'root commits a version, which is deployed'
 	prev=$(newest_run demo-files)
-	as_admin "umask 002; cd $base && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.1.0/' .env &&
-		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -am 'Update demo-files to 1.1.0'" ||
-		fail 'the admin could not commit a version in the folder of files'
+	docker exec "$host" sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.1.0/' "$base/.env" || fail 'cannot change the version in the folder of files'
+	files_git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -am 'Update demo-files to 1.1.0' || fail 'cannot commit a version in the folder of files'
 	good_files=$(files_git rev-parse HEAD)
 	restart_service
 	run=$(next_run demo-files "$prev") || fail 'no run of demo-files started for the version change'
@@ -540,9 +514,9 @@ EOF2
 
 	step 'a failing version is rolled back by a revert commit of the service, and the folder has no remote'
 	prev=$run
-	as_admin "umask 002; cd $base && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=2.0.0/; s/^DEMO_HEALTH=.*/DEMO_HEALTH=fail/' .env &&
-		git -c user.name='E2E Admin' -c user.email=admin.qhoste2e.test commit -q -am 'Update demo-files to 2.0.0 with a broken healthcheck'" ||
-		fail 'the admin could not commit the failing version'
+	docker exec "$host" sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=2.0.0/; s/^DEMO_HEALTH=.*/DEMO_HEALTH=fail/' "$base/.env" || fail 'cannot change the failing version'
+	files_git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -am 'Update demo-files to 2.0.0 with a broken healthcheck' ||
+		fail 'cannot commit the failing version'
 	bad_files=$(files_git rev-parse HEAD)
 	restart_service
 	run=$(next_run demo-files "$prev") || fail 'no run of demo-files started for the failing commit'
@@ -556,9 +530,9 @@ EOF2
 		fail "the revert commit has the wrong author, subject or parent: $meta"
 	[ -z "$(files_git remote)" ] || fail 'the rollback gave the repository a remote'
 	[ "$(stack_images demo-files)" = "$image:1.1.0" ] || fail "demo-files does not run the previous image 1.1.0: $(stack_images demo-files)"
-	log 'scenario: a folder of files got a repository with group access, deployed 1.1.0 and rolled back 2.0.0 by a local revert'
+	log 'scenario: a folder of files got a repository without a permission change, deployed 1.1.0 and rolled back 2.0.0 by a local revert'
 	scenario_source_files_include
-	scenario_source_files_unreadable
+	scenario_source_files_root_reads
 }
 
 # scenario_source_files_include proves the choice of an unclear file: the folder below /srv/qd-include mounts acme.json
@@ -625,15 +599,14 @@ source_polled_clean() {
 	qd --output json source list | jq -e --arg p "$1" '[.sources[] | select(.path == $p and .last_poll != null and (.poll_error // "") == "")] | length == 1' >/dev/null
 }
 
-# scenario_source_files_unreadable proves that a stack whose .env the service cannot read brings no file: the folder
-# below /srv/qd-multi holds a readable stack and one whose .env is 0600 root. The answer names the remedy and no value
-# of the readable .env, the first commit holds only the files of the readable stack, the folder of the other one stays
-# out, and the source polls without an error. The folder gets no remote, so its .env with a secret-like value is
-# never pushed.
-scenario_source_files_unreadable() {
+# scenario_source_files_root_reads proves that the deploy service, which runs as root, reads a stack whose .env is
+# 0600 root: the folder below /srv/qd-multi holds a stack with a group-readable .env and one with such a .env. The
+# answer shows no value of a .env, the first commit holds the files of both stacks and the source polls without an
+# error. The folder gets no remote, so its .env with a secret-like value is never pushed.
+scenario_source_files_root_reads() {
 	base=/srv/qd-multi
 
-	step 'a folder with a readable stack and a stack whose .env the service cannot read is prepared as root'
+	step 'a folder with a stack whose .env is readable by all and one whose .env is 0600 root is prepared as root'
 	docker exec "$host" sh -ec "rm -rf '$base' && mkdir -p '$base/qd-multi-ok' '$base/qd-multi-locked' && chmod 0755 '$base' '$base/qd-multi-ok' '$base/qd-multi-locked'" ||
 		fail 'cannot create the folder with two stacks'
 	for stack in qd-multi-ok qd-multi-locked; do
@@ -656,35 +629,38 @@ EOF2
 		chmod 0644 '$base/qd-multi-ok/compose.yaml' '$base/qd-multi-ok/.env' '$base/qd-multi-ok/notes.txt' '$base/qd-multi-locked/compose.yaml' '$base/qd-multi-locked/notes.txt' &&
 		chown root:root '$base/qd-multi-locked/.env' && chmod 0600 '$base/qd-multi-locked/.env'" || fail 'cannot set the modes of the stack files'
 
-	step 'source inspect takes the readable stack only and names how to make the other one readable'
+	step 'source inspect takes both stacks, as the service reads the .env of root'
 	out=$(qd --output json source inspect "$base") || fail "source inspect of the folder with two stacks failed: $out"
-	printf '%s' "$out" | jq -e '.case == "files" and (.planned_files == ["qd-multi-ok/.env", "qd-multi-ok/compose.yaml"]) and
-		([.excluded[] | select(.path == "qd-multi-locked" and .reason == "unreadable-stack")] | length) == 1 and
-		([.excluded[] | select(.path == "qd-multi-ok/notes.txt" and .reason == "not-referenced")] | length) == 1 and
-		([.stacks[] | select(.name == "qd-multi-locked") | .findings[] | select(.rule == "unreadable-stack" and (.fix | contains("read permission")))] | length) == 1' >/dev/null ||
+	printf '%s' "$out" | jq -e '.case == "files" and
+		(.planned_files == ["qd-multi-locked/.env", "qd-multi-locked/compose.yaml", "qd-multi-ok/.env", "qd-multi-ok/compose.yaml"]) and
+		([.excluded[] | select(.reason == "unreadable-stack")] | length) == 0 and
+		([.excluded[] | select(.path == "qd-multi-ok/notes.txt" and .reason == "not-referenced")] | length) == 1' >/dev/null ||
 		fail "unexpected inspection of the folder with two stacks: $out"
 	if printf '%s' "$out" | grep -qF "$um_secret"; then fail "source inspect shows a value of .env: $out"; fi
 	out=$(qd source inspect "$base") || fail "the text source inspect of the folder with two stacks failed: $out"
 	if printf '%s' "$out" | grep -qF "$um_secret"; then fail "the text source inspect shows a value of .env: $out"; fi
-	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/qd-multi-locked/.env")" = 'root:root 600' ] || fail 'source inspect changed the unreadable .env'
+	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/qd-multi-locked/.env")" = 'root:root 600' ] || fail 'source inspect changed the .env of root'
 
-	step 'source add --yes starts a repository without a file of the unreadable stack, and the source polls without an error'
+	step 'source add --yes starts a repository with the files of both stacks, and the source polls without an error'
 	out=$(qd --output json source add "$base" --yes) || fail "source add of the folder with two stacks failed: $out"
-	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local" and .files == 3' >/dev/null || fail "unexpected source add result for two stacks: $out"
+	printf '%s\n' "$out" | tail -n 1 | jq -e '.kind == "local" and .files == 5' >/dev/null || fail "unexpected source add result for two stacks: $out"
 	wait_for 'the deploy service to answer' 30 qd status
 	# The folder had no .gitignore; the one created holds the paths left out and is part of the first commit.
-	[ "$(folder_git "$base" ls-files)" = "$(printf '.gitignore\nqd-multi-ok/.env\nqd-multi-ok/compose.yaml')" ] ||
+	[ "$(folder_git "$base" ls-files)" = "$(printf '.gitignore\nqd-multi-locked/.env\nqd-multi-locked/compose.yaml\nqd-multi-ok/.env\nqd-multi-ok/compose.yaml')" ] ||
 		fail "the first commit holds the wrong files: $(folder_git "$base" ls-files)"
-	for left in qd-multi-locked qd-multi-ok/notes.txt; do
+	for left in qd-multi-locked/notes.txt qd-multi-ok/notes.txt; do
 		docker exec "$host" grep -qx "/$left" "$base/.gitignore" || fail "$left is not in the new .gitignore: $(docker exec "$host" cat "$base/.gitignore")"
 	done
 	[ -z "$(folder_git "$base" status --porcelain)" ] || fail "the folder with two stacks sees a local change: $(folder_git "$base" status --porcelain)"
-	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/qd-multi-locked/.env")" = 'root:root 600' ] || fail 'source add changed the unreadable .env'
+	[ "$(docker exec "$host" stat -c '%U:%G %a' "$base/qd-multi-locked/.env")" = 'root:root 600' ] || fail 'source add changed the .env of root'
 	wait_for 'the first poll of the folder with two stacks' 120 source_polled_clean "$base"
-	wait_for 'the readable stack to be deployed' 180 stack_settled qd-multi-ok succeeded
+	wait_for 'the stack with the readable .env to be deployed' 180 stack_settled qd-multi-ok succeeded
+	wait_for 'the stack with the .env of root to be deployed' 180 stack_settled qd-multi-locked succeeded
 
 	step 'the folder with two stacks is released and its containers are removed'
 	out=$(qd --output json source remove "$base" --yes) || fail "source remove of the folder with two stacks failed: $out"
-	docker exec "$host" docker compose -p qd-multi-ok down >/dev/null 2>&1 || fail 'cannot remove the containers of qd-multi-ok'
-	log 'scenario: a stack whose .env the service cannot read brought no file into the first commit'
+	for stack in qd-multi-ok qd-multi-locked; do
+		docker exec "$host" docker compose -p "$stack" down >/dev/null 2>&1 || fail "cannot remove the containers of $stack"
+	done
+	log 'scenario: the root service read a .env of mode 0600 root and took both stacks into the first commit'
 }

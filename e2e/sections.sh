@@ -23,6 +23,7 @@ instance       scenario_rootless_instance
 instance       scenario_service_log
 deploy         bind_source
 deploy         deploy_baseline
+deploy         scenario_service_sandbox
 deploy         scenario_deploy
 deploy         scenario_containers
 deploy         scenario_container_logs
