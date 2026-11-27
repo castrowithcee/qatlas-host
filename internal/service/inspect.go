@@ -141,7 +141,7 @@ func (s *inspectService) classify(ctx context.Context, a control.SourceInspectAr
 		return verdict{}, nil, err
 	}
 	if v.repo {
-		w := syscall.Access(filepath.Join(a.Path, ".git"), accessWriteSearch) == nil
+		w := serviceWrites(filepath.Join(a.Path, ".git"))
 		acc.GitWritable = &w
 	}
 	return v, acc, nil
@@ -736,7 +736,7 @@ func accessOf(target string) (*control.SourceAccess, error) {
 	}
 	acc := &control.SourceAccess{
 		ModePath: target, OwnerID: st.Uid, GroupID: st.Gid, Mode: fmt.Sprintf("%04o", st.Mode&0o7777),
-		ServiceCanWrite: syscall.Access(target, accessWriteSearch) == nil,
+		ServiceCanWrite: serviceWrites(target),
 	}
 	acc.SetsPermissions = !acc.ServiceCanWrite
 	if u, err := user.LookupId(strconv.FormatUint(uint64(st.Uid), 10)); err == nil {

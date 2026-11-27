@@ -439,6 +439,20 @@ func TestInspectWithoutWriteAccessIsNotARejection(t *testing.T) {
 	}
 }
 
+func TestInspectOfTheRootServiceWritesAReadOnlyFolder(t *testing.T) {
+	service.RunAsRoot(t)
+	h := realGitService(t)
+	dir := newFolder(t)
+	writeTree(t, dir, map[string]string{"web/compose.yaml": webCompose, "web/.env": "WEB_VERSION=1.2.3\n"})
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	if res := h.inspect(dir, ""); res.Access == nil || !res.Access.ServiceCanWrite || res.Access.SetsPermissions {
+		t.Fatalf("read-only folder for the root service = %+v", res.Access)
+	}
+}
+
 func TestInspectReportsContainersOfOtherProjectsInTheStackFolders(t *testing.T) {
 	fd := &fakeDocker{}
 	h := realGitService(t, withDocker(fd))
