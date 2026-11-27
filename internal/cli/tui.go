@@ -90,7 +90,7 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"it to a version that does not understand it; without a backup of the run only version only is offered. y\n" +
 			"then runs qhost stack rollback through sudo, and the stack stays pinned until I unpins it.\n\n" +
 			"The stack folders are managed in Stacks too: a adds a folder (with the steps of qhost source add; an\n" +
-			"empty host starts there), and on a folder row F fetches it, x releases it after a question and e shows,\n" +
+			"empty host starts there), and on a folder row F fetches it, d releases it after a question and e shows,\n" +
 			"generates or stores its deploy key; a folder with no remote has no key to offer. The private key is\n" +
 			"never shown. On the row of a local folder O adds a remote: it asks for the SSH address, the host key and\n" +
 			"the deploy key (without one, the key view opens), then compares the folder with the repository. A\n" +
