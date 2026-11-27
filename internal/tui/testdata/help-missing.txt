@@ -22,9 +22,7 @@ detail/setup
 proposals
 proposals/preview
 proposals/setup
-runs
 runs/clog
-runs/log
 runs/setup
 settings
 settings/credentials
