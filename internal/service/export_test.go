@@ -31,3 +31,10 @@ func SeeStackChecks(cfg *Config, passed func(time.Time)) func(ctx context.Contex
 	}
 	return func(ctx context.Context, name string) { p.Load().CheckStack(ctx, name) }
 }
+
+// RunAsRoot makes the service judge write access as the root service of the system engine for one test.
+func RunAsRoot(t interface{ Cleanup(func()) }) {
+	old := runsAsRoot
+	runsAsRoot = func() bool { return true }
+	t.Cleanup(func() { runsAsRoot = old })
+}

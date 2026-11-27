@@ -271,6 +271,7 @@ func TestSourceAddFilesWithURLEmptyRemoteStopsWithAHint(t *testing.T) {
 
 func TestSourceAddFilesWithURLWithoutConfirmationChangesNothing(t *testing.T) {
 	d := useFolderHost(t)
+	d.useRootless(t)
 	tree := newFilesTree(t)
 	fake := &remoteFake{compare: differentCompare(control.SourceCaseFiles)}
 	startFakeService(t, fake.handlers(listedFilesInspect()))
@@ -294,6 +295,7 @@ func TestSourceAddFilesWithURLWithoutConfirmationChangesNothing(t *testing.T) {
 
 func TestSourceAddFilesWithURLYesPassesTheShownState(t *testing.T) {
 	d := useFolderHost(t)
+	d.useRootless(t)
 	tree := newFilesTree(t)
 	fake := &remoteFake{compare: differentCompare(control.SourceCaseFiles)}
 	startFakeService(t, fake.handlers(listedFilesInspect()))

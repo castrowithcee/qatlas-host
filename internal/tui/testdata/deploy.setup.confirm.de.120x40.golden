@@ -10,18 +10,18 @@
                                                                                                                         
                                                                                                                         
                                                                                                                         
+                                                                                                                        
                             ╔═ Deploy-Dienst ══════════════════════════════════════════════╗                            
                             ║ ⚠ Den Deploy-Dienst jetzt einrichten?                        ║                            
                             ║                                                              ║                            
-                            ║ Das legt den Systembenutzer qhost-deploy in der Gruppe       ║                            
-                            ║ docker, seinen Kanal und seine Unit an und startet den       ║                            
-                            ║ Dienst. Der Host-Dienst bekommt keinen Zugriff auf Docker.   ║                            
-                            ║ Diese Schritte laufen als root:                              ║                            
-                            ║ $ groupadd --system qhost-deploy                             ║                            
-                            ║ $ useradd --system --gid qhost-deploy --no-create-home       ║                            
-                            ║   --home-dir /var/lib/qhost-deploy --shell /usr/sbin/nologin ║                            
-                            ║   qhost-deploy                                               ║                            
-                            ║ $ usermod --append --groups docker qhost-deploy              ║                            
+                            ║ Das legt seinen Kanal und seine Unit an und startet den      ║                            
+                            ║ Dienst als root, von systemd auf die Stack-Ordner und den    ║                            
+                            ║ eigenen Zustand begrenzt. Der Host-Dienst bekommt keinen     ║                            
+                            ║ Zugriff auf Docker. Diese Schritte laufen als root:          ║                            
+                            ║ $ write /etc/tmpfiles.d/qhost-deploy.conf (mode 0644): d     ║                            
+                            ║   /run/qhost-deploy 2750 root qhost -                        ║                            
+                            ║ $ systemd-tmpfiles --create                                  ║                            
+                            ║   /etc/tmpfiles.d/qhost-deploy.conf                          ║                            
                             ║ $ systemctl enable --now qhost-deploy                        ║                            
                             ║                                                              ║                            
                             ║ [ ja, ausführen ]  [ enter abbrechen ]                       ║                            

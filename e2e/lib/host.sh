@@ -158,7 +158,7 @@ setup_service() {
 	out=$(as_admin 'qhost stack list 2>&1 || true')
 	printf '%s' "$out" | grep -q 'not set up' || fail "'qhost stack list' without sudo does not say that the deploy service is not set up: $out"
 
-	step 'the setup of the deploy service needs --confirm and root, then runs as qhost-deploy and changes nothing when repeated'
+	step 'the setup of the deploy service needs --confirm and root, then runs as root and changes nothing when repeated'
 	if out=$(as_admin 'qhost deploy-service setup --confirm --yes 2>&1'); then fail "the setup without root succeeded: $out"; fi
 	printf '%s' "$out" | grep -qi 'needs root' || fail "the setup without root does not say that it needs root: $out"
 	if out=$(as_admin 'sudo qhost deploy-service setup --yes 2>&1'); then fail "the setup without --confirm succeeded: $out"; fi
@@ -184,34 +184,33 @@ setup_service() {
 	printf '%s' "$out" | grep -q '"changed": *false' || fail "the repeated setup reported a change: $out"
 	log "scenario: deploy service set up; repeated setup: $(printf '%s' "$out" | tr -d '\n ')"
 
-	step 'the deploy service runs as qhost-deploy with the group docker and keeps its directories closed'
+	step 'the deploy service runs as root in its sandbox and keeps its directories closed'
 	[ "$(docker exec "$host" systemctl is-active qhost-deploy)" = active ] || fail 'the deploy service is not active'
 	[ "$(docker exec "$host" systemctl is-enabled qhost-deploy)" = enabled ] || fail 'the deploy service is not enabled'
 	[ "$(docker exec "$host" systemctl is-active qhost)" = active ] || fail 'the host service stopped with the setup'
 	[ "$(docker exec "$host" systemctl show -p MainPID --value qhost)" = "$pid" ] || fail 'the setup restarted the host service'
 	dpid=$(docker exec "$host" systemctl show -p MainPID --value qhost-deploy)
 	[ -n "$dpid" ] && [ "$dpid" != 0 ] || fail 'the deploy service has no process'
-	[ "$(docker exec "$host" stat -c %U "/proc/$dpid")" = qhost-deploy ] || fail "the deploy service does not run as qhost-deploy: $(docker exec "$host" stat -c %U "/proc/$dpid")"
-	if docker exec "$host" grep '^Uid:' "/proc/$dpid/status" | grep -qw 0; then fail 'the deploy service has a root user ID'; fi
-	docker exec "$host" id -nG qhost-deploy | tr ' ' '\n' | grep -qx docker || fail 'the user qhost-deploy is not in the group docker'
-	docker exec "$host" grep '^Groups:' "/proc/$dpid/status" | grep -qw "$(docker exec "$host" getent group docker | cut -d : -f 3)" ||
-		fail 'the deploy service process does not hold the group docker'
-	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost-deploy)" = qhost-deploy:qhost:2750 ] ||
-		fail "/run/qhost-deploy is $(docker exec "$host" stat -c %U:%G:%a /run/qhost-deploy), want qhost-deploy:qhost:2750"
+	[ "$(docker exec "$host" stat -c %U "/proc/$dpid")" = root ] || fail "the deploy service does not run as root: $(docker exec "$host" stat -c %U "/proc/$dpid")"
+	if docker exec "$host" id qhost-deploy >/dev/null 2>&1; then fail 'the setup created the user qhost-deploy'; fi
+	if docker exec "$host" getent group qhost-deploy >/dev/null; then fail 'the setup created the group qhost-deploy'; fi
+	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost-deploy)" = root:qhost:2750 ] ||
+		fail "/run/qhost-deploy is $(docker exec "$host" stat -c %U:%G:%a /run/qhost-deploy), want root:qhost:2750"
 	[ "$(docker exec "$host" stat -c %G "$(docker exec "$host" sh -c 'ls /run/qhost-deploy/*.sock | head -n 1')")" = qhost ] ||
 		fail 'the socket of the deploy service does not have the group qhost'
-	[ "$(docker exec "$host" stat -c %a /var/lib/qhost-deploy)" = 700 ] || fail "/var/lib/qhost-deploy has the mode $(docker exec "$host" stat -c %a /var/lib/qhost-deploy), want 700"
+	[ "$(docker exec "$host" stat -c %U:%a /var/lib/qhost-deploy)" = root:700 ] || fail "/var/lib/qhost-deploy is $(docker exec "$host" stat -c %U:%a /var/lib/qhost-deploy), want root:700"
 	[ "$(docker exec "$host" stat -c %U:%G:%a /etc/qhost-deploy)" = root:root:755 ] ||
 		fail "/etc/qhost-deploy is $(docker exec "$host" stat -c %U:%G:%a /etc/qhost-deploy), want root:root:755"
 	if as_user e2e-outsider 'ls /run/qhost-deploy' >/dev/null 2>&1; then fail 'a user outside the group qhost can list /run/qhost-deploy'; fi
-	log "scenario: qhost-deploy runs as pid $dpid, user qhost-deploy, group docker; /run/qhost-deploy qhost-deploy:qhost 2750, /var/lib/qhost-deploy 700"
+	log "scenario: the deploy service runs as pid $dpid, user root; /run/qhost-deploy root:qhost 2750, /var/lib/qhost-deploy root 700"
 
-	step 'the two services stay apart: qhost-deploy cannot reach the state or the channel of the host service and qhost cannot read the state of the deploy service'
-	if docker exec "$host" id -nG qhost-deploy | tr ' ' '\n' | grep -qx qhost; then fail 'the user qhost-deploy is in the group qhost'; fi
-	if out=$(docker exec -u qhost-deploy "$host" ls /var/lib/qhost 2>&1); then fail "qhost-deploy lists /var/lib/qhost: $out"; fi
-	printf '%s' "$out" | grep -qi 'permission denied' || fail "qhost-deploy was refused /var/lib/qhost for another reason: $out"
-	if out=$(docker exec -u qhost-deploy "$host" ls /run/qhost 2>&1); then fail "qhost-deploy lists /run/qhost: $out"; fi
-	printf '%s' "$out" | grep -qi 'permission denied' || fail "qhost-deploy was refused /run/qhost for another reason: $out"
+	step 'the two services stay apart: the sandbox of the deploy service hides the state and the channel of the host service and qhost cannot read the state of the deploy service'
+	# InaccessiblePaths leaves an empty folder in place, so the proof is that nothing of the host service shows.
+	for p in /var/lib/qhost /run/qhost; do
+		[ -n "$(docker exec "$host" ls -A "$p")" ] || fail "$p is empty on the host, so hiding it proves nothing"
+		out=$(docker exec "$host" nsenter --target "$dpid" --mount ls -A "$p" 2>&1) || true
+		[ -z "$out" ] || printf '%s' "$out" | grep -qi 'permission denied' || fail "the deploy service sees $p: $out"
+	done
 	if out=$(docker exec -u qhost "$host" ls /var/lib/qhost-deploy 2>&1); then fail "qhost lists /var/lib/qhost-deploy: $out"; fi
 	printf '%s' "$out" | grep -qi 'permission denied' || fail "qhost was refused /var/lib/qhost-deploy for another reason: $out"
 

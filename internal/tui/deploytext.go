@@ -34,7 +34,7 @@ func deployEnglish() map[kittui.TextID]string {
 		textSetupBody: "The deploy service is not set up yet. It rolls out and updates your stacks and runs as its own system user, " +
 			"apart from the host service, with access to Docker. {setupdeploy} sets it up; on the command line: sudo qhost deploy-service setup",
 		textAskSetup: "Set up the deploy service now?",
-		textWhatSetup: "It creates the system user qhost-deploy in the group docker, its channel and its unit, and starts the service. " +
+		textWhatSetup: "It creates its channel and its unit and starts the service as root, locked down by systemd to the stack folders and its own state. " +
 			"The host service gets no access to Docker. These steps run as root:",
 		textDoneSetup: "the deploy service is set up and started",
 
@@ -63,7 +63,7 @@ func deployGerman() map[kittui.TextID]string {
 		textSetupBody: "Der Deploy-Dienst ist noch nicht eingerichtet. Er rollt deine Stacks aus und hält sie aktuell, läuft als eigener " +
 			"Systembenutzer getrennt vom Host-Dienst und hat Zugriff auf Docker. {setupdeploy} richtet ihn ein; auf der Kommandozeile: sudo qhost deploy-service setup",
 		textAskSetup: "Den Deploy-Dienst jetzt einrichten?",
-		textWhatSetup: "Das legt den Systembenutzer qhost-deploy in der Gruppe docker, seinen Kanal und seine Unit an und startet den Dienst. " +
+		textWhatSetup: "Das legt seinen Kanal und seine Unit an und startet den Dienst als root, von systemd auf die Stack-Ordner und den eigenen Zustand begrenzt. " +
 			"Der Host-Dienst bekommt keinen Zugriff auf Docker. Diese Schritte laufen als root:",
 		textDoneSetup: "der Deploy-Dienst ist eingerichtet und gestartet",
 

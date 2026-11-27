@@ -15,6 +15,9 @@ import (
 func run(t *testing.T, args ...string) (code int, stdout, stderr string) {
 	t.Helper()
 	var out, errOut bytes.Buffer
+	if rootlessDefault != nil && len(args) > 1 && args[0] == "source" && (args[1] == "add" || args[1] == "inspect") {
+		args = append(slices.Clone(args), "--engine", "rootless:alice")
+	}
 	code = Run(args, &out, &errOut)
 	return code, out.String(), errOut.String()
 }

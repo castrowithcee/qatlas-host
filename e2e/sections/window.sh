@@ -46,7 +46,7 @@ scenario_window() {
 	done
 	for stack in demo-paused demo-pinned; do
 		wait_for "the first run of $stack" 120 stack_idle "$stack"
-		docker exec -u qhost-deploy "$host" sh -ec "umask 077 && printf 'DEMO_SECRET=%s\n' not-a-real-secret-e2e >/opt/stacks/$stack/secrets.env"
+		docker exec "$host" sh -ec "umask 077 && printf 'DEMO_SECRET=%s\n' not-a-real-secret-e2e >/opt/stacks/$stack/secrets.env"
 		out=$(qd --output json stack deploy "$stack") || fail "deploy of $stack failed: $out"
 		run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
 		wait_for "the run $run" 240 run_finished "$stack" "$run"
@@ -195,7 +195,7 @@ scenario_window_instances() {
 	[ "$(docker exec "$host" stat -c %U:%G:%a "${wi_file%/*}")" = root:root:755 ] ||
 		fail "${wi_file%/*} is $(docker exec "$host" stat -c %U:%G:%a "${wi_file%/*}"), want root:root:755"
 	docker exec "$host" grep -q '"schema": 1' "$wi_file" || fail "$wi_file carries no format number: $(docker exec "$host" cat "$wi_file")"
-	for u in qhost-deploy "$rootless_user"; do
+	for u in root "$rootless_user"; do
 		docker exec -u "$u" "$host" grep -q "\"start\": \"$wi_a\"" "$wi_file" || fail "the user $u of a deploy service cannot read $wi_file"
 	done
 	for e in system "$wi_engine"; do

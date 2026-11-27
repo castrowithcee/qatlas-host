@@ -180,7 +180,7 @@ acc_first_setup() {
 	tui_wait "Clone a repository into $acc_stacks?" 10
 	tui_send y
 	tui_wait 'Address of the repository to clone' 10
-	tui_type "git.$domain:stacks.git"
+	tui_type "git@git.$domain:stacks.git"
 	tui_send F2
 	tui_wait 'ssh-ed25519' 60
 	tui_send y
@@ -254,20 +254,20 @@ acc_first_setup() {
 	tui_wait "Clone a repository into $acc_stacks?" 10
 	tui_send y
 	tui_wait 'Address of the repository to clone' 10
-	tui_type "git.$domain:stacks.git"
+	tui_type "git@git.$domain:stacks.git"
 	tui_send F2
 	expected=$(git_ed25519_fingerprint)
 	tui_wait "$(printf '%s' "$expected" | cut -c 1-30)" 60
 	tui_wait 'ssh-ed25519' 10
 	tui_send y
-	tui_wait "Clone git.$domain:stacks.git into $acc_stacks?" 30
+	tui_wait "Clone git@git.$domain:stacks.git into $acc_stacks?" 30
 	if docker exec "$host" test -e "$acc_stacks"; then fail 'the stack folder exists before the last question was answered'; fi
 	tui_send y
 	tui_wait "The stack folder $acc_stacks is bound" 120
 	tui_send Enter
 	docker exec "$host" test -f "$acc_stacks/n8n/compose.yaml" || fail "the clone is missing in $acc_stacks"
-	[ "$(docker exec "$host" stat -c %U:%G:%a "$acc_stacks")" = qhost-deploy:qhost-deploy:755 ] ||
-		fail "$acc_stacks is $(docker exec "$host" stat -c %U:%G:%a "$acc_stacks"), want qhost-deploy:qhost-deploy:755"
+	[ "$(docker exec "$host" stat -c %U:%G:%a "$acc_stacks")" = root:root:755 ] ||
+		fail "$acc_stacks is $(docker exec "$host" stat -c %U:%G:%a "$acc_stacks"), want root:root:755"
 	docker exec "$host" systemctl show -p ReadWritePaths qhost-deploy | grep -qF "$acc_stacks" || fail "the deploy service has no write access to $acc_stacks"
 	acc "repository bound through the interface, host key $expected confirmed"
 
@@ -316,7 +316,7 @@ VALUES_END
 		stack_secrets=$(printf '%s\n' "$values" | grep -v '^#' | grep -v '^$' | sed "s/^\\([^=]*\\)=\\(.*\\)\$/\\1='\\2'/")
 		[ "$(docker exec "$host" cat "$acc_stacks/$stack/secrets.env")" = "$stack_secrets" ] ||
 			fail "secrets.env of $stack does not hold the example secrets"
-		[ "$(docker exec "$host" stat -c %U:%a "$acc_stacks/$stack/secrets.env")" = qhost-deploy:600 ] ||
+		[ "$(docker exec "$host" stat -c %U:%a "$acc_stacks/$stack/secrets.env")" = root:600 ] ||
 			fail "secrets.env of $stack has the wrong owner or mode"
 	done
 	acc 'secrets of n8n and bookstack set through the interface (mode 600, owner qhost)'
@@ -556,7 +556,7 @@ acc_lock_wait() {
 }
 
 run_acceptance() {
-	repo=git.$domain:stacks.git
+	repo=git@git.$domain:stacks.git
 	N8N_IMAGE=registry.$domain/n8nio/n8n
 	BOOKSTACK_IMAGE=registry.$domain/linuxserver/bookstack
 	MARIADB_IMAGE=registry.$domain/library/mariadb
@@ -609,14 +609,14 @@ run_acceptance() {
 	acc_restore_older n8n
 	acc_restore_older bookstack
 
-	step 'backups ran with the default helper image, and the database dump of bookstack made by the service user holds the data'
+	step 'backups ran with the default helper image, and the database dump of bookstack made by the service holds the data'
 	docker exec "$host" docker image ls --digests --format '{{.Repository}}@{{.Digest}}' | grep -qx "$(backup_helper_ref)" ||
 		fail "the host does not hold the default helper image $(backup_helper_ref)"
 	dump=$(docker exec "$host" sh -c 'ls -d /var/lib/qhost-deploy/backups/bookstack/*/command.out | tail -n 1')
-	[ "$(docker exec "$host" stat -c %U "$dump")" = qhost-deploy ] || fail "the dump $dump does not belong to the service user"
+	[ "$(docker exec "$host" stat -c %U "$dump")" = root ] || fail "the dump $dump does not belong to root"
 	docker exec "$host" grep -q "$acc_alpha" "$dump" && docker exec "$host" grep -q 'CREATE TABLE' "$dump" ||
 		fail "the database dump $dump does not hold the test data"
-	acc "default helper image $(backup_helper_ref) in use; database dump of bookstack made by qhost-deploy: $(docker exec "$host" stat -c %s "$dump") bytes with the test data"
+	acc "default helper image $(backup_helper_ref) in use; database dump of bookstack made by the service: $(docker exec "$host" stat -c %s "$dump") bytes with the test data"
 
 	acc_lock_wait
 

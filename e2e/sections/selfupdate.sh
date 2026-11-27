@@ -52,8 +52,8 @@ scenario_hook_setup() {
 		if docker exec "$host" grep '^Gid:' "/proc/$hkpid/status" | tr ' \t' '\n\n' | grep -qx "$gid"; then fail "the receiver process has the group $g as its own"; fi
 	done
 	log "scenario: qhost-hook runs as pid $hkpid: $(docker exec "$host" ps -o user=,group=,supgrp= -p "$hkpid" | tr -s ' ')"
-	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost-hook/system)" = qhost-hook:qhost-deploy:770 ] ||
-		fail "/run/qhost-hook/system is $(docker exec "$host" stat -c %U:%G:%a /run/qhost-hook/system), want qhost-hook:qhost-deploy:770"
+	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost-hook/system)" = qhost-hook:qhost-hook:770 ] ||
+		fail "/run/qhost-hook/system is $(docker exec "$host" stat -c %U:%G:%a /run/qhost-hook/system), want qhost-hook:qhost-hook:770"
 	[ "$(docker exec "$host" stat -c %U:%G:%a /etc/qhost-hook/config.json)" = root:qhost-hook:644 ] ||
 		fail "config.json is $(docker exec "$host" stat -c %U:%G:%a /etc/qhost-hook/config.json), want root:qhost-hook:644"
 	out=$(as_admin 'sudo qhost --output json hook-service setup --confirm --yes 2>&1') || fail "the repeated receiver setup failed: $out"
@@ -91,7 +91,7 @@ scenario_hook() {
 	step 'demo-stack is at 1.0.1 in automatic mode with the update trigger window'
 	if [ "$(stack_images demo-stack)" != "$image:1.0.1" ]; then
 		# The fresh clone of scenario_tui_setup has no secrets.env for demo-stack, whose compose file reads DEMO_SECRET.
-		docker exec -u qhost-deploy "$host" sh -ec "test -e /opt/stacks/demo-stack/secrets.env ||
+		docker exec "$host" sh -ec "test -e /opt/stacks/demo-stack/secrets.env ||
 			{ umask 077 && printf 'DEMO_SECRET=not-a-real-secret-e2e\n' >/opt/stacks/demo-stack/secrets.env; }" ||
 			fail 'cannot write secrets.env of demo-stack'
 		prev=$(newest_run demo-stack)

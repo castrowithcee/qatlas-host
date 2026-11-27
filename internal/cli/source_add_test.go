@@ -44,7 +44,11 @@ func startFakeService(t *testing.T, handlers fakeHandlers) *fakeService {
 	t.Helper()
 	ep := channeltest.Endpoint(t)
 	useEndpoint(t, ep)
-	return serveFake(t, ep, handlers)
+	if rootlessDefault == nil {
+		return serveFake(t, ep, handlers)
+	}
+	serveFake(t, ep, fakeHandlers{control.StatusCommand: statusWith(nil)})
+	return serveFake(t, rootlessDefault.alice, handlers)
 }
 
 // startFakeHostService answers on the channel of the host service. Call it after startFakeService, which points
@@ -348,6 +352,7 @@ func addHandlers(inspect control.SourceInspectResult) fakeHandlers {
 
 func TestSourceAddWithoutConfirmationChangesNothing(t *testing.T) {
 	d := useFolderHost(t)
+	d.useRootless(t)
 	tree := newPermTree(t)
 	svc := startFakeService(t, addHandlers(localInspect(true)))
 	useStdin(t, strings.NewReader(""))
@@ -369,6 +374,7 @@ func TestSourceAddWithoutConfirmationChangesNothing(t *testing.T) {
 
 func TestSourceAddLocalWithYesGrantsAndBinds(t *testing.T) {
 	d := useFolderHost(t)
+	d.useRootless(t)
 	tree := newPermTree(t)
 	svc := startFakeService(t, addHandlers(localInspect(true)))
 	useStdin(t, strings.NewReader(""))
@@ -387,7 +393,7 @@ func TestSourceAddLocalWithYesGrantsAndBinds(t *testing.T) {
 	if svc.count(control.SourceAddCommand) != 1 {
 		t.Fatalf("source.add calls = %d", svc.count(control.SourceAddCommand))
 	}
-	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) || strings.Join(d.cmds, ";") != "daemon-reload;restart qhost-deploy" {
+	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) || strings.Join(d.cmds, ";") != "daemon-reload;restart "+instanceUnit("alice") {
 		t.Fatalf("drop-in %q, commands %v", d.dropIn(t), d.cmds)
 	}
 	if modeOf(t, tree.dir)&fs.ModeSetgid == 0 || gitConfigIn(t, tree.dir, "core.sharedRepository") != "group" {
@@ -397,6 +403,31 @@ func TestSourceAddLocalWithYesGrantsAndBinds(t *testing.T) {
 		if call.uid != -1 {
 			t.Fatalf("the owner was passed: %+v", call)
 		}
+	}
+}
+
+// The deploy service of the system engine is root: it writes whatever the owner, group and mode, so source add
+// plans and sets nothing there, however little the service could write.
+func TestSourceAddForTheSystemEngineSetsNoPermissions(t *testing.T) {
+	d := useFolderHost(t)
+	tree := newPermTree(t)
+	svc := startFakeService(t, addHandlers(localInspect(true)))
+	useStdin(t, strings.NewReader(""))
+	before := tree.snapshot(t)
+
+	code, _, stderr := run(t, "source", "add", tree.dir, "--yes")
+	if code != 0 || svc.count(control.SourceAddCommand) != 1 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if !equalModes(before, tree.snapshot(t)) || len(d.lchowns) != 0 || strings.Contains(stderr, "paths get the group") {
+		t.Fatalf("permissions were planned or set: %d group changes, stderr %q", len(d.lchowns), stderr)
+	}
+	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) {
+		t.Fatalf("drop-in %q", d.dropIn(t))
+	}
+	if plan, err := planAccess(context.Background(), control.SourceInspectResult{Path: tree.dir, Case: control.SourceCaseLocal,
+		Access: &control.SourceAccess{SetsPermissions: true, UnreadableEnvFiles: []string{"demo/secrets.env"}}}); err != nil || plan != nil {
+		t.Fatalf("plan for the system engine = %+v, %v", plan, err)
 	}
 }
 
@@ -504,6 +535,7 @@ func TestSourceAddYesDoesNotConfirmTheHostKey(t *testing.T) {
 
 func TestSourceAddAdoptCloneSetsPermissionsThenBinds(t *testing.T) {
 	d := useFolderHost(t)
+	d.useRootless(t)
 	tree := newPermTree(t)
 	var sets int
 	inspect := localInspect(true)

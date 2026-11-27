@@ -3,6 +3,7 @@ package gitrepo
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -152,6 +153,39 @@ func TestInitStartsARepositoryWithExactlyTheGivenFiles(t *testing.T) {
 	}
 	if head, err := r.RemoteHead(ctx); err != nil || head != id {
 		t.Fatalf("base = %s, %v", head, err)
+	}
+}
+
+// The tests share a new repository whatever user runs them; withSharedInit changes that for one test.
+func init() { sharedInit = func() bool { return true } }
+
+func withSharedInit(t *testing.T, shared bool) {
+	old := sharedInit
+	sharedInit = func() bool { return shared }
+	t.Cleanup(func() { sharedInit = old })
+}
+
+func TestInitAsRootStartsARepositoryWithoutGroupSharing(t *testing.T) {
+	withSharedInit(t, false)
+	dir := initFolder(t, map[string]string{"compose.yaml": "services: {}\n"})
+	if _, err := Init(context.Background(), Config{Local: true}, dir, []string{"compose.yaml"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if conf := readFile(t, filepath.Join(dir, ".git", "config")); strings.Contains(strings.ToLower(conf), "sharedrepository") {
+		t.Fatalf("the private repository is shared: %q", conf)
+	}
+	err := filepath.WalkDir(filepath.Join(dir, ".git"), func(p string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() {
+			return err
+		}
+		info, err := d.Info()
+		if err == nil && info.Mode()&fs.ModeSetgid != 0 {
+			t.Errorf("%s has the setgid bit", p)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

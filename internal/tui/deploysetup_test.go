@@ -56,9 +56,8 @@ func (f *fakeDeploy) Run(_ context.Context, user string) error {
 
 func newFakeDeploy() *fakeDeploy {
 	return &fakeDeploy{commands: []string{
-		"groupadd --system qhost-deploy",
-		"useradd --system --gid qhost-deploy --no-create-home --home-dir /var/lib/qhost-deploy --shell /usr/sbin/nologin qhost-deploy",
-		"usermod --append --groups docker qhost-deploy",
+		"write /etc/tmpfiles.d/qhost-deploy.conf (mode 0644): d /run/qhost-deploy 2750 root qhost -",
+		"systemd-tmpfiles --create /etc/tmpfiles.d/qhost-deploy.conf",
 		"systemctl enable --now qhost-deploy",
 	}}
 }
@@ -114,7 +113,7 @@ func TestSetupAsksWithCommandsAndRunsOnlyAfterYes(t *testing.T) {
 	m, b := notSetUpModel(t, i18n.English, d, 0, wideWidth, 24)
 	send(m, "G", "y")
 	screen := m.render()
-	for _, want := range []string{"Set up the deploy service now?", "$ groupadd --system qhost-deploy", "$ systemctl enable --now qhost-deploy"} {
+	for _, want := range []string{"Set up the deploy service now?", "$ systemd-tmpfiles --create", "$ systemctl enable --now qhost-deploy"} {
 		if !strings.Contains(screen, want) {
 			t.Errorf("%q missing:\n%s", want, screen)
 		}
@@ -140,11 +139,11 @@ func TestSetupAsksWithCommandsAndRunsOnlyAfterYes(t *testing.T) {
 
 func TestSetupFailureIsShown(t *testing.T) {
 	d := newFakeDeploy()
-	d.runErr = errors.New("useradd: exit status 9")
+	d.runErr = errors.New("systemd-tmpfiles: exit status 1")
 	m, _ := notSetUpModel(t, i18n.English, d, 0, wideWidth, 24)
 	send(m, "G", "y")
 	drain(m, press(m, "y"))
-	if screen := m.render(); !strings.Contains(screen, "useradd: exit status 9") || !m.notSetUp {
+	if screen := m.render(); !strings.Contains(screen, "systemd-tmpfiles: exit status 1") || !m.notSetUp {
 		t.Fatalf("failure not shown:\n%s", screen)
 	}
 }
@@ -340,7 +339,7 @@ func TestSetupWithoutRootRunsTheCommandThroughSudo(t *testing.T) {
 	f := &fakeRoot{report: setupJSON}
 	m.root = f.hook()
 	send(m, "G", "y")
-	contains(t, m, "Set up the deploy service now?", "$ groupadd --system qhost-deploy",
+	contains(t, m, "Set up the deploy service now?", "$ systemd-tmpfiles --create",
 		"$ sudo qhost deploy-service setup", "--confirm --yes --output")
 	send(m, "n")
 	if len(f.reqs) != 0 || d.ran != 0 || m.modal != nil {

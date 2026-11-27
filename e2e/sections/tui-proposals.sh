@@ -126,7 +126,7 @@ prop_submit() {
 scenario_tui_proposals() {
 	pa=/srv/qd-prop-a
 	pb=/srv/qd-prop-b
-	url7=git.$domain:stacks7.git
+	url7=git@git.$domain:stacks7.git
 
 	step 'a repository without a stack and a deploy key for the folder of the first proposal'
 	docker exec "$host" rm -rf "$pa" "$pb"
@@ -264,7 +264,7 @@ scenario_tui_proposal_kinds() {
 	tui_tmux kill-server >/dev/null 2>&1 || true
 	out=$(qd --output json stack settings "$pk_stack") || fail "stack settings failed: $out"
 	[ "$(printf '%s' "$out" | jq -r '.settings.update.ceiling')" = "$pk_ceiling" ] || fail "the settings do not hold the ceiling $pk_ceiling: $out"
-	[ "$(docker exec -u qhost-deploy "$host" git -C /opt/stacks log -1 --format=%s)" = "qhost: settings of $pk_stack" ] ||
+	[ "$(docker exec "$host" git -C /opt/stacks log -1 --format=%s)" = "qhost: settings of $pk_stack" ] ||
 		fail 'the settings were not committed by the service'
 
 	step 'stack settings are put back'

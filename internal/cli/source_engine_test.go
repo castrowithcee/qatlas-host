@@ -241,7 +241,7 @@ func TestEngineTargetNamesPathsAndUnitsPerInstance(t *testing.T) {
 		t.Fatalf("target = %s %s %s %s", got.id(), got.unit(), got.account(), got.dropIn("/r"))
 	}
 	sys := engineTarget{}
-	if sys.id() != "system" || sys.unit() != "qhost-deploy" || sys.dropIn("/r") != "/r"+stackFoldersDropIn {
+	if sys.id() != "system" || sys.unit() != "qhost-deploy" || sys.account() != "root" || sys.dropIn("/r") != "/r"+stackFoldersDropIn {
 		t.Fatalf("system target = %s %s %s", sys.id(), sys.unit(), sys.dropIn("/r"))
 	}
 }

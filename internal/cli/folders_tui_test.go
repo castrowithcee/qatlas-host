@@ -11,6 +11,7 @@ import (
 
 func TestTUIFoldersPlanChangesNothingAndApplyDoesWhatSourceAddDoes(t *testing.T) {
 	d := useFolderHost(t)
+	engine := rootlessEngineCtx(t, d)
 	tree := newPermTree(t)
 	before := tree.snapshot(t)
 	res := control.SourceInspectResult{Path: tree.dir, Case: control.SourceCaseLocal,
@@ -18,7 +19,7 @@ func TestTUIFoldersPlanChangesNothingAndApplyDoesWhatSourceAddDoes(t *testing.T)
 		Stacks: []control.SourceStack{{BindMounts: []string{"demo/data"}}}}
 
 	var f tuiFolders
-	plan, err := f.PlanPermissions(context.Background(), res)
+	plan, err := f.PlanPermissions(engine, res)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +30,7 @@ func TestTUIFoldersPlanChangesNothingAndApplyDoesWhatSourceAddDoes(t *testing.T)
 		t.Fatal("planning changed the tree")
 	}
 
-	if err := f.ApplyPermissions(context.Background(), plan); err != nil {
+	if err := f.ApplyPermissions(engine, plan); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"top.txt", "demo/compose.yaml", "demo/run.sh"} {
@@ -77,17 +78,18 @@ func TestTUIFoldersPlanIsEmptyWhenTheServiceCanWrite(t *testing.T) {
 
 func TestTUIFoldersPlanForAnEmptyCloneTargetAndForListedFiles(t *testing.T) {
 	d := useFolderHost(t)
+	engine := rootlessEngineCtx(t, d)
 	var f tuiFolders
 
 	empty := t.TempDir()
-	plan, err := f.PlanPermissions(context.Background(), control.SourceInspectResult{Path: empty, Case: control.SourceCaseClone,
+	plan, err := f.PlanPermissions(engine, control.SourceInspectResult{Path: empty, Case: control.SourceCaseClone,
 		Access: &control.SourceAccess{ModePath: empty, SetsPermissions: true}})
 	if err != nil || plan.Changed != 1 {
 		t.Fatalf("clone plan = %+v, %v", plan, err)
 	}
 
 	tree := newFilesTree(t)
-	plan, err = f.PlanPermissions(context.Background(), control.SourceInspectResult{Path: tree.dir, Case: control.SourceCaseFiles,
+	plan, err = f.PlanPermissions(engine, control.SourceInspectResult{Path: tree.dir, Case: control.SourceCaseFiles,
 		Access:       &control.SourceAccess{ModePath: tree.dir, SetsPermissions: true},
 		PlannedFiles: []string{"compose.yaml", "conf/app.yaml"}})
 	if err != nil || plan.Changed < 3 {

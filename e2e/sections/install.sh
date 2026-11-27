@@ -2,8 +2,8 @@
 # Section install: qhost is installed from a signed test release with the release installer, which sets up only the
 # host service; its user and directories, its missing access to the container engine and the group qhost of the
 # installing admin are checked, and status and a deploy command name the deploy service as not set up. sudo qhost
-# deploy-service setup then sets up the deploy service: its user qhost-deploy with the group docker, its channel and
-# state, the two services cannot reach each other's state, and an administrator of the group reads status without sudo
+# deploy-service setup then sets up the deploy service: it runs as root in its sandbox, with its channel and
+# state, the sandbox hides the host service state from it, and an administrator of the group reads status without sudo
 # while a change needs root. The host service serves an administrator of the group without sudo, answers a user of the
 # group without sudo not-admin, turns away a user outside the group and a revoked administrator, and the check of its
 # action log reports a changed line. Changes of the host follow: sudo qhost host apply changes the permissions of a

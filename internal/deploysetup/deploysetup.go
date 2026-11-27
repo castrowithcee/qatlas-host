@@ -1,5 +1,5 @@
-// Package deploysetup sets up the deploy services on the host: the service of the system engine with its system
-// user, channel directory and unit, and an instance for the rootless engine of an existing user. It sets up the
+// Package deploysetup sets up the deploy services on the host: the service of the system engine with its channel
+// directory and unit, and an instance for the rootless engine of an existing user. It sets up the
 // webhook receiver too (hook.go), which shares the plan and adds a folder per deploy instance. The setup runs
 // as root and starts programs without a shell; the only input in what it runs or writes is the user name of an
 // instance, which matches UserPattern.
@@ -25,14 +25,12 @@ import (
 )
 
 const (
-	// Program is the executable the unit starts and Service the name of the unit, the user and the group.
+	// Program is the executable the unit starts and Service the name of the unit.
 	Program = "qhost"
 	Service = "qhost-deploy"
-	// dockerGroup is the supplementary group of the deploy service; the group is practically root.
+	// dockerGroup is the group of the container engine; its existence shows that the engine is installed.
 	dockerGroup = "docker"
-	// stateDir is the home of the user and the state directory of the unit.
-	stateDir = "/var/lib/qhost-deploy"
-	// noLogin is the shell of the user.
+	// noLogin is the shell of the receiver's user.
 	noLogin = "/usr/sbin/nologin"
 	// tmpfilesConf holds the rule that creates the channel directory at every boot.
 	tmpfilesConf = "/etc/tmpfiles.d/qhost-deploy.conf"
@@ -114,8 +112,8 @@ func (p Plan) Sentence() string {
 	if p.sentence != "" {
 		return p.sentence
 	}
-	return "Set up the deploy service: it runs as its own system user qhost-deploy in the group docker, with its own " +
-		"channel and state, and starts at boot. The host service does not get access to the container engine."
+	return "Set up the deploy service: it runs as root, locked down by systemd to its state, its channel and the stack " +
+		"folders, with its own channel and state, and starts at boot. The host service does not get access to the container engine."
 }
 
 // Apply carries out the steps in order and stops at the first failure; what ran stays in place, and a
@@ -132,8 +130,7 @@ func (p Plan) Apply(ctx context.Context) error {
 // Plan checks the unit and the host and returns the steps that are still needed. It changes nothing; an
 // error means that the setup cannot start, with nothing changed.
 func (h Host) Plan(ctx context.Context) (Plan, error) {
-	if err := sysservice.ValidateUnit(packaging.DeployUnit,
-		sysservice.UnitRules{Program: Program, Service: Service, Groups: []string{dockerGroup}}); err != nil {
+	if err := ValidateDeployUnit(packaging.DeployUnit); err != nil {
 		return Plan{}, fmt.Errorf("the deploy unit of this program is not valid: %w", err)
 	}
 	groups, err := h.readGroups()
@@ -147,10 +144,6 @@ func (h Host) Plan(ctx context.Context) (Plan, error) {
 	if _, ok := groups[ep.Group]; !ok {
 		return Plan{}, fmt.Errorf("the group %s does not exist; install qhost with its installer first", ep.Group)
 	}
-	users, err := h.readUsers()
-	if err != nil {
-		return Plan{}, err
-	}
 
 	var plan Plan
 	add := func(command string, do func(ctx context.Context) error) {
@@ -158,17 +151,6 @@ func (h Host) Plan(ctx context.Context) (Plan, error) {
 	}
 	command := func(name string, args ...string) {
 		add(name+" "+strings.Join(args, " "), func(ctx context.Context) error { return h.run(ctx, name, args...) })
-	}
-
-	if _, ok := groups[Service]; !ok {
-		command("groupadd", "--system", Service)
-	}
-	if _, ok := users[Service]; !ok {
-		command("useradd", "--system", "--gid", Service, "--no-create-home", "--home-dir", stateDir,
-			"--shell", noLogin, Service)
-	}
-	if !contains(groups[dockerGroup], Service) {
-		command("usermod", "--append", "--groups", dockerGroup, Service)
 	}
 
 	rule := tmpfilesRule(ep.Dir, ep.ServiceUser, ep.Group)
@@ -209,8 +191,8 @@ func (h Host) Plan(ctx context.Context) (Plan, error) {
 	return plan, nil
 }
 
-// tmpfilesRule creates the channel directory for the service user; the group carries through the setgid bit,
-// so its members reach the socket without the service reaching them.
+// tmpfilesRule creates the channel directory for the service user (root); the group carries through the setgid
+// bit, so its members reach the socket without the service reaching the host service.
 func tmpfilesRule(dir, user, group string) []byte {
 	return []byte(fmt.Sprintf("d %s 2750 %s %s -\n", dir, user, group))
 }
@@ -285,13 +267,6 @@ func (h Host) readGroups() (map[string][]string, error) {
 		}
 		out[f[0]] = members
 	})
-	return out, err
-}
-
-// readUsers maps every user name of /etc/passwd to itself; only the existence counts.
-func (h Host) readUsers() (map[string]struct{}, error) {
-	out := map[string]struct{}{}
-	err := h.readColon("/etc/passwd", 2, func(f []string) { out[f[0]] = struct{}{} })
 	return out, err
 }
 

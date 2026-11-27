@@ -301,11 +301,12 @@ func (h Host) readHookConfig() (cfg hookservice.Config, exists bool, err error) 
 
 // hookRule is the content of the tmpfiles file: the folder of the receiver and one marker folder for the system
 // instance, when its deploy service is set up, and for every user instance with a rule, plus extra names. Each
-// folder belongs to the receiver and to the group of the instance's service user.
+// folder belongs to the receiver and to the group of the instance's service user; the system instance runs as
+// root, which reads the folder without a group, so its folder keeps the receiver's own group.
 func (h Host) hookRule(groups map[string]group, accounts map[string]account, extra ...string) ([]byte, []string, error) {
 	groupOf := map[string]string{}
 	if Installed(h.Root) {
-		groupOf[hookservice.SystemInstance] = Service
+		groupOf[hookservice.SystemInstance] = HookService
 	}
 	insts, err := Instances(h.Root)
 	if err != nil {
@@ -318,7 +319,7 @@ func (h Host) hookRule(groups map[string]group, accounts map[string]account, ext
 	names = append(names, extra...)
 	for _, n := range names {
 		if n == hookservice.SystemInstance {
-			groupOf[n] = Service
+			groupOf[n] = HookService
 			continue
 		}
 		a, ok := accounts[n]

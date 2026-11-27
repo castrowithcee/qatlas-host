@@ -6,17 +6,29 @@ Wants=network-online.target
 [Service]
 Type=exec
 ExecStart=/usr/local/bin/qhost deploy-service run
-User=qhost-deploy
-Group=qhost-deploy
-SupplementaryGroups=docker
 ReadWritePaths=/run/qhost-deploy
 ReadWritePaths=-/run/qhost-hook/system
+InaccessiblePaths=-/var/lib/qhost
+InaccessiblePaths=-/etc/qhost
+InaccessiblePaths=-/var/lib/qhost-host
+InaccessiblePaths=-/run/qhost
 StateDirectory=qhost-deploy
 StateDirectoryMode=0700
 ConfigurationDirectory=qhost-deploy
 NoNewPrivileges=yes
-PrivateTmp=yes
 ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_CHOWN
 Restart=on-failure
 
 [Install]

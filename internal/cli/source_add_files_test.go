@@ -81,6 +81,7 @@ func listedFilesInspect() control.SourceInspectResult {
 
 func TestSourceAddFilesWithoutConfirmationChangesNothing(t *testing.T) {
 	d := useFolderHost(t)
+	d.useRootless(t)
 	tree := newFilesTree(t)
 	svc := startFakeService(t, addHandlers(listedFilesInspect()))
 	useStdin(t, strings.NewReader(""))
@@ -91,7 +92,7 @@ func TestSourceAddFilesWithoutConfirmationChangesNothing(t *testing.T) {
 		t.Fatalf("code %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 	for _, want := range []string{
-		"Case files", "Start a git repository", "branch main", "core.sharedRepository=group",
+		"Case files", "Start a git repository", "branch main",
 		"first commit is made as qhost.", "takes 3 files", "  compose.yaml",
 		"big.bin: too-large", "data: bind-mount (stack demo)", "kept out of git by .gitignore:",
 		"Create .gitignore with a block marked by qhost of 4 lines; the first commit holds it:", "  /big.bin", "  /notes.txt",
@@ -166,6 +167,7 @@ func TestSourceAddFilesStopsBeforeAnyChangeWhenTheListChanged(t *testing.T) {
 
 func TestSourceAddFilesWithYesPassesTheConfirmedList(t *testing.T) {
 	d := useFolderHost(t)
+	d.useRootless(t)
 	tree := newFilesTree(t)
 	var got control.SourceAddArgs
 	handlers := addHandlers(listedFilesInspect())
@@ -191,7 +193,7 @@ func TestSourceAddFilesWithYesPassesTheConfirmedList(t *testing.T) {
 	if svc.count(control.SourceAddCommand) != 1 || got.Path != tree.dir || strings.Join(got.Files, ",") != ".env,compose.yaml,conf/app.yaml" {
 		t.Fatalf("source.add args %+v, calls %d", got, svc.count(control.SourceAddCommand))
 	}
-	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) || strings.Join(d.cmds, ";") != "daemon-reload;restart qhost-deploy" {
+	if !strings.Contains(d.dropIn(t), "ReadWritePaths=-"+tree.dir) || strings.Join(d.cmds, ";") != "daemon-reload;restart "+instanceUnit("alice") {
 		t.Fatalf("drop-in %q, commands %v", d.dropIn(t), d.cmds)
 	}
 	if tree.hasGit() {
@@ -219,6 +221,7 @@ func TestSourceAddFilesWithYesPassesTheConfirmedList(t *testing.T) {
 
 func TestSourceAddFilesRefusalOfTheServiceKeepsThePermissionsAndSaysSo(t *testing.T) {
 	d := useFolderHost(t)
+	d.useRootless(t)
 	tree := newFilesTree(t)
 	handlers := addHandlers(listedFilesInspect())
 	handlers[control.SourceAddCommand] = func(json.RawMessage) any {

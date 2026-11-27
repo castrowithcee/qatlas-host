@@ -3,7 +3,7 @@
 # in it through the real sudo, and qhost host users shows the user with the group. An administrator without sudo
 # proposes a user with a group and an SSH key with qhost proposal; the interface approves it, asks for the initial
 # password and creates the user, the journal shows the change, the undo removes the user, and a process of
-# qhost-deploy is not shown the proposal. The file browser shows a file the administrator may read directly and a
+# a user outside the group qhost is not shown the proposal. The file browser shows a file the administrator may read directly and a
 # file only root may read after the password prompt of the real sudo. A script as the editor changes a file of /etc,
 # Changes undoes it, and a file is created, renamed and removed in the browser.
 # Needs install: the host service and the group qhost of the installation. No other section needs this one.
@@ -434,7 +434,7 @@ scenario_tui_file_edit() {
 
 # scenario_tui_host_proposal proves a proposal of the host from submission to undo. An administrator without sudo
 # proposes a user in a group with a public SSH key through qhost proposal; the proposal is listed and shown with its
-# sentence and the key fingerprint, and a process of qhost-deploy is turned away from the proposals of the host.
+# sentence and the key fingerprint, and a process of a user outside the group qhost is turned away from the proposals of the host.
 # The interface without sudo approves it on System > Proposals: the form asks for the initial password, sudo -v asks
 # for the password of the administrator, and sudo qhost host apply --proposal creates the user. The user, the group and
 # authorized_keys are checked, the journal lists the change, the proposal stands as applied, and the undo on
@@ -480,15 +480,16 @@ scenario_tui_host_proposal() {
 	[ "$(prop_state "$hp_id")" = open ] || fail "the proposal $hp_id is not open"
 	if docker exec "$host" id "$hp_user" >/dev/null 2>&1; then fail 'submitting the proposal created the user'; fi
 
-	step 'a process of qhost-deploy is turned away from the proposals of the host'
-	if out=$(docker exec -u qhost-deploy "$host" qhost proposal list 2>&1 </dev/null); then
-		fail "qhost-deploy listed proposals while the host service holds one: $out"
+	step 'a process of a user outside the group qhost is turned away from the proposals of the host'
+	ensure_user e2e-outsider
+	if out=$(docker exec -u e2e-outsider "$host" qhost proposal list 2>&1 </dev/null); then
+		fail "e2e-outsider listed proposals while the host service holds one: $out"
 	fi
-	if printf '%s' "$out" | grep -qF -e "$hp_id" -e "$hp_user" -e "$hp_blob" -e e2e-propkey; then fail "the refusal for qhost-deploy shows data of the proposal: $out"; fi
-	if out=$(docker exec -u qhost-deploy "$host" qhost proposal show "$hp_id" 2>&1 </dev/null); then
-		fail "qhost-deploy shows the proposal of the host: $out"
+	if printf '%s' "$out" | grep -qF -e "$hp_id" -e "$hp_user" -e "$hp_blob" -e e2e-propkey; then fail "the refusal for e2e-outsider shows data of the proposal: $out"; fi
+	if out=$(docker exec -u e2e-outsider "$host" qhost proposal show "$hp_id" 2>&1 </dev/null); then
+		fail "e2e-outsider shows the proposal of the host: $out"
 	fi
-	if printf '%s' "$out" | grep -qF -e "$hp_user" -e "$hp_blob" -e e2e-propkey; then fail "the refusal for qhost-deploy shows data of the proposal: $out"; fi
+	if printf '%s' "$out" | grep -qF -e "$hp_user" -e "$hp_blob" -e e2e-propkey; then fail "the refusal for e2e-outsider shows data of the proposal: $out"; fi
 
 	step 'the interface without sudo approves the proposal on System > Proposals, asks for the initial password and creates the user'
 	tui_tmux kill-server >/dev/null 2>&1 || true

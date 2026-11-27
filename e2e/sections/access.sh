@@ -25,7 +25,7 @@ scenario_deploy_audit() {
 	if printf '%s' "$out" | grep -qF -- not-a-real-secret-e2e; then fail "a secret value shows in the audit log of the deploy service: $out"; fi
 	out=$(as_admin 'qhost audit verify --service deploy 2>&1') || fail "qhost audit verify --service deploy failed: $out"
 	printf '%s' "$out" | grep -q 'intact' || fail "qhost audit verify --service deploy does not report the log as intact: $out"
-	[ "$(docker exec "$host" stat -c %U:%a /var/lib/qhost-deploy/audit)" = qhost-deploy:700 ] || fail 'the audit log of the deploy service has the wrong owner or mode'
+	[ "$(docker exec "$host" stat -c %U:%a /var/lib/qhost-deploy/audit)" = root:700 ] || fail 'the audit log of the deploy service has the wrong owner or mode'
 	log 'scenario: the audit log of the deploy service named both users, the stack and the origin, and its chain is intact'
 }
 

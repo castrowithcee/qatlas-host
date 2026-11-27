@@ -112,11 +112,14 @@ func (p Plan) Commands() []string {
 func (p Plan) Sentence() string {
 	s := "Remove qhost and the deploy service from this host: both services are stopped and disabled, and the program, " +
 		"the units, the drop-in of the deploy unit, the rule of its channel and the manpages are deleted."
-	keep := " The state of both services, the configuration of the deploy services with the host window, the journal of the host changes, the users and the group stay."
+	deploy := p.removesDeployAccount()
+	if deploy && !p.Purge {
+		s += " The system user and group qhost-deploy of an earlier setup are deleted too."
+	}
+	keep := " The state of both services, the configuration of the deploy services with the host window, the journal of the host changes, the user qhost and the group qhost stay."
 	if p.Purge {
 		s += " The state and the log of both services, including credentials and backups, the configuration of the deploy " +
-			"services with the host window, the journal of the host changes, the system users qhost and qhost-deploy and the group qhost " +
-			"are deleted too, and they cannot be restored."
+			"services with the host window, the journal of the host changes, " + purgedAccounts(deploy) + " are deleted too, and they cannot be restored."
 		keep = ""
 	}
 	if len(p.Instances) > 0 {
@@ -382,33 +385,9 @@ func (h Host) Plan(purge bool, pages, keep []string) (Plan, error) {
 				}
 			}
 		}
-		users, err := h.names("/etc/passwd")
-		if err != nil {
-			return Plan{}, err
-		}
-		groups, err := h.names("/etc/group")
-		if err != nil {
-			return Plan{}, err
-		}
-		if users[hookService] || groups[hookService] {
-			plan.Hook = true
-		}
-		for _, name := range []string{hookService, deployService, hostService} {
-			if users[name] {
-				command("userdel", name)
-			}
-		}
-		for _, name := range []string{hookService, deployService, hostService} {
-			if groups[name] {
-				name := name
-				add("groupdel "+name+" if userdel did not remove it", func(ctx context.Context) error {
-					if now, err := h.names("/etc/group"); err != nil || !now[name] {
-						return err
-					}
-					return h.run(ctx, "groupdel", name)
-				})
-			}
-		}
+	}
+	if err := h.planAccounts(&plan, purge); err != nil {
+		return Plan{}, err
 	}
 	return plan, nil
 }

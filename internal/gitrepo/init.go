@@ -17,8 +17,12 @@ var ErrHasGit = errors.New("the folder already has a .git entry")
 
 const firstCommitMessage = "Import the stack files"
 
+// sharedInit says whether a new repository is shared with the group. Only the deploy service of the system engine
+// starts one as root: its sandbox refuses the setgid folders of a shared repository, and root needs no group.
+var sharedInit = func() bool { return os.Geteuid() != 0 }
+
 // Init turns the folder dir, which has no .git, into a repository without a remote: branch main,
-// core.sharedRepository=group, and a first commit by qhost that holds exactly the regular files in files, paths
+// core.sharedRepository=group unless it runs as root (see sharedInit), and a first commit by qhost that holds exactly the regular files in files, paths
 // relative to dir, and the IgnoreName that PlanIgnore works out for excluded, the paths relative to dir that the
 // repository leaves out. That file is the only one of the folder that is created or changed, and only when
 // something is left out; nothing is removed. Hooks, filters and the configuration of the caller do not apply,
@@ -142,12 +146,17 @@ func (r *Repo) gitIn(ctx context.Context, env []string) gitFunc {
 // IgnoreName, which is not written yet. It returns the tree of the index and a runner for the next steps.
 func (r *Repo) stage(ctx context.Context, files []string, ignore IgnorePlan, branch string) (gitFunc, string, error) {
 	// --template= keeps the host's template (hooks, sample files) out of the new repository.
-	if _, err := r.run(ctx, false, maxErrorText, "init", "--quiet", "--template=", "--initial-branch="+branch,
-		"--shared=group", "--", r.dir); err != nil {
+	args := []string{"init", "--quiet", "--template=", "--initial-branch=" + branch}
+	if sharedInit() {
+		args = append(args, "--shared=group")
+	}
+	if _, err := r.run(ctx, false, maxErrorText, append(args, "--", r.dir)...); err != nil {
 		return nil, "", fmt.Errorf("init failed: %w", err)
 	}
-	if _, err := r.run(ctx, true, maxErrorText, "config", "--local", "core.sharedRepository", "group"); err != nil {
-		return nil, "", fmt.Errorf("config failed: %w", err)
+	if sharedInit() {
+		if _, err := r.run(ctx, true, maxErrorText, "config", "--local", "core.sharedRepository", "group"); err != nil {
+			return nil, "", fmt.Errorf("config failed: %w", err)
+		}
 	}
 	info, err := putAttributes(r.dir)
 	if err != nil {

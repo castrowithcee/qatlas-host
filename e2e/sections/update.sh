@@ -106,8 +106,8 @@ scenario_backup() {
 	printf '%s' "$out" | grep -q '"items": *3' || fail "the backup does not hold three items: $out"
 	stack_running demo-stack || fail "demo-stack is not running after the backup: $(stack_images demo-stack)"
 	[ "$(docker exec "$host" cat "$store/$b1/command.out")" = backup-command-output ] || fail "command.out of $b1 is wrong: $(docker exec "$host" ls -l "$store/$b1")"
-	[ "$(docker exec "$host" stat -c %a:%U "$store/$b1/path-0.tar" "$store/$b1/volume-0.tar" | sort -u)" = 600:qhost-deploy ] ||
-		fail "the archives are not private to the service user: $(docker exec "$host" ls -ln "$store/$b1")"
+	[ "$(docker exec "$host" stat -c %a:%U "$store/$b1/path-0.tar" "$store/$b1/volume-0.tar" | sort -u)" = 600:root ] ||
+		fail "the archives are not private to root: $(docker exec "$host" ls -ln "$store/$b1")"
 	log "scenario: backup $b1: $(docker exec "$host" sh -c "cd $store/$b1 && ls | tr '\n' ' '")"
 
 	step 'the data changes after the backup'
@@ -380,8 +380,8 @@ scenario_update() {
 	[ "$files" = .qatlas/qhost/demo-stack.yaml ] || fail "the settings commit touches more than the settings file: $files"
 	as_admin 'cd ~/stacks && grep -qx "  major: direct" .qatlas/qhost/demo-stack.yaml' ||
 		fail "the settings file does not hold major direct: $(as_admin 'cat ~/stacks/.qatlas/qhost/demo-stack.yaml')"
-	[ "$(docker exec -u qhost-deploy "$host" git -C /opt/stacks rev-parse HEAD)" = "$commit" ] || fail 'the working copy on the host did not follow the settings commit'
-	dirty=$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $dirty"
+	[ "$(docker exec "$host" git -C /opt/stacks rev-parse HEAD)" = "$commit" ] || fail 'the working copy on the host did not follow the settings commit'
+	dirty=$(docker exec "$host" git -C /opt/stacks status --porcelain 2>&1) || fail "git status failed: $dirty"
 	[ -z "$dirty" ] || fail "the settings left the working copy on the host dirty: $dirty"
 	out=$(qd --output json stack settings demo-stack) || fail "stack settings failed: $out"
 	printf '%s' "$out" | grep -q '"major": *"direct"' || fail "stack settings does not show major direct: $out"

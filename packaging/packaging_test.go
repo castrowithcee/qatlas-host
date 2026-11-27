@@ -51,24 +51,6 @@ func TestHostUnitPassesKitValidation(t *testing.T) {
 	}
 }
 
-func deployRules() sysservice.UnitRules {
-	return sysservice.UnitRules{Program: program, Service: deployService, Groups: []string{"docker"}}
-}
-
-func TestDeployUnitPassesKitValidation(t *testing.T) {
-	if err := sysservice.ValidateUnit(readFile(t, "packaging/qhost-deploy.service"), deployRules()); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestDeployUnitWithRootFailsKitValidation(t *testing.T) {
-	unit := strings.NewReplacer("User=qhost-deploy", "User=root", "Group=qhost-deploy", "Group=root").
-		Replace(string(readFile(t, "packaging/qhost-deploy.service")))
-	if err := sysservice.ValidateUnit([]byte(unit), deployRules()); err == nil {
-		t.Fatal("a deploy unit that runs as root passed the validation")
-	}
-}
-
 func TestEmbeddedDeployUnitIsTheShippedFile(t *testing.T) {
 	if string(DeployUnit) != string(readFile(t, "packaging/qhost-deploy.service")) {
 		t.Fatal("the embedded deploy unit differs from packaging/qhost-deploy.service")
@@ -115,9 +97,6 @@ func TestDeployUnitMeetsChannelContract(t *testing.T) {
 	lines := unitLines(readFile(t, "packaging/qhost-deploy.service"))
 	for _, want := range []string{
 		"ExecStart=/usr/local/bin/qhost deploy-service run",
-		"User=qhost-deploy",
-		"Group=qhost-deploy",
-		"SupplementaryGroups=docker",
 		"ReadWritePaths=/run/qhost-deploy",
 		"ReadWritePaths=-/run/qhost-hook/system",
 		"StateDirectory=qhost-deploy",
@@ -130,6 +109,11 @@ func TestDeployUnitMeetsChannelContract(t *testing.T) {
 		}
 	}
 	for l := range lines {
+		for _, f := range []string{"User=", "Group=", "SupplementaryGroups=", "AmbientCapabilities=", "DynamicUser="} {
+			if strings.HasPrefix(l, f) {
+				t.Errorf("deploy unit has the line %q; it runs as root, locked down", l)
+			}
+		}
 		if strings.HasPrefix(l, "RuntimeDirectory") {
 			t.Errorf("deploy unit lets systemd create its runtime directory: %q", l)
 		}

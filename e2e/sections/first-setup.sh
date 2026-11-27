@@ -87,7 +87,7 @@ EOF2
 	printf 'secrets.env\ndata/\n' | docker exec -i "$host" sh -ec "cat >'$local_dir/demo-tui-local/.gitignore'"
 	docker exec "$host" sh -ec "cd '$local_dir' && git init -q -b main && git add -A &&
 		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-tui-local stack' &&
-		printf 'DEMO_SECRET=not-a-real-secret\n' >demo-tui-local/secrets.env && chgrp qhost-deploy demo-tui-local/secrets.env &&
+		printf 'DEMO_SECRET=not-a-real-secret\n' >demo-tui-local/secrets.env &&
 		chmod 0640 demo-tui-local/secrets.env" ||
 		fail 'cannot create the local repository'
 	[ -z "$(docker exec "$host" git -C "$local_dir" remote)" ] || fail 'the local repository has a remote'
@@ -143,7 +143,7 @@ scenario_tui_setup() {
 	tui_wait 'Clone a repository into /opt/stacks?' 10
 	tui_send y
 	tui_wait 'Address of the repository to clone' 10
-	tui_type "git.$domain:stacks.git"
+	tui_type "git@git.$domain:stacks.git"
 	tui_send F2
 	tui_wait 'ssh-ed25519' 60
 	tui_send y
@@ -279,14 +279,14 @@ scenario_tui_setup() {
 	tui_wait 'Clone a repository into /opt/stacks?' 10
 	tui_send y
 	tui_wait 'Address of the repository to clone' 10
-	tui_type "git.$domain:stacks.git"
+	tui_type "git@git.$domain:stacks.git"
 	tui_send F2
 	expected=$(git_ed25519_fingerprint)
 	tui_wait "$(printf '%s' "$expected" | cut -c 1-30)" 60
 	tui_wait 'ssh-ed25519' 10
 	before=$(known_hosts_sum)
 	tui_send y
-	tui_wait "Clone git.$domain:stacks.git into /opt/stacks?" 30
+	tui_wait "Clone git@git.$domain:stacks.git into /opt/stacks?" 30
 	[ "$(known_hosts_sum)" = "$before" ] || fail 'the host key was pinned before the last question'
 	tui_send y
 	tui_wait 'The stack folder /opt/stacks is bound' 120
@@ -349,8 +349,8 @@ scenario_tui_setup() {
 	tui_wait 'DEMO_ECHO_TAG' 10
 	[ "$(docker exec "$host" cat /opt/stacks/demo-echo/secrets.env)" = "DEMO_ECHO_TAG='$tui_stack_value'" ] ||
 		fail "secrets.env does not hold the secret: $(docker exec "$host" cat /opt/stacks/demo-echo/secrets.env)"
-	[ "$(docker exec "$host" stat -c %U:%a /opt/stacks/demo-echo/secrets.env)" = qhost-deploy:600 ] || fail 'secrets.env has the wrong owner or mode'
-	[ -z "$(docker exec -u qhost-deploy "$host" git -C /opt/stacks status --porcelain)" ] || fail 'the secret made the working copy dirty'
+	[ "$(docker exec "$host" stat -c %U:%a /opt/stacks/demo-echo/secrets.env)" = root:600 ] || fail 'secrets.env has the wrong owner or mode'
+	[ -z "$(docker exec "$host" git -C /opt/stacks status --porcelain)" ] || fail 'the secret made the working copy dirty'
 
 	step 'Stacks: the first deploy of demo-echo succeeds; Compose prints the value and the run log hides it'
 	prev=$(newest_run demo-echo)

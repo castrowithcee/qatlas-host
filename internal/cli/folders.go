@@ -32,7 +32,7 @@ const (
 	stackFoldersDropIn = "/etc/systemd/system/qhost-deploy.service.d/10-stack-folders.conf"
 	// commitAuthor is the git identity of the commits the service makes; it is not the service account.
 	commitAuthor = "qhost"
-	// serviceAccount owns the stack folders the client creates; it is also the name of the deploy unit.
+	// serviceAccount is the name of the deploy unit of the system engine.
 	serviceAccount = "qhost-deploy"
 	// folderMode is the mode of a created stack folder.
 	folderMode = 0o755

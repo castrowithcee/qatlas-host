@@ -27,7 +27,8 @@ func inspectJSON(t *testing.T, path string, extra ...string) (raw string, fields
 }
 
 func TestSourceInspectAsRootShowsMissingPermissionsAndEffect(t *testing.T) {
-	useFolderHost(t)
+	d := useFolderHost(t)
+	d.useRootless(t)
 	tree := newFilesTree(t)
 	startFakeService(t, fakeHandlers{control.SourceInspectCommand: inspectWith(listedFilesInspect())})
 	raw, got := inspectJSON(t, tree.dir)
@@ -134,7 +135,8 @@ func TestSourceInspectWithoutRootHasNoEffect(t *testing.T) {
 }
 
 func TestSourceInspectEffectInTextAndTOON(t *testing.T) {
-	useFolderHost(t)
+	d := useFolderHost(t)
+	d.useRootless(t)
 	tree := newFilesTree(t)
 	startFakeService(t, fakeHandlers{control.SourceInspectCommand: inspectWith(listedFilesInspect())})
 	_, text, _ := run(t, "source", "inspect", tree.dir)
@@ -187,6 +189,7 @@ func (m *mutableInspect) set(f func(*control.SourceInspectResult)) {
 
 func TestSourceAddExpectEffectOfInspectApplies(t *testing.T) {
 	d := useFolderHost(t)
+	d.useRootless(t)
 	tree := newFilesTree(t)
 	insp := &mutableInspect{res: listedFilesInspect()}
 	handlers := addHandlers(insp.res)
@@ -218,6 +221,7 @@ func TestSourceAddExpectEffectMismatchChangesNothing(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			d := useFolderHost(t)
+			d.useRootless(t)
 			tree := newFilesTree(t)
 			insp := &mutableInspect{res: listedFilesInspect()}
 			handlers := addHandlers(insp.res)

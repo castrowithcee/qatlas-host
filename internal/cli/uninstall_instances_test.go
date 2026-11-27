@@ -65,7 +65,7 @@ func TestUninstallRemovesEveryInstanceAndKeepsUsersAndHomes(t *testing.T) {
 	if present(root, deploysetup.TemplatePath()) {
 		t.Error("the template stays")
 	}
-	if !strings.Contains(stdout, `"changed"`) || strings.Contains(strings.Join(*ran, "\n"), "userdel") {
+	if !strings.Contains(stdout, `"changed"`) || !onlyDeployAccountRemoved(*ran) {
 		t.Errorf("stdout %q, ran %v", stdout, *ran)
 	}
 	// An instance is stopped before its rule goes, and the template goes after the last instance.
