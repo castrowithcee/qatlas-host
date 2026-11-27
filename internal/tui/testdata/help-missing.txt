@@ -18,12 +18,6 @@ detail/clog
 proposals
 proposals/preview
 runs/clog
-settings
-settings/credentials
-settings/general
-settings/notifications
-settings/webhooks
-settings/window
 system
 system/changes
 system/folders
@@ -41,7 +35,6 @@ title:title.addkey
 title:title.adopt
 title:title.changefolder
 title:title.changeuser
-title:title.cred
 title:title.deleteuser
 title:title.discard
 title:title.editinvalid
@@ -51,10 +44,7 @@ title:title.filenew
 title:title.filerename
 title:title.freeresult
 title:title.freerun
-title:title.freeswitch
 title:title.grantexpiry
-title:title.hook
-title:title.hooklisten
 title:title.hostchange
 title:title.hostproposal
 title:title.hostproppassword
@@ -62,8 +52,6 @@ title:title.hostresult
 title:title.members
 title:title.newgroup
 title:title.newuser
-title:title.notify
-title:title.notifydetail
 title:title.propapprove
 title:title.propreject
 title:title.propsecrets
@@ -74,7 +62,3 @@ title:title.renamegroup
 title:title.rollback
 title:title.secretssaved
 title:title.usersecret
-title:title.window
-title:title.window.own
-title:title.window.ownset
-title:title.window.reset
