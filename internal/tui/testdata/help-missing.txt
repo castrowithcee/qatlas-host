@@ -11,9 +11,7 @@ action:stackstop
 action:unpause
 action:unpin
 action:update
-containers
 containers/clog
-containers/detail
 detail/clog
 proposals
 proposals/preview
@@ -28,11 +26,9 @@ system/log
 system/proposals
 system/users
 system/users/pick
-title:move.title
 title:setting.done.title
 title:title.addgroups
 title:title.addkey
-title:title.adopt
 title:title.changefolder
 title:title.changeuser
 title:title.deleteuser
