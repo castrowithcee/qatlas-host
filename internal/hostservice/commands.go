@@ -69,6 +69,11 @@ func (s *server) registry(store *proposals.Store) (*control.Registry, map[string
 			return nil, nil, err
 		}
 	}
+	// The CPU measurement waits briefly, so it follows the context of the request.
+	if err := add(control.HostUsageCommand, auditlog.OperationUsageRead, control.ClassRead,
+		func(ctx context.Context, _ json.RawMessage) (any, error) { return s.usageSource.Read(ctx) }); err != nil {
+		return nil, nil, err
+	}
 	if err := proposalCommands(add, store, s.commandSwitch.Enabled); err != nil {
 		return nil, nil, err
 	}
