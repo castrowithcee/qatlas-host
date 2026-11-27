@@ -13,7 +13,7 @@ func All() []helptopics.Topic {
 		{Name: "hook-setup", Short: "The webhook receiver as its own service: setup, address, port, HTTPS through a reverse proxy, and what it may and may not do", Text: hookServiceTopic},
 		{Name: "credentials", Short: "The deploy keys and stored credentials", Text: credentialsTopic},
 		{Name: "repository", Short: "Binding the stacks repository and trusting its host key", Text: repositoryTopic},
-		{Name: "sources", Short: "Several stack folders on one host: taking over a folder, ids, deploy keys, unique stack names, and showing or discarding uncommitted changes", Text: sourcesTopic},
+		{Name: "sources", Short: "Several stack folders on one host: taking over a folder, ids, deploy keys, unique stack names, their history, and showing or discarding uncommitted changes", Text: sourcesTopic},
 		{Name: "stack-capabilities", Short: "What qhost can do with a stack's files, and what qhost stack check reports", Text: stackCapabilitiesTopic},
 		{Name: "stack-settings", Short: "Stack settings", Text: stackSettingsTopic},
 		{Name: "runs", Short: "Runs of a stack: the fixed Git tag after a successful run and rollback, and the tag-rejected finding", Text: runsTopic},
@@ -55,6 +55,8 @@ Commands:
 - qhost source remove <path> [--yes]: release a stack folder after a question; no file is deleted and no container is stopped (run with sudo; see qhost help sources)
 - qhost source changes <path> [--engine <engine>]: list the uncommitted changes of a bound stack folder that keep its stacks out of a run, all stacks in one list, each with its path below the folder, its kind (modified, new, deleted) and its stack; changes nothing (runs without sudo for an administrator in the group qhost; see qhost help sources)
 - qhost source diff <path> <file> [--engine <engine>]: show the diff of one such change, cut after 256 KiB; it shows file contents, so only root may ask (run with sudo; see qhost help sources)
+- qhost source log <path> [--engine <engine>] [--limit <n>]: list the latest commits of a bound stack folder, newest first, each with short id, date, author, subject and the paths it changed with their kind, without contents; paths and commits left out by a limit are marked (runs without sudo for an administrator in the group qhost; see qhost help sources)
+- qhost source show <path> <commit> [--engine <engine>]: show the diff of one commit of that list, cut after 256 KiB; it shows file contents, so only root may ask (run with sudo; see qhost help sources)
 - qhost source discard <path> <file>... [--yes] [--engine <engine>]: after a question (--yes answers it; without a terminal it is required) take the changes at the named files back, a modified or deleted file restored from the last commit and a new file removed because it is named; anything else is refused and nothing changes (run with sudo; see qhost help sources)
 - qhost source commit <path> <file>... --head <commit> [--engine <engine>]: commit exactly the named changes of a bound stack folder, deletions included, and push them when the source has a remote; the stacks run at once afterwards (run with sudo; see qhost help sources)
 - qhost stack list: list the stacks of the working copy of every deploy service with engine, image versions, update mode and whether the stack is stopped (runs without sudo for an administrator in the group qhost)
