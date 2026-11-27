@@ -106,14 +106,12 @@ func TestMigrateNamesTheCommandToRetryAfterAFailure(t *testing.T) {
 	}
 }
 
-func TestMigrateWithoutTransitionsChangesNothingAndNeedsRoot(t *testing.T) {
+func TestMigrateOnAHostWithoutTheDeployServiceChangesNothingAndNeedsRoot(t *testing.T) {
 	signer := releasetest.NewSigner(t)
 	h := useFakeHost(t, newFakeReleases(t, signer, false, "v0.1.0"), signer, "v0.1.0")
-	if len(transitions) != 0 {
-		t.Fatalf("this release registers transitions %v; the test expects none", transitions)
-	}
 	code, stdout, stderr := run(t, "update", "migrate", "--output", "json")
-	if code != 0 || stderr != "" || strings.ReplaceAll(stdout, " ", "") != `{"transitions":0,"applied":""}`+"\n" {
+	if code != 0 || stderr != "transition deploy-service-as-root: already done\n" ||
+		strings.ReplaceAll(stdout, " ", "") != `{"transitions":1,"applied":""}`+"\n" {
 		t.Fatalf("code %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 	useTestTransition(t, nil)
