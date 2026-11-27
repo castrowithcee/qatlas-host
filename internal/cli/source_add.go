@@ -59,8 +59,8 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			"users for containers of the stack folders and names each conflict with its engine, and the engines it\n" +
 			"could not check. Conflicts only warn: the question says deploying would create duplicate containers\n" +
 			"and take their ports twice, and the folder can still be taken over.\n" +
-			"When the service cannot write the folder or its .git, add gives them to the group of the service account\n" +
-			"as root: the group of the folder, of the folders of versioned files and of .git, group write and setgid\n" +
+			"For a rootless engine, when its service cannot write the folder or its .git, add gives them to the group\n" +
+			"of the user of the instance as root: the group of the folder, of the folders of versioned files and of .git, group write and setgid\n" +
 			"on folders, group read and write on versioned files (for a folder of files, the listed files) and on\n" +
 			"files in .git, and core.sharedRepository group. The owner never changes. Bind-mount sources of the stacks and everything below, unversioned\n" +
 			"files and folders, symbolic links and paths outside the folder stay as they are. The folder is then added\n" +
@@ -582,7 +582,7 @@ func previewSourceAdd(w io.Writer, t engineTarget, res control.SourceInspectResu
 // out with the reason, and where each part is recorded.
 func filesPreview(res control.SourceInspectResult) []string {
 	lines := []string{
-		fmt.Sprintf("Start a git repository in %s (branch main, core.sharedRepository=group) and bind it as a local source.", res.Path),
+		fmt.Sprintf("Start a git repository in %s (branch main) and bind it as a local source.", res.Path),
 		"The first commit is made as " + commitAuthor + ".",
 	}
 	lines = append(lines, fileListLines(res, "The first commit takes", nil)...)
@@ -593,7 +593,7 @@ func filesPreview(res control.SourceInspectResult) []string {
 func filesRemotePreview(res control.SourceInspectResult, remote *filesRemote) []string {
 	branch := remote.cmp.Branch
 	lines := []string{
-		fmt.Sprintf("Start a git repository in %s (branch %s, core.sharedRepository=group) on the history of %s and bind it as a remote source.",
+		fmt.Sprintf("Start a git repository in %s (branch %s) on the history of %s and bind it as a remote source.",
 			res.Path, branch, remote.address),
 	}
 	if remote.cmp.State == control.SourceRemoteDifferent {

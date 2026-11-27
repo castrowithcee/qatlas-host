@@ -92,7 +92,7 @@ func TestSourceAddFilesWithoutConfirmationChangesNothing(t *testing.T) {
 		t.Fatalf("code %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 	for _, want := range []string{
-		"Case files", "Start a git repository", "branch main", "core.sharedRepository=group",
+		"Case files", "Start a git repository", "branch main",
 		"first commit is made as qhost.", "takes 3 files", "  compose.yaml",
 		"big.bin: too-large", "data: bind-mount (stack demo)", "kept out of git by .gitignore:",
 		"Create .gitignore with a block marked by qhost of 4 lines; the first commit holds it:", "  /big.bin", "  /notes.txt",
