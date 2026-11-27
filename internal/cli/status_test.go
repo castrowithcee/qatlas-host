@@ -246,6 +246,22 @@ func TestObservationInStatusFields(t *testing.T) {
 	}
 }
 
+func TestUnreadableSourceInStatusFields(t *testing.T) {
+	got := map[string]any{}
+	for _, f := range engineFields(control.EngineSystem, control.EngineStatus{Sources: []control.SourceStatus{
+		{ID: "srv", Path: "/srv/stacks", Kind: "local", Unreadable: "/state/deploy/state.json: format number 3 is newer than the 2 this version reads"},
+		{ID: "ok", Path: "/srv/more", Kind: "local"},
+	}}) {
+		got[f.Name] = f.Value
+	}
+	if want := "unreadable: /state/deploy/state.json: format number 3 is newer than the 2 this version reads"; got["source.srv.state"] != want {
+		t.Errorf("state = %v, want %q", got["source.srv.state"], want)
+	}
+	if _, ok := got["source.ok.state"]; ok {
+		t.Error("a readable source has a state field")
+	}
+}
+
 func TestFailedVersionsInStatusFields(t *testing.T) {
 	got := map[string]any{}
 	for _, f := range engineFields(control.EngineSystem, control.EngineStatus{Stacks: []control.StackStatus{

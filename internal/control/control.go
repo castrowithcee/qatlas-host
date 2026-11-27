@@ -260,15 +260,14 @@ type EngineStatus struct {
 	Stacks     []StackStatus  `json:"stacks"`
 }
 
-// The kinds SourceStatus.Kind takes. A remote source is a clone of a repository; a local one is a repository
-// without a remote that is deployed as it is.
+// The kinds SourceStatus.Kind takes: a clone of a repository, or a repository without a remote deployed as it is.
 const (
 	SourceKindRemote = "remote"
 	SourceKindLocal  = "local"
 )
 
-// SourceStatus is the state of one stack folder as of its last poll. PollError tells why the poll, its fetch
-// included, could not complete; Note why the working copy was not brought up to date.
+// SourceStatus is the state of one stack folder as of its last poll. PollError tells why the poll could not
+// complete, Note why the working copy was not updated, Unreadable which engine state cannot be read (no stacks then).
 type SourceStatus struct {
 	ID   string `json:"id"`
 	Path string `json:"path"`
@@ -282,6 +281,7 @@ type SourceStatus struct {
 	Note       string    `json:"note,omitempty"`
 	Head       string    `json:"head,omitempty"`
 	RemoteHead string    `json:"remote_head,omitempty"`
+	Unreadable string    `json:"unreadable,omitempty"`
 }
 
 // FindingNameCollision is the finding of a stack whose name a stack of another source already uses; it is

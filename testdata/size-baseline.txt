@@ -45,7 +45,6 @@ cx internal/cli/repo_test.go:TestCheckErrorsExitNonZeroInTextAndJSON 25
 cx internal/cli/repo_test.go:TestRepoSetWithFingerprintBindsAndStacksLists 18
 cx internal/cli/rollback_test.go:TestRollbackReturnsAndPinsTheStack 16
 cx internal/cli/secret_test.go:TestSecretRoundTripNeverShowsTheValue 27
-cx internal/cli/selfupdate.go:runSelfUpdate 16
 cx internal/cli/settings_test.go:TestStackListShowsTheUpdateTrigger 16
 cx internal/cli/settings_test.go:TestStackSettingsRemove 19
 cx internal/cli/settings_test.go:TestStackSettingsSetFromFileAndStdin 16
@@ -396,7 +395,6 @@ len internal/cli/proposal_run.go:runCommandProposal 97
 len internal/cli/repo.go:newRepoCommand 126
 len internal/cli/rollback.go:newRollbackCommand 66
 len internal/cli/secret.go:newSecretCommand 100
-len internal/cli/selfupdate.go:runSelfUpdate 68
 len internal/cli/settings.go:newSettingsCommand 105
 len internal/cli/source.go:newSourceCommand 66
 len internal/cli/source.go:sourceResult 122

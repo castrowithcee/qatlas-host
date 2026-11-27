@@ -91,3 +91,27 @@ func TestSourceRemoteUnknownFolderNamesSourceList(t *testing.T) {
 		t.Fatalf("code %d, stderr %q", code, stderr)
 	}
 }
+
+func TestFailureOfRefusalHintFitsTheCode(t *testing.T) {
+	for _, tc := range []struct{ code, want string }{
+		{control.CodeInternal, "journalctl -u qhost-deploy"},
+		{control.CodeVersion, "same version"},
+		{control.CodeUnknownCommand, "same version"},
+		{control.CodeBadRequest, "run the command again"},
+		{control.CodeTooLarge, "run the command again"},
+	} {
+		t.Run(tc.code, func(t *testing.T) {
+			var f *cli.Failure
+			if !errors.As(failureOf(control.NewError(tc.code, "refused")), &f) {
+				t.Fatal("not a failure")
+			}
+			if !strings.Contains(f.NextStep, tc.want) {
+				t.Fatalf("next step %q, want %q", f.NextStep, tc.want)
+			}
+			sameVersion := strings.Contains(f.NextStep, "same version")
+			if sameVersion != (tc.code == control.CodeVersion || tc.code == control.CodeUnknownCommand) {
+				t.Fatalf("next step %q", f.NextStep)
+			}
+		})
+	}
+}

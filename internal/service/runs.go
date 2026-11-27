@@ -55,11 +55,7 @@ func runsAnswer(err error) error {
 func registerRunCommands(r *control.Registry, eng *sourceSet, version string, started time.Time, window func() *control.WindowResult) error {
 	commands := map[string]control.Command{
 		control.StatusCommand: reading(func(context.Context, json.RawMessage) (any, error) {
-			snaps, err := eng.snapshots()
-			if err != nil {
-				return nil, errors.New("the engine state cannot be read")
-			}
-			return control.StatusResult{Version: version, StartedAt: started, Engine: engineStatus(snaps), Window: window()}, nil
+			return control.StatusResult{Version: version, StartedAt: started, Engine: engineStatus(eng.snapshotsEach()), Window: window()}, nil
 		}),
 		control.DeployCommand: inStack(changing(func(ctx context.Context, raw json.RawMessage) (any, error) {
 			var a control.DeployArgs
@@ -168,6 +164,12 @@ func holdHandler(set func(context.Context, string, bool) (bool, error), on bool)
 func engineStatus(snaps []sourceSnapshot) control.EngineStatus {
 	res := control.EngineStatus{Sources: []control.SourceStatus{}, Stacks: []control.StackStatus{}}
 	for _, ss := range snaps {
+		if ss.err != nil {
+			res.Sources = append(res.Sources, control.SourceStatus{
+				ID: ss.conf.ID, Path: ss.conf.Path, Kind: ss.conf.Kind, URL: ss.conf.URL, Unreadable: unreadableText(ss.err),
+			})
+			continue
+		}
 		st := ss.snap.State
 		res.Sources = append(res.Sources, control.SourceStatus{
 			ID: ss.conf.ID, Path: ss.conf.Path, Kind: ss.conf.Kind, URL: ss.conf.URL, LastPoll: st.LastPoll, PollError: printable(st.PollError),

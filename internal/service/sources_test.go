@@ -199,6 +199,38 @@ func TestFetchErrorOfOneSourceLeavesTheOther(t *testing.T) {
 	wantCode(t, h.call(control.RepoFetchCommand, nil, nil), control.CodeRemote)
 }
 
+func TestUnreadableEngineStateOfOneSourceLeavesTheOther(t *testing.T) {
+	h := startWith(t, &fakeDeployer{})
+	h.withKey()
+	if _, err := h.set(h.srv.Key().Fingerprint); err != nil {
+		t.Fatal(err)
+	}
+	dir := h.addSource(moreStacks(false))
+	h.waitStatus("both sources deploy", func(st control.StatusResult) bool {
+		web := stacksNamed(st, "web-stack")
+		return len(stacksNamed(st, "demo-stack")) == 1 && len(web) == 1 && web[0].Deployed != ""
+	})
+	path := filepath.Join(h.state, "sources", sourceID(dir), "deploy", "state.json")
+	const doc = `{"schema":3,"stacks":{}}`
+	writeFile(t, path, doc)
+
+	var st control.StatusResult
+	if err := h.call(control.StatusCommand, nil, &st); err != nil {
+		t.Fatal(err)
+	}
+	srcs := st.Engine.Sources
+	if len(srcs) != 2 || srcs[0].Unreadable != "" || srcs[0].Head == "" ||
+		srcs[1].ID != sourceID(dir) || !strings.Contains(srcs[1].Unreadable, path) || !strings.Contains(srcs[1].Unreadable, "format number 3") {
+		t.Fatalf("sources = %+v", srcs)
+	}
+	if len(stacksNamed(st, "demo-stack")) != 1 || len(stacksNamed(st, "web-stack")) != 0 {
+		t.Fatalf("stacks = %+v", st.Engine.Stacks)
+	}
+	if got := readState(t, h.state, dir); got != doc {
+		t.Fatalf("the unreadable state changed: %s", got)
+	}
+}
+
 func TestRepoFetchWithDirFetchesOnlyThatFolder(t *testing.T) {
 	d := &fakeDeployer{}
 	h := bound(t, d)
