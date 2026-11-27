@@ -138,11 +138,10 @@ func newDeploySetupCommand(program *cobracli.Program) *cobra.Command {
 	var target setupTarget
 	cmd := &cobra.Command{
 		Use:   "setup [--rootless <user>]",
-		Short: "Set up the deploy service as its own system user, or for the rootless engine of a user",
-		Long: "setup creates what the deploy service needs and starts it: the system user and group qhost-deploy, with the\n" +
-			"group docker as its only extra group and no login, its channel directory (made at every boot by\n" +
+		Short: "Set up the deploy service as root in a sandbox, or for the rootless engine of a user",
+		Long: "setup creates what the deploy service needs and starts it: its channel directory (made at every boot by\n" +
 			"/etc/tmpfiles.d/qhost-deploy.conf) and the unit qhost-deploy.service, which it enables and starts. The\n" +
-			"user qhost-deploy never joins the group qhost and cannot reach the host service.\n" +
+			"service runs as root in a systemd sandbox, creates no account and cannot reach the host service.\n" +
 			"With --rootless <user> it sets up an instance for the rootless Docker engine of an existing user instead:\n" +
 			"the unit qhost-deploy@<user>.service from the template qhost-deploy@.service runs as that user with its\n" +
 			"own state /var/lib/qhost-deploy-<user>, its channel /run/qhost-deploy-<user> (made at every boot by\n" +

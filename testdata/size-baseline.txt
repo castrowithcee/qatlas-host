@@ -59,7 +59,7 @@ cx internal/cli/source_engine_test.go:TestSourceAddIntoARootlessEngineUsesItsIns
 cx internal/cli/source_expect_test.go:TestSourceAddFilesWithURLExpectStateAndCommit 17
 cx internal/cli/source_move.go:addMoveHost 32
 cx internal/cli/source_move_run_test.go:TestSourceMoveRunsDownRenamePermissionsCommitAndDeployInThisOrder 16
-cx internal/cli/source_move_run_test.go:startMove 28
+cx internal/cli/source_move_run_test.go:startMove 25
 cx internal/cli/source_perms.go:planPermissions 18
 cx internal/cli/source_remote.go:compareFields 26
 cx internal/cli/source_remote_test.go:TestSourceAddFilesWithURLYesPassesTheShownState 18
@@ -324,10 +324,10 @@ cx internal/window/window_test.go:TestParseStartDurationZone 16
 file internal/backup/backup.go 710
 file internal/cli/proposal.go 556
 file internal/cli/source_add.go 763
-file internal/cli/source_move_run.go 670
+file internal/cli/source_move_run.go 622
 file internal/cli/tui_backend.go 779
 file internal/compose/datadirs.go 518
-file internal/control/control.go 2104
+file internal/control/control.go 2103
 file internal/credentials/credentials.go 581
 file internal/diagnose/diagnose.go 625
 file internal/engine/engine.go 1184
@@ -373,7 +373,7 @@ len internal/cli/cli_test.go:TestCommandTree 64
 len internal/cli/container_engines.go:locateContainer 98
 len internal/cli/container_logs.go:newContainerLogs 62
 len internal/cli/credential.go:newCredentialCommand 95
-len internal/cli/deploy_setup.go:newDeploySetupCommand 67
+len internal/cli/deploy_setup.go:newDeploySetupCommand 66
 len internal/cli/engine_router.go:folderHost.locate 65
 len internal/cli/hostchange_test.go:newChangeFixture 67
 len internal/cli/hostproposal.go:applyProposal 118
@@ -404,7 +404,7 @@ len internal/cli/source_add_test.go:TestPermissionsPlanAndApplyTouchOnlyVersione
 len internal/cli/source_move.go:addMoveHost 119
 len internal/cli/source_move.go:moveResult 72
 len internal/cli/source_move.go:newSourceMoveCommand 64
-len internal/cli/source_move_run_test.go:startMove 123
+len internal/cli/source_move_run_test.go:startMove 109
 len internal/cli/source_remote.go:compareFields 83
 len internal/cli/stack_datadir.go:runDatadir 83
 len internal/cli/status.go:failureOf 148

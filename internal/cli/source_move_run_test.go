@@ -56,31 +56,19 @@ func exists(path string) bool {
 	return err == nil
 }
 
-// startMove makes a project folder and a source below a temporary folder and starts the fake service.
-func startMove(t *testing.T, change func(*moveFake)) *moveFake {
+// startMove makes a project folder and a source below a temporary folder and starts the fake service. It moves
+// in the rootless engine of alice, where the permissions of the moved folder are set, or with inSystemEngine in
+// the system engine, whose deploy service is root and gets no permission change.
+func startMove(t *testing.T, change func(*moveFake), inSystemEngine ...bool) *moveFake {
 	t.Helper()
-	useFolderHost(t)
+	if d := useFolderHost(t); len(inSystemEngine) == 0 || !inSystemEngine[0] {
+		d.useRootless(t)
+	}
 	oldWait, oldPoll := moveRunWait, movePoll
 	moveRunWait, movePoll = 5*time.Second, time.Millisecond
 	t.Cleanup(func() { moveRunWait, movePoll = oldWait, oldPoll })
 
-	base, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	f := &moveFake{t: t, path: filepath.Join(base, "legacy", "myapp"), into: filepath.Join(base, "stacks"), head: moveHead, runResult: "succeeded",
-		runs: []control.RunInfo{{ID: "20250101T000000Z-00000000", Stack: "myapp", Result: "failed"}}}
-	f.target = filepath.Join(f.into, "myapp")
-	for _, d := range []string{filepath.Join(f.path, "data"), f.into} {
-		if err := os.MkdirAll(d, 0o700); err != nil {
-			t.Fatal(err)
-		}
-	}
-	for name, text := range map[string]string{"compose.yaml": "services:\n  app:\n    image: registry.example.test/demo/web:1\n", ".env": "WEB_VERSION=1\n", "data/db.bin": "x"} {
-		if err := os.WriteFile(filepath.Join(f.path, name), []byte(text), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
+	f := newMoveFake(t)
 	if change != nil {
 		change(f)
 	}
@@ -181,6 +169,29 @@ func startMove(t *testing.T, change func(*moveFake)) *moveFake {
 	return f
 }
 
+// newMoveFake lays out the project folder with its files and the source folder below a temporary folder.
+func newMoveFake(t *testing.T) *moveFake {
+	t.Helper()
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &moveFake{t: t, path: filepath.Join(base, "legacy", "myapp"), into: filepath.Join(base, "stacks"), head: moveHead, runResult: "succeeded",
+		runs: []control.RunInfo{{ID: "20250101T000000Z-00000000", Stack: "myapp", Result: "failed"}}}
+	f.target = filepath.Join(f.into, "myapp")
+	for _, d := range []string{filepath.Join(f.path, "data"), f.into} {
+		if err := os.MkdirAll(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, text := range map[string]string{"compose.yaml": "services:\n  app:\n    image: registry.example.test/demo/web:1\n", ".env": "WEB_VERSION=1\n", "data/db.bin": "x"} {
+		if err := os.WriteFile(filepath.Join(f.path, name), []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return f
+}
+
 type moveOutput struct {
 	Result     string     `json:"result"`
 	Location   string     `json:"location"`
@@ -263,6 +274,17 @@ func TestSourceMoveRunsDownRenamePermissionsCommitAndDeployInThisOrder(t *testin
 	}
 	if exists(f.path) || permsOf(t, f.target)&fs.ModeSetgid == 0 || permsOf(t, filepath.Join(f.target, "data/db.bin")) != 0o600 {
 		t.Fatal("the folder is not in the source with the group bits, or the bind mount was changed")
+	}
+}
+
+func TestSourceMoveInTheSystemEngineSetsNoPermissions(t *testing.T) {
+	f := startMove(t, nil, true)
+	out := f.move(t, 0)
+	if out.Result != moveMoved || !slices.Equal(stepNames(out.Steps, "done"), []string{"down", "rename", "permissions", "commit", "deploy"}) {
+		t.Fatalf("output = %+v", out)
+	}
+	if permsOf(t, f.target)&(fs.ModeSetgid|0o070) != 0 {
+		t.Fatalf("the folder got group bits: %v", permsOf(t, f.target))
 	}
 }
 

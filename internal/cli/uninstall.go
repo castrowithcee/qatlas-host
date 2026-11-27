@@ -52,7 +52,7 @@ func newUninstallCommand(program *cobracli.Program) *cobra.Command {
 		Long: "uninstall stops and disables the host service qhost and, if it is set up, the deploy service qhost-deploy, and\n" +
 			"deletes the program, both units, the drop-in of the deploy unit, /etc/tmpfiles.d/qhost-deploy.conf with its\n" +
 			"channel directory and the manpages. The state of both services, the configuration of the deploy services, the\n" +
-			"journal of the host changes, the system users qhost and qhost-deploy and the group qhost stay.\n" +
+			"journal of the host changes, the system user qhost and the group qhost stay.\n" +
 			"With --purge it also deletes /var/lib/qhost, /var/lib/qhost-deploy (credentials and backups included),\n" +
 			"/etc/qhost-deploy (the host window), /var/lib/qhost-host (the journal) and the users and groups; that cannot\n" +
 			"be undone.\n" +

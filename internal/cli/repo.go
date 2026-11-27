@@ -44,8 +44,8 @@ func newRepoCommand(program *cobracli.Program, state *notRunning) *cobra.Command
 			"folder --dir, which is required and can be any absolute path, also under /mnt or /srv. The URL is\n" +
 			"user@host:path or ssh://[user@]host[:port]/path. The folder must be empty or already a clone of this\n" +
 			"URL. A folder that does not exist is created only after you confirmed its exact path: by answering\n" +
-			"the question at a terminal or by passing --create; it gets the mode 0755 and the owner and group of the\n" +
-			"service account (qhost-deploy, or the user of the instance with --engine).\n" +
+			"the question at a terminal or by passing --create; it gets the mode 0755 and is owned by root:root, or by\n" +
+			"the user of the instance with --engine.\n" +
 			"--engine names the Docker engine the folder belongs to: system (the default) or rootless:<user>, for a\n" +
 			"user whose deploy service instance is set up ('qhost deploy-service setup --rootless <user>'). The\n" +
 			"instance of that engine clones, deploys and runs the stacks; the system engine does not start them. Before\n" +

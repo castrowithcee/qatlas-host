@@ -41,7 +41,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"without a repository; the first commit would take the listed files and leave out the listed ones with\n" +
 			"the reason) or reject (with the reason and what to do). It shows the owner, group and mode of the\n" +
 			"folder, whether the service can write there and whether source add would have to set permissions\n" +
-			"(group qhost-deploy, group write, setgid), and per stack the functions, the findings and the containers\n" +
+			"(only for a rootless engine: group of the instance user, group write, setgid), and per stack the functions, the findings and the containers\n" +
 			"that run in the stack's folder: those of other Compose projects in the Docker engine of the service,\n" +
 			"and every container of the folder, also under the stack's own project name, in the rootless Docker\n" +
 			"engines of the host's users. Each conflict names its engine, system or rootless:<user>. A rootless\n" +

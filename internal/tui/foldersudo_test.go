@@ -192,7 +192,7 @@ func TestFolderAddWithoutRootShowsThePlanAndTheMissingFolder(t *testing.T) {
 	send(m, "y")
 	send(m, typed(repoURL)...)
 	send(m, "f2", "y", "y")
-	contains(t, m, "Clone "+repoURL+" into "+cloneDir, "created with owner qhost-deploy:qhost-deploy")
+	contains(t, m, "Clone "+repoURL+" into "+cloneDir, "created with owner root:root")
 }
 
 // A clone asks before the probe, which asks the git server, then the host key, then the last question with the

@@ -69,10 +69,11 @@ func (t engineTarget) unit() string {
 	return t.inst.Unit()
 }
 
-// account is the user the deploy service runs as; it owns the stack folders the client creates.
+// account is the user that owns the stack folders the client creates: root for the system engine, whose deploy
+// service runs as root, and the user of the instance for a rootless engine.
 func (t engineTarget) account() string {
 	if t.inst == nil {
-		return serviceAccount
+		return "root"
 	}
 	return t.inst.User()
 }

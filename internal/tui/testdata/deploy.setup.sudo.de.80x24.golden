@@ -1,18 +1,18 @@
 ◆ qhost                                                                [?] Hilfe
   [1 Stacks] 2 3 4 5 6 7                                                        
 ────────────────────────────────────────────────────────────────────────────────
-  Der De╔═ Deploy-Dienst ══════════════════════════════════════════════╗us und  
-  hält s║ ⚠ Den Deploy-Dienst jetzt einrichten?                        ║ienst   
-  und ha║                                                              ║sudo    
-  qhost ║ Das legt den Systembenutzer qhost-deploy in der Gruppe       ║        
-        ║ docker, seinen Kanal und seine Unit an und startet den       ║        
-        ║ Dienst. Der Host-Dienst bekommt keinen Zugriff auf Docker.   ║        
-        ║ Diese Schritte laufen als root:                              ║        
-        ║ $ groupadd --system qhost-deploy                             ║        
-        ║ $ useradd --system --gid qhost-deploy --no-create-home       ║        
-        ║   --home-dir /var/lib/qhost-deploy --shell /usr/sbin/nologin ║        
-        ║   qhost-deploy                                               ║        
-        ║ $ usermod --append --groups docker qhost-deploy              ║        
+  Der Deploy-Dienst ist noch nicht eingerichtet. Er rollt deine Stacks aus und  
+  hält s╔═ Deploy-Dienst ══════════════════════════════════════════════╗ienst   
+  und ha║ ⚠ Den Deploy-Dienst jetzt einrichten?                        ║sudo    
+  qhost ║                                                              ║        
+        ║ Das legt seinen Kanal und seine Unit an und startet den      ║        
+        ║ Dienst als root, von systemd auf die Stack-Ordner und den    ║        
+        ║ eigenen Zustand begrenzt. Der Host-Dienst bekommt keinen     ║        
+        ║ Zugriff auf Docker. Diese Schritte laufen als root:          ║        
+        ║ $ write /etc/tmpfiles.d/qhost-deploy.conf (mode 0644): d     ║        
+        ║   /run/qhost-deploy 2750 root qhost -                        ║        
+        ║ $ systemd-tmpfiles --create                                  ║        
+        ║   /etc/tmpfiles.d/qhost-deploy.conf                          ║        
         ║ $ systemctl enable --now qhost-deploy                        ║        
         ║ $ sudo qhost deploy-service setup --confirm --yes --output   ║        
         ║   json                                                       ║        

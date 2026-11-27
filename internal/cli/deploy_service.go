@@ -34,7 +34,7 @@ func newDeployServiceCommand(program *cobracli.Program) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deploy-service",
 		Short: "Set up the deploy service",
-		Long: "The deploy service rolls out the stacks. It runs as its own system user qhost-deploy beside the host service\n" +
+		Long: "The deploy service rolls out the stacks. It runs as root in a systemd sandbox beside the host service\n" +
 			"and exists only after 'sudo qhost deploy-service setup'. The rootless Docker engine of a user gets its own\n" +
 			"instance, which runs as that user, after 'sudo qhost deploy-service setup --rootless <user>'; see\n" +
 			"'qhost help deploy-setup'.",

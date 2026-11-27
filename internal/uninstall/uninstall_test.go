@@ -253,6 +253,7 @@ func TestUninstallRemovesServicesAndKeepsStateAndStacks(t *testing.T) {
 		t.Errorf("the sentence does not name the receiver: %q", plan.Sentence())
 	}
 	assertOnlyDeployAccountRemoved(t, plan)
+	assertDeployAccountNamed(t, plan)
 	again, err := f.host().Plan(false, testPages, nil)
 	if err != nil || !again.Empty() {
 		t.Fatalf("repeated plan: %v, %q", err, again.Commands())
@@ -320,6 +321,9 @@ func TestUninstallWithoutDeployServiceTouchesOnlyTheHostService(t *testing.T) {
 	plan := apply(t, f, false)
 	if strings.Contains(plan.Sentence(), "qhost-hook") {
 		t.Errorf("the sentence names a receiver that is not there: %q", plan.Sentence())
+	}
+	if strings.Contains(plan.Sentence(), "qhost-deploy of an earlier setup") {
+		t.Errorf("the sentence names an account that is not there: %q", plan.Sentence())
 	}
 	want := []string{"systemctl disable --now qhost", "systemctl daemon-reload"}
 	if !slices.Equal(f.ran, want) {
@@ -479,6 +483,16 @@ func TestUninstallWithoutAnAccountOfTheDeployServiceRemovesNone(t *testing.T) {
 }
 
 // Without --purge the users and groups of the receiver and the host service stay.
+// assertDeployAccountNamed checks that the sentence of a plan without purge names the removal of qhost-deploy
+// without contradicting what stays.
+func assertDeployAccountNamed(t *testing.T, plan Plan) {
+	t.Helper()
+	if s := plan.Sentence(); !strings.Contains(s, "The system user and group qhost-deploy of an earlier setup are deleted too") ||
+		!strings.Contains(s, "the user qhost and the group qhost stay") {
+		t.Errorf("the sentence does not name the removal of qhost-deploy: %q", s)
+	}
+}
+
 func assertOnlyDeployAccountRemoved(t *testing.T, plan Plan) {
 	t.Helper()
 	for _, c := range plan.Commands() {

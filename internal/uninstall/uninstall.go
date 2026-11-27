@@ -111,13 +111,15 @@ func (p Plan) Commands() []string {
 // Sentence says in plain words what the removal does and what stays.
 func (p Plan) Sentence() string {
 	s := "Remove qhost and the deploy service from this host: both services are stopped and disabled, and the program, " +
-		"the units, the drop-in of the deploy unit, the rule of its channel and the manpages are deleted. A system user " +
-		"and group qhost-deploy of an earlier setup are deleted too, if they exist."
-	keep := " The state of both services, the configuration of the deploy services with the host window, the journal of the host changes, the users and the group stay."
+		"the units, the drop-in of the deploy unit, the rule of its channel and the manpages are deleted."
+	deploy := p.removesDeployAccount()
+	if deploy && !p.Purge {
+		s += " The system user and group qhost-deploy of an earlier setup are deleted too."
+	}
+	keep := " The state of both services, the configuration of the deploy services with the host window, the journal of the host changes, the user qhost and the group qhost stay."
 	if p.Purge {
 		s += " The state and the log of both services, including credentials and backups, the configuration of the deploy " +
-			"services with the host window, the journal of the host changes, the system users qhost and qhost-deploy and the group qhost " +
-			"are deleted too, and they cannot be restored."
+			"services with the host window, the journal of the host changes, " + purgedAccounts(deploy) + " are deleted too, and they cannot be restored."
 		keep = ""
 	}
 	if len(p.Instances) > 0 {

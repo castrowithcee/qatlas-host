@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"github.com/castrowithcee/qatlas-kit/localipc"
+
 	"context"
 	"errors"
 	"os"
@@ -12,6 +14,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/channeltest"
 	"github.com/castrowithcee/qatlas-host/internal/deploysetup"
 	"github.com/castrowithcee/qatlas-host/internal/rootless"
+	"github.com/castrowithcee/qatlas-host/internal/tui"
 )
 
 // hostDouble stands in for the host: a temporary root for /etc, a recorded systemctl and a service that
@@ -33,6 +36,37 @@ type hostDouble struct {
 	// owners are the accounts asked for their ids; instanceList is what the host lists as set up.
 	owners       []string
 	instanceList []deploysetup.Instance
+	// alice is the channel of the rootless engine that useRootless sets up.
+	alice localipc.ServiceEndpoint
+}
+
+// rootlessDefault is the host double whose rootless engine of alice the source helpers act on, or nil for the
+// system engine.
+var rootlessDefault *hostDouble
+
+// rootlessCtx targets the rootless engine of alice, the only kind of engine that gets a permission plan.
+func rootlessCtx() context.Context {
+	inst, err := deploysetup.NewInstance("alice")
+	if err != nil {
+		panic(err)
+	}
+	return withEngine(context.Background(), engineTarget{inst: &inst})
+}
+
+// rootlessEngineCtx is what the interface passes for the rootless engine of alice, set up on d.
+func rootlessEngineCtx(t *testing.T, d *hostDouble) context.Context {
+	t.Helper()
+	engineHost(t, d, "alice")
+	return tui.WithEngine(context.Background(), "rootless:alice")
+}
+
+// useRootless makes startFakeService serve the rootless engine of alice and run add --engine rootless:alice,
+// because only a rootless engine gets a permission plan; the system engine is root and needs none.
+func (d *hostDouble) useRootless(t *testing.T) {
+	t.Helper()
+	d.alice = engineHost(t, d, "alice")["alice"]
+	rootlessDefault = d
+	t.Cleanup(func() { rootlessDefault = nil })
 }
 
 type lchownCall struct {
@@ -83,7 +117,11 @@ func useFolderHost(t *testing.T) *hostDouble {
 
 func (d *hostDouble) dropIn(t *testing.T) string {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(d.root, stackFoldersDropIn))
+	path := stackFoldersDropIn
+	if d.alice.Dir != "" {
+		path = d.instanceList[0].StackFoldersDropIn()
+	}
+	data, err := os.ReadFile(filepath.Join(d.root, path))
 	if err != nil {
 		return ""
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"strings"
 )
 
 // planAccounts adds the removal of the accounts: with purge the users and groups of both services and of the
@@ -56,4 +57,22 @@ func (h Host) dropGroup(ctx context.Context, name string) error {
 		return err
 	}
 	return h.run(ctx, "groupdel", name)
+}
+
+// removesDeployAccount reports whether the plan deletes the user or group qhost-deploy.
+func (p Plan) removesDeployAccount() bool {
+	for _, s := range p.Steps {
+		if strings.HasPrefix(s.Command, "userdel "+deployService) || strings.HasPrefix(s.Command, "groupdel "+deployService+" ") {
+			return true
+		}
+	}
+	return false
+}
+
+// purgedAccounts names the accounts a purge deletes.
+func purgedAccounts(deploy bool) string {
+	if deploy {
+		return "the system users qhost and qhost-deploy and the group qhost"
+	}
+	return "the system user qhost and the group qhost"
 }

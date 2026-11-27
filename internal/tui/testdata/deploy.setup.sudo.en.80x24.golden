@@ -5,14 +5,14 @@
   runs a╔═ Deploy service ═════════════════════════════════════════════╗to      
   Docker║ ⚠ Set up the deploy service now?                             ║etup    
         ║                                                              ║        
-        ║ It creates the system user qhost-deploy in the group docker, ║        
-        ║ its channel and its unit, and starts the service. The host   ║        
-        ║ service gets no access to Docker. These steps run as root:   ║        
-        ║ $ groupadd --system qhost-deploy                             ║        
-        ║ $ useradd --system --gid qhost-deploy --no-create-home       ║        
-        ║   --home-dir /var/lib/qhost-deploy --shell /usr/sbin/nologin ║        
-        ║   qhost-deploy                                               ║        
-        ║ $ usermod --append --groups docker qhost-deploy              ║        
+        ║ It creates its channel and its unit and starts the service   ║        
+        ║ as root, locked down by systemd to the stack folders and its ║        
+        ║ own state. The host service gets no access to Docker. These  ║        
+        ║ steps run as root:                                           ║        
+        ║ $ write /etc/tmpfiles.d/qhost-deploy.conf (mode 0644): d     ║        
+        ║   /run/qhost-deploy 2750 root qhost -                        ║        
+        ║ $ systemd-tmpfiles --create                                  ║        
+        ║   /etc/tmpfiles.d/qhost-deploy.conf                          ║        
         ║ $ systemctl enable --now qhost-deploy                        ║        
         ║ $ sudo qhost deploy-service setup --confirm --yes --output   ║        
         ║   json                                                       ║        

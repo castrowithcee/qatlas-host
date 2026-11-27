@@ -17,8 +17,8 @@
     Rechte werden gesetzt: nein                         
                                                         
   Änderungen nach Ja                                    
-    Der Ordner wird mit Eigentümer qhost-deploy:qhost-  
-    deploy und Modus 0755 angelegt.                     
+    Der Ordner wird mit Eigentümer root:root und Modus  
+    0755 angelegt.                                      
     Der Hostschlüssel wird gespeichert und das          
     Repository in den Ordner geklont.                   
 y weiter  n/esc/enter abbrechen      ↑/↓ Scrollen  20/24

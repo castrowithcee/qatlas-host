@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -48,7 +47,7 @@ func TestPlanAccessTakesOnlyTheUnreadableEnvFilesItCanTrust(t *testing.T) {
 	res.Path = tree.dir
 	before := tree.snapshot(t)
 
-	plan, err := planAccess(context.Background(), res)
+	plan, err := planAccess(rootlessCtx(), res)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +77,7 @@ func TestPlanAccessWithoutUnreadableEnvFilesIsNil(t *testing.T) {
 	tree := newPermTree(t)
 	res := envInspect("demo/link")
 	res.Path = tree.dir
-	if plan, err := planAccess(context.Background(), res); err != nil || plan != nil {
+	if plan, err := planAccess(rootlessCtx(), res); err != nil || plan != nil {
 		t.Fatalf("plan %+v, err %v", plan, err)
 	}
 }
@@ -88,7 +87,7 @@ func TestApplyEnvFilesSetsOnlyTheGroupAndGroupRead(t *testing.T) {
 	tree := newPermTree(t)
 	res := envInspect("demo/secrets.env")
 	res.Path = tree.dir
-	plan, err := planAccess(context.Background(), res)
+	plan, err := planAccess(rootlessCtx(), res)
 	if err != nil || plan == nil {
 		t.Fatalf("plan %+v, err %v", plan, err)
 	}
@@ -116,7 +115,7 @@ func TestApplyEnvFilesSkipsAFileThatBecameALink(t *testing.T) {
 	tree := newPermTree(t)
 	res := envInspect("demo/secrets.env")
 	res.Path = tree.dir
-	plan, err := planAccess(context.Background(), res)
+	plan, err := planAccess(rootlessCtx(), res)
 	if err != nil || plan == nil {
 		t.Fatalf("plan %+v, err %v", plan, err)
 	}
@@ -138,6 +137,7 @@ func TestApplyEnvFilesSkipsAFileThatBecameALink(t *testing.T) {
 
 func TestSourceAddPlansEnvFilesWhenTheServiceCanWriteTheFolder(t *testing.T) {
 	d := useEnvGroup(t)
+	d.useRootless(t)
 	tree := newPermTree(t)
 	svc := startFakeService(t, addHandlers(envInspect("demo/secrets.env")))
 	useStdin(t, strings.NewReader(""))
@@ -164,7 +164,7 @@ func TestSourceEffectCoversTheEnvFiles(t *testing.T) {
 	effect := func(files ...string) string {
 		res := envInspect(files...)
 		res.Path = tree.dir
-		perms, err := planAccess(context.Background(), res)
+		perms, err := planAccess(rootlessCtx(), res)
 		if err != nil {
 			t.Fatal(err)
 		}
