@@ -26,12 +26,6 @@ runs
 runs/clog
 runs/log
 runs/setup
-settings
-settings/credentials
-settings/general
-settings/notifications
-settings/webhooks
-settings/window
 stacks
 stacks/changes
 stacks/key
@@ -65,7 +59,6 @@ title:title.commit
 title:title.commitrefused
 title:title.compose
 title:title.composefiles
-title:title.cred
 title:title.datadirs
 title:title.deleteuser
 title:title.diff
@@ -80,13 +73,10 @@ title:title.folders
 title:title.folderurl
 title:title.freeresult
 title:title.freerun
-title:title.freeswitch
 title:title.grant
 title:title.grantexpiry
 title:title.grantremove
-title:title.hook
 title:title.hookadd
-title:title.hooklisten
 title:title.hookremove
 title:title.hooksecret
 title:title.hostchange
@@ -99,8 +89,6 @@ title:title.keystore
 title:title.members
 title:title.newgroup
 title:title.newuser
-title:title.notify
-title:title.notifydetail
 title:title.promote
 title:title.promotepick
 title:title.propapprove
@@ -120,7 +108,3 @@ title:title.settingsremove
 title:title.tags
 title:title.updaterules
 title:title.usersecret
-title:title.window
-title:title.window.own
-title:title.window.ownset
-title:title.window.reset
