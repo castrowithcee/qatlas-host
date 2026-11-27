@@ -7,9 +7,10 @@
 # marker folder name root and qhost-hook, the account and the group qhost-deploy are gone, the state belongs to
 # root, the run history stays, the state in format 1 is read, the journal shows the transition deploy-service-as-root,
 # status and the terminal interface answer and the manpage of the setup is the one of the program. The .git that
-# $old_release made group-writable for its service user is refused with the finding git-unsafe until sudo qhost
-# source secure makes it root-only; then a new run succeeds. After a restart of the host, which makes /run afresh, the services start again and the start step
-# reports the transition as already done.
+# $old_release made group-writable for its service user is root-only without core.sharedRepository, the journal shows
+# the transition stack-git-root-only with the folder, no finding git-unsafe shows and a new run succeeds, all without
+# source secure. After a restart of the host, which makes /run afresh, the services start again and the start step
+# reports both transitions as already done.
 # Needs no other section, but a host without qhost: it runs alone or after uninstall, the last section of the full
 # run, whose leftover drop-in of the deploy unit it removes.
 # Sourced by run.sh; defines only functions and constants.
@@ -192,32 +193,28 @@ EOF
 	if tui_has 'qhost-exit='; then fail "the interface ended: $(tui_screen)"; fi
 	tui_tmux kill-server >/dev/null 2>&1 || true
 
-	step "the .git that $old_release made group-writable is refused until source secure makes it root-only, then a run succeeds"
-	wait_for 'old-demo without a run in progress' 60 stack_idle old-demo
-	out=$(qd_fails stack deploy old-demo) || fail "a run in the group-writable .git started: $out"
-	printf '%s' "$out" | grep -qF 'git is not run in this folder: .git can be written by a group or by others' ||
-		fail "the refused run does not name the group-writable .git: $out"
-	wait_for 'the finding git-unsafe' 60 git_unsafe_shown "$or_base"
-	out=$(as_admin "sudo qhost source secure $or_base --yes 2>&1") || fail "source secure failed: $out"
+	step "the .git that $old_release made group-writable is root-only after the update without any other command, and a run succeeds"
+	or_journal "$since" | grep -q 'transition stack-git-root-only: applied' ||
+		fail "the journal does not show the transition stack-git-root-only: $(or_journal "$since")"
+	or_journal "$since" | grep -qF "stack-git-root-only: made .git of \"$or_base\" root-only" ||
+		fail "the journal does not name $or_base for the transition stack-git-root-only: $(or_journal "$since")"
 	[ -z "$(docker exec "$host" find "$or_base/.git" \( ! -user root -o ! -group root -o -perm /022 \) -print)" ] ||
-		fail ".git is not root-only after source secure: $(docker exec "$host" find "$or_base/.git" \( ! -user root -o ! -group root -o -perm /022 \) -print | head -n 5)"
+		fail ".git is not root-only after the update: $(docker exec "$host" find "$or_base/.git" \( ! -user root -o ! -group root -o -perm /022 \) -print | head -n 5)"
 	[ -z "$(docker exec "$host" git -c safe.directory="$or_base" -C "$or_base" config --get core.sharedRepository || true)" ] ||
-		fail 'source secure left core.sharedRepository'
-	# The finding goes at the next poll; the restart starts one.
-	restart_service
-	wait_for 'the finding git-unsafe to go' 60 or_git_safe
+		fail 'the update left core.sharedRepository'
 	wait_for 'old-demo without a run in progress' 60 stack_idle old-demo
-	out=$(qd --output json stack deploy old-demo) || fail "a run after source secure failed to start: $out"
+	or_git_safe || fail "the folder $or_base shows the finding git-unsafe after the update: $(qd source list)"
+	out=$(qd --output json stack deploy old-demo) || fail "a run after the update failed to start: $out"
 	run=$(printf '%s\n' "$out" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
-	[ -n "$run" ] || fail "deploy after source secure reported no run: $out"
-	wait_for "the run $run after source secure" 240 run_finished old-demo "$run"
-	qd stack log "$run" | grep -q ' result succeeded' || fail "the run after source secure did not succeed: $(qd stack log "$run")"
+	[ -n "$run" ] || fail "deploy after the update reported no run: $out"
+	wait_for "the run $run after the update" 240 run_finished old-demo "$run"
+	qd stack log "$run" | grep -q ' result succeeded' || fail "the run after the update did not succeed: $(qd stack log "$run")"
 	or_runs=$(stack_run_count old-demo)
 }
 
 # scenario_old_reboot restarts the host container of scenario_old_update, whose /run is a tmpfs: systemd boots,
 # the tmpfiles rules make the channel and the marker folder afresh, and the services start; the start step of the
-# deploy service reports the transition as already done.
+# deploy service reports both transitions as already done.
 scenario_old_reboot() {
 	step 'after a restart of the host the services start again and the start step reports the transition as already done'
 	since=$(docker exec "$host" date +%s)
@@ -226,8 +223,10 @@ scenario_old_reboot() {
 	wait_for 'the services after the restart' 90 service_serving
 	wait_for 'the webhook receiver after the restart' 30 hook_listening
 	or_moved
-	or_journal "$since" | grep -q 'transition deploy-service-as-root: already done' ||
-		fail "the start step after the restart does not report the done transition: $(or_journal "$since")"
+	for t in deploy-service-as-root stack-git-root-only; do
+		or_journal "$since" | grep -q "transition $t: already done" ||
+			fail "the start step after the restart does not report the done transition $t: $(or_journal "$since")"
+	done
 	if or_journal "$since" | grep -q -e 'transition .*: applied' -e 'manpages: updated'; then
 		fail "the start step after the restart changed something: $(or_journal "$since")"
 	fi

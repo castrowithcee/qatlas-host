@@ -234,7 +234,9 @@ const selfUpdateLong = "update replaces the installed program, its systemd unit 
 	"from its own, so the pages match the program even after an update from an older release that replaced only the\n" +
 	"main one. The deploy service also runs its own transitions and the manpage renewal in the start\n" +
 	"step of its unit, before it opens its channel, so the restart finishes them even where an older program replaced\n" +
-	"the files and did not run this step.\n" +
+	"the files and did not run this step. There it also makes the .git of the stack folders root-only that an earlier\n" +
+	"release shared with its service account, so they deploy again without 'qhost source secure'; a folder it cannot\n" +
+	"secure keeps the finding git-unsafe, and 'qhost status' names the next step.\n" +
 	"If deploy service instances for rootless engines are set up, the newly installed program then replaces the\n" +
 	"template unit qhost-deploy@.service where it differs, reloads systemd and restarts every instance; a failure there is a\n" +
 	"warning and does not undo the update, and 'sudo qhost deploy-service refresh-instances' repeats that step. Where the\n" +

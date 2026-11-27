@@ -69,7 +69,7 @@ func TestDeployServicePrepareMovesTheOldSetupWithoutTouchingItsOwnUnitAndARepeat
 	}
 	n := len(*commands)
 	code, _, stderr = run(t, "deploy-service", "prepare")
-	if code != 0 || stderr != "transition deploy-service-as-root: already done\n" || len(*commands) != n {
+	if code != 0 || stderr != "transition deploy-service-as-root: already done\ntransition stack-git-root-only: already done\n" || len(*commands) != n {
 		t.Fatalf("repeat: code %d, stderr %q, commands %v", code, stderr, (*commands)[n:])
 	}
 }

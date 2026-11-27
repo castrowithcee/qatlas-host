@@ -46,6 +46,8 @@ func newStatusCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 			"and, per stack, what is deployed, pending or running, the last run result, a pause after a failed rollback, the operator's pause and pin, the observation time after an update, and the findings,\n" +
 			"and whether the maintenance window is open and when it opens next (see 'qhost window'). A stack is listed as\n" +
 			"stack.<name>; when another stack folder holds its name, as source.<id>.stack.<name> (see 'qhost help sources').\n" +
+			"A stack folder of the system engine with the finding git-unsafe shows the reason in git_unsafe and the next step in\n" +
+			"git_unsafe_fix: 'sudo qhost source secure <path>' (see 'Git in a stack folder' in 'qhost help sources').\n" +
 			"Every stack folder and stack has the field engine, system here. Every instance for the rootless engine of a user that is\n" +
 			"set up is listed as instance.<user>, with its unit, whether it runs and, when it does, its version and start time,\n" +
 			"and its stack folders and stacks as instance.<user>.source.<id> and instance.<user>.stack.<name>, in the same form\n" +
@@ -276,6 +278,10 @@ func sourceFields(prefix, engine string, sources []control.SourceStatus) []outpu
 			if f[1] != "" {
 				out = append(out, output.Field{Name: p + f[0], Value: f[1]})
 			}
+		}
+		// Only the system engine checks .git, and source secure is for its folders alone.
+		if src.GitUnsafe != "" && prefix == "" {
+			out = append(out, output.Field{Name: p + "git_unsafe_fix", Value: "sudo qhost source secure " + src.Path})
 		}
 		if src.Unreadable != "" {
 			out = append(out, output.Field{Name: p + "state", Value: "unreadable: " + src.Unreadable})
