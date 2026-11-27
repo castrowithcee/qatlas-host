@@ -57,8 +57,9 @@ release_build() {
 # transition_marker is the file the transition of the release built with changed-template appends a line to.
 transition_marker=/var/lib/qhost-e2e-transition
 
-# transition_source prints the register of transitions for the release built with changed-template: one transition
-# that is done once $transition_marker exists and otherwise appends a line to it, so a second run would show.
+# transition_source prints the register of transitions for the release built with changed-template: the transition
+# of the sources that moves the deploy service to root, then one that is done once $transition_marker exists and
+# otherwise appends a line to it, so a second run would show.
 transition_source() {
 	cat <<EOF
 package cli
@@ -70,7 +71,7 @@ import (
 	"path/filepath"
 )
 
-var transitions = []transition{{
+var transitions = []transition{deployRootTransition, {
 	name: "e2e-marker",
 	done: func(_ context.Context, root string) (bool, error) {
 		_, err := os.Lstat(filepath.Join(root, "$transition_marker"))
