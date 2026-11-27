@@ -706,7 +706,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			if m.saveOpenLog() {
 				return nil
 			}
-		case actFetch, actAdd, actRemove, actEdit, actRename, actCopy, actFiles, actTest, actEnter, actRestore, actRollback, actPromote, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actGrantAdd, actGrantRemove, actRemote, actApprove, actReject, actChanges, actCommit, actHistory, actShowCommit:
+		case actFetch, actAdd, actRemove, actEdit, actRename, actCopy, actFiles, actTest, actEnter, actRestore, actRollback, actPromote, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actGrantAdd, actGrantRemove, actRemote, actSecure, actApprove, actReject, actChanges, actCommit, actHistory, actShowCommit:
 			switch m.area {
 			case areaSystem:
 				if cmd, handled := m.systemAction(id); handled {

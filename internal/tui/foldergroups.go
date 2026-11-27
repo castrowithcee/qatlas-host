@@ -28,6 +28,9 @@ func (m *Model) fillFolderGroups(list *kittui.List, src []control.SourceStatus, 
 			kind = t.Lookup(textFolderKindRemote)
 		}
 		switch {
+		case f.GitUnsafe != "":
+			polled = t.Lookup(textFolderGitUnsafe, strings.Join(strings.Fields(f.GitUnsafe), " "))
+			m.tones[polled] = kittui.StyleFail
 		case m.snap.changes[stackRef{f.Engine, f.Path}] > 0:
 			polled = t.Lookup(textFolderUncommitted)
 			m.tones[polled] = kittui.StyleWarn
@@ -64,6 +67,10 @@ func (m *Model) folderDetail(f control.SourceStatus, width, rows int) []string {
 		}
 		if !f.LastPoll.IsZero() {
 			lines = append(lines, m.line(detailIndent, kittui.StyleText, t.Lookup(textDetailLastPoll, m.stamp(f.LastPoll.In(m.loc))), width))
+		}
+		if f.GitUnsafe != "" {
+			lines = append(lines, m.wrapped(detailIndent, kittui.StyleFail, t.Lookup(textDetailGitUnsafe, f.GitUnsafe), width)...)
+			lines = append(lines, m.wrapped(detailIndent, kittui.StyleHint, t.Lookup(textDetailGitSecure), width)...)
 		}
 		if m.snap.changes[stackRef{f.Engine, f.Path}] > 0 {
 			lines = append(lines, m.wrapped(detailIndent, kittui.StyleWarn, t.Lookup(textDetailUncommitted), width)...)

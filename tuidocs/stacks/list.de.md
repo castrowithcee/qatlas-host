@@ -12,6 +12,7 @@ Auf einer Ordnerzeile:
 - {fetch} ruft das Remote jetzt ab. Nur bei einem Klon.
 - {edit} öffnet den Deploy-Schlüssel des Ordners. Nur bei einem Klon.
 - {remote} fügt einem lokalen Ordner ein Remote hinzu.
+- {secure} macht das .git eines Ordners nur für root beschreibbar, wenn die Zeile sagt, dass dort kein Git läuft. Ohne root läuft sudo qhost source secure.
 - {delete} löst den Ordner.
 - {files} öffnet die Dateien des Ordners. {changes} öffnet seine Änderungen, wo er welche hat.
 

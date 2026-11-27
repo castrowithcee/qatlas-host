@@ -40,6 +40,7 @@ var commandRows = []commandRow{
 	{actStackRestart, areaStacks, "restart stack|restart", "Restart the containers of the marked or ticked stacks", "stack neu starten|restart", "Die Container der markierten oder angehakten Stacks neu starten"},
 	{actFetch, areaStacks, "fetch", "Fetch the marked folder from its remote now", "abrufen|fetch", "Den markierten Ordner jetzt von seinem Remote abrufen"},
 	{actRemote, areaStacks, "add remote", "Give the marked local folder a remote", "remote hinzufügen|add remote", "Dem markierten lokalen Ordner ein Remote geben"},
+	{actSecure, areaStacks, "secure", "Make the .git of the marked folder root-only", "absichern|secure", "Das .git des markierten Ordners nur für root beschreibbar machen"},
 	{actAdd, "", "add", "Add an entry in this view", "hinzufügen|add", "In dieser Ansicht einen Eintrag hinzufügen"},
 	{actRemove, "", "remove", "Remove the marked entry", "entfernen|remove", "Den markierten Eintrag entfernen"},
 	{actEdit, "", "edit", "Change the marked entry", "ändern|edit", "Den markierten Eintrag ändern"},

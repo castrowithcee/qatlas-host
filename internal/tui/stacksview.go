@@ -90,6 +90,9 @@ func (m *Model) stacksFooter(common, nav []kittui.Hint) []kittui.Hint {
 		if f.Kind != control.SourceKindRemote {
 			own = append(own, kittui.Hint{Action: actRemote, Label: textKeyRemote, Priority: 3})
 		}
+		if f.GitUnsafe != "" {
+			own = append(own, kittui.Hint{Action: actSecure, Label: textKeySecure, Priority: 2})
+		}
 		own = append(own, m.changesHint(f)...)
 		own = append(own, historyHint)
 		own = append(own, kittui.Hint{Action: actFiles, Label: textKeyFiles, Priority: 3},
