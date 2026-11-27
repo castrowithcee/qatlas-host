@@ -25,6 +25,8 @@ const (
 	OperationProposalApprove  = "proposal.approve"
 	OperationProposalReject   = "proposal.reject"
 	OperationProposalResult   = "proposal.result"
+	// OperationUsageRead is a read of the current load of the host.
+	OperationUsageRead = "usage.read"
 	// OperationProposalCommands is a change of the switch for proposals of free commands.
 	OperationProposalCommands = "proposal.commands"
 )
@@ -33,7 +35,7 @@ const (
 var knownOperations = map[string]bool{
 	OperationLogRead: true, OperationControlRequest: true, OperationControlRefuse: true, OperationControlStatus: true,
 	OperationHostChange: true, OperationProposalSubmit: true, OperationProposalWithdraw: true, OperationProposalRead: true,
-	OperationProposalApprove: true, OperationProposalReject: true, OperationProposalResult: true, OperationProposalCommands: true,
+	OperationProposalApprove: true, OperationProposalReject: true, OperationProposalResult: true, OperationProposalCommands: true, OperationUsageRead: true,
 }
 
 // KnownOperation reports whether action is one of the Operation constants.
