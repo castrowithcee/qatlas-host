@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -25,6 +26,7 @@ type fileView struct {
 	hooks    editHooks
 	chg      fileChanges
 	readPath func(path string) (hostchange.PathContent, error)
+	cancel   context.CancelFunc // the search of the browser that runs
 }
 
 // fileRules are what a place decides itself; a field left empty keeps what every place does.
