@@ -13,8 +13,6 @@ action:unpin
 action:update
 containers/clog
 detail/clog
-proposals
-proposals/preview
 runs/clog
 system
 system/changes
@@ -40,7 +38,6 @@ title:title.filenew
 title:title.filerename
 title:title.freeresult
 title:title.freerun
-title:title.grantexpiry
 title:title.hostchange
 title:title.hostproposal
 title:title.hostproppassword
@@ -48,9 +45,6 @@ title:title.hostresult
 title:title.members
 title:title.newgroup
 title:title.newuser
-title:title.propapprove
-title:title.propreject
-title:title.propsecrets
 title:title.readroot
 title:title.removegroups
 title:title.removekey
