@@ -109,7 +109,7 @@ func (m *Model) folderAction(id kittui.ActionID) (cmd tea.Cmd, handled bool) {
 		return nil, false
 	}
 	if id == actAdd {
-		return m.openForm(m.folderForm()), true
+		return m.openFolderForm(), true
 	}
 	if _, ok := m.selectedFolder(); !ok {
 		return nil, false
@@ -263,12 +263,6 @@ func (m *Model) keyLines(width int) []string {
 		lines = append(lines, strings.Repeat(" ", detailIndent)+m.styles.Render(kittui.StyleActive, l))
 	}
 	return lines
-}
-
-func (m *Model) folderForm() *settingsForm {
-	return m.newSettingsForm(formFolder, textTitleFolderAdd, []kittui.FormField{
-		textField("path", textFieldFolderPath, textHintFolderPath, ""),
-	})
 }
 
 // submitFolder inspects the folder of the form; what it is decides the next step. Nothing changes here.
