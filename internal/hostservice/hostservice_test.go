@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -41,11 +42,31 @@ const (
 	testUndoID    = "20300102T030400.000000Z-ffeedd"
 )
 
-// env is a running host service whose peer is the user uid.
+// env is a running host service whose peer is the user uid. stop ends it and waits; logs is its service log.
 type env struct {
 	endpoint localipc.ServiceEndpoint
 	stateDir string
 	group    string
+	stop     func()
+	logs     *lockedBuffer
+}
+
+// lockedBuffer is a service log that the service writes and a test reads at once.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 func start(t *testing.T, uid uint32) env {
@@ -53,17 +74,22 @@ func start(t *testing.T, uid uint32) env {
 	return startWith(t, func(net.Conn) (uint32, error) { return uid, nil })
 }
 
-// startWith starts a host service whose peers are the users peer reports.
-func startWith(t *testing.T, peer func(net.Conn) (uint32, error)) env {
+// startWith starts a host service whose peers are the users peer reports; setup adjusts its configuration.
+func startWith(t *testing.T, peer func(net.Conn) (uint32, error), setup ...func(*Config)) env {
 	t.Helper()
-	return startCfg(t, peer, func(string, *Config) {})
+	return startCfg(t, peer, func(_ string, c *Config) {
+		for _, f := range setup {
+			f(c)
+		}
+	})
 }
 
 // startCfg is startWith with a last say over the configuration; tweak gets the state directory.
 func startCfg(t *testing.T, peer func(net.Conn) (uint32, error), tweak func(stateDir string, c *Config)) env {
 	t.Helper()
 	dir := t.TempDir()
-	e := env{endpoint: channeltest.Endpoint(t), stateDir: filepath.Join(dir, "state"), group: filepath.Join(dir, "group")}
+	e := env{endpoint: channeltest.Endpoint(t), stateDir: filepath.Join(dir, "state"), group: filepath.Join(dir, "group"),
+		logs: &lockedBuffer{}}
 	passwd := filepath.Join(dir, "passwd")
 	if err := os.WriteFile(e.group, []byte(inventedGroups), 0o600); err != nil {
 		t.Fatal(err)
@@ -71,8 +97,6 @@ func startCfg(t *testing.T, peer func(net.Conn) (uint32, error), tweak func(stat
 	if err := os.WriteFile(passwd, []byte(inventedUsers), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
 	cfg := Config{
 		Version: "v9.9.9", Endpoint: e.endpoint, StateDir: e.stateDir, GroupFile: e.group, PasswdFile: passwd,
 		Now:     func() time.Time { return time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC) },
@@ -80,13 +104,16 @@ func startCfg(t *testing.T, peer func(net.Conn) (uint32, error), tweak func(stat
 		peerUID: peer,
 	}
 	tweak(e.stateDir, &cfg)
-	go func() { done <- Run(ctx, slog.New(slog.NewTextHandler(io.Discard, nil)), cfg) }()
-	t.Cleanup(func() {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- Run(ctx, slog.New(slog.NewTextHandler(e.logs, nil)), cfg) }()
+	e.stop = sync.OnceFunc(func() {
 		cancel()
 		if err := <-done; err != nil {
 			t.Errorf("run: %v", err)
 		}
 	})
+	t.Cleanup(e.stop)
 	channeltest.WaitReady(t, e.endpoint)
 	return e
 }

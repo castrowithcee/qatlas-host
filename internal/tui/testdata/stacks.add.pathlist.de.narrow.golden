@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                 [esc] Zurück
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+  Stack-Ordner hinzufügen                               
+                                                        
+         ╔═════════════════════════════════════════════╗
+> Ordner ║ /srv/ex_                                    ║
+         ╚═════════════════════════════════════════════╝
+         > ● /srv/example/blog/                         
+           ● /srv/example/wiki/                         
+         absoluter Pfad; er wird nur geprüft, vor den   
+         Fragen ändert sich nichts                      
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+[ F2 speichern ]  [ esc Verwerfen ]                     
+F2 Speichern  esc verwerfen                             
+↑ Hoch  ↓ Runter  tab Übernehmen  shift+tab Voriges Feld

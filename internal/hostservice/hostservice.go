@@ -70,6 +70,10 @@ type Config struct {
 	peerUID func(net.Conn) (uint32, error)
 	// history replaces the clock-driven parts of the usage history. Tests set it.
 	history historyHooks
+	// usage is where the load of the host is read and ticker the clock of a stream; nil means the machine and
+	// time.NewTicker. Tests set them.
+	usage  *usage.Source
+	ticker func(time.Duration) (<-chan time.Time, func())
 }
 
 // Run serves the channel until ctx ends.
@@ -95,8 +99,15 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 	s := &server{
 		version: cfg.Version, started: now().UTC(), log: log, peer: peer, audit: audit,
 		logDir: LogDir(cfg.StateDir), commandSwitch: proposals.NewCommandSwitch(cfg.StateDir), usageSource: usage.NewSource(),
-		db:    admins.Database{Group: cfg.GroupFile, Passwd: cfg.PasswdFile},
-		conns: map[net.Conn]struct{}{},
+		ticker: cfg.ticker,
+		db:     admins.Database{Group: cfg.GroupFile, Passwd: cfg.PasswdFile},
+		conns:  map[net.Conn]bool{},
+	}
+	if cfg.usage != nil {
+		s.usageSource = *cfg.usage
+	}
+	if s.ticker == nil {
+		s.ticker = realTicker
 	}
 	store := proposals.New(cfg.StateDir, cmp.Or(cfg.PasswdFile, admins.DefaultPasswdFile), now, log, normalizeProposal(hostproposal.Default(), s.commandSwitch.Enabled),
 		proposals.IDPrefix(control.HostProposalIDPrefix))
@@ -137,6 +148,7 @@ type server struct {
 	// commandSwitch is nil only in tests that never call a command.
 	commandSwitch *proposals.CommandSwitch
 	usageSource   usage.Source
+	ticker        func(time.Duration) (<-chan time.Time, func())
 	// history and now are set before the first request; history is nil only in tests that never read it.
 	history  *collector
 	now      func() time.Time
@@ -144,9 +156,11 @@ type server struct {
 	commands *control.Registry
 	actions  map[string]string
 
-	mu    sync.Mutex
-	conns map[net.Conn]struct{}
-	wg    sync.WaitGroup
+	mu sync.Mutex
+	// conns maps every open connection to whether it serves a stream.
+	conns   map[net.Conn]bool
+	streams int
+	wg      sync.WaitGroup
 }
 
 // serve accepts connections on l until ctx ends, then closes l and every open connection and waits for the
@@ -155,8 +169,11 @@ func (s *server) serve(ctx context.Context, l net.Listener) {
 	stop := context.AfterFunc(ctx, func() {
 		_ = l.Close()
 		s.mu.Lock()
-		for c := range s.conns {
-			_ = c.SetDeadline(time.Unix(1, 0))
+		for c, streaming := range s.conns {
+			// A stream answers the stop itself, so its last write must not meet a deadline set here.
+			if !streaming {
+				_ = c.SetDeadline(time.Unix(1, 0))
+			}
 		}
 		s.mu.Unlock()
 	})
@@ -206,7 +223,7 @@ func (s *server) track(conn net.Conn) bool {
 	if len(s.conns) >= maxConns {
 		return false
 	}
-	s.conns[conn] = struct{}{}
+	s.conns[conn] = false
 	s.wg.Add(1)
 	return true
 }
@@ -256,17 +273,7 @@ func (s *server) handle(ctx context.Context, conn net.Conn) {
 		raw, err := control.ReadFrame(br, control.MaxRequestBytes)
 		start := time.Now()
 		if err != nil {
-			var e *control.Error
-			if errors.Is(err, control.ErrTooLarge) {
-				e = control.NewError(control.CodeTooLarge, "request is too large")
-			} else if !errors.Is(err, io.EOF) && ctx.Err() == nil && !errors.Is(err, os.ErrDeadlineExceeded) {
-				e = control.NewError(control.CodeBadRequest, "request is incomplete")
-			}
-			if e != nil {
-				s.record(auditlog.Fields{ClientUID: uid, Action: auditlog.OperationControlRequest}, start, e.Code)
-				s.respond(conn, failure(e))
-				linger(conn)
-			}
+			s.readFailed(ctx, conn, uid, start, err)
 			return
 		}
 		// The administrator right is read again for every request: a revocation applies to an open connection too.
@@ -275,9 +282,13 @@ func (s *server) handle(ctx context.Context, conn net.Conn) {
 			s.refuse(conn, uid, start, control.ErrNotAdmin())
 			return
 		}
-		fields, code, resp, keep := s.dispatch(uid, raw)
+		fields, code, resp, keep, stream := s.dispatch(uid, raw)
 		clear(raw) // a request may carry a secret
 		s.record(fields, start, code)
+		if stream != nil {
+			s.streamUsage(ctx, conn, br, uid, stream, resp)
+			return
+		}
 		if !s.respond(conn, resp) {
 			return
 		}
@@ -288,13 +299,29 @@ func (s *server) handle(ctx context.Context, conn net.Conn) {
 	}
 }
 
+// readFailed answers a request that could not be read, unless the peer or the service just ended the
+// connection.
+func (s *server) readFailed(ctx context.Context, conn net.Conn, uid uint32, start time.Time, err error) {
+	var e *control.Error
+	if errors.Is(err, control.ErrTooLarge) {
+		e = control.NewError(control.CodeTooLarge, "request is too large")
+	} else if !errors.Is(err, io.EOF) && ctx.Err() == nil && !errors.Is(err, os.ErrDeadlineExceeded) {
+		e = control.NewError(control.CodeBadRequest, "request is incomplete")
+	}
+	if e != nil {
+		s.record(auditlog.Fields{ClientUID: uid, Action: auditlog.OperationControlRequest}, start, e.Code)
+		s.respond(conn, failure(e))
+		linger(conn)
+	}
+}
+
 // dispatch answers one request of the user uid and returns the fields of its log entry, which name the command
 // and never an argument, and its error code, empty for success. keep is false when the stream cannot be trusted
-// any longer.
-func (s *server) dispatch(uid uint32, raw []byte) (fields auditlog.Fields, code string, resp control.Response, keep bool) {
+// any longer. stream is set when the request started a usage stream, which the caller then serves.
+func (s *server) dispatch(uid uint32, raw []byte) (fields auditlog.Fields, code string, resp control.Response, keep bool, stream *usageStream) {
 	fields = auditlog.Fields{ClientUID: uid, Action: auditlog.OperationControlRequest}
-	fail := func(e *control.Error, keep bool) (auditlog.Fields, string, control.Response, bool) {
-		return fields, e.Code, failure(e), keep
+	fail := func(e *control.Error, keep bool) (auditlog.Fields, string, control.Response, bool, *usageStream) {
+		return fields, e.Code, failure(e), keep, nil
 	}
 	var req control.Request
 	if err := json.Unmarshal(raw, &req); err != nil || req.Command == "" {
@@ -320,13 +347,13 @@ func (s *server) dispatch(uid uint32, raw []byte) (fields auditlog.Fields, code 
 	fields.Action = s.actions[req.Command]
 	c := &call{uid: uid, args: req.Args}
 	if resp = s.run(cmd, c); resp.Error != nil {
-		return fields, resp.Error.Code, resp, true
+		return fields, resp.Error.Code, resp, true, c.stream
 	}
 	if c.change != nil {
 		// The entry of a change names the human behind sudo as its client, not root who reported it.
 		fields.ClientUID, fields.Host, code = c.changeUID, c.change, c.changeCode
 	}
-	return fields, code, resp, true
+	return fields, code, resp, true, c.stream
 }
 
 func (s *server) run(cmd control.Command, c *call) (resp control.Response) {

@@ -18,6 +18,7 @@ require (
 require (
 	filippo.io/age v1.3.0 // indirect
 	filippo.io/hpke v0.4.0 // indirect
+	github.com/charlievieth/fastwalk v1.0.14 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20261008173134-6b8d4baf91b4 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect

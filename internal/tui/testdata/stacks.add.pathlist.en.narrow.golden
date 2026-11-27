@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed            [esc] back
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+  Add a stack folder                                    
+                                                        
+         ╔═════════════════════════════════════════════╗
+> Folder ║ /srv/ex_                                    ║
+         ╚═════════════════════════════════════════════╝
+         > ● /srv/example/blog/                         
+           ● /srv/example/wiki/                         
+         absolute path; it is only inspected, nothing   
+         changes before the questions                   
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+[ F2 save ]  [ esc discard ]                            
+F2 save  esc discard                                    
+    ↑ up  ↓ down  tab complete  shift+tab previous field
