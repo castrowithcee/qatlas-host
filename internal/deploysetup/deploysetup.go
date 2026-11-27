@@ -51,6 +51,8 @@ type Host struct {
 	Run func(ctx context.Context, name string, args ...string) error
 	// Chown sets the owner of a path; nil changes the real owner.
 	Chown func(path string, uid, gid int) error
+	// Lstat reads the owner and mode of the channel directory; nil reads the real one.
+	Lstat func(path string) (os.FileInfo, error)
 }
 
 // UnitPath is the path of the installed unit on the host.
@@ -153,15 +155,7 @@ func (h Host) Plan(ctx context.Context) (Plan, error) {
 		add(name+" "+strings.Join(args, " "), func(ctx context.Context) error { return h.run(ctx, name, args...) })
 	}
 
-	rule := tmpfilesRule(ep.Dir, ep.ServiceUser, ep.Group)
-	ruleChanged := h.differs(tmpfilesConf, rule)
-	if ruleChanged {
-		add("write "+tmpfilesConf+" (mode 0644): "+strings.TrimSpace(string(rule)),
-			func(context.Context) error { return h.write(tmpfilesConf, rule) })
-	}
-	if _, err := os.Stat(h.path(ep.Dir)); ruleChanged || err != nil {
-		command("systemd-tmpfiles", "--create", tmpfilesConf)
-	}
+	h.planChannelDir(&plan, ep)
 
 	if !h.ownDir(configDir, configDirMode) {
 		add("mkdir "+configDir+" (root, mode 0755)", func(context.Context) error {
@@ -187,6 +181,9 @@ func (h Host) Plan(ctx context.Context) (Plan, error) {
 	if unitChanged || h.run(ctx, "systemctl", "is-enabled", "--quiet", Service) != nil ||
 		h.run(ctx, "systemctl", "is-active", "--quiet", Service) != nil {
 		command("systemctl", "enable", "--now", Service)
+	}
+	if err := h.planAccountRemains(ctx, &plan); err != nil {
+		return Plan{}, err
 	}
 	return plan, nil
 }

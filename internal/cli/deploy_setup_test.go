@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 
 	"github.com/castrowithcee/qatlas-host/internal/channeltest"
@@ -19,7 +20,14 @@ import (
 )
 
 // inventedSetupUsers is the user database of the test host.
-const inventedSetupUsers = "root:x:0:0::/root:/bin/bash\nqhost-deploy:x:996:996::/var/lib/qhost-deploy:/usr/sbin/nologin\n"
+const inventedSetupUsers = "root:x:0:0::/root:/bin/bash\n"
+
+// channelInfo reports the folder as the channel directory a finished setup leaves (root, group 997, 2750), where
+// the test user owns the real one.
+type channelInfo struct{ os.FileInfo }
+
+func (channelInfo) Mode() os.FileMode { return os.ModeDir | os.ModeSetgid | 0o750 }
+func (channelInfo) Sys() any          { return &syscall.Stat_t{Gid: 997} }
 
 // useHostRoot makes a host below a temporary root that has Docker and qhost but no deploy service, with a
 // runner that only records its commands. It returns the root and the recorded commands.
@@ -27,7 +35,7 @@ func useHostRoot(t *testing.T, euid int) (string, *[]string) {
 	t.Helper()
 	root := t.TempDir()
 	for p, content := range map[string]string{
-		"etc/group":                    "root:x:0:\ndocker:x:998:alice,qhost-deploy\nqhost:x:997:\nqhost-deploy:x:996:\n",
+		"etc/group":                    "root:x:0:\ndocker:x:998:alice\nqhost:x:997:\n",
 		filepath.Join("etc", "passwd"): inventedSetupUsers,
 	} {
 		full := filepath.Join(root, p)
@@ -42,6 +50,13 @@ func useHostRoot(t *testing.T, euid int) (string, *[]string) {
 	var mu sync.Mutex
 	var ran []string
 	deploySetup = deploySetupHost{euid: func() int { return euid }, host: deploysetup.Host{Root: root,
+		Lstat: func(p string) (os.FileInfo, error) {
+			info, err := os.Lstat(p)
+			if err == nil && p == filepath.Join(root, "run", "qhost-deploy") {
+				return channelInfo{info}, nil
+			}
+			return info, err
+		},
 		Run: func(_ context.Context, name string, args ...string) error {
 			mu.Lock()
 			defer mu.Unlock()

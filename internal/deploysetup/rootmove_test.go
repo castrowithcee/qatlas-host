@@ -35,6 +35,10 @@ func oldHost(t *testing.T) (*fakeHost, *[]string) {
 		if f.failOn != "" && strings.HasPrefix(line, f.failOn) {
 			return errors.New("failed")
 		}
+		if strings.HasPrefix(line, "systemd-tmpfiles ") {
+			f.channel = rightChannel
+			_ = os.MkdirAll(filepath.Join(f.root, "run/qhost-deploy"), 0o755)
+		}
 		switch line {
 		case "userdel qhost-deploy":
 			f.put("/etc/passwd", basePasswd)
