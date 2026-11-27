@@ -27,6 +27,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/host/auditlog"
 	"github.com/castrowithcee/qatlas-host/internal/host/hostproposal"
+	"github.com/castrowithcee/qatlas-host/internal/host/usage"
 	"github.com/castrowithcee/qatlas-host/internal/proposals"
 )
 
@@ -88,7 +89,7 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 	}
 	s := &server{
 		version: cfg.Version, started: now().UTC(), log: log, peer: peer, audit: audit,
-		logDir: LogDir(cfg.StateDir), commandSwitch: proposals.NewCommandSwitch(cfg.StateDir),
+		logDir: LogDir(cfg.StateDir), commandSwitch: proposals.NewCommandSwitch(cfg.StateDir), usageSource: usage.NewSource(),
 		db:    admins.Database{Group: cfg.GroupFile, Passwd: cfg.PasswdFile},
 		conns: map[net.Conn]struct{}{},
 	}
@@ -121,6 +122,7 @@ type server struct {
 	logDir  string
 	// commandSwitch is nil only in tests that never call a command.
 	commandSwitch *proposals.CommandSwitch
+	usageSource   usage.Source
 	db            admins.Database
 	commands      *control.Registry
 	actions       map[string]string
