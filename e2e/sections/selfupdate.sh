@@ -3,9 +3,10 @@
 # without the groups docker and qhost, its marker folder has the owner and group of the contract, status shows it
 # with its address and an unknown secret gets 404. sudo qhost hook add gives demo-stack a secret path that is shown
 # once; a POST to it updates the stack within 30 seconds, a wrong or a removed secret gets 404. Then the installed
-# program updates itself to a newer signed test release, which replaces and restarts the services, renews the stale
-# unit of the receiver and the changed template of the rootless instance, restarts the instance with the new program
-# and warns about an instance unit an administrator overrides, refuses tampered ones, and updates once more with the
+# program updates itself to a newer signed test release, which replaces and restarts the services, runs the transition
+# of the new program once, renews the stale unit of the receiver and the changed template of the rootless instance,
+# restarts the instance with the new program and warns about an instance unit an administrator overrides, refuses
+# tampered ones, and updates once more with the
 # deploy service put aside, which leaves its unit uninstalled.
 # Needs deploy: the running rootless instance and the bound /opt/stacks with demo-stack for the webhook.
 # Sourced by run.sh; defines only functions and constants.
@@ -286,12 +287,21 @@ scenario_selfupdate() {
 		fail "the instance $su_unit was not restarted by the update"
 	printf '%s' "$out" | grep -qF "overrides the installed unit of $su_unit" || fail "the update does not warn about $su_override: $out"
 	if printf '%s' "$out" | grep -q 'instances were not all renewed'; then fail "the renewal of the instance failed: $out"; fi
+	printf '%s' "$out" | grep -q 'transition e2e-marker: applied' || fail "the update did not run the transition of v0.2.0: $out"
+	if printf '%s' "$out" | grep -q 'did not all run'; then fail "the transitions of v0.2.0 failed: $out"; fi
+	[ "$(docker exec "$host" cat "$transition_marker")" = applied ] ||
+		fail "the transition did not run exactly once: $(docker exec "$host" cat "$transition_marker" 2>&1)"
 	log "scenario: updated to v0.2.0, host service pid $hpid -> $(service_pid qhost), deploy service pid $pid -> $(service_pid), instance pid $ipid -> $(service_pid "$su_unit"), services answering: $out"
 	# Without the override the instance runs from the renewed template.
 	docker exec "$host" sh -ec "rm $su_override && systemctl daemon-reload && systemctl restart $su_unit" || fail "cannot remove $su_override"
 	[ "$(docker exec "$host" systemctl show -p FragmentPath --value "$su_unit")" = "$su_template" ] ||
 		fail "$su_unit does not run from $su_template: $(docker exec "$host" systemctl show -p FragmentPath --value "$su_unit")"
 	wait_for "the instance $su_unit to answer" 30 instance_version_is v0.2.0
+
+	step 'sudo qhost update migrate repeats the transitions of the installed release without a second effect'
+	out=$(as_admin 'sudo qhost update migrate 2>&1') || fail "the repeated transitions failed: $out"
+	printf '%s' "$out" | grep -q 'transition e2e-marker: already done' || fail "the repeat does not report the done transition: $out"
+	[ "$(docker exec "$host" cat "$transition_marker")" = applied ] || fail 'the repeated transitions ran the transition again'
 
 	step 'a release with a tampered checksums.txt is refused and changes nothing'
 	release_build v0.3.0
@@ -344,6 +354,8 @@ scenario_selfupdate() {
 		fail "the instance $su_unit was not restarted by the update"
 	if printf '%s' "$out" | grep -qF "overrides the installed unit of $su_unit"; then fail "the update warns about an instance unit that is not overridden: $out"; fi
 	if printf '%s' "$out" | grep -q 'instances were not all renewed'; then fail "the renewal of the instance failed: $out"; fi
+	if printf '%s' "$out" | grep -q -e 'transition ' -e 'did not all run'; then fail "v0.3.0 has no transitions, but the update reports some: $out"; fi
+	[ "$(docker exec "$host" cat "$transition_marker")" = applied ] || fail 'the update to v0.3.0 touched the marker of the transition'
 	[ "$(service_pid qhost)" != "$hpid" ] && [ "$(service_entered qhost)" != "$hentered" ] || fail 'the host service was not restarted by the update'
 	docker exec "$host" qhost version 2>&1 | grep -q v0.3.0 || fail "the installed version is not v0.3.0: $(docker exec "$host" qhost version 2>&1)"
 	unit_is_release qhost v0.3.0 || fail 'the unit of the host service is not the one of v0.3.0'
