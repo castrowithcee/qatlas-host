@@ -41,7 +41,7 @@ func newDeployServiceCommand(program *cobracli.Program) *cobra.Command {
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error { return c.Help() },
 	}
-	cmd.AddCommand(run, newDeploySetupCommand(program), newRefreshInstancesCommand(program))
+	cmd.AddCommand(run, newDeploySetupCommand(program), newRefreshInstancesCommand(program), newDeployPrepareCommand())
 	return cmd
 }
 

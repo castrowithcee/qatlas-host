@@ -236,7 +236,9 @@ func newSelfUpdateCommand(program *cobracli.Program) *cobra.Command {
 			"fresh setup instead of an update is refused with that step. After the files are replaced and before the services\n" +
 			"restart, the newly installed program runs the transitions of its release for the setup and the stored state, each\n" +
 			"once and reported on standard error; a failure there is a warning and does not undo the update, and\n" +
-			"'sudo qhost update migrate' repeats that step.\n" +
+			"'sudo qhost update migrate' repeats that step. The deploy service also runs its own transitions in the start\n" +
+			"step of its unit, before it opens its channel, so the restart finishes them even where an older program replaced\n" +
+			"the files and did not run this step.\n" +
 			"If deploy service instances for rootless engines are set up, the newly installed program then replaces the\n" +
 			"template unit qhost-deploy@.service where it differs, reloads systemd and restarts every instance; a failure there is a\n" +
 			"warning and does not undo the update, and 'sudo qhost deploy-service refresh-instances' repeats that step. Where the\n" +
