@@ -1,6 +1,10 @@
 package control
 
-import "time"
+import (
+	"time"
+
+	"github.com/castrowithcee/qatlas-host/internal/host/usage"
+)
 
 // CodeNotAdmin answers a peer of the host service that may reach its channel but is not an administrator per the
 // group database, or no longer is.
@@ -26,7 +30,12 @@ const (
 	HostCommandsSetCommand = "proposal.commands.set"
 	// HostCommandsStatusCommand reads that switch.
 	HostCommandsStatusCommand = "proposal.commands.status"
+	// HostUsageCommand reads the current load of the host: CPU, load average, memory, swap and file systems.
+	HostUsageCommand = "usage"
 )
+
+// HostUsageResult answers HostUsageCommand. A value the host does not provide is absent.
+type HostUsageResult = usage.Usage
 
 // HostCommandsSetArgs are the arguments of HostCommandsSetCommand.
 type HostCommandsSetArgs struct {
