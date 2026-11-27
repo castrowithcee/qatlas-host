@@ -346,7 +346,7 @@ func (m *Model) reload() tea.Cmd {
 	return func() tea.Msg { return fetch(ctx, backend) }
 }
 
-func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *Model) dispatch(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height

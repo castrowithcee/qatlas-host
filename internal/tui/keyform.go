@@ -104,7 +104,7 @@ func (m *Model) submitKeyChoice(f *settingsForm, v map[kittui.FieldID]kittui.For
 	}
 	next := m.newSettingsForm(formKeyStore, textTitleKeyStore, []kittui.FormField{
 		{ID: "key", Kind: kittui.FieldMaskedBlock, Label: textFieldKeyBlock, Hint: textHintKeyBlock},
-		textField("path", textFieldKeyPath, textHintKeyPath, ""),
+		pathField("path", textFieldKeyPath, textHintKeyPath, kittui.PathFiles, nil),
 	})
 	if next != nil {
 		next.stackDir, next.keyLabel = dir, label
