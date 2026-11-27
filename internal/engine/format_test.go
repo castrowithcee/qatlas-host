@@ -64,7 +64,7 @@ const stateFormat1 = `{
 }
 `
 
-func TestStateInFormat1IsReadKeptAndWrittenAsFormat2(t *testing.T) {
+func TestStateInFormat1IsReadAndKept(t *testing.T) {
 	r := newRig(t, "web")
 	path := filepath.Join(r.state, engineDir, stateFile)
 	formatnumtest.Seed(t, path, stateFormat1)
@@ -81,8 +81,14 @@ func TestStateInFormat1IsReadKeptAndWrittenAsFormat2(t *testing.T) {
 		t.Fatal(err)
 	}
 	formatnumtest.Unchanged(t, path, stateFormat1)
+}
 
-	err = r.eng.update(func(s State) (State, error) {
+func TestStateInFormat1IsWrittenAsFormat2(t *testing.T) {
+	r := newRig(t, "web")
+	path := filepath.Join(r.state, engineDir, stateFile)
+	formatnumtest.Seed(t, path, stateFormat1)
+
+	err := r.eng.update(func(s State) (State, error) {
 		s = normalize(s)
 		s.Note = "changed"
 		return s, nil
@@ -94,7 +100,7 @@ func TestStateInFormat1IsReadKeptAndWrittenAsFormat2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(b), `"schema": 2`) && !strings.Contains(string(b), `"schema":2`) {
+	if !strings.Contains(strings.ReplaceAll(string(b), " ", ""), `"schema":2`) {
 		t.Fatalf("written state has no schema 2:\n%s", b)
 	}
 	if runs, err := r.eng.Runs(""); err != nil || len(runs) != 1 {
