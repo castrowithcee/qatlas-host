@@ -45,6 +45,10 @@ func (f *fakeStore) Prune(_ context.Context, now time.Time) error {
 	return nil
 }
 
+func (f *fakeStore) Read(context.Context, time.Time, usagehistory.Query) (usagehistory.Result, error) {
+	return usagehistory.Result{Resolution: usagehistory.ResolutionRaw}, nil
+}
+
 func (f *fakeStore) Close() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

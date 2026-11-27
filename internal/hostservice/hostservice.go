@@ -112,6 +112,7 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 		histCfg = *cfg.History
 	}
 	hist := newCollector(log, cfg.StateDir, now, histCfg, cfg.history)
+	s.history, s.now = hist, now
 	histDone := make(chan struct{})
 	go func() { defer close(histDone); hist.run(ctx) }()
 	log.Info("host service started")
@@ -136,9 +137,12 @@ type server struct {
 	// commandSwitch is nil only in tests that never call a command.
 	commandSwitch *proposals.CommandSwitch
 	usageSource   usage.Source
-	db            admins.Database
-	commands      *control.Registry
-	actions       map[string]string
+	// history and now are set before the first request; history is nil only in tests that never read it.
+	history  *collector
+	now      func() time.Time
+	db       admins.Database
+	commands *control.Registry
+	actions  map[string]string
 
 	mu    sync.Mutex
 	conns map[net.Conn]struct{}

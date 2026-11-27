@@ -34,6 +34,7 @@ func TestEveryCommandIsClassifiedWithTheHostScope(t *testing.T) {
 		control.HostCommandsSetCommand:    control.ClassChange,
 		control.HostCommandsStatusCommand: control.ClassRead,
 		control.HostUsageCommand:          control.ClassRead,
+		control.HostUsageHistoryCommand:   control.ClassRead,
 		control.ProposalApproveCommand:    control.ClassChange,
 		control.ProposalRejectCommand:     control.ClassChange,
 		control.ProposalResultCommand:     control.ClassChange,

@@ -63,7 +63,7 @@ func newHostCommand(program *cobracli.Program, state *notRunning, secrets *redac
 			"is locked or expired and which SSH keys it has are shown only to root; otherwise they are unknown.\n" +
 			"The command file reads a folder or file as root. The commands apply, undo and journal change the host or\n" +
 			"read its journal and need root; apply --proposal applies a proposal of the host after a person reviewed\n" +
-			"it. The command usage reads the current load of the host from the host service. Every change is recorded in the action log ('qhost audit'). See 'qhost help host-admin'.",
+			"it. The command usage reads the current load of the host from the host service, usage-history its history. Every change is recorded in the action log ('qhost audit'). See 'qhost help host-admin'.",
 		// The caller is checked after the command line is, so a mistyped command line shows its usage first.
 		PersistentPreRunE: func(_ *cobra.Command, _ []string) error { return hostEnv.requireAdmin() },
 		RunE:              func(c *cobra.Command, _ []string) error { return c.Help() },
@@ -71,7 +71,7 @@ func newHostCommand(program *cobracli.Program, state *notRunning, secrets *redac
 	cmd.AddCommand(newHostUsersCommand(program), newHostUserCommand(program), newHostGroupsCommand(program),
 		newHostGroupCommand(program), newHostFolderCommand(program), newHostFileCommand(program),
 		newHostApplyCommand(program, state, secrets), newHostUndoCommand(program), newHostJournalCommand(program),
-		newHostUsageCommand(program, state))
+		newHostUsageCommand(program, state), newHostUsageHistoryCommand(program, state))
 	return cmd
 }
 
