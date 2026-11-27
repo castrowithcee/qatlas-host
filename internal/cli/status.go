@@ -272,7 +272,7 @@ func sourceFields(prefix, engine string, sources []control.SourceStatus) []outpu
 		if !src.LastPoll.IsZero() {
 			out = append(out, output.Field{Name: p + "last_poll", Value: src.LastPoll.UTC().Format(time.RFC3339)})
 		}
-		for _, f := range [][2]string{{"poll_error", src.PollError}, {"note", src.Note}, {"head", src.Head}, {"remote_head", src.RemoteHead}} {
+		for _, f := range [][2]string{{"poll_error", src.PollError}, {"note", src.Note}, {"git_unsafe", src.GitUnsafe}, {"head", src.Head}, {"remote_head", src.RemoteHead}} {
 			if f[1] != "" {
 				out = append(out, output.Field{Name: p + f[0], Value: f[1]})
 			}

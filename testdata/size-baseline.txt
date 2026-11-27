@@ -234,7 +234,6 @@ cx internal/service/repo.go:repoService.handleSet 20
 cx internal/service/repo_test.go:TestCheckReportsFindingsPerStack 35
 cx internal/service/repo_test.go:TestStacksListsValidInvalidAndPlainStacks 16
 cx internal/service/runs.go:registerRunCommands 18
-cx internal/service/runs.go:runsAnswer 16
 cx internal/service/runs.go:stackStatuses 20
 cx internal/service/runs_test.go:TestDeployRunsListsAndLogs 20
 cx internal/service/runs_test.go:TestFailedRollbackPausesUntilResumed 19
@@ -325,13 +324,13 @@ file internal/cli/source_add.go 763
 file internal/cli/source_move_run.go 622
 file internal/cli/tui_backend.go 779
 file internal/compose/datadirs.go 518
-file internal/control/control.go 2103
+file internal/control/control.go 2081
 file internal/credentials/credentials.go 581
 file internal/diagnose/diagnose.go 625
-file internal/engine/engine.go 1184
+file internal/engine/engine.go 1173
 file internal/engine/engine_test.go 1366
 file internal/engine/run.go 679
-file internal/gitrepo/gitrepo.go 531
+file internal/gitrepo/gitrepo.go 511
 file internal/gitrepo/remote.go 653
 file internal/host/hostchange/filemove.go 534
 file internal/host/hostchange/filetree.go 1098

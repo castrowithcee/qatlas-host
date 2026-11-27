@@ -31,6 +31,9 @@ func (s *sourceSet) folderEngine(path string) (*engine.Engine, error) {
 // changesAnswer maps an error of the change commands to a fixed answer; the text of git or of a path is never
 // passed on.
 func changesAnswer(err error) error {
+	if ans := gitUnsafeAnswer(err); ans != nil {
+		return ans
+	}
 	switch {
 	case errors.Is(err, engine.ErrNotChanged):
 		return control.NewError(control.CodeNotChanged, "the path is not a local change of the stack")

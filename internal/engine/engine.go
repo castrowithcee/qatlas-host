@@ -553,7 +553,7 @@ func (e *Engine) poll(ctx context.Context, b Binding) (PollResult, error) {
 			}
 			s.Stacks[name] = cur
 		}
-		s.LastPoll, s.Head, s.RemoteHead, s.Note, s.PollError = now, head, remote, note, ""
+		s.LastPoll, s.Head, s.RemoteHead, s.Note, s.PollError, s.GitUnsafe = now, head, remote, note, "", ""
 		if ffErr != nil {
 			s.PollError = e.text(ffErr.Error())
 		}
@@ -593,18 +593,6 @@ func (e *Engine) poll(ctx context.Context, b Binding) (PollResult, error) {
 		return res, fmt.Errorf("fast-forward: %w", ffErr)
 	}
 	return res, nil
-}
-
-func (e *Engine) recordPollError(perr error) {
-	now := e.cfg.Clock.Now().UTC()
-	err := e.update(func(s State) (State, error) {
-		s = normalize(s)
-		s.LastPoll, s.PollError = now, e.text(perr.Error())
-		return s, nil
-	})
-	if err != nil {
-		e.cfg.Logger.Warn("poll error not recorded", "error", err)
-	}
 }
 
 // text makes a text from an error or the working copy fit for the state: redacted, printable and short.
@@ -822,6 +810,9 @@ func (e *Engine) runnable(ctx context.Context, b Binding, name string) (stacks.S
 // start takes the stack's slot and a hold on the working copy and launches the run; u, when set, makes it the
 // rollback of that update. The caller holds the working-copy lock.
 func (e *Engine) start(b Binding, st stacks.Stack, commit, trigger string, u *undo) (RunInfo, error) {
+	if err := checkGit(b.Copy); err != nil {
+		return RunInfo{}, err
+	}
 	e.mu.Lock()
 	if e.closed {
 		e.mu.Unlock()

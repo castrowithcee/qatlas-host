@@ -38,3 +38,9 @@ func RunAsRoot(t interface{ Cleanup(func()) }) {
 	runsAsRoot = func() bool { return true }
 	t.Cleanup(func() { runsAsRoot = old })
 }
+
+// GitUnsafeAnswer exposes the answer to an error of an unsafe .git.
+func GitUnsafeAnswer(err error) error { return gitUnsafeAnswer(err) }
+
+// ChangesAnswer exposes the answer of the change commands.
+func ChangesAnswer(err error) error { return changesAnswer(err) }
