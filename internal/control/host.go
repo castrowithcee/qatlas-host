@@ -1,6 +1,10 @@
 package control
 
-import "time"
+import (
+	"time"
+
+	"github.com/castrowithcee/qatlas-host/internal/host/usage"
+)
 
 // CodeNotAdmin answers a peer of the host service that may reach its channel but is not an administrator per the
 // group database, or no longer is.
@@ -11,6 +15,9 @@ const CodeNotAdmin = "not-admin"
 func ErrNotAdmin() *Error {
 	return NewError(CodeNotAdmin, "qhost is reserved for administrators (sudo)")
 }
+
+// CodeStopping ends a stream because the service stops.
+const CodeStopping = "stopping"
 
 // The commands of the host service besides StatusCommand. The log commands read the action log and never return
 // a file path or a raw line.
@@ -26,7 +33,29 @@ const (
 	HostCommandsSetCommand = "proposal.commands.set"
 	// HostCommandsStatusCommand reads that switch.
 	HostCommandsStatusCommand = "proposal.commands.status"
+	// HostUsageCommand reads the current load of the host: CPU, load average, memory, swap and file systems.
+	HostUsageCommand = "usage"
+	// HostUsageStreamCommand answers with a stream of HostUsageResult: one answer right away and one per interval
+	// after it, until the client closes the connection, the service stops or the peer loses its access. Any
+	// byte the client sends after the request ends the stream too. One stream leaves one log entry.
+	HostUsageStreamCommand = "usage.stream"
 )
+
+// HostUsageResult answers HostUsageCommand. A value the host does not provide is absent.
+type HostUsageResult = usage.Usage
+
+// The intervals of HostUsageStreamCommand in seconds.
+const (
+	HostUsageStreamDefaultSeconds = 5
+	HostUsageStreamMinSeconds     = 2
+	HostUsageStreamMaxSeconds     = 60
+)
+
+// HostUsageStreamArgs are the arguments of HostUsageStreamCommand. IntervalSeconds 0 means
+// HostUsageStreamDefaultSeconds.
+type HostUsageStreamArgs struct {
+	IntervalSeconds int `json:"interval_seconds,omitempty"`
+}
 
 // HostCommandsSetArgs are the arguments of HostCommandsSetCommand.
 type HostCommandsSetArgs struct {

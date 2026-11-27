@@ -346,7 +346,7 @@ func (m *Model) reload() tea.Cmd {
 	return func() tea.Msg { return fetch(ctx, backend) }
 }
 
-func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *Model) dispatch(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -706,7 +706,7 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 			if m.saveOpenLog() {
 				return nil
 			}
-		case actFetch, actAdd, actRemove, actEdit, actRename, actCopy, actFiles, actTest, actEnter, actRestore, actRollback, actPromote, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actGrantAdd, actGrantRemove, actRemote, actApprove, actReject, actChanges, actCommit:
+		case actFetch, actAdd, actRemove, actEdit, actRename, actCopy, actFiles, actTest, actEnter, actRestore, actRollback, actPromote, actDataDirs, actBackup, actCompose, actCheckForm, actRemoveSettings, actHookAdd, actHookRemove, actGrantAdd, actGrantRemove, actRemote, actApprove, actReject, actChanges, actCommit, actHistory, actShowCommit:
 			switch m.area {
 			case areaSystem:
 				if cmd, handled := m.systemAction(id); handled {
