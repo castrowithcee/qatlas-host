@@ -162,7 +162,8 @@ tui_click_row() {
 
 # tui_excerpt logs the lines of the screen from the first one containing $1, at most $2 lines.
 tui_excerpt() {
-	tui_screen | sed -n "/$1/,\$p" | head -n "$2" | sed 's/ *$//; s/^/e2e:   | /'
+	tui_screen | TUI_EXCERPT_TEXT=$1 awk 'f || index($0, ENVIRON["TUI_EXCERPT_TEXT"]) { f = 1; print }' |
+		head -n "$2" | sed 's/ *$//; s/^/e2e:   | /'
 }
 
 # tui_ct_cursor_on tells whether the cursor of the Containers list is on the container $1. With engine sections
