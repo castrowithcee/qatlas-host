@@ -11,9 +11,7 @@ action:stackstop
 action:unpause
 action:unpin
 action:update
-containers
 containers/clog
-containers/detail
 containers/setup
 detail
 detail/clog
@@ -47,13 +45,11 @@ system/log
 system/proposals
 system/users
 system/users/pick
-title:move.title
 title:setting.done.title
 title:setup.title
 title:stackchanges.titlediscard
 title:title.addgroups
 title:title.addkey
-title:title.adopt
 title:title.backup
 title:title.backupcommand
 title:title.backuppaths
