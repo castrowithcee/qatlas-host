@@ -202,7 +202,7 @@ EOF2
 
 	step 'the history of the stack folder is read without sudo, and its diffs only as root'
 	out=$(as_admin "qhost --output json source log $base") || fail "source log failed for the admin: $out"
-	printf '%s' "$out" | jq -e --arg id "$bad_local" '.commits | map(select(.id == $id)) | length == 1 and .[0].author == "E2E Admin" and
+	printf '%s' "$out" | jq -e --arg id "$bad_local" '.commits | map(select(.id == $id)) | length == 1 and .[0].author == "E2E Root" and
 		.[0].subject == "Update demo-local to 2.0.0 with a broken healthcheck" and (.[0].date | test("^20")) and
 		(.[0].paths | map(.path) | index("demo-local/.env") != null)' >/dev/null || fail "unexpected source log: $out"
 	out=$(as_admin "qhost --output json source log $base --limit 1") || fail "source log --limit 1 failed for the admin: $out"
