@@ -72,6 +72,8 @@ var exceptions = []struct{ Source, Reason string }{
 var fileWriters = map[string]map[string]bool{
 	"os":         {"WriteFile": true, "Create": true, "CreateTemp": true, "OpenFile": true, "Rename": true},
 	"configfile": {"NewStore": true, "WriteNewPrivateFile": true},
+	// Its writes are methods of the folder Open returns, so Open stands for them.
+	"nofollow": {"Open": true},
 }
 
 // kitWriters maps the import path of a kit package that writes files to the function that opens its store.
