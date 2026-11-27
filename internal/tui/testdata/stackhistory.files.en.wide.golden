@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                                                  [esc] back  [?] help
+  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Files of commit 111111111111: Add the demo stack                                                                      
+  More files changed than are listed.                                                                                   
+                                                                                                                        
+  FILE                     KIND                                                                                         
+  ────────────────────────────────                                                                                      
+> demo-stack/compose.yaml  new                                                                                          
+  demo-stack/old.txt       deleted                                                                                      
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+< diff  / search  esc back  R reload  1-7 area  q quit                                                                  

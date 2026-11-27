@@ -20,5 +20,5 @@
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 Fehler: der Abruf von /srv/stacks-example ist fehlgeschlagen: der Dienst hat die Anfrage abgelehnt: cannot reach        
 git.example.test: connection refused                                                                                    
-enter Details  / Suchen  F jetzt abrufen  e Deploy-Schlüssel  Q Dateien  d lösen  n hinzufügen  R Neu laden  1-7 Bereich
-q Beenden                                                                                             ↑/↓ Auswählen  1/6
+enter Details  / Suchen  F jetzt abrufen  e Deploy-Schlüssel  @ Verlauf  Q Dateien  d lösen  n hinzufügen  R Neu laden  
+1-7 Bereich  q Beenden                                                                                ↑/↓ Auswählen  1/6
