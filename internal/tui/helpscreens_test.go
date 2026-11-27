@@ -45,9 +45,20 @@ func TestEveryActionKindHasAScreenID(t *testing.T) {
 	}
 }
 
+func TestHelpOpensOnThePageOfTheScreen(t *testing.T) {
+	m := newActionModel(t, demoBackend())
+	send(m, "?")
+	if topic, name := m.help.Page(); topic != "stacks" || name != "list" {
+		t.Errorf("page %s/%s, want stacks/list", topic, name)
+	}
+}
+
 func TestHelpOpensOnTheStartPageWhenNoScreenHasOne(t *testing.T) {
 	m := newActionModel(t, demoBackend())
 	send(m, "?")
+	if m.help.OpenScreen("no/such/screen") {
+		t.Error("an unknown screen reported a page")
+	}
 	if topic, name := m.help.Page(); topic != "start" || name != "index" {
 		t.Errorf("page %s/%s, want start/index", topic, name)
 	}
