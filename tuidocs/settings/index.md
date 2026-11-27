@@ -1,6 +1,6 @@
 ---
 title: Settings
-order: 4
+order: 5
 keywords: [settings, tabs, preferences, instance]
 screens: ["settings"]
 ---

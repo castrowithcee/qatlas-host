@@ -1,6 +1,6 @@
 ---
 title: Shared dialogs
-order: 2
+order: 9
 keywords: [dialogs, confirm, questions, sudo, results]
 ---
 # Shared dialogs
