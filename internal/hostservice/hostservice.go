@@ -28,6 +28,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/host/auditlog"
 	"github.com/castrowithcee/qatlas-host/internal/host/hostproposal"
 	"github.com/castrowithcee/qatlas-host/internal/host/usage"
+	"github.com/castrowithcee/qatlas-host/internal/host/usagehistory"
 	"github.com/castrowithcee/qatlas-host/internal/proposals"
 )
 
@@ -62,9 +63,13 @@ type Config struct {
 	GroupFile, PasswdFile string
 	// Now returns the current time; nil means the system clock.
 	Now func() time.Time
+	// History is the configuration of the usage history; nil means usagehistory.DefaultConfig().
+	History *usagehistory.Config
 
 	// peerUID returns the user of a peer; nil means the user the kernel reports. Tests set it.
 	peerUID func(net.Conn) (uint32, error)
+	// history replaces the clock-driven parts of the usage history. Tests set it.
+	history historyHooks
 	// usage is where the load of the host is read and ticker the clock of a stream; nil means the machine and
 	// time.NewTicker. Tests set them.
 	usage  *usage.Source
@@ -113,8 +118,16 @@ func Run(ctx context.Context, log *slog.Logger, cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
+	histCfg := usagehistory.DefaultConfig()
+	if cfg.History != nil {
+		histCfg = *cfg.History
+	}
+	hist := newCollector(log, cfg.StateDir, now, histCfg, cfg.history)
+	histDone := make(chan struct{})
+	go func() { defer close(histDone); hist.run(ctx) }()
 	log.Info("host service started")
 	s.serve(ctx, l)
+	<-histDone
 	log.Info("host service stopped")
 	return nil
 }

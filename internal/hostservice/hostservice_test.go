@@ -21,6 +21,7 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/host/auditlog"
+	"github.com/castrowithcee/qatlas-host/internal/host/usagehistory"
 )
 
 // An invented group database: example-admin (4100) is an administrator in the service group, example-reader
@@ -76,6 +77,16 @@ func start(t *testing.T, uid uint32) env {
 // startWith starts a host service whose peers are the users peer reports; setup adjusts its configuration.
 func startWith(t *testing.T, peer func(net.Conn) (uint32, error), setup ...func(*Config)) env {
 	t.Helper()
+	return startCfg(t, peer, func(_ string, c *Config) {
+		for _, f := range setup {
+			f(c)
+		}
+	})
+}
+
+// startCfg is startWith with a last say over the configuration; tweak gets the state directory.
+func startCfg(t *testing.T, peer func(net.Conn) (uint32, error), tweak func(stateDir string, c *Config)) env {
+	t.Helper()
 	dir := t.TempDir()
 	e := env{endpoint: channeltest.Endpoint(t), stateDir: filepath.Join(dir, "state"), group: filepath.Join(dir, "group"),
 		logs: &lockedBuffer{}}
@@ -89,11 +100,10 @@ func startWith(t *testing.T, peer func(net.Conn) (uint32, error), setup ...func(
 	cfg := Config{
 		Version: "v9.9.9", Endpoint: e.endpoint, StateDir: e.stateDir, GroupFile: e.group, PasswdFile: passwd,
 		Now:     func() time.Time { return time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC) },
+		History: &usagehistory.Config{},
 		peerUID: peer,
 	}
-	for _, f := range setup {
-		f(&cfg)
-	}
+	tweak(e.stateDir, &cfg)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- Run(ctx, slog.New(slog.NewTextHandler(e.logs, nil)), cfg) }()
@@ -197,7 +207,7 @@ func TestAPeerWithoutCredentialsIsRefused(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		done <- Run(ctx, slog.New(slog.NewTextHandler(io.Discard, nil)), Config{Endpoint: endpoint,
+		done <- Run(ctx, slog.New(slog.NewTextHandler(io.Discard, nil)), Config{Endpoint: endpoint, History: &usagehistory.Config{},
 			StateDir: filepath.Join(t.TempDir(), "state"), peerUID: func(net.Conn) (uint32, error) { return 0, errors.New("unknown") }})
 	}()
 	defer func() { cancel(); <-done }()
