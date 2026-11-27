@@ -15,6 +15,9 @@ func (m *Model) stacksView(width, height int) string {
 	if m.set.keyOpen {
 		return m.keyView(width, height)
 	}
+	if h := m.shownHistory(); h != nil {
+		return m.stackHistoryView(h, width, height)
+	}
 	if c := m.shownChanges(); c != nil {
 		return m.stackChangesView(c, width, height)
 	}
@@ -65,6 +68,9 @@ func (m *Model) keyView(width, height int) string {
 
 // stacksFooter is the key line of the Stacks area: the keys of the marked row, and adding a folder in every case.
 func (m *Model) stacksFooter(common, nav []kittui.Hint) []kittui.Hint {
+	if h := m.shownHistory(); h != nil {
+		return append(m.stackHistoryFooter(h), common...)
+	}
 	if c := m.shownChanges(); c != nil {
 		return append(m.stackChangesFooter(c), common...)
 	}
