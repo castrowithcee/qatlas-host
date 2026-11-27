@@ -19,9 +19,7 @@ detail/clog
 detail/pick
 proposals
 proposals/preview
-runs
 runs/clog
-runs/log
 settings
 settings/credentials
 settings/general
