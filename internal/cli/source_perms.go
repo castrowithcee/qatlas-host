@@ -40,12 +40,19 @@ type permPlan struct {
 	listed bool
 	// envFiles are unversioned env files the service cannot read: they get the group and group read, nothing else.
 	envFiles []string
+	// secure makes .git root-only; it is the whole plan of the system engine and excludes everything above.
+	secure *gitSecure
 }
 
-func (p *permPlan) changed() int { return len(p.dirs) + len(p.files) + len(p.envFiles) }
+func (p *permPlan) changed() int {
+	return len(p.dirs) + len(p.files) + len(p.envFiles) + p.secure.count()
+}
 
 // summary is the preview the operator confirms.
 func (p *permPlan) summary() []string {
+	if p.secure != nil {
+		return p.secure.summary()
+	}
 	var lines []string
 	if len(p.dirs)+len(p.files) > 0 {
 		lines = p.folderSummary()
@@ -265,6 +272,9 @@ func requireRealDir(path string) error {
 // then changes the group and the mode of every planned path. Only the group changes: the owner argument is -1.
 // A path that became a symbolic link, or lies behind one, since the plan is skipped.
 func (h folderHost) applyPermissions(ctx context.Context, p *permPlan) error {
+	if p.secure != nil {
+		return h.secureGit(ctx, p.secure)
+	}
 	if p.repo {
 		if _, err := runGit(ctx, p.dir, "config", "core.sharedRepository", "group"); err != nil {
 			return folderFailure("cannot set core.sharedRepository in "+p.dir, err)

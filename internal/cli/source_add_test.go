@@ -172,6 +172,8 @@ func newPermTree(t *testing.T) permTree {
 	}
 	target := filepath.Join(outside, "target.txt")
 	put(t, target, 0o600)
+	// A .git that is not writable for group and others whatever the umask of the user running the test.
+	defer syscall.Umask(syscall.Umask(0o022))
 	gitIn(t, dir, "init", "-q")
 	put(t, filepath.Join(dir, "top.txt"), 0o640)
 	put(t, filepath.Join(dir, "demo", "compose.yaml"), 0o640)
@@ -551,18 +553,26 @@ func TestSourceAddAdoptCloneSetsPermissionsThenBinds(t *testing.T) {
 }
 
 func TestSourceInspectWarnsWhenGitIsNotWritable(t *testing.T) {
-	useFolderHost(t)
+	d := useFolderHost(t)
+	d.useRootless(t)
 	tree := newPermTree(t)
 	startFakeService(t, fakeHandlers{control.SourceInspectCommand: inspectWith(localInspect(true))})
 	_, _, stderr := run(t, "source", "inspect", tree.dir)
-	for _, want := range []string{"the service cannot write .git", "source add sets the group permissions", "sudo -u qhost-deploy git"} {
+	for _, want := range []string{"the service cannot write .git", "source add sets the group permissions"} {
 		if !strings.Contains(stderr, want) {
 			t.Errorf("warning lacks %q: %q", want, stderr)
 		}
 	}
+	if strings.Contains(stderr, "sudo -u") {
+		t.Errorf("the warning names a command that needs git as another user: %q", stderr)
+	}
 	_, _, stderr = run(t, "source", "inspect", tree.dir, "--output", "json")
 	if stderr != "" {
 		t.Fatalf("structured output has a warning: %q", stderr)
+	}
+	rootlessDefault = nil
+	if _, _, stderr = run(t, "source", "inspect", tree.dir); strings.Contains(stderr, "cannot write .git") {
+		t.Fatalf("the system engine, whose service is root, got the warning: %q", stderr)
 	}
 }
 

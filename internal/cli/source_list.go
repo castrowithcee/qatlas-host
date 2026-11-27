@@ -59,7 +59,7 @@ func sourceListResult(format output.Format, sources []engineSource) output.Objec
 		if !src.LastPoll.IsZero() {
 			f = append(f, output.Field{Name: p + "last_poll", Value: src.LastPoll.UTC().Format(time.RFC3339)})
 		}
-		for _, kv := range [][2]string{{"url", src.URL}, {"head", src.Head}, {"poll_error", src.PollError}, {"note", src.Note}} {
+		for _, kv := range [][2]string{{"url", src.URL}, {"head", src.Head}, {"poll_error", src.PollError}, {"note", src.Note}, {"git_unsafe", src.GitUnsafe}} {
 			if kv[1] != "" {
 				f = append(f, output.Field{Name: p + kv[0], Value: kv[1]})
 			}

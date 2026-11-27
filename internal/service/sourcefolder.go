@@ -154,6 +154,9 @@ func (s *inspectService) handleFolderRevert(ctx context.Context, raw json.RawMes
 
 // revertAnswer maps an error of the revert to a fixed answer, as commitAnswer does.
 func revertAnswer(err error) error {
+	if ans := gitUnsafeAnswer(err); ans != nil {
+		return ans
+	}
 	var refused *gitrepo.RemoteRejectedError
 	switch {
 	case errors.Is(err, gitrepo.ErrRevertConflict):

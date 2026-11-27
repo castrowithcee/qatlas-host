@@ -93,6 +93,8 @@ const (
 	CodeStackAction      = "stack-action-failed"
 	CodeNameCollision    = "name-collision"
 	CodeNoSettings       = "no-settings"
+	// CodeGitUnsafe answers a command on a folder whose .git root does not trust; the message gives the reason.
+	CodeGitUnsafe = "git-unsafe"
 	// CodeNotChanged answers a path that is none of the local changes of the stack.
 	CodeNotChanged = "not-a-change"
 	// CodeSecrets answers a push that would publish secret-like files; the message names the places, never a value.
@@ -257,30 +259,6 @@ type EngineStatus struct {
 	RemoteHead string         `json:"remote_head,omitempty"`
 	Sources    []SourceStatus `json:"sources"`
 	Stacks     []StackStatus  `json:"stacks"`
-}
-
-// The kinds SourceStatus.Kind takes: a clone of a repository, or a repository without a remote deployed as it is.
-const (
-	SourceKindRemote = "remote"
-	SourceKindLocal  = "local"
-)
-
-// SourceStatus is the state of one stack folder as of its last poll. PollError tells why the poll could not
-// complete, Note why the working copy was not updated, Unreadable which engine state cannot be read (no stacks then).
-type SourceStatus struct {
-	ID   string `json:"id"`
-	Path string `json:"path"`
-	// Engine is the engine of the deploy service that holds the stack folder; empty as in StackStatus.Engine.
-	Engine string `json:"engine,omitempty"`
-	// Kind is SourceKindRemote or SourceKindLocal; URL is the repository address and empty for a local one.
-	Kind       string    `json:"kind"`
-	URL        string    `json:"url,omitempty"`
-	LastPoll   time.Time `json:"last_poll,omitzero"`
-	PollError  string    `json:"poll_error,omitempty"`
-	Note       string    `json:"note,omitempty"`
-	Head       string    `json:"head,omitempty"`
-	RemoteHead string    `json:"remote_head,omitempty"`
-	Unreadable string    `json:"unreadable,omitempty"`
 }
 
 // FindingNameCollision is the finding of a stack whose name a stack of another source already uses; it is

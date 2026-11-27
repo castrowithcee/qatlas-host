@@ -67,7 +67,7 @@ services:
       DEMO_HEALTH: ok
 EOF2
 	printf 'DEMO_SECRET=not-a-real-secret\n' | docker exec -i "$host" sh -ec "cat >/srv/qd-secret/demo-secret/secrets.env"
-	docker exec "$host" sh -ec "cd /srv/qd-secret && chmod 0644 demo-secret/compose.yaml demo-secret/secrets.env && git init -q -b main && git add -A &&
+	docker exec "$host" sh -ec "umask 022; cd /srv/qd-secret && chmod 0644 demo-secret/compose.yaml demo-secret/secrets.env && git init -q -b main && git add -A &&
 		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-secret stack with a secrets file' &&
 		git rm -q demo-secret/secrets.env &&
 		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Remove the secrets file'" ||
@@ -513,7 +513,7 @@ scenario_tui_remote() {
 
 	step 'two local folders without a remote are bound'
 	for tr_dir in "$tr_a" "$tr_b"; do
-		docker exec "$host" sh -ec "rm -rf '$tr_dir' && mkdir -p '$tr_dir/notes' && chmod 0755 '$tr_dir' '$tr_dir/notes' &&
+		docker exec "$host" sh -ec "umask 022; rm -rf '$tr_dir' && mkdir -p '$tr_dir/notes' && chmod 0755 '$tr_dir' '$tr_dir/notes' &&
 			printf 'notes of %s\n' '$tr_dir' >'$tr_dir/notes/readme.txt' && chmod 0644 '$tr_dir/notes/readme.txt' &&
 			cd '$tr_dir' && git init -q -b main && git add -A &&
 			git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the notes'" ||

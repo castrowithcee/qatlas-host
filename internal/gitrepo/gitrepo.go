@@ -6,7 +6,6 @@
 package gitrepo
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -116,7 +115,7 @@ func Clone(ctx context.Context, cfg Config, url, dir string) (*Repo, error) {
 	if _, err := r.run(ctx, false, maxStdout, args...); err != nil {
 		return nil, fmt.Errorf("clone failed: %w", err)
 	}
-	return r, nil
+	return r, r.rootOnlyGit()
 }
 
 // Fetch updates the remote-tracking ref of the checked-out branch and leaves the working copy alone. In local
@@ -142,6 +141,9 @@ func (r *Repo) RemoteURL(ctx context.Context) (string, error) {
 	}
 	out, err := r.run(ctx, true, maxErrorText, "config", "--local", "--get", "remote.origin.url")
 	url := strings.TrimSpace(out)
+	if errors.Is(err, ErrGitUnsafe) {
+		return "", err
+	}
 	if err != nil || url == "" {
 		return "", errors.New("the working copy has no origin remote")
 	}
@@ -293,6 +295,9 @@ func (r *Repo) ChangedFolders(ctx context.Context, from, to string) ([]string, e
 func (r *Repo) branch(ctx context.Context) (string, error) {
 	out, err := r.run(ctx, true, maxErrorText, "symbolic-ref", "--quiet", "--short", "HEAD")
 	name := strings.TrimSpace(out)
+	if errors.Is(err, ErrGitUnsafe) {
+		return "", err
+	}
 	if err != nil || name == "" || strings.HasPrefix(name, "-") {
 		return "", errors.New("the working copy is not on a branch")
 	}
@@ -302,6 +307,9 @@ func (r *Repo) branch(ctx context.Context) (string, error) {
 func (r *Repo) revParse(ctx context.Context, rev string) (string, error) {
 	out, err := r.run(ctx, true, maxErrorText, "rev-parse", "--verify", "--quiet", rev)
 	id := strings.TrimSpace(out)
+	if errors.Is(err, ErrGitUnsafe) {
+		return "", err
+	}
 	if err != nil || !hexRe.MatchString(id) {
 		return "", fmt.Errorf("cannot resolve %s", strings.TrimSuffix(rev, "^{commit}"))
 	}
@@ -326,13 +334,12 @@ type ioOptions struct {
 }
 
 func (r *Repo) runIO(ctx context.Context, inRepo bool, outLimit int, extraEnv []string, opts ioOptions, args ...string) (string, error) {
-	gitPath := r.cfg.test.gitPath
-	if gitPath == "" {
-		p, err := lookIn(fixedPath, "git")
-		if err != nil {
-			return "", errors.New("git is not installed")
-		}
-		gitPath = p
+	if err := r.checkGit(); err != nil {
+		return "", err
+	}
+	gitPath, err := r.gitBinary()
+	if err != nil {
+		return "", err
 	}
 	tmp, err := os.MkdirTemp("", "qhost-git-*")
 	if err != nil {
@@ -341,11 +348,7 @@ func (r *Repo) runIO(ctx context.Context, inRepo bool, outLimit int, extraEnv []
 	defer os.RemoveAll(tmp)
 	env := append(r.environment(tmp), extraEnv...)
 
-	timeout := r.cfg.Timeout
-	if timeout <= 0 {
-		timeout = DefaultTimeout
-	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, r.timeout())
 	defer cancel()
 
 	full := r.baseOptions()
@@ -506,26 +509,3 @@ func failureText(runErr error, stderr string) string {
 	}
 	return text
 }
-
-// capped keeps the head of what is written; once more arrives it calls onOver, which ends the process.
-type capped struct {
-	buf    bytes.Buffer
-	limit  int
-	over   bool
-	onOver func()
-}
-
-func (c *capped) Write(p []byte) (int, error) {
-	n := len(p)
-	if room := c.limit - c.buf.Len(); n > room {
-		if !c.over && c.onOver != nil {
-			c.onOver()
-		}
-		c.over = true
-		p = p[:max(room, 0)]
-	}
-	c.buf.Write(p)
-	return n, nil
-}
-
-func (c *capped) String() string { return c.buf.String() }

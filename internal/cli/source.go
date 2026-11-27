@@ -86,7 +86,7 @@ func newSourceCommand(program *cobracli.Program, state *notRunning) *cobra.Comma
 	inspect.Flags().StringVar(&engine, "engine", "", "Docker engine the folder would be taken over into: system (default) or rootless:<user>")
 	group.AddCommand(inspect, newSourceAddCommand(program, state), newSourceRemoteCommand(program, state), newSourceCompareCommand(program, state), newSourceListCommand(program, state),
 		newSourceRemoveCommand(program, state), newSourceMoveCommand(program, state), newSourceChangesCommand(program, state),
-		newSourceDiffCommand(program, state), newSourceLogCommand(program, state), newSourceShowCommand(program, state), newSourceDiscardCommand(program, state), newSourceCommitCommand(program, state))
+		newSourceDiffCommand(program, state), newSourceLogCommand(program, state), newSourceShowCommand(program, state), newSourceDiscardCommand(program, state), newSourceCommitCommand(program, state), newSourceSecureCommand(program, state))
 	return group
 }
 
@@ -95,7 +95,7 @@ func runSourceInspect(c *cobra.Command, program *cobracli.Program, state *notRun
 	if err != nil {
 		return err
 	}
-	if !structuredFormat(program.Format()) && res.Access != nil && res.Access.GitWritable != nil && !*res.Access.GitWritable {
+	if !structuredFormat(program.Format()) && targetOf(c.Context()).inst != nil && res.Access != nil && res.Access.GitWritable != nil && !*res.Access.GitWritable {
 		_, _ = fmt.Fprintln(c.ErrOrStderr(), gitNotWritableWarning)
 	}
 	obj := sourceResult(program.Format(), res)
@@ -112,8 +112,8 @@ func runSourceInspect(c *cobra.Command, program *cobracli.Program, state *notRun
 	return output.Encode(c.OutOrStdout(), program.Format(), obj)
 }
 
-const gitNotWritableWarning = "warning: the service cannot write .git; source add sets the group permissions, " +
-	"or commit as a member of the group qhost-deploy or with sudo -u qhost-deploy git"
+// gitNotWritableWarning is for a rootless engine; the service of the system engine is root and needs no access.
+const gitNotWritableWarning = "warning: the service cannot write .git; source add sets the group permissions"
 
 func structuredFormat(f output.Format) bool { return f == output.FormatJSON || f == output.FormatTOON }
 
@@ -130,6 +130,9 @@ func inspectSource(c *cobra.Command, state *notRunning, path, url string, includ
 	}
 	if err := credentialCall(c, state, control.SourceInspectCommand, control.SourceInspectArgs{Path: path, URL: url, Include: include}, &res); err != nil {
 		return res, err
+	}
+	if res.Case == control.SourceCaseReject && gitUnsafeFor(c, path) {
+		res.Fix = secureCommandHint(path)
 	}
 	// The service is sandboxed and sees every path that is not granted as read-only, so only this client can tell.
 	if res.Case != control.SourceCaseReject {

@@ -30,8 +30,7 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			"with --yes. It never overwrites silently. A folder that is missing or empty is cloned from --url like\n" +
 			"'repo set' (and created with the owner and group of the service account and mode 0755 when missing); a clone with an origin\n" +
 			"remote is taken over with that address; a repository without a remote is bound as a local source; a\n" +
-			"folder with files and no repository gets a repository with a first commit of the files its stacks refer\n" +
-			"to (compose files, .env, env_file, configs, build contexts, include and extends, read-only mounts; also\n" +
+			"folder with files and no repository gets a repository with a first commit of the files its stacks refer to (compose files, .env, env_file, configs, build contexts, include and extends, read-only mounts; also\n" +
 			".gitignore, .gitattributes and the stack settings), branch main, as qhost; everything else is left out\n" +
 			"with its reason. Each path left out becomes a line of a block marked by qhost in the .gitignore of the\n" +
 			"folder, so every clone ignores it too: a missing .gitignore is created, an existing one keeps its own\n" +
@@ -55,11 +54,9 @@ func newSourceAddCommand(program *cobracli.Program, state *notRunning) *cobra.Co
 			"publish still applies to it. --expect-effect covers the choice: take the effect from 'source inspect'\n" +
 			"with the same --include, or add stops with state-changed. Only a folder of files has unclear files.\n" +
 			"A folder that is rejected is refused and nothing changes.\n" +
-			"Like 'source inspect', add checks the Docker engine of the service and the rootless engines of the\n" +
-			"users for containers of the stack folders and names each conflict with its engine, and the engines it\n" +
+			"Like 'source inspect', add checks the Docker engine of the service and the rootless engines of the users for containers of the stack folders and names each conflict with its engine, and the engines it\n" +
 			"could not check. Conflicts only warn: the question says deploying would create duplicate containers\n" +
-			"and take their ports twice, and the folder can still be taken over.\n" +
-			"For a rootless engine, when its service cannot write the folder or its .git, add gives them to the group\n" +
+			"and take their ports twice, and the folder can still be taken over.\nFor the system engine add changes only .git, and only for root: an existing one gets the owner and group root, no write for group and others and loses core.sharedRepository (see 'source secure'); a new repository or a clone is made that way. The service inspects no other .git, so add first shows that change, asks and makes .git root-only before it inspects; --expect-effect refuses instead and names 'source secure'. For a rootless engine, when its service cannot write the folder or its .git, add gives them to the group\n" +
 			"of the user of the instance as root: the group of the folder, of the folders of versioned files and of .git, group write and setgid\n" +
 			"on folders, group read and write on versioned files (for a folder of files, the listed files) and on\n" +
 			"files in .git, and core.sharedRepository group. The owner never changes. Bind-mount sources of the stacks and everything below, unversioned\n" +
@@ -108,6 +105,9 @@ func runSourceAdd(c *cobra.Command, program *cobracli.Program, gate *cobracli.Ga
 		return err
 	}
 	if _, err := folders.selectEngine(c, engine); err != nil {
+		return err
+	}
+	if err := secureGitFirst(c, gate, path, expectEffect); err != nil {
 		return err
 	}
 	// At a terminal without --yes the operator is asked about each unclear file.
@@ -519,7 +519,7 @@ func applyPlan(c *cobra.Command, plan *permPlan) error {
 	if err := folders.applyPermissions(c.Context(), plan); err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(c.ErrOrStderr(), "Changed the group and the mode of %d paths in %s.\n", plan.changed(), plan.dir)
+	_, _ = fmt.Fprintf(c.ErrOrStderr(), "Changed the permissions of %d paths in %s.\n", plan.changed(), plan.dir)
 	return nil
 }
 

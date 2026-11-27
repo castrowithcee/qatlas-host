@@ -103,8 +103,10 @@ type State struct {
 	Head       string `json:"head,omitempty"`
 	RemoteHead string `json:"remote_head,omitempty"`
 	// Note says why the working copy was not brought up to date, empty otherwise.
-	Note   string                `json:"note,omitempty"`
-	Stacks map[string]StackState `json:"stacks,omitempty"`
+	Note string `json:"note,omitempty"`
+	// GitUnsafe is the finding git-unsafe: why git is not run in the folder. The next poll that can run git clears it.
+	GitUnsafe string                `json:"git_unsafe,omitempty"`
+	Stacks    map[string]StackState `json:"stacks,omitempty"`
 	// Runs is the history, oldest first.
 	Runs []RunRecord `json:"runs,omitempty"`
 }

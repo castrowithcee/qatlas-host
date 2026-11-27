@@ -17,6 +17,9 @@ import (
 // runsAnswer maps an engine error to a fixed answer. Text from the engine's error is never passed on: it may
 // carry names or paths from the working copy.
 func runsAnswer(err error) error {
+	if ans := gitUnsafeAnswer(err); ans != nil {
+		return ans
+	}
 	switch {
 	case errors.Is(err, engine.ErrRunActive):
 		return control.NewError(control.CodeRunActive, "a run of this stack is already active")
@@ -34,20 +37,9 @@ func runsAnswer(err error) error {
 		return control.NewError(control.CodeNoRepo, "no stacks repository is bound")
 	case errors.Is(err, engine.ErrStopped):
 		return control.NewError(control.CodeBusy, "the service is stopping")
-	case errors.Is(err, engine.ErrPaused):
-		return control.NewError(control.CodePaused, "the stack is paused after a failed rollback; resume it first")
-	case errors.Is(err, engine.ErrNotPaused):
-		return control.NewError(control.CodeNotPaused, "the stack is not paused")
-	case errors.Is(err, engine.ErrPinned):
-		return control.NewError(control.CodePinned, "the stack is pinned; unpin it first")
-	case errors.Is(err, engine.ErrStackStopped):
-		return control.NewError(control.CodeStackStopped, "the stack was stopped through qhost; start it with start first")
-	case errors.Is(err, engine.ErrNoSuchRun):
-		return control.NewError(control.CodeNoSuchRun, "no such run")
-	case errors.Is(err, engine.ErrNameCollision):
-		return control.NewError(control.CodeNameCollision, "another stack folder already uses the name of this stack; it is not deployed")
-	case errors.Is(err, engine.ErrBusy):
-		return control.NewError(control.CodeBusy, "the working copy is busy with an update or a rollback; try again")
+	}
+	if ans := stackStateAnswer(err); ans != nil {
+		return ans
 	}
 	return err
 }
@@ -173,7 +165,7 @@ func engineStatus(snaps []sourceSnapshot) control.EngineStatus {
 		st := ss.snap.State
 		res.Sources = append(res.Sources, control.SourceStatus{
 			ID: ss.conf.ID, Path: ss.conf.Path, Kind: ss.conf.Kind, URL: ss.conf.URL, LastPoll: st.LastPoll, PollError: printable(st.PollError),
-			Note: printable(st.Note), Head: printable(st.Head), RemoteHead: printable(st.RemoteHead),
+			Note: printable(st.Note), GitUnsafe: printable(st.GitUnsafe), Head: printable(st.Head), RemoteHead: printable(st.RemoteHead),
 		})
 		for _, item := range stackStatuses(ss.snap) {
 			item.Source = ss.conf.ID

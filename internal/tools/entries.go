@@ -239,4 +239,6 @@ var entries = []Entry{
 	local("host.update.migrate", ClassRoot, ScopeHost, "Run the transitions of this release for a host that ran an earlier one.", none, "update migrate"),
 	local("source.grant", ClassRoot, ScopeDeploy, "Create a stack folder and give the deploy service the access it needs.",
 		object([]string{"path"}, props{"path": str(), "create": boolean()}), "source add", "repo set"),
+	local("source.secure", ClassRoot, ScopeDeploy, "Make the .git of a stack folder of the system engine root-only, so that git runs in it again.",
+		object([]string{"path"}, props{"path": str(), "engine": str()}), "source secure"),
 }

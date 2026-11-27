@@ -1,5 +1,6 @@
 #!/bin/sh
-# Section source-local: local folders without a remote as sources, a private registry and folders of files.
+# Section source-local: local folders without a remote as sources, a private registry and folders of files, and the
+# .git of a folder of the system engine, which only root may change.
 # Needs sources: url2 and the clone /opt/stacks2, which scenario_source_local releases and takes over.
 # Sourced by run.sh; defines only functions and constants.
 
@@ -15,7 +16,7 @@ live_containers() {
 }
 
 # scenario_source_local proves source add, list and remove on a local repository without a remote below
-# /srv/qd-local, which no stack folder uses: source add changes no owner, group or mode, a version committed by root is
+# /srv/qd-local, which no stack folder uses: source add changes no owner, group or mode of the work tree, a version committed by root is
 # deployed, a failing one is rolled back by a local revert commit, and removing the source leaves the files and the
 # containers alone. Then the existing clone /opt/stacks2 is released and taken over again with its origin and key.
 scenario_source_local() {
@@ -52,7 +53,7 @@ services:
       DEMO_HEALTH: ok
 EOF2
 	printf 'secrets.env\ndata/\n' | docker exec -i "$host" sh -ec "cat >'$base/demo-local/.gitignore'"
-	docker exec "$host" sh -ec "cd '$base' && git init -q -b main && git add -A &&
+	docker exec "$host" sh -ec "umask 022 && cd '$base' && git init -q -b main && git add -A &&
 		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-local stack' &&
 		printf 'DEMO_SECRET=not-a-real-secret\n' >demo-local/secrets.env && chmod 0600 demo-local/secrets.env" ||
 		fail 'cannot create the local repository'
@@ -88,7 +89,7 @@ EOF2
 	live_before=$(live_containers)
 	[ -n "$live_before" ] || fail 'demo-live has no running container'
 
-	step 'source add --yes binds the repository as a local source and changes no owner, group or mode'
+	step 'source add --yes binds the repository as a local source and changes no owner, group or mode of the work tree'
 	tree_added=$(local_tree)
 	# qd merges stderr, where the preview and the notices go; the JSON answer is the last line.
 	out=$(qd --output json source add "$base" --yes) || fail "source add failed: $out"
@@ -139,7 +140,7 @@ EOF2
 
 	step 'a failing version is rolled back by a revert commit of the service, and the folder has no remote'
 	prev=$run
-	docker exec "$host" sh -ec "cd $base && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=2.0.0/; s/^DEMO_HEALTH=.*/DEMO_HEALTH=fail/' demo-local/.env &&
+	docker exec "$host" sh -ec "umask 022; cd $base && sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=2.0.0/; s/^DEMO_HEALTH=.*/DEMO_HEALTH=fail/' demo-local/.env &&
 		echo 'edited for 2.0.0' >>demo-local/notes/info.txt &&
 		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -am 'Update demo-local to 2.0.0 with a broken healthcheck'" ||
 		fail 'cannot commit the failing version'
@@ -201,7 +202,7 @@ EOF2
 
 	step 'the history of the stack folder is read without sudo, and its diffs only as root'
 	out=$(as_admin "qhost --output json source log $base") || fail "source log failed for the admin: $out"
-	printf '%s' "$out" | jq -e --arg id "$bad_local" '.commits | map(select(.id == $id)) | length == 1 and .[0].author == "E2E Admin" and
+	printf '%s' "$out" | jq -e --arg id "$bad_local" '.commits | map(select(.id == $id)) | length == 1 and .[0].author == "E2E Root" and
 		.[0].subject == "Update demo-local to 2.0.0 with a broken healthcheck" and (.[0].date | test("^20")) and
 		(.[0].paths | map(.path) | index("demo-local/.env") != null)' >/dev/null || fail "unexpected source log: $out"
 	out=$(as_admin "qhost --output json source log $base --limit 1") || fail "source log --limit 1 failed for the admin: $out"
@@ -345,7 +346,7 @@ services:
       DEMO_HEALTH: \${DEMO_HEALTH}
 EOF2
 	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/demo-private/.env'"
-	docker exec "$host" sh -ec "cd '$base' && git init -q -b main && git add -A &&
+	docker exec "$host" sh -ec "umask 022; cd '$base' && git init -q -b main && git add -A &&
 		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-private stack'" ||
 		fail 'cannot create the private repository'
 	if qd credential list | grep -qF "$cred"; then fail "a login for $cred is stored before the test: $(qd credential list)"; fi
@@ -487,7 +488,7 @@ EOF2
 	[ -z "$(docker exec "$host" sh -c "cat '$base/.git/info/exclude' 2>/dev/null")" ] || fail 'source add wrote the left-out paths to .git/info/exclude'
 	# A fresh clone, as when a host is restored from the repository, ignores what the first commit left out.
 	clone=$(docker exec "$host" mktemp -d) || fail 'cannot create a temporary folder for the clone'
-	# The service owns .git, and git takes safe.directory for the upload-pack of a local clone only from a config file.
+	# git takes safe.directory for the upload-pack of a local clone only from a config file.
 	printf '[safe]\n\tdirectory = %s\n\tdirectory = %s/.git\n' "$base" "$base" | docker exec -i "$host" sh -ec "cat >'$clone/gitconfig'"
 	docker exec -e GIT_CONFIG_GLOBAL="$clone/gitconfig" "$host" git clone -q "$base" "$clone/web" || fail 'cannot clone the folder of files'
 	for left in big.bin compose.yaml.bak .env.bak.1 app.log notes.txt acme.json data; do
@@ -604,6 +605,102 @@ EOF2
 	out=$(qd --output json source remove "$base" --yes) || fail "source remove of the folder with a writable file failed: $out"
 	docker exec "$host" docker compose -p demo-include down >/dev/null 2>&1 || fail 'cannot remove the containers of demo-include'
 	log 'scenario: an unclear file chosen with --include went into the first commit'
+}
+
+# git_unsafe_shown succeeds when source list shows the finding git-unsafe for the folder $1.
+git_unsafe_shown() {
+	qd --output json source list | jq -e --arg p "$1" '[.sources[] | select(.path == $p and (.git_unsafe // "") != "")] | length == 1' >/dev/null
+}
+
+# scenario_source_git_root_only proves that .git of a folder of the system engine is only for root: source add makes
+# a group-writable .git with core.sharedRepository=group root:root first, after a preview and only with --yes, without write for group and others, and leaves the
+# work tree alone. A .git made group-writable afterwards stops the fetch with the finding git-unsafe, so a new version
+# is not deployed; source secure asks first, then makes it root-only again, and the version is deployed.
+scenario_source_git_root_only() {
+	base=/srv/qd-gitsec
+	image=registry.$domain/demo/app
+	group=$(docker exec "$host" id -gn "$admin") || fail "cannot read the group of $admin"
+	tree_cmd="find '$base' -path '$base/.git' -prune -o -printf '%p %m %u:%g %s\n' | sort"
+
+	step 'a folder with a group-writable .git and core.sharedRepository=group is prepared as root'
+	docker exec "$host" sh -ec "rm -rf '$base' && mkdir -p '$base/demo-gitsec' && chmod 0755 '$base'" || fail 'cannot create the folder'
+	cat <<EOF2 | docker exec -i "$host" sh -ec "cat >'$base/demo-gitsec/compose.yaml'"
+name: demo-gitsec
+
+services:
+  app:
+    image: $image:\${DEMO_APP_VERSION}
+    restart: unless-stopped
+    environment:
+      DEMO_NAME: demo-gitsec
+      DEMO_VERSION: \${DEMO_APP_VERSION}
+      DEMO_HEALTH: \${DEMO_HEALTH}
+EOF2
+	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$base/demo-gitsec/.env'"
+	docker exec "$host" sh -ec "cd '$base' && git init -q -b main && git add -A &&
+		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-gitsec stack' &&
+		git config core.sharedRepository group && chgrp -R '$group' .git && chmod -R g+w .git &&
+		chown '$admin:$group' demo-gitsec/compose.yaml && chmod 0664 demo-gitsec/compose.yaml" || fail 'cannot prepare the repository'
+	[ -n "$(docker exec "$host" find "$base/.git" -perm -g+w -print -quit)" ] || fail 'the prepared .git is not group-writable'
+	tree_before=$(docker exec "$host" sh -c "$tree_cmd")
+
+	step 'source add without --yes and without a terminal ends with code 2 and changes nothing'
+	rc=0
+	out=$(qd source add "$base") || rc=$?
+	[ "$rc" = 2 ] || fail "source add without --yes ended with code $rc: $out"
+	printf '%s' "$out" | grep -q 'is not root-only' || fail "source add did not show the change of .git: $out"
+	[ -n "$(docker exec "$host" find "$base/.git" -perm -g+w -print -quit)" ] || fail 'a refused source add changed .git'
+	[ "$(docker exec "$host" git -c safe.directory="$base" -C "$base" config --get core.sharedRepository)" = group ] || fail 'a refused source add removed core.sharedRepository'
+	qd --output json source list | jq -e --arg p "$base" '[.sources[] | select(.path == $p)] | length == 0' >/dev/null || fail 'a refused source add bound the folder'
+
+	step 'source add --yes first makes .git root:root without write for group and others and without core.sharedRepository, then takes the folder over'
+	out=$(qd --output json source add "$base" --yes) || fail "source add failed: $out"
+	wait_for 'the deploy service to answer' 30 qd status
+	[ -z "$(docker exec "$host" find "$base/.git" \( ! -user root -o ! -group root -o -perm /022 \) -print)" ] ||
+		fail ".git is not root-only after source add: $(docker exec "$host" find "$base/.git" \( ! -user root -o ! -group root -o -perm /022 \) -print | head -n 5)"
+	[ -z "$(docker exec "$host" git -c safe.directory="$base" -C "$base" config --get core.sharedRepository || true)" ] || fail 'source add left core.sharedRepository'
+	[ "$(docker exec "$host" sh -c "$tree_cmd")" = "$tree_before" ] || fail 'source add changed an owner, group or mode of the work tree'
+	wait_for 'the first run of demo-gitsec' 180 stack_settled demo-gitsec succeeded
+	[ "$(stack_images demo-gitsec)" = "$image:1.0.0" ] || fail "demo-gitsec does not run 1.0.0: $(stack_images demo-gitsec)"
+
+	step 'a .git made group-writable afterwards stops the fetch with the finding git-unsafe, and a new version is not deployed'
+	prev=$(newest_run demo-gitsec)
+	docker exec "$host" sh -ec "chmod g+w '$base/.git/config' &&
+		sed -i 's/^DEMO_APP_VERSION=.*/DEMO_APP_VERSION=1.1.0/' '$base/demo-gitsec/.env' &&
+		git -c safe.directory='$base' -C '$base' -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -am 'Update demo-gitsec to 1.1.0'" ||
+		fail 'cannot make .git group-writable and commit a version'
+	good=$(docker exec "$host" git -c safe.directory="$base" -C "$base" rev-parse HEAD)
+	# The restart starts a poll, which finds the unsafe .git.
+	restart_service
+	wait_for 'the finding git-unsafe' 60 git_unsafe_shown "$base"
+	sleep 3
+	[ "$(newest_run demo-gitsec)" = "$prev" ] || fail 'a run started although .git is unsafe'
+	[ "$(stack_images demo-gitsec)" = "$image:1.0.0" ] || fail "the new version was deployed although .git is unsafe: $(stack_images demo-gitsec)"
+	[ "$(stack_field demo-gitsec deployed)" != "$good" ] || fail 'the new version is recorded as deployed although .git is unsafe'
+
+	step 'source secure without --yes and without a terminal ends with code 2 and changes nothing'
+	rc=0
+	out=$(qd source secure "$base") || rc=$?
+	[ "$rc" = 2 ] || fail "source secure without --yes ended with code $rc: $out"
+	[ -n "$(docker exec "$host" find "$base/.git" -perm -g+w -print -quit)" ] || fail 'a refused source secure changed .git'
+	git_unsafe_shown "$base" || fail 'a refused source secure cleared the finding'
+
+	step 'source secure --yes makes .git root-only, the finding goes and the new version is deployed'
+	out=$(qd --output json source secure "$base" --yes) || fail "source secure failed: $out"
+	[ -z "$(docker exec "$host" find "$base/.git" \( ! -user root -o ! -group root -o -perm /022 \) -print)" ] || fail '.git is not root-only after source secure'
+	# The finding goes at the next poll; the restart starts one.
+	restart_service
+	run=$(next_run demo-gitsec "$prev") || fail 'no run of demo-gitsec started after source secure'
+	wait_for "the run $run" 240 run_finished demo-gitsec "$run"
+	qd stack log "$run" | grep -q ' result succeeded' || fail "the run after source secure did not succeed: $(qd stack log "$run")"
+	[ "$(stack_images demo-gitsec)" = "$image:1.1.0" ] || fail "demo-gitsec does not run 1.1.0: $(stack_images demo-gitsec)"
+	[ "$(stack_field demo-gitsec deployed)" = "$good" ] || fail "demo-gitsec is not recorded as deployed at $good"
+	if git_unsafe_shown "$base"; then fail 'the finding git-unsafe stays after source secure'; fi
+
+	step 'the folder is released and its containers are removed'
+	out=$(qd --output json source remove "$base" --yes) || fail "source remove failed: $out"
+	docker exec "$host" docker compose -p demo-gitsec down >/dev/null 2>&1 || fail 'cannot remove the containers of demo-gitsec'
+	log 'scenario: a .git of the system engine became root-only on takeover, a group-writable one stopped the fetch until source secure'
 }
 
 # source_polled_clean succeeds when the source of the folder $1 has been polled and reports no poll error.

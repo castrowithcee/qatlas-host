@@ -85,7 +85,7 @@ services:
 EOF2
 	printf 'DEMO_APP_VERSION=1.0.0\nDEMO_HEALTH=ok\n' | docker exec -i "$host" sh -ec "cat >'$local_dir/demo-tui-local/.env'"
 	printf 'secrets.env\ndata/\n' | docker exec -i "$host" sh -ec "cat >'$local_dir/demo-tui-local/.gitignore'"
-	docker exec "$host" sh -ec "cd '$local_dir' && git init -q -b main && git add -A &&
+	docker exec "$host" sh -ec "umask 022 && cd '$local_dir' && git init -q -b main && git add -A &&
 		git -c user.name='E2E Root' -c user.email=root.qhoste2e.test commit -q -m 'Add the demo-tui-local stack' &&
 		printf 'DEMO_SECRET=not-a-real-secret\n' >demo-tui-local/secrets.env &&
 		chmod 0640 demo-tui-local/secrets.env" ||
