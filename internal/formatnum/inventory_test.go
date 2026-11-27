@@ -55,6 +55,7 @@ var stores = []store{
 var exceptions = []struct{ Source, Reason string }{
 	{"backup/backup.go", "the data files of a backup and its command file; meta.json, which is numbered, names them"},
 	{"cli/folders.go", "a sudoers drop-in, whose format is sudo's"},
+	{"cli/manpage_refresh.go", "the installed manpages, in roff format"},
 	{"cli/hostproposal.go", "opens the terminal device to ask a question; it stores nothing"},
 	{"cli/source_move_run.go", "puts back the .gitignore of a moved folder as it was, a file in git's format"},
 	{"credentials/credentials.go", "deploy keys in OpenSSH format and raw secret values, which are no document"},

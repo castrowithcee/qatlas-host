@@ -70,7 +70,9 @@ func newMigrateCommand(program *cobracli.Program) *cobra.Command {
 		Long: "migrate is run by 'qhost update' in the newly installed program after the files are replaced and before\n" +
 			"the services restart, because only that program knows the transitions of its release. It runs every\n" +
 			"transition the host does not have yet, in order, reports each on standard error and stops at the first\n" +
-			"failure; a repeated run changes nothing more. A release without transitions changes nothing. Needs root.\n" +
+			"failure; a repeated run changes nothing more. A release without transitions changes nothing. It then renews\n" +
+			"the installed manpages that differ from those of the program, all pages, not only the main one that an\n" +
+			"older self-update replaces; a failure there is a warning. Needs root.\n" +
 			"The deploy service runs its own transitions in the start step of its unit, so a transition that failed there\n" +
 			"is continued by a new start of the service or by this command. Updates from v0.7.0 to v0.8.0 call this command.",
 		Args: cobra.NoArgs,
@@ -84,6 +86,7 @@ func newMigrateCommand(program *cobracli.Program) *cobra.Command {
 				return &cli.Failure{Code: output.CodeRuntime, Message: "update migrate: " + err.Error(), Cause: err,
 					NextStep: "Fix the cause named in the message, then run 'sudo qhost update " + migrateCommand + "' again."}
 			}
+			reportManpages(program, selfUpdate.root, c.ErrOrStderr())
 			return output.Encode(c.OutOrStdout(), program.Format(), output.Object{Fields: []output.Field{
 				{Name: "transitions", Value: len(transitions)},
 				{Name: "applied", Value: strings.Join(applied, ", ")},
