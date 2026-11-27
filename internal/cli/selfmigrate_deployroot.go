@@ -25,7 +25,7 @@ var deployRootTransition = transition{
 
 // deployServiceTransitions are the transitions of the deploy service, which its start step runs. They change only
 // what the deploy service owns, so they are safe before it opens its channel.
-var deployServiceTransitions = []transition{deployRootTransition}
+var deployServiceTransitions = []transition{deployRootTransition, stackGitTransition}
 
 // deployHost is the real host below root, or the host tests set up.
 func deployHost(root string) deploysetup.Host {

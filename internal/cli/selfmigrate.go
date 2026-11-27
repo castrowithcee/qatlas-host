@@ -29,8 +29,9 @@ type transition struct {
 }
 
 // runTransitions runs every step the host does not have yet, in order, reports each on report and stops at the
-// first failure. It returns the names of the steps it applied.
+// first failure. It returns the names of the steps it applied. A step reports its own lines on reportOf(ctx).
 func runTransitions(ctx context.Context, root string, list []transition, report io.Writer) ([]string, error) {
+	ctx = context.WithValue(ctx, reportKey{}, report)
 	var applied []string
 	for _, t := range list {
 		done, err := t.done(ctx, root)
@@ -48,6 +49,16 @@ func runTransitions(ctx context.Context, root string, list []transition, report 
 		_, _ = fmt.Fprintf(report, "transition %s: applied\n", t.name)
 	}
 	return applied, nil
+}
+
+type reportKey struct{}
+
+// reportOf is the report of the runTransitions that runs the step; nothing outside it.
+func reportOf(ctx context.Context) io.Writer {
+	if w, ok := ctx.Value(reportKey{}).(io.Writer); ok {
+		return w
+	}
+	return io.Discard
 }
 
 // atStart returns the steps as the start step of a service unit runs them.
@@ -74,7 +85,9 @@ func newMigrateCommand(program *cobracli.Program) *cobra.Command {
 			"the installed manpages that differ from those of the program, all pages, not only the main one that an\n" +
 			"older self-update replaces; a failure there is a warning. Needs root.\n" +
 			"The deploy service runs its own transitions in the start step of its unit, so a transition that failed there\n" +
-			"is continued by a new start of the service or by this command. Updates from v0.7.0 to v0.8.0 call this command.",
+			"is continued by a new start of the service or by this command. Securing the .git of stack folders that an\n" +
+			"earlier release shared with its service account runs only in that start step, after the service of the earlier\n" +
+			"release has stopped (see 'qhost deploy-service prepare'). Updates from v0.7.0 to v0.8.0 call this command.",
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if selfUpdate.euid() != 0 {

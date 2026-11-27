@@ -26,6 +26,10 @@ type gitSecure struct {
 	entries []string
 	// shared is the value of core.sharedRepository to remove, empty when it is not set.
 	shared string
+	// gids are the groups of the entries that change, and othersWritable is the first of them that others can
+	// write, empty when there is none. They tell what the releases before the root service left (oldStackGits).
+	gids           map[uint32]bool
+	othersWritable string
 }
 
 func (s *gitSecure) count() int {
@@ -71,7 +75,7 @@ func planSystemGit(res control.SourceInspectResult) (*permPlan, error) {
 // planGitSecure reads .git of dir without following a link and computes the changes; it changes nothing. A
 // folder without .git has none. What cannot be repaired is refused with the reason.
 func planGitSecure(ctx context.Context, dir string) (*gitSecure, error) {
-	s := &gitSecure{root: dir}
+	s := &gitSecure{root: dir, gids: map[uint32]bool{}}
 	gitDir := filepath.Join(dir, ".git")
 	if _, err := os.Lstat(gitDir); errors.Is(err, fs.ErrNotExist) {
 		return s, nil
@@ -79,7 +83,14 @@ func planGitSecure(ctx context.Context, dir string) (*gitSecure, error) {
 	if err := requireRealDir(gitDir); err != nil {
 		return nil, err
 	}
-	if err := scanGit(gitDir, func(path string, isDir bool) { s.entries = append(s.entries, path) }); err != nil {
+	err := scanGit(gitDir, func(path string, mode fs.FileMode, gid uint32) {
+		s.entries = append(s.entries, path)
+		s.gids[gid] = true
+		if mode.Perm()&0o002 != 0 && s.othersWritable == "" {
+			s.othersWritable = path
+		}
+	})
+	if err != nil {
 		return nil, err
 	}
 	out, err := runGit(ctx, dir, "config", "--local", "--get", "core.sharedRepository")
@@ -96,7 +107,7 @@ func planGitSecure(ctx context.Context, dir string) (*gitSecure, error) {
 
 // scanGit calls found for every entry of .git that is not root-only yet, a folder before what it holds. A link, a
 // special file or a file with further hard links, which may lie outside, cannot be repaired and is refused.
-func scanGit(gitDir string, found func(path string, isDir bool)) error {
+func scanGit(gitDir string, found func(path string, mode fs.FileMode, gid uint32)) error {
 	refuse := func(path, why string) error {
 		return usageFailure(fmt.Sprintf("%q %s, so .git cannot be made root-only; nothing was changed", path, why),
 			"Look at the entry, remove or replace it yourself, then run the command again.")
@@ -121,7 +132,7 @@ func scanGit(gitDir string, found func(path string, isDir bool)) error {
 			return folderFailure("cannot read the owner of "+path, nil)
 		}
 		if int(st.Uid) != gitOwner.uid || int(st.Gid) != gitOwner.gid || info.Mode().Perm()&0o022 != 0 || info.Mode()&fs.ModeSetgid != 0 {
-			found(path, info.IsDir())
+			found(path, info.Mode(), st.Gid)
 		}
 		return nil
 	})
@@ -159,7 +170,7 @@ func (h folderHost) secureGit(ctx context.Context, s *gitSecure) error {
 		}
 	}
 	var left []string
-	if err := scanGit(filepath.Join(s.root, ".git"), func(path string, _ bool) { left = append(left, path) }); err != nil {
+	if err := scanGit(filepath.Join(s.root, ".git"), func(path string, _ fs.FileMode, _ uint32) { left = append(left, path) }); err != nil {
 		return err
 	}
 	if len(left) > 0 {

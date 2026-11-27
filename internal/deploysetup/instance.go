@@ -166,6 +166,19 @@ func (h Host) readGroupDB() (map[string]group, error) {
 	return out, err
 }
 
+// GroupIDs maps every group name of /etc/group below root to its id.
+func (h Host) GroupIDs() (map[string]uint32, error) {
+	groups, err := h.readGroupDB()
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]uint32, len(groups))
+	for name, g := range groups {
+		out[name] = g.gid
+	}
+	return out, nil
+}
+
 // inGroup reports whether the user is a member of the group, as a supplementary or the primary group.
 func inGroup(groups map[string]group, name, user string, a account) bool {
 	g, ok := groups[name]
