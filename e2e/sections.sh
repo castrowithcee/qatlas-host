@@ -87,6 +87,8 @@ first-setup    scenario_tui_backup
 first-setup    scenario_tui_check
 selfupdate     scenario_selfupdate
 uninstall      scenario_uninstall
+old-release    scenario_old_update
+old-release    scenario_old_reboot
 '
 
 # Each section, followed by the sections it needs, in the order of their first unit.
@@ -110,6 +112,7 @@ tui-proposals  deploy
 first-setup    window sources
 selfupdate     deploy
 uninstall      selfupdate rootless
+old-release
 '
 
 # scenario_sections prints the names of all sections.

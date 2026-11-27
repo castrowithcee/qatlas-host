@@ -16,28 +16,19 @@ git_ed25519_fingerprint() {
 	docker exec "$prefix-git" ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | cut -d ' ' -f 2
 }
 
-# release_build builds the fake release $1 (a tag) for the architecture of the host into $work/releases/$1 and
-# signs its checksums with the test key. The binary trusts that key through a source overlay of the key list, so
-# release.json and the sources stay as they are. With changed-template as $2 the binary also carries a template unit
-# of the deploy service instances with one more comment line, $work/releasebuild/$release_template, and the
-# transition e2e-marker of transition_source, the same way.
+# release_build builds the fake release $1 (a tag) of the sources for the architecture of the host into
+# $work/releases/$1 and signs its checksums with the test key. The binary trusts that key through a source overlay
+# of the key list, so release.json and the sources stay as they are. With changed-template as $2 the binary also
+# carries a template unit of the deploy service instances with one more comment line,
+# $work/releasebuild/$release_template, and the transition e2e-marker of transition_source, the same way.
 release_build() {
 	tag=$1
-	arch=$(docker exec "$host" dpkg --print-architecture)
 	dir=$work/releasebuild
 	overlay=$dir/overlay.json
 	if [ ! -f "$overlay" ]; then
 		mkdir -p "$dir"
-		ssh-keygen -q -t ed25519 -N '' -C "$prefix-release-test-key" -f "$work/keys/release"
-		printf 'qhost-release %s\n' "$(cut -d ' ' -f 1,2 "$work/keys/release.pub")" >"$dir/allowed-signers"
-		sed "s|^var extraKeyLines string\$|var extraKeyLines = \"$(cut -d ' ' -f 1,2 "$work/keys/release.pub")\"|" \
-			"$root/internal/release/release.go" >"$dir/release.go"
-		grep -q '^var extraKeyLines = "ssh-ed25519 ' "$dir/release.go" || fail 'cannot add the test key to the release key list'
-		printf '{"Replace":{"%s":"%s"}}' "$root/internal/release/release.go" "$dir/release.go" >"$dir/overlay.json"
-		# The test releases start at v0.1.0, so they update from there whatever packaging/update.json names.
-		sed -e "s|\"targets\": .*|\"targets\": [\"linux/$arch\"],|" \
-			-e 's|"source": "packaging/update.json"|"source": "e2e/update.json"|' "$root/release.json" >"$dir/release.json"
-		grep -q '"source": "e2e/update.json"' "$dir/release.json" || fail 'cannot point the test release at e2e/update.json'
+		release_trust "$root" "$dir"
+		sed "s|\"targets\": .*|\"targets\": [\"linux/$(docker exec "$host" dpkg --print-architecture)\"],|" "$root/release.json" >"$dir/release.json"
 	fi
 	if [ "${2:-}" = changed-template ]; then
 		overlay=$dir/overlay-template.json
@@ -47,14 +38,35 @@ release_build() {
 			"$root/packaging/$release_template" "$dir/$release_template" \
 			"$root/internal/cli/selfmigrate_transitions.go" "$dir/transitions.go" >"$overlay"
 	fi
-	rel_signers=$(realpath --relative-to="$root" "$dir/allowed-signers")
-	(cd "$root" && SOURCE_DATE_EPOCH=1700000000 GOFLAGS="${GOFLAGS:+$GOFLAGS }-overlay=$overlay" \
-		go run github.com/castrowithcee/qatlas-kit/cmd/releasebuild -config "$dir/release.json" -program qhost \
+	release_make "$root" "$dir/release.json" "$overlay" "$tag"
+}
+
+# release_trust makes the test release key and its allowed signers file once, and writes into the directory $2 the
+# key list of the source tree $1 with that key added, release.go, and overlay.json, which puts it in place of the
+# key list of the tree.
+release_trust() {
+	if [ ! -f "$work/keys/release" ]; then
+		ssh-keygen -q -t ed25519 -N '' -C "$prefix-release-test-key" -f "$work/keys/release"
+		printf 'qhost-release %s\n' "$(cut -d ' ' -f 1,2 "$work/keys/release.pub")" >"$work/keys/release-allowed-signers"
+	fi
+	sed "s|^var extraKeyLines string\$|var extraKeyLines = \"$(cut -d ' ' -f 1,2 "$work/keys/release.pub")\"|" \
+		"$1/internal/release/release.go" >"$2/release.go"
+	grep -q '^var extraKeyLines = "ssh-ed25519 ' "$2/release.go" || fail "cannot add the test key to the release key list of $1"
+	printf '{"Replace":{"%s":"%s"}}' "$1/internal/release/release.go" "$2/release.go" >"$2/overlay.json"
+}
+
+# release_make builds the release $4 from the source tree $1 with the configuration $2 and the overlay $3 into
+# $work/releases/$4 and signs its checksums with the test key. The build stays offline: the modules come from the
+# module cache, which just deps fills, and the local Go toolchain builds.
+release_make() {
+	rel_signers=$(realpath --relative-to="$1" "$work/keys/release-allowed-signers")
+	(cd "$1" && SOURCE_DATE_EPOCH=1700000000 GOPROXY=off GOTOOLCHAIN=local GOFLAGS="${GOFLAGS:+$GOFLAGS }-overlay=$3" \
+		go run github.com/castrowithcee/qatlas-kit/cmd/releasebuild -config "$2" -program qhost \
 		-namespace qhost-release -signature-asset "$signature_asset" -allowed-signers "$rel_signers" \
-		-releases-url https://github.com/castrowithcee/qatlas-host/releases -version "$tag" -out "$work/releases/$tag" >/dev/null) ||
-		fail "cannot build the test release $tag"
-	(cd "$work/releases/$tag" && ssh-keygen -q -Y sign -f "$work/keys/release" -n qhost-release checksums.txt) ||
-		fail "cannot sign the test release $tag"
+		-releases-url https://github.com/castrowithcee/qatlas-host/releases -version "$4" -out "$work/releases/$4" >/dev/null) ||
+		fail "cannot build the test release $4"
+	(cd "$work/releases/$4" && ssh-keygen -q -Y sign -f "$work/keys/release" -n qhost-release checksums.txt) ||
+		fail "cannot sign the test release $4"
 }
 
 # transition_marker is the file the transition of the release built with changed-template appends a line to.

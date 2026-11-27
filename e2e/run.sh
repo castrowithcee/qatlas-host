@@ -2,7 +2,8 @@
 # End-to-end environment: a simulated Linux host (systemd + Docker) with a local git platform (SSH, push), an
 # OCI registry with demo image tags, a GitHub releases fake, a webhook receiver and a mail server (STARTTLS on port 587).
 #
-#   e2e/run.sh deps               pull and build the base images; the only command that needs the internet
+#   e2e/run.sh deps               pull and build the base images and load the Go modules of the old release;
+#                                 the only command that needs the internet
 #   e2e/run.sh up                 build everything and start the environment, without the internet
 #   e2e/run.sh down               remove every container, network, volume, image and temp directory it made
 #   e2e/run.sh status             show the environment and the registry tags
@@ -52,6 +53,8 @@ admin=e2e-admin
 # Fixed in base.Dockerfile.
 rootless_user=e2e-rootless
 rootless_uid=1001
+# The published release whose real self-update the section old-release proves; it is built from its tag.
+old_release=v0.6.0
 tags='1.0.0 1.0.1 1.1.0 2.0.0 2.1.0-rc.1 3.0.0 4.0.0 5.0.0'
 unhealthy_tags='4.0.0'
 # The registry with a login: private.$domain, image demo/app, these tags; the user is fixed and the token is made per run.
@@ -222,6 +225,19 @@ deps() {
 			fail "building the base image $target failed"
 	done
 	log "base images ready: $(for t in host git skopeo; do base_image "$t"; done | tr '\n' ' ')"
+	old_modules
+}
+
+# old_modules loads the Go modules of $old_release into the module cache, which its offline build needs.
+old_modules() {
+	mods=$(mktemp -d "$tmp_base/$base-modules.XXXXXX")
+	git -C "$root" archive "$old_release" go.mod go.sum | tar -x -C "$mods" &&
+		(cd "$mods" && GOTOOLCHAIN=local go mod download) || {
+		rm -rf "$mods"
+		fail "loading the Go modules of $old_release failed"
+	}
+	rm -rf "$mods"
+	log "Go modules of $old_release ready"
 }
 
 require_base() {
@@ -691,7 +707,7 @@ main() {
 		exec docker exec -i -u "$user" "$host" "$@"
 		;;
 	*)
-		sed -n '2,44p' "$0" | sed 's/^# \{0,1\}//'
+		sed -n '2,45p' "$0" | sed 's/^# \{0,1\}//'
 		[ -z "$cmd" ] || exit 2
 		;;
 	esac
