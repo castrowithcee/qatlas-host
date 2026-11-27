@@ -117,7 +117,12 @@ func gitPath(path string) bool { return slices.Contains(strings.Split(path, "/")
 
 // fileResult does what a key or a click on the browser of the place asked for.
 func (m *Model) fileResult(v *fileView, r kittui.FileResult) tea.Cmd {
+	if b := v.browser; b != nil && !b.Searching() {
+		v.stopSearch()
+	}
 	switch {
+	case r.Search != nil:
+		return m.searchFiles(v, *r.Search)
 	case r.Load != nil:
 		load := *r.Load
 		return m.readHostPath(v, v.path(load.Dir...), &load, 0)
