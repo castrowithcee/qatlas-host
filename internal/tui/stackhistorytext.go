@@ -40,7 +40,7 @@ func stackHistoryEnglish() map[kittui.TextID]string {
 
 func stackHistoryGerman() map[kittui.TextID]string {
 	return map[kittui.TextID]string{
-		textKeyHistory:       "verlauf",
+		textKeyHistory:       "Verlauf",
 		textColDate:          "Datum",
 		textColAuthor:        "Autor",
 		textColSubject:       "Betreff",

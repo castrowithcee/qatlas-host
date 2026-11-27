@@ -251,6 +251,9 @@ func (m *Model) historyBack(h *stackHistory, msg tea.KeyPressMsg) {
 	}
 }
 
+// historyHint is the key of the view on the row of a stack folder and in its browser.
+var historyHint = kittui.Hint{Action: actHistory, Label: textKeyHistory, Priority: 3}
+
 // stackHistoryFooter are the own keys of the view.
 func (m *Model) stackHistoryFooter(h *stackHistory) []kittui.Hint {
 	back := kittui.Hint{Action: actBack, Label: kittui.TextKeyBack, Priority: 1}

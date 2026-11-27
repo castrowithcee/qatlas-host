@@ -175,6 +175,8 @@ func (m *Model) stacksAction(id kittui.ActionID) (tea.Cmd, bool) {
 	switch {
 	case id == actChanges:
 		return m.openFolderChanges(v)
+	case id == actHistory:
+		return m.openFolderHistory(v)
 	case v == nil && id == actFiles:
 		if _, ok := m.selectedFolder(); !ok {
 			return nil, false

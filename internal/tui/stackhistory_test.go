@@ -50,10 +50,25 @@ func historyModel(t *testing.T, b *fakeBackend, root bool) (*Model, *fakeRoot) {
 // openHistoryOfRow opens the history of the first stack folder through the entry the key of the Stacks area will
 // call.
 func openHistoryOfRow(m *Model) {
-	send(m, "up")
-	cmd, _ := m.openFolderHistory(nil)
-	drain(m, cmd)
+	send(m, "up", "@")
 	m.render()
+}
+
+// @ in the browser of the folder opens the history, and esc leads back to the browser.
+func TestHistoryOpensFromTheBrowser(t *testing.T) {
+	m := newTestModel(t, i18n.English, historyBackend(), wideWidth, 40)
+	m.euid, m.mouseOn = func() int { return 1000 }, true
+	fakeStackFiles(m)
+	send(m, "up", "Q")
+	contains(t, m, "@ history")
+	send(m, "@")
+	if m.shownHistory() == nil {
+		t.Fatalf("@ in the browser did not open the history:\n%s", m.render())
+	}
+	send(m, "esc")
+	if m.shownHistory() != nil || m.shownStackFiles() == nil {
+		t.Fatalf("esc did not lead back to the browser:\n%s", m.render())
+	}
 }
 
 // The list shows date, author and subject; enter shows the files with their kind, esc goes one level back and from

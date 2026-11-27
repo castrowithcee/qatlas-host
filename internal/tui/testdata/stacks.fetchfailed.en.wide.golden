@@ -20,5 +20,5 @@
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 error: the fetch of /srv/stacks-example failed: the service refused the request: cannot reach git.example.test:         
 connection refused                                                                                                      
-enter details  / search  F fetch now  e deploy key  Q files  d release  n add  R reload  1-7 area  q quit               
+enter details  / search  F fetch now  e deploy key  @ history  Q files  d release  n add  R reload  1-7 area  q quit    
                                                                                                          ↑/↓ choose  1/6

@@ -20,5 +20,5 @@
 │ poll failed: the working copy has uncommitted        │
 │ changes in demo/compose.yaml                         │
 ╰──────────────────────────────────────────────────────╯
-enter details  / search  O add remote  Q files          
-d release  n add  R reload  1-7 area  q quit         1/6
+enter details  / search  O add remote  @ history        
+Q files  d release  n add  R reload  1-7 area  q quit   
