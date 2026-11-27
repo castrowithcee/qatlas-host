@@ -158,9 +158,7 @@ func (m *Model) mouse(msg tea.MouseMsg) tea.Cmd {
 	case res.Area != "":
 		return m.areaClick(res.Area)
 	case res.Action != "":
-		if key, ok := m.keyOf(res.Action); ok {
-			return m.press(key)
-		}
+		return m.actionClick(res.Action)
 	case res.Zone != "":
 		if slices.Contains(m.zones(), res.Zone) {
 			if res.Zone != kittui.ZoneForm && m.formFocused() && m.set.form.kind == formGeneral {

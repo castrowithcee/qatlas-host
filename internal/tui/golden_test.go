@@ -134,38 +134,18 @@ func send(m *Model, keys ...string) {
 	}
 }
 
+// testKeyNames are the keys of the tests that have no text.
+var testKeyNames = map[string]tea.KeyPressMsg{
+	"enter": {Code: tea.KeyEnter}, "esc": {Code: tea.KeyEscape}, "down": {Code: tea.KeyDown}, "up": {Code: tea.KeyUp},
+	"pgup": {Code: tea.KeyPgUp}, "pgdown": {Code: tea.KeyPgDown}, "home": {Code: tea.KeyHome}, "end": {Code: tea.KeyEnd},
+	"ctrl+c": {Code: 'c', Mod: tea.ModCtrl}, "left": {Code: tea.KeyLeft}, "right": {Code: tea.KeyRight},
+	"tab": {Code: tea.KeyTab}, "shift+tab": {Code: tea.KeyTab, Mod: tea.ModShift}, "backspace": {Code: tea.KeyBackspace},
+	"f2": {Code: tea.KeyF2}, "f9": {Code: tea.KeyF9},
+}
+
 func keyMsg(k string) tea.KeyPressMsg {
-	switch k {
-	case "enter":
-		return tea.KeyPressMsg{Code: tea.KeyEnter}
-	case "esc":
-		return tea.KeyPressMsg{Code: tea.KeyEscape}
-	case "down":
-		return tea.KeyPressMsg{Code: tea.KeyDown}
-	case "up":
-		return tea.KeyPressMsg{Code: tea.KeyUp}
-	case "pgup":
-		return tea.KeyPressMsg{Code: tea.KeyPgUp}
-	case "pgdown":
-		return tea.KeyPressMsg{Code: tea.KeyPgDown}
-	case "home":
-		return tea.KeyPressMsg{Code: tea.KeyHome}
-	case "end":
-		return tea.KeyPressMsg{Code: tea.KeyEnd}
-	case "ctrl+c":
-		return tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
-	case "left":
-		return tea.KeyPressMsg{Code: tea.KeyLeft}
-	case "right":
-		return tea.KeyPressMsg{Code: tea.KeyRight}
-	case "tab":
-		return tea.KeyPressMsg{Code: tea.KeyTab}
-	case "shift+tab":
-		return tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}
-	case "backspace":
-		return tea.KeyPressMsg{Code: tea.KeyBackspace}
-	case "f2":
-		return tea.KeyPressMsg{Code: tea.KeyF2}
+	if msg, ok := testKeyNames[k]; ok {
+		return msg
 	}
 	r := []rune(k)[0]
 	return tea.KeyPressMsg{Code: r, Text: k}

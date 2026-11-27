@@ -25,6 +25,6 @@ func (m *Model) beginPlan(p plan, stack, engine string, covered bool) tea.Cmd {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return nil
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, plan: p, yes: func() tea.Cmd { return m.start(p) }}
+	m.modal = &modal{kind: modalAsk, screen: p.kind.screen(), dialog: dialog, plan: p, yes: func() tea.Cmd { return m.start(p) }}
 	return nil
 }

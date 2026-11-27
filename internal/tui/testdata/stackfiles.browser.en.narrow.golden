@@ -1,6 +1,7 @@
 ◆ qhost  maintenance window closed  [esc] back  [?] help
   [1 Stacks] 2 3 4 5 6 7                                
 ────────────────────────────────────────────────────────
+            [ c copy ] [ r rename ] [ n new ] [ e edit ]
   /srv/stacks-example                                   
   NAME         SIZE  MODIFIED          RIGHTS     OWNER 
   ───────────────────────────────────────────────────── 
@@ -18,7 +19,6 @@
                                                         
                                                         
                                                         
-[ e edit ]  [ n new ]  [ r rename ]  [ c copy ]         
-[ d delete ]                                            
-e edit  n new  r rename  c copy  d delete  enter choose 
-/ search  esc back  R reload  1-7 area  q quit      ↑ up
+                                                        
+d delete  enter choose  / search  esc back  R reload    
+1-7 area  q quit                            ↑ up  ↓ down

@@ -285,7 +285,6 @@ cx internal/tui/detailhook_test.go:holds 25
 cx internal/tui/enginesections.go:Model.fillSections 18
 cx internal/tui/enginesections.go:Model.stackUpdate 19
 cx internal/tui/general.go:Model.relocalize 18
-cx internal/tui/golden_test.go:keyMsg 16
 cx internal/tui/hostask.go:Model.hostFailed 19
 cx internal/tui/listeditor.go:Model.editorKey 29
 cx internal/tui/model.go:Model.Update 45
@@ -293,11 +292,11 @@ cx internal/tui/model.go:Model.enter 16
 cx internal/tui/model.go:Model.footer 37
 cx internal/tui/model.go:Model.frameSpec 17
 cx internal/tui/model.go:Model.input 20
-cx internal/tui/model.go:Model.key 112
+cx internal/tui/model.go:Model.key 107
 cx internal/tui/model.go:Model.render 29
 cx internal/tui/model.go:newModel 17
 cx internal/tui/model_test.go:TestRowsShowTheMostPressingState 17
-cx internal/tui/mouse.go:Model.mouse 27
+cx internal/tui/mouse.go:Model.mouse 26
 cx internal/tui/proposals.go:Model.proposalLines 17
 cx internal/tui/pty_test.go:TestSecretSetAtATerminalLeavesTheValueOnlyInTheSecretsFile 19
 cx internal/tui/settings.go:Model.applySetting 65
@@ -349,12 +348,12 @@ file internal/service/servicetest/servicetest.go 572
 file internal/service/sourceremote.go 639
 file internal/service/sources.go 842
 file internal/stacks/stacks.go 545
-file internal/tui/actions.go 911
+file internal/tui/actions.go 855
 file internal/tui/backend.go 582
 file internal/tui/detail.go 647
 file internal/tui/fakebackend_test.go 1192
 file internal/tui/folders.go 792
-file internal/tui/model.go 1440
+file internal/tui/model.go 1411
 file internal/tui/settings.go 938
 file internal/tui/settingsform.go 544
 file internal/tui/settingstext.go permanent: text catalog of the terminal interface, pure data
@@ -530,10 +529,9 @@ len internal/tui/keys.go:keyTable 74
 len internal/tui/listeditor.go:Model.editorKey 65
 len internal/tui/model.go:Model.Update 101
 len internal/tui/model.go:Model.footer 76
-len internal/tui/model.go:Model.key 245
+len internal/tui/model.go:Model.key 236
 len internal/tui/model.go:Model.render 80
 len internal/tui/model.go:newModel 63
-len internal/tui/mouse.go:Model.mouse 62
 len internal/tui/proposals.go:Model.proposalLines 68
 len internal/tui/pty_test.go:TestSecretSetAtATerminalLeavesTheValueOnlyInTheSecretsFile 72
 len internal/tui/settings.go:Model.applySetting 197
