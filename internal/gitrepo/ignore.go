@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/castrowithcee/qatlas-host/internal/nofollow"
 	"github.com/castrowithcee/qatlas-host/internal/stacks"
 )
 
@@ -211,11 +212,24 @@ func (p IgnorePlan) Revert(dir string) error {
 	return p.restore(dir)
 }
 
+// openFolder opens dir for a change of IgnoreName: dir itself and nothing below it is a link.
+func openFolder(dir string) (*nofollow.Dir, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, err
+	}
+	return nofollow.Open(abs, "")
+}
+
 // write puts the planned content into the file in place, so its owner, group and mode stay.
 func (p IgnorePlan) write(dir string) error {
-	name := filepath.Join(dir, IgnoreName)
+	d, err := openFolder(dir)
+	if err != nil {
+		return fmt.Errorf("open the folder: %w", err)
+	}
+	defer d.Close()
 	if !p.Exists {
-		f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o664)
+		f, err := d.OpenFile(IgnoreName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o664)
 		if err != nil {
 			return fmt.Errorf("create %s: %w", IgnoreName, err)
 		}
@@ -224,12 +238,12 @@ func (p IgnorePlan) write(dir string) error {
 			err = cerr
 		}
 		if err != nil {
-			_ = os.Remove(name)
+			_ = d.Remove(IgnoreName)
 			return fmt.Errorf("write %s: %w", IgnoreName, err)
 		}
 		return nil
 	}
-	f, err := os.OpenFile(name, os.O_RDWR|syscall.O_NOFOLLOW, 0)
+	f, err := d.OpenFile(IgnoreName, os.O_RDWR, 0)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", IgnoreName, err)
 	}
@@ -261,11 +275,15 @@ func writeAt(f *os.File, b []byte) error {
 
 // restore puts back what the folder held before write.
 func (p IgnorePlan) restore(dir string) error {
-	name := filepath.Join(dir, IgnoreName)
-	if !p.Exists {
-		return os.Remove(name)
+	d, err := openFolder(dir)
+	if err != nil {
+		return err
 	}
-	f, err := os.OpenFile(name, os.O_WRONLY|syscall.O_NOFOLLOW, 0)
+	defer d.Close()
+	if !p.Exists {
+		return d.Remove(IgnoreName)
+	}
+	f, err := d.OpenFile(IgnoreName, os.O_WRONLY, 0)
 	if err != nil {
 		return err
 	}
