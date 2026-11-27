@@ -34,7 +34,10 @@ release_build() {
 			"$root/internal/release/release.go" >"$dir/release.go"
 		grep -q '^var extraKeyLines = "ssh-ed25519 ' "$dir/release.go" || fail 'cannot add the test key to the release key list'
 		printf '{"Replace":{"%s":"%s"}}' "$root/internal/release/release.go" "$dir/release.go" >"$dir/overlay.json"
-		sed "s|\"targets\": .*|\"targets\": [\"linux/$arch\"],|" "$root/release.json" >"$dir/release.json"
+		# The test releases start at v0.1.0, so they update from there whatever packaging/update.json names.
+		sed -e "s|\"targets\": .*|\"targets\": [\"linux/$arch\"],|" \
+			-e 's|"source": "packaging/update.json"|"source": "e2e/update.json"|' "$root/release.json" >"$dir/release.json"
+		grep -q '"source": "e2e/update.json"' "$dir/release.json" || fail 'cannot point the test release at e2e/update.json'
 	fi
 	if [ "${2:-}" = changed-template ]; then
 		overlay=$dir/overlay-template.json
