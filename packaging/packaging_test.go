@@ -150,8 +150,9 @@ func TestReleaseConfigSelectsTheSystemVariant(t *testing.T) {
 	if len(c.Service.Groups) != 0 {
 		t.Errorf("service groups = %v, want none", c.Service.Groups)
 	}
-	if len(c.Files) != 1 || c.Files[0].Source != "packaging/qhost-deploy.service" || c.Files[0].Path != sysservice.UnitEntry(deployService) {
-		t.Errorf("release files = %+v, want the deploy unit at %s", c.Files, sysservice.UnitEntry(deployService))
+	if len(c.Files) != 2 || c.Files[0].Source != "packaging/qhost-deploy.service" || c.Files[0].Path != sysservice.UnitEntry(deployService) ||
+		c.Files[1].Path != release.RequirementsEntry {
+		t.Errorf("release files = %+v, want the deploy unit at %s and the update requirements", c.Files, sysservice.UnitEntry(deployService))
 	}
 	if !c.Service.AddInstallingUser {
 		t.Error("an administrator in the service group reads without sudo, so the installing user joins the group")
@@ -334,5 +335,20 @@ func TestHookUnitStaysOutOfTheReleaseArchive(t *testing.T) {
 		if strings.Contains(f.Source, "qhost-hook") {
 			t.Errorf("release file %+v; the setup installs the hook unit", f)
 		}
+	}
+}
+
+func TestReleaseCarriesValidUpdateRequirements(t *testing.T) {
+	var source string
+	for _, f := range loadConfig(t).Files {
+		if f.Path == release.RequirementsEntry {
+			source = f.Source
+		}
+	}
+	if source != "packaging/update.json" {
+		t.Fatalf("release.json copies %q to %s, want packaging/update.json", source, release.RequirementsEntry)
+	}
+	if _, err := release.ParseRequirements(readFile(t, source)); err != nil {
+		t.Fatal(err)
 	}
 }
