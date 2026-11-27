@@ -688,6 +688,8 @@ EOF2
 	step 'source secure --yes makes .git root-only, the finding goes and the new version is deployed'
 	out=$(qd --output json source secure "$base" --yes) || fail "source secure failed: $out"
 	[ -z "$(docker exec "$host" find "$base/.git" \( ! -user root -o ! -group root -o -perm /022 \) -print)" ] || fail '.git is not root-only after source secure'
+	# The finding goes at the next poll; the restart starts one.
+	restart_service
 	run=$(next_run demo-gitsec "$prev") || fail 'no run of demo-gitsec started after source secure'
 	wait_for "the run $run" 240 run_finished demo-gitsec "$run"
 	qd stack log "$run" | grep -q ' result succeeded' || fail "the run after source secure did not succeed: $(qd stack log "$run")"

@@ -26,7 +26,7 @@ func newSourceSecureCommand(program *cobracli.Program, state *notRunning) *cobra
 			"run happens until it is repaired. secure shows what it changes and asks first: at a terminal by answering\n" +
 			"the question, without a terminal with --yes. The work tree keeps its owners and modes. Nothing is followed:\n" +
 			"a .git that is a link or no folder, a link or special file in it, and a file with further hard links are\n" +
-			"refused with the reason, and nothing changes. For a bound folder the next fetch then starts at once; a folder\n" +
+			"refused with the reason, and nothing changes. For a bound folder the next poll picks it up again; a folder\n" +
 			"that is not bound yet works too, so a folder can be secured before 'source add'. Only for folders of the\n" +
 			"system engine; a rootless engine is refused. Run it with sudo.",
 		Args: func(_ *cobra.Command, args []string) error {
@@ -85,17 +85,18 @@ func runSourceSecure(c *cobra.Command, program *cobracli.Program, gate *cobracli
 		if !boundHere(c, path) {
 			return output.Encode(c.OutOrStdout(), program.Format(), done)
 		}
-		// The finding goes at the next fetch; do not wait for the poll. A fetch that fails changes nothing here.
+		// The fetch shows at once that git runs in the folder again; the finding goes at the next poll.
 		var res control.RepoFetchResult
 		if err := repoCall(c, state, control.RepoFetchCommand, control.RepoFetchArgs{Dir: path}, &res); err != nil {
 			_, _ = fmt.Fprintln(w, "warning: the folder was secured, but the service could not fetch it now: "+err.Error())
 		}
+		_, _ = fmt.Fprintln(w, "The next poll of the deploy service picks the folder up again, and the finding git-unsafe goes.")
 		return output.Encode(c.OutOrStdout(), program.Format(), done)
 	})
 }
 
 // boundHere reports whether the deploy service of the target has a source bound to the folder. A service that
-// cannot be asked counts as not bound: the next fetch of the poll finds the repaired folder anyway.
+// cannot be asked counts as not bound: the next poll finds the repaired folder anyway.
 func boundHere(c *cobra.Command, path string) bool {
 	var st control.StatusResult
 	if err := callFor(c.Context(), peerLimit, targetOf(c.Context()).endpoint(), control.StatusCommand, nil, &st); err != nil {
