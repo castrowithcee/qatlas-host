@@ -5,6 +5,7 @@ import kittui "github.com/castrowithcee/qatlas-kit/tui"
 // The actions of the key table.
 const (
 	actHelp                      = kittui.ActionHelp
+	actHelpF9                    = kittui.ActionHelpF9
 	actCommand                   = kittui.ActionCommand
 	actBack                      = kittui.ActionBack
 	actForceQuit                 = kittui.ActionForceQuit
@@ -21,6 +22,8 @@ const (
 	actEnter     kittui.ActionID = "enter"
 	actSearch                    = kittui.ActionSearch
 	actArea      kittui.ActionID = "area"
+	// actOutline opens the overview of the help pages.
+	actOutline kittui.ActionID = "help.outline"
 	// actStackOnly limits the Runs area to the stack chosen in Stacks, and lifts the limit again.
 	actStackOnly = kittui.ActionFilter
 	// actToggle ticks a stack in the Stacks list.
@@ -128,7 +131,7 @@ func std(id kittui.ActionID, help kittui.TextID) kittui.Action {
 
 func keyTable() []kittui.Action {
 	table := []kittui.Action{
-		std(actHelp, kittui.TextKeyHelp), std(actCommand, kittui.TextKeyCommands),
+		std(actHelp, kittui.TextKeyHelp), std(actHelpF9, kittui.TextKeyHelp), std(actCommand, kittui.TextKeyCommands),
 		std(actBack, kittui.TextKeyBack),
 		std(actForceQuit, kittui.TextKeyQuit),
 		std(actQuit, kittui.TextKeyQuit),
@@ -142,7 +145,7 @@ func keyTable() []kittui.Action {
 		act(actPageUp, kittui.LevelMove, kittui.TextKeyPageUp, "pgup"),
 		act(actPageDown, kittui.LevelMove, kittui.TextKeyPageDown, "pgdown"),
 		act(actEnter, kittui.LevelMove, kittui.TextKeyEnter, "enter"),
-		std(actSearch, kittui.TextKeySearch),
+		std(actSearch, kittui.TextKeySearch), act(actOutline, kittui.LevelHelp, kittui.TextHelpOutline, "o"),
 		act(actArea, kittui.LevelMove, textKeyArea, areaKeys...),
 		std(actStackOnly, textKeyStackOnly),
 		act(actToggle, kittui.LevelMove, textKeyTick, "space"),
@@ -241,7 +244,8 @@ func stackListKeys() kittui.ListKeys {
 
 func helpKeys() kittui.HelpKeys {
 	return kittui.HelpKeys{Left: actLeft, Right: actRight, Up: actUp, Down: actDown, PageUp: actPageUp,
-		PageDown: actPageDown, First: actFirst, Last: actLast, Back: actBack, Help: actHelp}
+		PageDown: actPageDown, First: actFirst, Last: actLast, Back: actBack, Help: actHelp,
+		Outline: actOutline, Enter: actEnter, Search: actSearch}
 }
 
 // formKeys are the actions of the key table a form reads.

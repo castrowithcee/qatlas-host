@@ -32,3 +32,7 @@ snap-update:
 # Lowers the frozen size list to the current values and drops resolved entries; never adds one.
 size-update:
     @{{run}} go test -count=1 -run '^TestSizeLimits$' . -update
+
+# Drops the entries of the help list whose screen got a page or is gone; never adds one.
+help-update:
+    @{{run}} go test -count=1 -run '^TestHelpCoverage$' ./internal/tui/ -update

@@ -309,6 +309,8 @@ func TestOnlyTheHelpTakesClicksAndTheWheelWhileItIsOpen(t *testing.T) {
 	if m.area != areaStacks || m.helpOpen {
 		t.Fatalf("a click outside did not just close the help: area %s, open %v", m.area, m.helpOpen)
 	}
+	// The start page is short; the wheel needs a screen it does not fit on.
+	m.Update(tea.WindowSizeMsg{Width: wideWidth, Height: 14})
 	send(m, "?")
 	m.render()
 	before := m.render()

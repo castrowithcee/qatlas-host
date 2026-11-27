@@ -167,7 +167,7 @@ func (m *Model) hookAdded(res HookAddResult, stack string) tea.Cmd {
 	if err != nil {
 		m.failure = t.Lookup(kittui.TextError, err.Error())
 	} else {
-		m.modal = &modal{kind: modalAsk, dialog: dialog, full: true}
+		m.modal = &modal{kind: modalAsk, screen: titleScreen(textTitleHookSecret), dialog: dialog, full: true}
 	}
 	return m.readHooks()
 }

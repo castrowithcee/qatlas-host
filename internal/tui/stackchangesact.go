@@ -201,7 +201,7 @@ func (c committed) finish(m *Model, _ func(string, ...string)) tea.Cmd {
 	if err != nil {
 		m.failure = t.Lookup(kittui.TextError, err.Error())
 	} else {
-		m.modal = &modal{kind: modalAsk, dialog: dialog, on: map[kittui.ActionID]func() tea.Cmd{actShowLog: func() tea.Cmd { return m.showRuns(nil) }}}
+		m.modal = &modal{kind: modalAsk, screen: titleScreen(textTitleCommit), dialog: dialog, on: map[kittui.ActionID]func() tea.Cmd{actShowLog: func() tea.Cmd { return m.showRuns(nil) }}}
 	}
 	return tea.Batch(m.reloadNow(), m.readChanges())
 }

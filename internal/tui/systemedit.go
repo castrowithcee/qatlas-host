@@ -252,7 +252,7 @@ func (m *Model) askQuestion(spec kittui.DialogSpec, yes func() tea.Cmd, drop fun
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, yes: yes, drop: drop}
+	m.modal = &modal{kind: modalAsk, screen: titleScreen(spec.Title), dialog: dialog, yes: yes, drop: drop}
 }
 
 // askFileWrite asks to write the edited text back as the root action file.write; the confirmation owns the text

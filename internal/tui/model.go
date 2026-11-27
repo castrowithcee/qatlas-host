@@ -18,7 +18,6 @@ import (
 	"github.com/castrowithcee/qatlas-host/internal/client"
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/datadir"
-	"github.com/castrowithcee/qatlas-host/internal/helptopics"
 	"github.com/castrowithcee/qatlas-host/internal/host/hostadmin"
 	"github.com/castrowithcee/qatlas-host/internal/host/hostchange"
 )
@@ -548,7 +547,10 @@ func (m *Model) serviceText(err error) string {
 
 // input is the input focus of the screen.
 func (m *Model) input() kittui.InputFocus {
-	if m.helpOpen || m.modal != nil {
+	if m.helpOpen {
+		return m.help.Input()
+	}
+	if m.modal != nil {
 		return kittui.InputNavigation
 	}
 	if m.clogShown() {
@@ -630,6 +632,9 @@ func (m *Model) typed(msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool) {
 
 func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 	m.notice, m.result, m.keep = "", "", ""
+	if cmd, handled := m.helpKey(msg); handled {
+		return cmd
+	}
 	if m.modal != nil {
 		return m.modalKey(msg)
 	}
@@ -652,18 +657,6 @@ func (m *Model) key(msg tea.KeyPressMsg) tea.Cmd {
 	}
 	if m.clogShown() && !m.helpOpen {
 		return m.containerLogKey(msg)
-	}
-	if m.helpOpen {
-		if act, handled := m.help.Update(msg); handled {
-			if act != "" {
-				m.helpOpen = false
-			}
-			return nil
-		}
-		if id, ok := m.keys.Match(msg, kittui.InputNavigation); ok && (id == actQuit || id == actForceQuit) {
-			return tea.Quit
-		}
-		return nil
 	}
 	focus := m.input()
 	if focus == kittui.InputText {
@@ -1044,16 +1037,6 @@ func (m *Model) open(id kittui.ItemID) tea.Cmd {
 	return m.enter(areaDetail)
 }
 
-func (m *Model) openHelp() {
-	help, err := kittui.NewHelp(kittui.HelpSpec{Topics: helptopics.All(), Screen: m.helpScreen(),
-		Global: []kittui.ActionID{actHelp, actArea, actReload, actBack, actQuit}, Keys: helpKeys(), CloseOutside: true}, m.keys, m.text)
-	if err != nil {
-		m.failure = m.text.Lookup(kittui.TextError, err.Error())
-		return
-	}
-	m.help, m.helpOpen = help, true
-}
-
 // footer is the key line of the screen.
 func (m *Model) footer() []kittui.Hint {
 	if m.modal != nil {
@@ -1145,18 +1128,6 @@ func scrollHints() []kittui.Hint {
 		{Action: actUp, Label: kittui.TextHelpScroll, Kind: kittui.HintNavigation},
 		{Action: actDown, Label: kittui.TextHelpScroll, Kind: kittui.HintNavigation},
 	}
-}
-
-// helpScreen are the keys the help lists for the screen it was opened from.
-func (m *Model) helpScreen() []kittui.Hint {
-	hints := m.footer()
-	if m.focus() != kittui.ZoneTabs && m.zones()[0] != kittui.ZoneForm {
-		hints = append(hints, kittui.Hint{Action: actNext, Label: textKeyZone, Priority: 3})
-	}
-	if m.stackRowsShown() && len(m.rows) > 0 {
-		hints = append(hints, m.moreActionHints()...)
-	}
-	return hints
 }
 
 func (m *Model) stackOnlyHint() kittui.Hint {
@@ -1345,7 +1316,7 @@ func (m *Model) render() string {
 		if over, ot, ok := m.help.Overlay(m.styles, view, m.width, m.height, room); ok {
 			view, targets = over, ot
 		} else {
-			spec.Footer, spec.Input, spec.Position, spec.Back = m.help.Hints(), kittui.InputNavigation, "", nil
+			spec.Footer, spec.Input, spec.Position, spec.Back = m.help.Hints(), m.help.Input(), "", nil
 			room = m.frame.Workspace(spec)
 			var wt []kittui.Target
 			spec.Workspace, wt = m.help.View(m.styles, room.Width, room.Height)
