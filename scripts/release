@@ -1,0 +1,42 @@
+#!/bin/sh
+# Tags a release on a commit whose CI on GitHub passed and pushes only that tag; release tags can never be moved or
+# deleted. Usage: scripts/release v0.X.Y [commit]. GITHUB_TOKEN, when set, raises the API rate limit.
+set -eu
+
+repo=castrowithcee/qatlas-host
+tag=${1:-}
+commit=${2:-HEAD}
+
+fail() {
+	echo "release: $*" >&2
+	exit 1
+}
+
+printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || fail "give the version as v0.X.Y, not '$tag'"
+command -v jq >/dev/null || fail 'jq is missing'
+sha=$(git rev-parse --verify --quiet "$commit^{commit}") || fail "$commit is not a commit"
+if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null || git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+	fail "the tag $tag exists already"
+fi
+
+api() {
+	if [ -n "${GITHUB_TOKEN:-}" ]; then
+		curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" "https://api.github.com/repos/$repo/$1"
+	else
+		curl -fsSL "https://api.github.com/repos/$repo/$1"
+	fi
+}
+
+# The newest CI run counts; a commit that no pushed branch carries has none.
+state=$(api "actions/runs?head_sha=$sha&per_page=50" | jq -r '
+	[.workflow_runs[] | select(.name == "CI")] | sort_by(.created_at) | last
+	| if . == null then "missing" else "\(.status) \(.conclusion // "")" end') || fail 'cannot read the CI runs from GitHub'
+[ "$state" = 'completed success' ] || fail "the CI of $sha is not green ($state); push the commit and wait for its CI"
+
+echo "release: the CI of $sha is green."
+echo "release: the scenario and the acceptance (just test-e2e, just test-ext) must have passed on this commit, too."
+printf 'release: type %s to tag and push it: ' "$tag"
+read -r answer
+[ "$answer" = "$tag" ] || fail 'nothing tagged'
+git tag -a "$tag" -m "$tag" "$sha"
+git push origin "refs/tags/$tag"

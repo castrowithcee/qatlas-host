@@ -1,9 +1,9 @@
-# Test entry points; every test recipe runs through scripts/test-run, which applies the host test budget.
+# Test and release entry points; every test recipe runs through scripts/test-run, which applies the host test budget.
 set positional-arguments
 
 run := "scripts/test-run"
 
-# Downloads the Go modules and builds the e2e base images; the only recipe that needs the internet.
+# Downloads the Go modules and builds the e2e base images; the only test recipe besides test-ext that needs the internet.
 deps:
     @go mod download
     @e2e/run.sh deps
@@ -32,6 +32,10 @@ snap-update:
 # Lowers the frozen size list to the current values and drops resolved entries; never adds one.
 size-update:
     @{{run}} go test -count=1 -run '^TestSizeLimits$' . -update
+
+# Tags and pushes the release version on a commit whose CI passed, HEAD by default; asks for the version again.
+release version *commit:
+    @scripts/release "$@"
 
 # Drops the entries of the help list whose screen got a page or is gone; never adds one.
 help-update:
