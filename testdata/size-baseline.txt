@@ -336,7 +336,7 @@ file internal/engine/engine_test.go 1366
 file internal/engine/run.go 679
 file internal/gitrepo/gitrepo.go 531
 file internal/gitrepo/remote.go 653
-file internal/helptopics/helptopics.go 598
+file internal/helptopics/helptopics.go 518
 file internal/host/hostchange/filemove.go 534
 file internal/host/hostchange/filetree.go 1098
 file internal/host/hostchange/users.go 964
