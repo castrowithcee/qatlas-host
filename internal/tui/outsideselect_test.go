@@ -143,7 +143,7 @@ func TestDraggingInADialogAndInTheHelpCopiesAndKeepsThemOpen(t *testing.T) {
 	send(m, "n")
 	send(m, "?")
 	m.render()
-	if got := dragFrom(t, m, "one area for each", 16); got != "one area for each" || !m.helpOpen {
+	if got := dragFrom(t, m, "Every stack folder", 17); got != "Every stack folder" || !m.helpOpen {
 		t.Fatalf("help: clipboard %q, open %v", got, m.helpOpen)
 	}
 }
@@ -160,7 +160,7 @@ func TestAClickInsideTheFrameOnNoTargetClosesNeitherHelpNorDialog(t *testing.T) 
 	send(m, "n")
 	send(m, "?")
 	m.render()
-	x, y = cellOf(t, m, "one area for each")
+	x, y = cellOf(t, m, "Every stack folder")
 	clickAt(m, x-1, y)
 	if !m.helpOpen {
 		t.Fatal("a click inside the help frame closed it")

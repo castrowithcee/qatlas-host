@@ -183,6 +183,9 @@ var entries = []Entry{
 	hostCmd("proposal.commands.status", ClassRead, "Show whether proposals of free commands are accepted.", none,
 		"proposal commands status"),
 	hostCmd("usage", ClassRead, "Read the current load of the host: CPU share, load average, memory, swap and file systems.", none, "host usage"),
+	hostCmd("usage.stream", ClassRead, "Stream the load of the host as host.usage reads it: one request answers with one measurement right away "+
+		"and one per interval (2 to 60 seconds, default 5) until the connection closes.",
+		object(nil, props{"interval_seconds": integer()})),
 	hostCmd("proposal.submit", ClassPropose, "Submit a proposal of a change to the host.",
 		object([]string{"kind", "content"}, props{"kind": str(), "content": anyObject()}), "proposal submit"),
 	hostCmd("proposal.list", ClassRead, "List the proposals of the host service.", none, "proposal list"),
