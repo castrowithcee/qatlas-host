@@ -77,6 +77,9 @@ func (s *server) registry(store *proposals.Store) (*control.Registry, map[string
 	if err := add(control.HostUsageCommand, auditlog.OperationUsageRead, control.ClassRead, s.readUsage); err != nil {
 		return nil, nil, err
 	}
+	if err := add(control.HostUsageHistoryCommand, auditlog.OperationUsageRead, control.ClassRead, s.usageHistory); err != nil {
+		return nil, nil, err
+	}
 	if err := proposalCommands(add, store, s.commandSwitch.Enabled); err != nil {
 		return nil, nil, err
 	}

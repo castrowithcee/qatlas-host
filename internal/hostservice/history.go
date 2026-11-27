@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/castrowithcee/qatlas-host/internal/host/usage"
@@ -14,7 +15,7 @@ const (
 	// MetricsFile is the history database inside the state directory.
 	MetricsFile = "metrics.db"
 
-	measureEvery = 10 * time.Second
+	measureEvery = usagehistory.RawInterval
 	writeEvery   = time.Minute
 	pruneEvery   = time.Hour
 	// flushTimeout bounds the last write at stop, which runs after ctx has ended.
@@ -27,6 +28,7 @@ const (
 type historyStore interface {
 	Write(ctx context.Context, batch []usagehistory.Measurement) error
 	Prune(ctx context.Context, now time.Time) error
+	Read(ctx context.Context, now time.Time, q usagehistory.Query) (usagehistory.Result, error)
 	Close() error
 }
 
@@ -52,6 +54,12 @@ type collector struct {
 	hooks historyHooks
 	cfgs  chan usagehistory.Config
 
+	// readMu guards reader, the store as readers see it, and readErr, why there is none. A reader holds the
+	// read lock for its query, so the loop closes the store only after the last one is done.
+	readMu  sync.RWMutex
+	reader  historyStore
+	readErr error
+
 	store    historyStore
 	buffer   []usagehistory.Measurement
 	lastWarn map[string]time.Time
@@ -71,6 +79,7 @@ func newCollector(log *slog.Logger, stateDir string, now func() time.Time, cfg u
 	c := &collector{log: log, path: filepath.Join(stateDir, MetricsFile), now: now, hooks: hooks,
 		cfgs: make(chan usagehistory.Config, 1), lastWarn: map[string]time.Time{}, missed: map[string]int{}}
 	c.cfgs <- cfg
+	c.readErr = errHistoryStarting
 	return c
 }
 
@@ -125,14 +134,17 @@ func (c *collector) run(ctx context.Context) {
 // reopen opens the store for cfg and reports whether the history is on.
 func (c *collector) reopen(cfg usagehistory.Config) bool {
 	if !cfg.Enabled {
+		c.setReader(nil, errHistoryOff)
 		return false
 	}
 	store, err := c.hooks.Open(c.path, cfg)
 	if err != nil {
 		c.warn("open", "usage history is off, the service goes on without it", err)
+		c.setReader(nil, historyOpenError(err))
 		return false
 	}
 	c.store = store
+	c.setReader(store, nil)
 	return true
 }
 
@@ -166,6 +178,7 @@ func (c *collector) close() {
 	ctx, cancel := context.WithTimeout(context.Background(), flushTimeout)
 	defer cancel()
 	c.flush(ctx)
+	c.setReader(nil, errHistoryClosed)
 	c.warn("close", "close the usage history", c.store.Close())
 	c.store, c.buffer = nil, nil
 }
