@@ -73,13 +73,20 @@ func (r *Repo) Diff(ctx context.Context, path string) (text string, truncated bo
 	if err != nil {
 		return "", false, fmt.Errorf("diff failed: %w", err)
 	}
-	if len(out) > MaxDiffBytes {
-		out, truncated = out[:MaxDiffBytes], true
-		for !utf8.ValidString(out) && len(out) > 0 {
-			out = out[:len(out)-1]
-		}
-	}
+	out, truncated = cutDiff(out)
 	return out, truncated, nil
+}
+
+// cutDiff cuts a diff longer than MaxDiffBytes there, on a character boundary.
+func cutDiff(out string) (string, bool) {
+	if len(out) <= MaxDiffBytes {
+		return out, false
+	}
+	out = out[:MaxDiffBytes]
+	for !utf8.ValidString(out) && len(out) > 0 {
+		out = out[:len(out)-1]
+	}
+	return out, true
 }
 
 // Discard takes the local changes at paths back: a modified or deleted versioned file is restored from the last
