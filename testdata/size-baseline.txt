@@ -287,7 +287,7 @@ cx internal/tui/enginesections.go:Model.stackUpdate 19
 cx internal/tui/general.go:Model.relocalize 18
 cx internal/tui/hostask.go:Model.hostFailed 19
 cx internal/tui/listeditor.go:Model.editorKey 29
-cx internal/tui/model.go:Model.Update 45
+cx internal/tui/model.go:Model.dispatch 45
 cx internal/tui/model.go:Model.enter 16
 cx internal/tui/model.go:Model.footer 37
 cx internal/tui/model.go:Model.frameSpec 17
@@ -334,7 +334,6 @@ file internal/engine/engine_test.go 1366
 file internal/engine/run.go 679
 file internal/gitrepo/gitrepo.go 531
 file internal/gitrepo/remote.go 653
-file internal/helptopics/helptopics.go 518
 file internal/host/hostchange/filemove.go 534
 file internal/host/hostchange/filetree.go 1098
 file internal/host/hostchange/users.go 964
@@ -352,10 +351,10 @@ file internal/tui/actions.go 855
 file internal/tui/backend.go 582
 file internal/tui/detail.go 647
 file internal/tui/fakebackend_test.go 1192
-file internal/tui/folders.go 792
+file internal/tui/folders.go 786
 file internal/tui/model.go 1411
 file internal/tui/settings.go 938
-file internal/tui/settingsform.go 544
+file internal/tui/settingsform.go 533
 file internal/tui/settingstext.go permanent: text catalog of the terminal interface, pure data
 file internal/tui/system.go 610
 file internal/tui/systemproposals.go 617
@@ -527,7 +526,7 @@ len internal/tui/fakebackend_test.go:demoBackend 94
 len internal/tui/general.go:Model.relocalize 76
 len internal/tui/keys.go:keyTable 74
 len internal/tui/listeditor.go:Model.editorKey 65
-len internal/tui/model.go:Model.Update 101
+len internal/tui/model.go:Model.dispatch 101
 len internal/tui/model.go:Model.footer 76
 len internal/tui/model.go:Model.key 236
 len internal/tui/model.go:Model.render 80

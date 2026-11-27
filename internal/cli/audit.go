@@ -205,6 +205,9 @@ func hostFailure(err error) error {
 	case errors.As(err, &remote) && (remote.Code == control.CodeNotAdmin || remote.Code == control.CodeNoAccess):
 		return &cli.Failure{Code: output.CodePermission, Message: "qhost is reserved for administrators (sudo)",
 			NextStep: "Ask an administrator for access, or run the command as root.", Cause: err}
+	case errors.As(err, &remote) && remote.Code == control.CodeNoHistory:
+		return &cli.Failure{Code: output.CodeRuntime, Message: remote.Message,
+			NextStep: "Follow the step in the message, then run the command again.", Cause: err}
 	case errors.As(err, &remote) && remote.Code == control.CodeBadRequest:
 		return &cli.Failure{Code: output.CodeInvalidRequest, Message: remote.Message, Usage: true,
 			NextStep: "Fix the argument and run the command again.", Cause: err}

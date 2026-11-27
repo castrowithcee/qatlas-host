@@ -15,6 +15,9 @@ func (m *Model) stacksView(width, height int) string {
 	if m.set.keyOpen {
 		return m.keyView(width, height)
 	}
+	if h := m.shownHistory(); h != nil {
+		return m.stackHistoryView(h, width, height)
+	}
 	if c := m.shownChanges(); c != nil {
 		return m.stackChangesView(c, width, height)
 	}
@@ -65,11 +68,14 @@ func (m *Model) keyView(width, height int) string {
 
 // stacksFooter is the key line of the Stacks area: the keys of the marked row, and adding a folder in every case.
 func (m *Model) stacksFooter(common, nav []kittui.Hint) []kittui.Hint {
+	if h := m.shownHistory(); h != nil {
+		return append(m.stackHistoryFooter(h), common...)
+	}
 	if c := m.shownChanges(); c != nil {
 		return append(m.stackChangesFooter(c), common...)
 	}
 	if v := m.shownStackFiles(); v != nil {
-		return append(append(m.filesFooter(v), m.changesHint(m.sf.folder)...), common...)
+		return append(append(append(m.filesFooter(v), m.changesHint(m.sf.folder)...), historyHint), common...)
 	}
 	add := kittui.Hint{Action: actAdd, Label: textKeyAdd, Priority: 3}
 	f, onFolder := m.selectedFolder()
@@ -85,6 +91,7 @@ func (m *Model) stacksFooter(common, nav []kittui.Hint) []kittui.Hint {
 			own = append(own, kittui.Hint{Action: actRemote, Label: textKeyRemote, Priority: 3})
 		}
 		own = append(own, m.changesHint(f)...)
+		own = append(own, historyHint)
 		own = append(own, kittui.Hint{Action: actFiles, Label: textKeyFiles, Priority: 3},
 			kittui.Hint{Action: actRemove, Label: textKeyRelease, Priority: 3}, add)
 		common = append(own, common...)

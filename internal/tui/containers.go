@@ -198,6 +198,7 @@ func (m *Model) applyContainers(msg containersMsg) {
 	}
 	m.ct.err, m.ct.loaded, m.ct.groups, m.ct.down, m.ct.unread = nil, true, msg.res.Groups, msg.res.NotChecked, msg.res.EnginesUnread
 	m.fillContainers()
+	m.foldPriority()
 }
 
 // fillContainers sets the rows of the containers list, or of the lists of the sections, from the groups read

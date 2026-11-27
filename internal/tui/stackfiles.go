@@ -30,6 +30,8 @@ type stackFiles struct {
 	gen    int
 	// changes is the view of the uncommitted changes of a stack folder, which covers the list or the browser.
 	changes stackChanges
+	// history is the view of the history of a stack folder, which covers the list or the browser as well.
+	history stackHistory
 }
 
 // dataMount is a folder a running container has mounted.
@@ -37,7 +39,7 @@ type dataMount struct{ path, container string }
 
 // shownStackFiles is the browser over a stack folder while the Stacks area shows it, nil otherwise.
 func (m *Model) shownStackFiles() *fileView {
-	if m.area != areaStacks || !m.sf.open || m.set.keyOpen || m.sf.changes.open {
+	if m.area != areaStacks || !m.sf.open || m.set.keyOpen || m.sf.changes.open || m.sf.history.open {
 		return nil
 	}
 	return &m.sf.view
@@ -45,7 +47,7 @@ func (m *Model) shownStackFiles() *fileView {
 
 // stackRowsShown reports whether the Stacks area shows its list, where the keys of the stacks act.
 func (m *Model) stackRowsShown() bool {
-	return m.area == areaStacks && m.shownStackFiles() == nil && m.shownChanges() == nil
+	return m.area == areaStacks && m.shownStackFiles() == nil && m.shownChanges() == nil && m.shownHistory() == nil
 }
 
 // openFolderFiles opens the browser over the stack folder of the marked row.
@@ -133,6 +135,9 @@ func (m *Model) closeStackFiles() {
 
 // stacksInput is the input focus of the Stacks list or of the browser.
 func (m *Model) stacksInput() kittui.InputFocus {
+	if h := m.shownHistory(); h != nil {
+		return m.historyInput(h)
+	}
 	if c := m.shownChanges(); c != nil {
 		return m.changesInput(c)
 	}
@@ -144,6 +149,9 @@ func (m *Model) stacksInput() kittui.InputFocus {
 
 // stacksTyped gives a key to the browser, or to the Stacks list, where enter opens the detail of a stack.
 func (m *Model) stacksTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
+	if h := m.shownHistory(); h != nil {
+		return m.historyTyped(h, msg)
+	}
 	if c := m.shownChanges(); c != nil {
 		return m.changesTyped(c, msg)
 	}
@@ -157,6 +165,9 @@ func (m *Model) stacksTyped(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 // stacksAction acts on a letter in the Stacks area: in the changes, in the browser on its entries, else on the marked
 // row.
 func (m *Model) stacksAction(id kittui.ActionID) (tea.Cmd, bool) {
+	if h := m.shownHistory(); h != nil {
+		return m.historyAction(h, id)
+	}
 	if c := m.shownChanges(); c != nil {
 		return m.changesAction(c, id)
 	}
@@ -164,6 +175,8 @@ func (m *Model) stacksAction(id kittui.ActionID) (tea.Cmd, bool) {
 	switch {
 	case id == actChanges:
 		return m.openFolderChanges(v)
+	case id == actHistory:
+		return m.openFolderHistory(v)
 	case v == nil && id == actFiles:
 		if _, ok := m.selectedFolder(); !ok {
 			return nil, false
@@ -186,6 +199,10 @@ func (m *Model) stacksAction(id kittui.ActionID) (tea.Cmd, bool) {
 // stacksBack is esc in the Stacks area: it leaves the changes; in the browser it closes the preview, clears a filter
 // and goes up, and at the root it leaves the browser; in the list it clears a search, then leads to the tab line.
 func (m *Model) stacksBack(msg tea.KeyPressMsg) tea.Cmd {
+	if h := m.shownHistory(); h != nil {
+		m.historyBack(h, msg)
+		return nil
+	}
 	if c := m.shownChanges(); c != nil {
 		m.changesBack(c, msg)
 		return nil
@@ -204,7 +221,7 @@ func (m *Model) stacksBack(msg tea.KeyPressMsg) tea.Cmd {
 
 // stacksPosition is the position and the back key of the header in the Stacks area.
 func (m *Model) stacksPosition() (string, *kittui.Hint) {
-	if m.shownStackFiles() != nil || m.shownChanges() != nil {
+	if m.shownStackFiles() != nil || m.shownChanges() != nil || m.shownHistory() != nil {
 		return "", &kittui.Hint{Action: actBack, Label: kittui.TextKeyBack}
 	}
 	return m.list.Position(), nil
@@ -213,6 +230,9 @@ func (m *Model) stacksPosition() (string, *kittui.Hint) {
 // reloadStackFiles reads what the browser shows again, as on R, with the mounts of the running containers; over it the
 // changes are read again.
 func (m *Model) reloadStackFiles() tea.Cmd {
+	if m.shownHistory() != nil {
+		return m.readHistory()
+	}
 	if m.shownChanges() != nil {
 		return m.readChanges()
 	}

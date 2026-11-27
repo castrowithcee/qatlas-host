@@ -76,6 +76,8 @@ func (m *Model) stacksState() string {
 		return "key"
 	case m.shownChanges() != nil:
 		return "changes"
+	case m.shownHistory() != nil:
+		return "history"
 	case m.shownStackFiles() != nil:
 		return filesState(m.shownStackFiles())
 	}
