@@ -139,22 +139,8 @@ func newDeploySetupCommand(program *cobracli.Program) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "setup [--rootless <user>]",
 		Short: "Set up the deploy service as root in a sandbox, or for the rootless engine of a user",
-		Long: "setup creates what the deploy service needs and starts it: its channel directory (made at every boot by\n" +
-			"/etc/tmpfiles.d/qhost-deploy.conf) and the unit qhost-deploy.service, which it enables and starts. The\n" +
-			"service runs as root in a systemd sandbox, creates no account and cannot reach the host service.\n" +
-			"With --rootless <user> it sets up an instance for the rootless Docker engine of an existing user instead:\n" +
-			"the unit qhost-deploy@<user>.service from the template qhost-deploy@.service runs as that user with its\n" +
-			"own state /var/lib/qhost-deploy-<user>, its channel /run/qhost-deploy-<user> (made at every boot by\n" +
-			"/etc/tmpfiles.d/qhost-deploy-<user>.conf) and the engine at /run/user/<uid>/docker.sock, and lingering\n" +
-			"is enabled for the user when it is off. The user needs a rootless engine and entries in /etc/subuid and\n" +
-			"/etc/subgid, and setup refuses a user in the group qhost or docker; it warns about an administrator. It\n" +
-			"never creates a user or changes a group. Setting up needs root.\n" +
-			"It first shows what it will do and the exact commands; without --confirm it stops there and changes\n" +
-			"nothing. With --confirm it asks for confirmation on a terminal, and --yes answers the question. Only the\n" +
-			"steps still needed run, so a repeated setup changes nothing, and a setup that stopped at a step continues\n" +
-			"from there.\n" +
-			"See 'qhost help deploy-setup'.",
-		Args: cobra.NoArgs,
+		Long:  deploySetupLong,
+		Args:  cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if err := deploySetup.requireRoot(); err != nil {
 				return err
@@ -249,3 +235,20 @@ func (tuiDeploySetup) Run(ctx context.Context, user string) error {
 	}
 	return target.apply(ctx, plan)
 }
+
+const deploySetupLong = "setup creates what the deploy service needs and starts it: its channel directory (made at every boot by\n" +
+	"/etc/tmpfiles.d/qhost-deploy.conf) and the unit qhost-deploy.service, which it enables and starts. The\n" +
+	"service runs as root in a systemd sandbox, creates no account and cannot reach the host service.\n" +
+	"With --rootless <user> it sets up an instance for the rootless Docker engine of an existing user instead:\n" +
+	"the unit qhost-deploy@<user>.service from the template qhost-deploy@.service runs as that user with its\n" +
+	"own state /var/lib/qhost-deploy-<user>, its channel /run/qhost-deploy-<user> (made at every boot by\n" +
+	"/etc/tmpfiles.d/qhost-deploy-<user>.conf) and the engine at /run/user/<uid>/docker.sock, and lingering\n" +
+	"is enabled for the user when it is off. The user needs a rootless engine and entries in /etc/subuid and\n" +
+	"/etc/subgid, and setup refuses a user in the group qhost or docker; it warns about an administrator. It\n" +
+	"never creates a user and changes no group but the leftover qhost-deploy. Setting up needs root.\n" +
+	"It first shows what it will do and the exact commands; without --confirm it stops there and changes\n" +
+	"nothing. With --confirm it asks for confirmation on a terminal, and --yes answers the question. Only the\n" +
+	"steps still needed run, so a repeated setup changes nothing, and a setup that stopped at a step continues\n" +
+	"from there. For the system service it also repairs the rule, owner and mode of the channel directory and\n" +
+	"removes what the setup of earlier releases left: the user and group qhost-deploy, with the state handed to root.\n" +
+	"See 'qhost help deploy-setup'."

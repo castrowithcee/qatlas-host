@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/castrowithcee/qatlas-host/packaging"
@@ -22,14 +23,40 @@ type fakeHost struct {
 	active  bool
 	failOn  string
 	host    Host
+	channel channelState
+}
+
+// channelState is the owner and mode the fake host reports for /run/qhost-deploy, where the test user owns the
+// real folder; the command systemd-tmpfiles sets it right.
+type channelState struct {
+	uid, gid int
+	mode     os.FileMode
+}
+
+var rightChannel = channelState{uid: 0, gid: 997, mode: os.ModeDir | os.ModeSetgid | 0o750}
+
+type fakeInfo struct {
+	os.FileInfo
+	st channelState
+}
+
+func (i fakeInfo) Mode() os.FileMode { return i.st.mode }
+func (i fakeInfo) Sys() any          { return &syscall.Stat_t{Uid: uint32(i.st.uid), Gid: uint32(i.st.gid)} }
+
+func (f *fakeHost) lstat(p string) (os.FileInfo, error) {
+	info, err := os.Lstat(p)
+	if err != nil || p != filepath.Join(f.root, "run/qhost-deploy") || info.Mode()&os.ModeSymlink != 0 {
+		return info, err
+	}
+	return fakeInfo{info, f.channel}, nil
 }
 
 func newFakeHost(t *testing.T, groups, passwd string) *fakeHost {
 	t.Helper()
-	f := &fakeHost{t: t, root: t.TempDir()}
+	f := &fakeHost{t: t, root: t.TempDir(), channel: rightChannel}
 	f.put("/etc/group", groups)
 	f.put("/etc/passwd", passwd)
-	f.host = Host{Root: f.root, Run: f.run}
+	f.host = Host{Root: f.root, Run: f.run, Lstat: f.lstat}
 	return f
 }
 
@@ -78,6 +105,7 @@ func (f *fakeHost) run(_ context.Context, name string, args ...string) error {
 	f.calls = append(f.calls, line)
 	switch {
 	case strings.HasPrefix(line, "systemd-tmpfiles "):
+		f.channel = rightChannel
 		if err := os.MkdirAll(filepath.Join(f.root, "run/qhost-deploy"), 0o755); err != nil {
 			f.t.Fatal(err)
 		}

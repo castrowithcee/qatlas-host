@@ -83,7 +83,6 @@ cx internal/datadir/datadir.go:Create 17
 cx internal/datadir/datadir.go:createOne 17
 cx internal/deploylog/deploylog.go:Entry.Validate 25
 cx internal/deploylog/format_test.go:TestAReleasedVersionReadsAndChainsOnAnEntryWithAGrant 19
-cx internal/deploysetup/deploysetup.go:Host.Plan 16
 cx internal/deploysetup/deploysetup_test.go:TestSetupCreatesEverythingAndRepeatsWithoutChange 17
 cx internal/deploysetup/hook.go:Host.PlanHook 31
 cx internal/deploysetup/hook_test.go:TestHookSetupCreatesEverythingAndRepeatsWithoutChange 27
@@ -369,7 +368,6 @@ len internal/cli/cli_test.go:TestCommandTree 64
 len internal/cli/container_engines.go:locateContainer 98
 len internal/cli/container_logs.go:newContainerLogs 62
 len internal/cli/credential.go:newCredentialCommand 95
-len internal/cli/deploy_setup.go:newDeploySetupCommand 66
 len internal/cli/engine_router.go:folderHost.locate 65
 len internal/cli/hostchange_test.go:newChangeFixture 67
 len internal/cli/hostproposal.go:applyProposal 118
@@ -412,7 +410,6 @@ len internal/compose/exec_linux.go:ExecRunner.Run 65
 len internal/credentials/credentials_test.go:TestOpenFailsClosedOnUnsafeStore 76
 len internal/credentials/credentials_test.go:TestReadValueFailsClosed 66
 len internal/datadir/datadir.go:createOne 69
-len internal/deploysetup/deploysetup.go:Host.Plan 61
 len internal/deploysetup/hook.go:Host.PlanHook 98
 len internal/deploysetup/hook_test.go:TestHookSetupCreatesEverythingAndRepeatsWithoutChange 62
 len internal/deploysetup/instance.go:Host.PlanInstance 90

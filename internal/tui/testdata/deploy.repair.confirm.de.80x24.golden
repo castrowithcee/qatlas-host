@@ -1,0 +1,24 @@
+◆ qhost  Wartungsfenster zu                                            [?] Hilfe
+  [1 Stacks] 2 3 4 5 6 7                                                        
+────────────────────────────────────────────────────────────────────────────────
+  Der Deploy-Dienst hat diese Verbindung abgelehnt: Besitzer oder Modus seines  
+  Kanalordners oder der Benutzer, als der der Dienst läuft, entspricht nicht    
+  dem, w╔═ Deploy-Dienst ══════════════════════════════════════════════╗        
+  G repa║ ⚠ Den Deploy-Dienst jetzt reparieren?                        ║ührt sie
+  erst n║                                                              ║m, Log  
+  zeigt ║ Das richtet her, was die Einrichtung als falsch findet, etwa ║        
+  Auf de║ Regel, Besitzer und Modus des Kanalordners oder Reste einer  ║        
+        ║ früheren Einrichtung, und startet den Dienst. Diese Schritte ║        
+        ║ laufen als root:                                             ║        
+        ║ $ write /etc/tmpfiles.d/qhost-deploy.conf (mode 0644): d     ║        
+        ║   /run/qhost-deploy 2750 root qhost -                        ║        
+        ║ $ systemd-tmpfiles --create                                  ║        
+        ║   /etc/tmpfiles.d/qhost-deploy.conf                          ║        
+        ║ $ systemctl enable --now qhost-deploy                        ║        
+        ║                                                              ║        
+        ║ [ ja, ausführen ]  [ enter abbrechen ]                       ║        
+        ║ y ja, ausführen  n/esc/enter abbrechen                       ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                             1/6

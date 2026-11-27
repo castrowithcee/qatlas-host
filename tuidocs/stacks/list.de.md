@@ -24,7 +24,7 @@ Auf einer Stack-Zeile:
 Auf jeder Zeile:
 
 - {search} filtert die Liste. {reload} liest sie neu.
-- {setupdeploy} richtet einen Deploy-Dienst ein, angezeigt wo einer hinzukommen kann.
+- {setupdeploy} richtet einen Deploy-Dienst ein, angezeigt wo einer hinzukommen kann, oder repariert einen, der nicht antwortet.
 - {area} wechselt den Bereich.
 
 In der Dateiansicht eines Ordners, geöffnet mit {files}:

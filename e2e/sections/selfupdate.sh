@@ -6,10 +6,8 @@
 # program updates itself to a newer signed test release, which replaces and restarts the services, runs the transition
 # of the new program once, renews the stale unit of the receiver and the changed template of the rootless instance,
 # restarts the instance with the new program and warns about an instance unit an administrator overrides, refuses
-# tampered ones, and updates once more with the
-# deploy service put aside, which leaves its unit uninstalled. Before the first update the host is put into the setup
-# of earlier releases, where the deploy service runs as the user qhost-deploy; the update moves it to root with the
-# transition deploy-service-as-root, which keeps the run history.
+# tampered ones, and updates once more with the deploy service put aside, which leaves its unit uninstalled. The
+# move of a deploy service of earlier releases to root is proved by old-release with the real self-update of one.
 # Needs deploy: the running rootless instance and the bound /opt/stacks with demo-stack for the webhook.
 # Sourced by run.sh; defines only functions and constants.
 
@@ -211,71 +209,10 @@ instance_template_is() {
 	docker exec -i "$host" cmp -s - "$su_template" <"$1"
 }
 
-# earlier_deploy_unit prints the unit of the deploy service as releases before the move to root installed it: a
-# service user and group qhost-deploy, the group docker, and no lock beyond ProtectSystem.
-earlier_deploy_unit() {
-	cat <<'EOF'
-[Unit]
-Description=qhost stack deployment service
-After=network-online.target docker.service
-Wants=network-online.target
-
-[Service]
-Type=exec
-ExecStart=/usr/local/bin/qhost deploy-service run
-User=qhost-deploy
-Group=qhost-deploy
-SupplementaryGroups=docker
-ReadWritePaths=/run/qhost-deploy
-ReadWritePaths=-/run/qhost-hook/system
-StateDirectory=qhost-deploy
-StateDirectoryMode=0700
-ConfigurationDirectory=qhost-deploy
-NoNewPrivileges=yes
-PrivateTmp=yes
-ProtectSystem=strict
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-EOF
-}
-
-# scenario_earlier_setup puts the simulated host into the setup of earlier releases: the user and group
-# qhost-deploy, their unit, which runs the service as qhost-deploy, channel rule, state and marker folder of the
-# receiver. The stack folders stay as they are.
-scenario_earlier_setup() {
-	step 'the host is put into the setup of earlier releases, where the deploy service runs as the user qhost-deploy'
-	rt_runs=$(stack_run_count demo-stack) rt_newest=$(newest_run demo-stack)
-	[ "$rt_runs" -ge 1 ] && [ -n "$rt_newest" ] || fail "demo-stack has no recorded run before the update: $(qd stack runs demo-stack)"
-	docker exec "$host" systemctl stop qhost-deploy || fail 'cannot stop the deploy service'
-	earlier_deploy_unit | docker exec -i "$host" tee /usr/local/lib/systemd/system/qhost-deploy.service >/dev/null ||
-		fail 'cannot install the earlier unit'
-	docker exec "$host" sh -ec '
-		groupadd --system qhost-deploy
-		useradd --system --no-create-home --shell /usr/sbin/nologin --gid qhost-deploy --groups docker qhost-deploy
-		printf "d /run/qhost-deploy 2750 qhost-deploy qhost -\n" >/etc/tmpfiles.d/qhost-deploy.conf
-		sed -i "s|^\(d /run/qhost-hook/system [0-9]* qhost-hook\) qhost-hook -\$|\1 qhost-deploy -|" /etc/tmpfiles.d/qhost-hook.conf
-		grep -q "^d /run/qhost-hook/system [0-9]* qhost-hook qhost-deploy -\$" /etc/tmpfiles.d/qhost-hook.conf
-		systemd-tmpfiles --create /etc/tmpfiles.d/qhost-deploy.conf /etc/tmpfiles.d/qhost-hook.conf
-		chown -R qhost-deploy:qhost-deploy /var/lib/qhost-deploy
-		systemctl daemon-reload' || fail 'cannot put the host into the earlier setup'
-	# The installed program is already the one of this release, which refuses a channel of qhost-deploy and would
-	# restart until systemd gives up, so the service stays stopped; on a real host the earlier program runs here.
-	[ "$(docker exec "$host" systemctl show -p User --value qhost-deploy)" = qhost-deploy ] ||
-		fail "the unit of the earlier setup does not run as qhost-deploy: $(docker exec "$host" systemctl show -p User --value qhost-deploy)"
-	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost-deploy)" = qhost-deploy:qhost:2750 ] ||
-		fail "/run/qhost-deploy is $(docker exec "$host" stat -c %U:%G:%a /run/qhost-deploy), want qhost-deploy:qhost:2750"
-	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost-hook/system)" = qhost-hook:qhost-deploy:770 ] ||
-		fail "/run/qhost-hook/system is $(docker exec "$host" stat -c %U:%G:%a /run/qhost-hook/system), want qhost-hook:qhost-deploy:770"
-	[ "$(docker exec "$host" stat -c %U /var/lib/qhost-deploy)" = qhost-deploy ] || fail '/var/lib/qhost-deploy does not belong to qhost-deploy'
-	log "scenario: earlier setup with the unit of qhost-deploy; demo-stack has $rt_runs runs, the newest is $rt_newest"
-}
-
 # scenario_selfupdate updates the installed services to a newer signed test release and refuses tampered ones.
 # The simulated host has the deploy service set up and the instance of scenario_rootless_instance running; every
 # update renews its template from the new program and restarts it. At the end the update runs once more on the same
-# host with the deploy service put aside, which is the host of an administrator who never set it up. Only
+# host with the deploy service put aside, which is the host of an administrator who never set it up.
 # scenario_uninstall follows; it puts the deploy service back.
 scenario_selfupdate() {
 	su_unit=$instance_service@$rootless_user.service
@@ -311,8 +248,6 @@ scenario_selfupdate() {
 	printf '%s' "$out" | grep -q 'qhost-hook.service is renewed' || fail "update without --confirm does not name the webhook receiver: $out"
 	printf '%s' "$out" | grep -q -- '--confirm' || fail "update without --confirm does not name the flag: $out"
 	[ "$(installed_sum)" = "$before" ] || fail 'a refused update changed the installation'
-
-	scenario_earlier_setup
 
 	step 'sudo qhost update installs the newer release, replaces both units, restarts both services, renews the template of the instance, restarts the instance and warns about its overriding unit'
 	# The units of v0.2.0 equal the installed ones, so both are made stale first; only a replacement removes the mark.
@@ -356,27 +291,9 @@ scenario_selfupdate() {
 	if printf '%s' "$out" | grep -q 'did not all run'; then fail "the transitions of v0.2.0 failed: $out"; fi
 	[ "$(docker exec "$host" cat "$transition_marker")" = applied ] ||
 		fail "the transition did not run exactly once: $(docker exec "$host" cat "$transition_marker" 2>&1)"
-	printf '%s' "$out" | grep -q 'transition deploy-service-as-root: applied' || fail "the update did not move the deploy service to root: $out"
-	printf '%s' "$out" | grep -q 'deploy service to root: userdel qhost-deploy' || fail "the update does not report the steps of the move: $out"
-	[ "$(docker exec "$host" stat -c %U "/proc/$(service_pid)")" = root ] ||
-		fail "the deploy service does not run as root: $(docker exec "$host" stat -c %U "/proc/$(service_pid)")"
-	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost-deploy)" = root:qhost:2750 ] ||
-		fail "/run/qhost-deploy is $(docker exec "$host" stat -c %U:%G:%a /run/qhost-deploy), want root:qhost:2750"
-	[ "$(docker exec "$host" stat -c %U:%G:%a /run/qhost-hook/system)" = qhost-hook:qhost-hook:770 ] ||
-		fail "/run/qhost-hook/system is $(docker exec "$host" stat -c %U:%G:%a /run/qhost-hook/system), want qhost-hook:qhost-hook:770"
-	[ -z "$(docker exec "$host" find /var/lib/qhost-deploy -not -user root -o -not -group root)" ] ||
-		fail 'the state of the deploy service does not belong to root after the update'
-	if docker exec "$host" id qhost-deploy >/dev/null 2>&1; then fail 'the user qhost-deploy exists after the update'; fi
-	if docker exec "$host" getent group qhost-deploy >/dev/null; then fail 'the group qhost-deploy exists after the update'; fi
-	as_admin 'qhost status >/dev/null 2>&1' || fail "qhost status fails after the move: $(as_admin 'qhost status 2>&1')"
-	qd source list >/dev/null || fail "qhost source list fails after the move: $(qd source list)"
-	[ "$(stack_run_count demo-stack)" -ge "$rt_runs" ] && qd stack runs demo-stack | grep -q "$rt_newest" ||
-		fail "the run history of demo-stack was not kept: $(qd stack runs demo-stack)"
-	out_run=$(qd --output json stack deploy demo-stack) || fail "a run after the move failed to start: $out_run"
-	rt_run=$(printf '%s\n' "$out_run" | sed -n 's/.*"run": *"\([^"]*\)".*/\1/p')
-	[ -n "$rt_run" ] || fail "deploy after the move reported no run: $out_run"
-	wait_for "the run $rt_run after the move" 240 run_finished demo-stack "$rt_run"
-	qd stack log "$rt_run" | grep -q ' result succeeded' || fail "the run after the move did not succeed: $(qd stack log "$rt_run")"
+	printf '%s' "$out" | grep -q 'transition deploy-service-as-root: already done' || fail "the update does not report the done move of the deploy service: $out"
+	as_admin 'qhost status >/dev/null 2>&1' || fail "qhost status fails after the update: $(as_admin 'qhost status 2>&1')"
+	qd source list >/dev/null || fail "qhost source list fails after the update: $(qd source list)"
 	log "scenario: updated to v0.2.0, host service pid $hpid -> $(service_pid qhost), deploy service pid $pid -> $(service_pid), instance pid $ipid -> $(service_pid "$su_unit"), services answering: $out"
 	# Without the override the instance runs from the renewed template.
 	docker exec "$host" sh -ec "rm $su_override && systemctl daemon-reload && systemctl restart $su_unit" || fail "cannot remove $su_override"

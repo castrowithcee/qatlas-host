@@ -35,6 +35,10 @@ func oldHost(t *testing.T) (*fakeHost, *[]string) {
 		if f.failOn != "" && strings.HasPrefix(line, f.failOn) {
 			return errors.New("failed")
 		}
+		if strings.HasPrefix(line, "systemd-tmpfiles ") {
+			f.channel = rightChannel
+			_ = os.MkdirAll(filepath.Join(f.root, "run/qhost-deploy"), 0o755)
+		}
 		switch line {
 		case "userdel qhost-deploy":
 			f.put("/etc/passwd", basePasswd)
@@ -212,5 +216,31 @@ func TestMoveToRootRefusesAUnitThatStillRunsAsTheAccount(t *testing.T) {
 	}
 	if len(f.calls) != 0 || len(*chowns) != 0 || !strings.Contains(f.read("/etc/passwd"), "qhost-deploy") {
 		t.Fatalf("changed: %v %v", f.calls, *chowns)
+	}
+}
+
+func TestMoveToRootAtStartNeitherReloadsNorRestartsAndAnOuterRunAfterItSucceeds(t *testing.T) {
+	f, chowns := oldHost(t)
+	f.put("/run/qhost-deploy/.keep", "") // the channel folder the old rule left to qhost-deploy:qhost
+	var report bytes.Buffer
+	if err := f.host.MoveToRootAtStart(context.Background(), &report); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"systemd-tmpfiles --create /etc/tmpfiles.d/qhost-deploy.conf", "userdel qhost-deploy"}
+	if !slices.Equal(f.calls, want) {
+		t.Fatalf("commands:\n%v\nwant\n%v", f.calls, want)
+	}
+	if got := f.read("/etc/tmpfiles.d/qhost-deploy.conf"); got != "d /run/qhost-deploy 2750 root qhost -\n" || len(*chowns) != 3 {
+		t.Fatalf("rule %q, chowns %v", got, *chowns)
+	}
+	// The outer run of the update calls try-restart, whose start step ran the code above; its own account steps
+	// then find nothing left and do not fail.
+	f.calls = nil
+	if err := f.host.MoveToRoot(context.Background(), &report); err != nil {
+		t.Fatal(err)
+	}
+	want = []string{"systemd-tmpfiles --create /etc/tmpfiles.d/qhost-deploy.conf", "systemctl daemon-reload", "systemctl try-restart qhost-deploy"}
+	if !slices.Equal(f.calls, want) {
+		t.Fatalf("outer commands:\n%v\nwant\n%v", f.calls, want)
 	}
 }

@@ -96,6 +96,7 @@ func TestHostUnitMeetsRuntimeDirectoryContract(t *testing.T) {
 func TestDeployUnitMeetsChannelContract(t *testing.T) {
 	lines := unitLines(readFile(t, "packaging/qhost-deploy.service"))
 	for _, want := range []string{
+		"ExecStartPre=+/usr/local/bin/qhost deploy-service prepare",
 		"ExecStart=/usr/local/bin/qhost deploy-service run",
 		"ReadWritePaths=/run/qhost-deploy",
 		"ReadWritePaths=-/run/qhost-hook/system",
@@ -113,6 +114,9 @@ func TestDeployUnitMeetsChannelContract(t *testing.T) {
 			if strings.HasPrefix(l, f) {
 				t.Errorf("deploy unit has the line %q; it runs as root, locked down", l)
 			}
+		}
+		if strings.HasPrefix(l, "ExecStartPre=") && l != "ExecStartPre=+/usr/local/bin/qhost deploy-service prepare" {
+			t.Errorf("deploy unit has the start step %q; a + step runs outside the sandbox and the lock", l)
 		}
 		if strings.HasPrefix(l, "RuntimeDirectory") {
 			t.Errorf("deploy unit lets systemd create its runtime directory: %q", l)
@@ -334,5 +338,15 @@ func TestReleaseCarriesValidUpdateRequirements(t *testing.T) {
 	}
 	if _, err := release.ParseRequirements(readFile(t, source)); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestShippedUpdateRequirementsNameTheOldestInstallableVersion(t *testing.T) {
+	req, err := release.ParseRequirements(readFile(t, "packaging/update.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.UpdatesFrom != "v0.1.0" || req.Reinstall != "" {
+		t.Fatalf("requirements %+v, want updatesFrom v0.1.0 and no reinstall", req)
 	}
 }

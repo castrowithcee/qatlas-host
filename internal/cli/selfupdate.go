@@ -223,35 +223,41 @@ func (h selfUpdateHost) client() *selfupdate.Client {
 	}
 }
 
+const selfUpdateLong = "update replaces the installed program, its systemd unit and its main manpage with those of a signed\n" +
+	"release, and the unit of the deploy service if it is set up, and restarts the services; drop-ins of the unit stay as they are.\n" +
+	"Before it changes anything it reads from the verified release which installed versions update to it directly: an\n" +
+	"older installed version is refused, and the message names the release to update to first; a release that needs a\n" +
+	"fresh setup instead of an update is refused with that step. After the files are replaced and before the services\n" +
+	"restart, the newly installed program runs the transitions of its release for the setup and the stored state, each\n" +
+	"once and reported on standard error; a failure there is a warning and does not undo the update, and\n" +
+	"'sudo qhost update migrate' repeats that step. That program also renews every installed manpage that differs\n" +
+	"from its own, so the pages match the program even after an update from an older release that replaced only the\n" +
+	"main one. The deploy service also runs its own transitions and the manpage renewal in the start\n" +
+	"step of its unit, before it opens its channel, so the restart finishes them even where an older program replaced\n" +
+	"the files and did not run this step.\n" +
+	"If deploy service instances for rootless engines are set up, the newly installed program then replaces the\n" +
+	"template unit qhost-deploy@.service where it differs, reloads systemd and restarts every instance; a failure there is a\n" +
+	"warning and does not undo the update, and 'sudo qhost deploy-service refresh-instances' repeats that step. Where the\n" +
+	"webhook receiver is set up, the newly installed program likewise replaces qhost-hook.service where it differs and\n" +
+	"restarts it, which is not in the release archive; a failure is a warning, and 'sudo qhost hook-service refresh' repeats it. A unit of\n" +
+	"the same name in /etc/systemd/system overrides the installed one, and the update warns about it. Without an argument it\n" +
+	"installs the newest stable release if that is newer than the running version; with a version such as\n" +
+	"v1.2.3 it installs exactly that release, which must be newer than the running one. Updating never\n" +
+	"installs an older release.\n" +
+	"The signature over the release's checksums.txt is verified against the release key built into\n" +
+	"qhost, then the archive's SHA-256 checksum; any failure leaves the installation unchanged.\n" +
+	"Installing needs root. The service restarts afterwards. It first shows on standard error what it would\n" +
+	"replace and restart, without asking the release server; without --confirm it stops there with exit\n" +
+	"code 2 and changes nothing. With --confirm it asks for confirmation on a terminal, and --yes answers\n" +
+	"the question. To update the image versions of stacks use 'qhost stack update'."
+
 // newSelfUpdateCommand is the self-update of the program. Stack updates are 'qhost stack update'.
 func newSelfUpdateCommand(program *cobracli.Program) *cobra.Command {
 	var gate *cobracli.Gate
 	cmd := &cobra.Command{
 		Use:   "update [version]",
 		Short: "Update qhost to the latest stable release or to a given newer one",
-		Long: "update replaces the installed program, its systemd unit and its main manpage with those of a signed\n" +
-			"release, and the unit of the deploy service if it is set up, and restarts the services; drop-ins of the unit stay as they are.\n" +
-			"Before it changes anything it reads from the verified release which installed versions update to it directly: an\n" +
-			"older installed version is refused, and the message names the release to update to first; a release that needs a\n" +
-			"fresh setup instead of an update is refused with that step. After the files are replaced and before the services\n" +
-			"restart, the newly installed program runs the transitions of its release for the setup and the stored state, each\n" +
-			"once and reported on standard error; a failure there is a warning and does not undo the update, and\n" +
-			"'sudo qhost update migrate' repeats that step.\n" +
-			"If deploy service instances for rootless engines are set up, the newly installed program then replaces the\n" +
-			"template unit qhost-deploy@.service where it differs, reloads systemd and restarts every instance; a failure there is a\n" +
-			"warning and does not undo the update, and 'sudo qhost deploy-service refresh-instances' repeats that step. Where the\n" +
-			"webhook receiver is set up, the newly installed program likewise replaces qhost-hook.service where it differs and\n" +
-			"restarts it, which is not in the release archive; a failure is a warning, and 'sudo qhost hook-service refresh' repeats it. A unit of\n" +
-			"the same name in /etc/systemd/system overrides the installed one, and the update warns about it. Without an argument it\n" +
-			"installs the newest stable release if that is newer than the running version; with a version such as\n" +
-			"v1.2.3 it installs exactly that release, which must be newer than the running one. Updating never\n" +
-			"installs an older release.\n" +
-			"The signature over the release's checksums.txt is verified against the release key built into\n" +
-			"qhost, then the archive's SHA-256 checksum; any failure leaves the installation unchanged.\n" +
-			"Installing needs root. The service restarts afterwards. It first shows on standard error what it would\n" +
-			"replace and restart, without asking the release server; without --confirm it stops there with exit\n" +
-			"code 2 and changes nothing. With --confirm it asks for confirmation on a terminal, and --yes answers\n" +
-			"the question. To update the image versions of stacks use 'qhost stack update'.",
+		Long:  selfUpdateLong,
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return usageFailure("update takes at most one argument, the release version",

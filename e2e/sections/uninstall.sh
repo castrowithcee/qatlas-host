@@ -4,7 +4,8 @@
 # the units, the instance, its template and the program are gone, an account qhost-deploy of an earlier setup is
 # removed, and the state, the other users and the group stay; sudo
 # qhost uninstall --purge then removes the state folders, the state and configuration of the instance, the users and
-# the groups. The test user, its home, its rootless engine and its container stay. Nothing runs after it.
+# the groups. The test user, its home, its rootless engine and its container stay. Only old-release follows, which
+# installs an earlier release afresh.
 # Needs selfupdate: the deploy unit it put aside and the webhook receiver. Needs rootless: the drop-in of the
 # instance with its stack folder.
 # Sourced by run.sh; defines only functions and constants.
@@ -39,7 +40,7 @@ rootless_kept() {
 # the state and configuration of the instance, the users, the group, the containers and the stack folders as they were.
 # The program is copied away first, because uninstall deletes it; the copy then runs --purge, which deletes the three
 # state folders, the state and configuration of the instance, the users and the group. The test user of the instance,
-# its home, its rootless engine and its container stay. Nothing runs after it, and no later step may call qhost.
+# its home, its rootless engine and its container stay. Only old-release follows, which installs qhost afresh.
 scenario_uninstall() {
 	un_unit=$instance_service@$rootless_user.service
 	un_template=/usr/local/lib/systemd/system/$release_template

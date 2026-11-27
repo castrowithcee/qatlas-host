@@ -58,3 +58,16 @@ func TestDeployUnitWithAnotherWritablePathOrHomeIsRefused(t *testing.T) {
 		}
 	}
 }
+
+func TestDeployUnitRefusesAnyStartStepButThePreparation(t *testing.T) {
+	const prepare = "ExecStartPre=+/usr/local/bin/qhost deploy-service prepare\n"
+	if !strings.Contains(string(packaging.DeployUnit), prepare) {
+		t.Fatal("the shipped unit lacks the start step")
+	}
+	for _, extra := range []string{"ExecStartPre=+/bin/sh -c id", "ExecStartPre=/bin/true", "ExecStartPre=", "ExecStartPre=-/usr/local/bin/qhost deploy-service prepare"} {
+		unit := strings.Replace(string(packaging.DeployUnit), prepare, prepare+extra+"\n", 1)
+		if err := ValidateDeployUnit([]byte(unit)); err == nil {
+			t.Errorf("a unit with %q passed", extra)
+		}
+	}
+}

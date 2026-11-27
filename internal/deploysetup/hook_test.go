@@ -24,7 +24,7 @@ type hookHost struct {
 
 func newHookHost(t *testing.T) *hookHost {
 	t.Helper()
-	h := &hookHost{fakeHost: newFakeHost(t, instanceGroups+"qhost-deploy:x:996:\nalice:x:1001:\n", instancePasswd+"qhost-deploy:x:996:996::/var/lib/qhost-deploy:/usr/sbin/nologin\n"),
+	h := &hookHost{fakeHost: newFakeHost(t, instanceGroups+"alice:x:1001:\n", instancePasswd),
 		running: map[string]bool{}}
 	h.put("/etc/subuid", instanceSubIDs)
 	h.put("/etc/subgid", instanceSubIDs)

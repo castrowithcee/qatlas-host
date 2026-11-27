@@ -13,6 +13,8 @@ import (
 // inside the stack folders.
 func deployUnitLines() []string {
 	return []string{
+		// The only start step. A '+' step runs without the sandbox and the systemd lock, so it may run nothing else.
+		"ExecStartPre=+" + sysservice.ServicePaths(Program, "").Program + " deploy-service prepare",
 		"ExecStart=" + sysservice.ServicePaths(Program, "").Program + " deploy-service run",
 		"ReadWritePaths=/run/qhost-deploy",
 		"ReadWritePaths=-/run/qhost-hook/system",
@@ -41,7 +43,8 @@ func deployUnitLines() []string {
 
 // ValidateDeployUnit checks the unit of the deploy service of the system engine: no user, group or additional
 // capability, and every line of the sandbox. A line may only be missing or wrong, never replaced by another that
-// widens the sandbox: a second CapabilityBoundingSet= or ReadWritePaths= is refused.
+// widens the sandbox: a second CapabilityBoundingSet= or ReadWritePaths= is refused, and so is any ExecStartPre=
+// line but the one that prepares the service.
 func ValidateDeployUnit(unit []byte) error {
 	want := deployUnitLines()
 	var got []string
@@ -59,7 +62,7 @@ func ValidateDeployUnit(unit []byte) error {
 				return fmt.Errorf("the line %q is not allowed", l)
 			}
 		}
-		for _, only := range []string{"CapabilityBoundingSet=", "ReadWritePaths=", "ProtectHome=", "ProtectSystem="} {
+		for _, only := range []string{"ExecStartPre=", "CapabilityBoundingSet=", "ReadWritePaths=", "ProtectHome=", "ProtectSystem="} {
 			if strings.HasPrefix(l, only) && !slices.Contains(want, l) {
 				return fmt.Errorf("the line %q is not allowed", l)
 			}

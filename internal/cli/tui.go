@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/castrowithcee/qatlas-kit/cli"
+	"github.com/castrowithcee/qatlas-kit/localipc"
 	"github.com/castrowithcee/qatlas-kit/output"
 	"github.com/castrowithcee/qatlas-kit/uiprefs"
 
@@ -53,7 +54,7 @@ func savePrefs(path string, schema uiprefs.Schema) func(uiprefs.Prefs) error {
 	return func(p uiprefs.Prefs) error { return uiprefs.Save(path, p, schema) }
 }
 
-func newTUICommand(state *notRunning) *cobra.Command {
+func newTUICommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "tui",
 		Short: "Open the terminal interface",
@@ -128,16 +129,18 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			"A small icon stands before the product name and before each area on the tab line. Settings, General\n" +
 			"chooses them under Icons: unicode (the default), nerdfont (needs a Nerd Font patched terminal font) or\n" +
 			"none. A terminal without Unicode shows no icons.\n\n" +
-			"It needs a terminal on both standard input and output and the running deploy service. Root and administrators in\n" +
+			"It needs a terminal on both standard input and output. Root and administrators in\n" +
 			"the group qhost may open it. Without sudo a change shows the command sudo qhost ... and runs it after y;\n" +
 			"sudo asks for the password itself. This covers data folders, setting up the deploy service and deciding a proposal of the deploy\n" +
 			"service as well. On a host with several deploy services, the one of the system engine and the instance of each\n" +
 			"rootless engine, the interface reads all of them and sends an action to the service that has the stack; a service\n" +
 			"that cannot be asked is named, and the others are still shown. A host with only instances of rootless engines\n" +
-			"counts as set up. No deploy service at all is no failure: the areas that need it say so and, with y\n" +
-			"after a question, set it up\n" +
-			"(G; without sudo through sudo qhost deploy-service setup). A set up deploy service that is not running ends with exit code 3 before it draws\n" +
-			"anything. Device-local preferences are read from ~/.qatlas/qhost/tui.yaml; a missing file means\n" +
+			"counts as set up. The interface always starts. A deploy service that does not exist, is set up but not\n" +
+			"running, or refuses the channel is no failure: Stacks, Stack detail, Runs, Containers and Proposals say\n" +
+			"which of the three it is, and Settings and System stay usable. With y after a question the interface can set it up\n" +
+			"(G; without sudo through sudo qhost deploy-service setup) or, for the service of the system engine, repairs\n" +
+			"what the setup finds wrong. The service log of System names why the service does not answer.\n" +
+			"Missing rights, such as no access to the channel, still end before the interface draws. Device-local preferences are read from ~/.qatlas/qhost/tui.yaml; a missing file means\n" +
 			"the defaults. Change them in Settings under General (theme, start area, language, icons and mouse)\n" +
 			"instead of editing the file by hand.",
 		Args: cobra.NoArgs,
@@ -148,15 +151,12 @@ func newTUICommand(state *notRunning) *cobra.Command {
 					"Run 'qhost tui' in a terminal, or use the commands such as 'qhost status' in scripts.")
 			}
 			backend := newEngineBackend().withVersion(version)
-			// The interface refuses before it takes the terminal, so a missing service or root fails as every
-			// channel command does. No deploy service at all is no failure: the interface offers the setup. A host
-			// with only instances of rootless engines has a deploy service.
-			if _, err := backend.Status(client.WithOrigin(c.Context(), control.OriginTUI)); err != nil && !(errors.Is(err, client.ErrNotRunning) && !deployPresent()) {
+			// The interface refuses before it takes the terminal, so missing rights fail as every channel command
+			// does. A deploy service that does not answer is no failure: it is the case where the interface is
+			// needed. It shows the cause in the areas that need the service and offers the setup or the repair.
+			if _, err := backend.Status(client.WithOrigin(c.Context(), control.OriginTUI)); err != nil && !deployUnanswered(err) {
 				if handled, failed := regroup(err, c.ErrOrStderr()); handled {
 					return failed
-				}
-				if errors.Is(err, client.ErrNotRunning) {
-					state.seen = true
 				}
 				return failureOf(err)
 			}
@@ -182,6 +182,12 @@ func newTUICommand(state *notRunning) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// deployUnanswered reports whether err says that the deploy service does not answer: nothing listens on its
+// channel, or the channel refused this connection.
+func deployUnanswered(err error) bool {
+	return errors.Is(err, client.ErrNotRunning) || errors.Is(err, localipc.ErrRefused)
 }
 
 // The calls hostRunner and regroup make to the host; variables so a test can stand in for them.

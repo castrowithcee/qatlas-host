@@ -11,12 +11,13 @@ import (
 
 // notFunctions are the command lines that are no function of qhost for an agent to call, each with its reason.
 var notFunctions = map[string]string{
-	"tui":                "opens the terminal interface, which calls the same functions itself",
-	"manpage":            "writes the manual pages of the program",
-	"version":            "prints the version of the program",
-	"run":                "runs the host service process in the foreground",
-	"deploy-service run": "runs the deploy service process in the foreground",
-	"hook-service run":   "runs the webhook receiver process in the foreground",
+	"tui":                    "opens the terminal interface, which calls the same functions itself",
+	"manpage":                "writes the manual pages of the program",
+	"version":                "prints the version of the program",
+	"run":                    "runs the host service process in the foreground",
+	"deploy-service run":     "runs the deploy service process in the foreground",
+	"hook-service run":       "runs the webhook receiver process in the foreground",
+	"deploy-service prepare": "is the start step of the deploy service unit, which runs its transitions before it opens its channel",
 }
 
 // actingGroups are the commands that have subcommands and act on their own as well.

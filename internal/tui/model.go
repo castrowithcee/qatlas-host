@@ -109,6 +109,8 @@ type Model struct {
 	text     kittui.Translator
 	lang     i18n.Lang
 	frame    *kittui.Frame
+	// outage is the state of a deploy service that is set up but does not answer.
+	outage
 	// diagnosing is set while a diagnostic package is being collected.
 	diagnosing bool
 	// prefs are the preferences as saved last; a save changes the chosen values and keeps the rest.
@@ -367,11 +369,7 @@ func (m *Model) dispatch(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ctDoneMsg:
 		return m, m.applyContainerDone(msg)
 	case refreshMsg:
-		m.apply(msg)
-		if m.stale {
-			m.stale = false
-			return m, m.reload()
-		}
+		return m, m.refreshed(msg)
 	case stepMsg:
 		return m, m.applyStep(msg)
 	case previewMsg:
@@ -461,7 +459,7 @@ func (m *Model) apply(msg refreshMsg) {
 		m.failure = m.errorText(msg.err)
 		return
 	}
-	m.notSetUp = false
+	m.clearOutage()
 	m.snap, m.loaded, m.failure = msg.snap, true, ""
 	if msg.problem != nil {
 		m.failure = m.errorText(msg.problem)
@@ -1058,7 +1056,7 @@ func (m *Model) footer() []kittui.Hint {
 	common = m.navCommon(common)
 	switch {
 	case m.setupShown() && !m.clogShown():
-		return append([]kittui.Hint{{Action: actSetupDeploy, Label: textKeySetupDeploy, Priority: 3}}, common...)
+		return append(m.setupHints(), common...)
 	case m.clogShown():
 		if m.clog.view.Searching() || m.clog.view.FilterOpen() {
 			return m.clog.view.Hints()

@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=exec
+ExecStartPre=+/usr/local/bin/qhost deploy-service prepare
 ExecStart=/usr/local/bin/qhost deploy-service run
 ReadWritePaths=/run/qhost-deploy
 ReadWritePaths=-/run/qhost-hook/system

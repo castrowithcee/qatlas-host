@@ -37,10 +37,21 @@ func (h Host) HasAccountSetup() (bool, error) {
 
 // MoveToRoot brings the setup of earlier releases to the one where the deploy service runs as root: it rewrites
 // the channel rule, hands the state to root, gives the marker folder of the system instance to the group of the
-// receiver where the receiver is set up, restarts the service and removes the user and group qhost-deploy. Each
-// step is written to report before it runs. Every step is safe to repeat, so after a failure a repeated call
-// continues; the first failure stops the rest, which stays as it is. Files in the stack folders are not touched.
+// receiver where the receiver is set up, reloads systemd, restarts the service if it runs and removes the user
+// and group qhost-deploy. Each step is written to report before it runs. Every step is safe to repeat, so after a
+// failure a repeated call continues; the first failure stops the rest, which stays as it is. Files in the stack
+// folders are not touched.
 func (h Host) MoveToRoot(ctx context.Context, report io.Writer) error {
+	return h.moveToRoot(ctx, report, true)
+}
+
+// MoveToRootAtStart is MoveToRoot for the start step of the deploy service unit: it neither reloads systemd nor
+// restarts the unit, because a restart would wait for the start it runs in.
+func (h Host) MoveToRootAtStart(ctx context.Context, report io.Writer) error {
+	return h.moveToRoot(ctx, report, false)
+}
+
+func (h Host) moveToRoot(ctx context.Context, report io.Writer, restart bool) error {
 	unit, err := os.ReadFile(h.path(UnitPath()))
 	if err != nil {
 		return fmt.Errorf("read %s: %w", UnitPath(), err)
@@ -49,7 +60,7 @@ func (h Host) MoveToRoot(ctx context.Context, report io.Writer) error {
 	if err := ValidateDeployUnit(unit); err != nil {
 		return fmt.Errorf("the installed deploy unit %s is not the one that runs as root: %w", UnitPath(), err)
 	}
-	plan, err := h.rootMovePlan(ctx)
+	plan, err := h.rootMovePlan(ctx, restart)
 	if err != nil {
 		return err
 	}
@@ -62,7 +73,7 @@ func (h Host) MoveToRoot(ctx context.Context, report io.Writer) error {
 	return nil
 }
 
-func (h Host) rootMovePlan(ctx context.Context) (Plan, error) {
+func (h Host) rootMovePlan(ctx context.Context, restart bool) (Plan, error) {
 	var plan Plan
 	add := func(command string, do func(ctx context.Context) error) {
 		plan.Steps = append(plan.Steps, Step{Command: command, do: do})
@@ -104,8 +115,10 @@ func (h Host) rootMovePlan(ctx context.Context) (Plan, error) {
 		writeRule(HookTmpfilesConf, rule)
 	}
 
-	command("systemctl", "daemon-reload")
-	command("systemctl", "try-restart", Service)
+	if restart {
+		command("systemctl", "daemon-reload")
+		command("systemctl", "try-restart", Service)
+	}
 	add("userdel "+Service, func(ctx context.Context) error {
 		if accounts, err := h.readAccounts(); err != nil || !hasKey(accounts, Service) {
 			return err

@@ -109,8 +109,9 @@ func TestMigrateNamesTheCommandToRetryAfterAFailure(t *testing.T) {
 func TestMigrateOnAHostWithoutTheDeployServiceChangesNothingAndNeedsRoot(t *testing.T) {
 	signer := releasetest.NewSigner(t)
 	h := useFakeHost(t, newFakeReleases(t, signer, false, "v0.1.0"), signer, "v0.1.0")
+	t.Setenv("TMPDIR", t.TempDir())
 	code, stdout, stderr := run(t, "update", "migrate", "--output", "json")
-	if code != 0 || stderr != "transition deploy-service-as-root: already done\n" ||
+	if code != 0 || !strings.HasPrefix(stderr, "transition deploy-service-as-root: already done\n") ||
 		strings.ReplaceAll(stdout, " ", "") != `{"transitions":1,"applied":""}`+"\n" {
 		t.Fatalf("code %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
