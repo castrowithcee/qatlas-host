@@ -90,12 +90,13 @@ func TestNewSearchAndLeavingStopTheRunningOne(t *testing.T) {
 func TestSearchWithoutStarStillFilters(t *testing.T) {
 	m, _, _ := searchModel(t)
 	send(m, "/")
-	send(m, typed("b")...)
+	// The filter also matches the owner column, which names the real UID of the test run, so the query fits only a name.
+	send(m, typed("lock")...)
 	send(m, "enter")
 	if m.sys.fold.files.cancel != nil {
 		t.Fatal("a plain filter started a search")
 	}
-	if e, ok := m.sys.fold.files.browser.Selected(); !ok || e.Name != "b" {
+	if e, ok := m.sys.fold.files.browser.Selected(); !ok || e.Name != "locked" {
 		t.Fatalf("marked %+v:\n%s", e, m.render())
 	}
 }
