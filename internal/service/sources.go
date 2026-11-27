@@ -650,54 +650,6 @@ func routedErr(s *sourceSet, name string, fn func(e *engine.Engine) error) error
 	return err
 }
 
-// sourceSnapshot is the state of one source.
-type sourceSnapshot struct {
-	conf sourceConfig
-	snap engine.Snapshot
-}
-
-// snapshots returns the state of every source in source order.
-func (s *sourceSet) snapshots() ([]sourceSnapshot, error) {
-	var out []sourceSnapshot
-	for _, src := range s.sources() {
-		snap, err := src.eng.Snapshot()
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, sourceSnapshot{conf: src.conf, snap: snap})
-	}
-	return out, nil
-}
-
-// Snapshot merges the state of the sources by stack name: each name has the state of the source that owns it.
-func (s *sourceSet) Snapshot() (engine.Snapshot, error) {
-	snaps, err := s.snapshots()
-	if err != nil {
-		return engine.Snapshot{}, err
-	}
-	owner := s.resolve().owner
-	out := engine.Snapshot{State: engine.State{Stacks: map[string]engine.StackState{}}, Active: map[string]string{}}
-	if len(snaps) > 0 {
-		first := snaps[0].snap.State
-		out.State.LastPoll, out.State.PollError, out.State.Head, out.State.RemoteHead, out.State.Note =
-			first.LastPoll, first.PollError, first.Head, first.RemoteHead, first.Note
-	}
-	ownedBy := func(name string, c sourceConfig) bool { o := owner[name]; return o == nil || o.conf.ID == c.ID }
-	for _, ss := range snaps {
-		for name, st := range ss.snap.State.Stacks {
-			if _, seen := out.State.Stacks[name]; !seen && ownedBy(name, ss.conf) {
-				out.State.Stacks[name] = st
-			}
-		}
-		for name, id := range ss.snap.Active {
-			if _, seen := out.Active[name]; !seen && ownedBy(name, ss.conf) {
-				out.Active[name] = id
-			}
-		}
-	}
-	return out, nil
-}
-
 // hasStack tells whether a stack of that name is listed by a source's working copy or still deployed by one.
 func (s *sourceSet) hasStack(name string) bool { return s.resolve().owner[name] != nil }
 

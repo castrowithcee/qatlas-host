@@ -221,20 +221,7 @@ func engineFields(engine string, e control.EngineStatus) []output.Field {
 // empty for the deploy service of the system engine and instance.<user>. for an instance, so that one name
 // never stands for two engines.
 func entryFields(prefix, engine string, e control.EngineStatus) []output.Field {
-	var out []output.Field
-	for _, src := range e.Sources {
-		p := prefix + "source." + src.ID + "."
-		out = append(out, output.Field{Name: p + "path", Value: src.Path}, output.Field{Name: p + "engine", Value: engine},
-			output.Field{Name: p + "kind", Value: src.Kind})
-		if !src.LastPoll.IsZero() {
-			out = append(out, output.Field{Name: p + "last_poll", Value: src.LastPoll.UTC().Format(time.RFC3339)})
-		}
-		for _, f := range [][2]string{{"poll_error", src.PollError}, {"note", src.Note}, {"head", src.Head}, {"remote_head", src.RemoteHead}} {
-			if f[1] != "" {
-				out = append(out, output.Field{Name: p + f[0], Value: f[1]})
-			}
-		}
-	}
+	out := sourceFields(prefix, engine, e.Sources)
 	for i, s := range e.Stacks {
 		// The entry that stands for a name keeps the short key; another source's entry of it carries its source.
 		p := prefix + "stack." + s.Name + "."
@@ -275,6 +262,28 @@ func entryFields(prefix, engine string, e control.EngineStatus) []output.Field {
 	return out
 }
 
+// sourceFields flattens the stack folders of the engine part.
+func sourceFields(prefix, engine string, sources []control.SourceStatus) []output.Field {
+	var out []output.Field
+	for _, src := range sources {
+		p := prefix + "source." + src.ID + "."
+		out = append(out, output.Field{Name: p + "path", Value: src.Path}, output.Field{Name: p + "engine", Value: engine},
+			output.Field{Name: p + "kind", Value: src.Kind})
+		if !src.LastPoll.IsZero() {
+			out = append(out, output.Field{Name: p + "last_poll", Value: src.LastPoll.UTC().Format(time.RFC3339)})
+		}
+		for _, f := range [][2]string{{"poll_error", src.PollError}, {"note", src.Note}, {"head", src.Head}, {"remote_head", src.RemoteHead}} {
+			if f[1] != "" {
+				out = append(out, output.Field{Name: p + f[0], Value: f[1]})
+			}
+		}
+		if src.Unreadable != "" {
+			out = append(out, output.Field{Name: p + "state", Value: "unreadable: " + src.Unreadable})
+		}
+	}
+	return out
+}
+
 // updateFields are the observation time and the locked versions of a stack, as far as it has them.
 func updateFields(p string, s control.StackStatus) []output.Field {
 	var out []output.Field
@@ -306,6 +315,18 @@ func call(ctx context.Context, ep localipc.ServiceEndpoint, command string, args
 // callFor is call with its own time limit, for commands that wait on a remote server.
 func callFor(ctx context.Context, limit time.Duration, ep localipc.ServiceEndpoint, command string, args, result any) error {
 	return client.Do(client.WithOrigin(ctx, control.OriginCLI), ep, limit, command, args, result)
+}
+
+// remoteNextStep is the next step for a refusal of the service that no case of failureOf names. The caller does
+// not know which service answered, so the log hint names both units.
+func remoteNextStep(code string) string {
+	switch code {
+	case control.CodeInternal:
+		return "Read the cause in the service log: 'journalctl -u qhost-deploy', or 'journalctl -u qhost-deploy@<user>' for an instance."
+	case control.CodeVersion, control.CodeUnknownCommand:
+		return "Check that the client and the service are the same version."
+	}
+	return "Read the message above, correct what it names and run the command again."
 }
 
 // failureOf turns a channel error into a diagnostic with a next step.
@@ -452,7 +473,7 @@ func failureOf(err error) error {
 			Cause: err}
 	case errors.As(err, &remote):
 		return &cli.Failure{Code: output.CodeRuntime, Message: "the service refused the request: " + remote.Message,
-			NextStep: "Check that the client and the service are the same version.", Cause: err}
+			NextStep: remoteNextStep(remote.Code), Cause: err}
 	}
 	return &cli.Failure{Code: output.CodeRuntime, Message: "cannot talk to the service: " + err.Error(),
 		NextStep: "Check that the service is healthy and run the command again.", Cause: err}
