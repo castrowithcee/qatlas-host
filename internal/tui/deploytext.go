@@ -24,6 +24,15 @@ const (
 	textSetupNothing        kittui.TextID = "setup.nothing"
 	textDoneSetupUser       kittui.TextID = "setup.doneuser"
 	textSetupAsRoot         kittui.TextID = "setup.asroot"
+
+	textKeyRepairDeploy kittui.TextID = "key.repairdeploy"
+	textDownNotRunning  kittui.TextID = "down.notrunning"
+	textDownRefused     kittui.TextID = "down.refused"
+	textDownRepair      kittui.TextID = "down.repair"
+	textDownNothing     kittui.TextID = "down.nothing"
+	textAskRepair       kittui.TextID = "down.ask"
+	textWhatRepair      kittui.TextID = "down.what"
+	textRepairNothing   kittui.TextID = "down.none"
 )
 
 func deployEnglish() map[kittui.TextID]string {
@@ -52,6 +61,19 @@ func deployEnglish() map[kittui.TextID]string {
 		textSetupAsRoot:   "These steps run as root:",
 		textSetupNothing:  "nothing to do: the deploy service is set up already",
 		textDoneSetupUser: "the deploy service for the rootless engine of %s is set up and started",
+
+		textKeyRepairDeploy: "repair deploy service",
+		textDownNotRunning:  "The deploy service is set up, but it is not running.",
+		textDownRefused: "The deploy service refused this connection: the owner or mode of its channel folder, or the user the service runs as, " +
+			"is not what the host expects.",
+		textDownRepair: "{setupdeploy} repairs it. It shows what is wrong as exact steps and runs them only after you confirm. " +
+			"The service log names the reason: System, Log shows it ({instance} chooses the service).\nOn the command line: journalctl -u qhost-deploy",
+		textDownNothing: "The setup finds no step left to repair. The service log names the reason: System, Log shows it " +
+			"({instance} chooses the service).\nOn the command line: journalctl -u qhost-deploy",
+		textAskRepair: "Repair the deploy service now?",
+		textWhatRepair: "It sets right what the setup finds wrong, such as the rule, owner and mode of the channel folder or the leftovers " +
+			"of an earlier setup, and starts the service. These steps run as root:",
+		textRepairNothing: "nothing to repair: the setup finds no step; the service log names why the service does not answer",
 	}
 }
 
@@ -81,5 +103,18 @@ func deployGerman() map[kittui.TextID]string {
 		textSetupAsRoot:   "Diese Schritte laufen als root:",
 		textSetupNothing:  "nichts zu tun: der Deploy-Dienst ist schon eingerichtet",
 		textDoneSetupUser: "der Deploy-Dienst für die rootless Engine von %s ist eingerichtet und gestartet",
+
+		textKeyRepairDeploy: "Deploy-Dienst reparieren",
+		textDownNotRunning:  "Der Deploy-Dienst ist eingerichtet, läuft aber nicht.",
+		textDownRefused: "Der Deploy-Dienst hat diese Verbindung abgelehnt: Besitzer oder Modus seines Kanalordners oder der Benutzer, " +
+			"als der der Dienst läuft, entspricht nicht dem, was der Host erwartet.",
+		textDownRepair: "{setupdeploy} repariert ihn. Es zeigt, was nicht stimmt, als genaue Schritte und führt sie erst nach deiner Bestätigung aus. " +
+			"Das Dienstlog nennt den Grund: System, Log zeigt es ({instance} wählt den Dienst).\nAuf der Kommandozeile: journalctl -u qhost-deploy",
+		textDownNothing: "Die Einrichtung findet keinen Schritt zum Reparieren. Das Dienstlog nennt den Grund: System, Log zeigt es " +
+			"({instance} wählt den Dienst).\nAuf der Kommandozeile: journalctl -u qhost-deploy",
+		textAskRepair: "Den Deploy-Dienst jetzt reparieren?",
+		textWhatRepair: "Das richtet her, was die Einrichtung als falsch findet, etwa Regel, Besitzer und Modus des Kanalordners oder Reste " +
+			"einer früheren Einrichtung, und startet den Dienst. Diese Schritte laufen als root:",
+		textRepairNothing: "nichts zu reparieren: die Einrichtung findet keinen Schritt, das Dienstlog nennt, warum der Dienst nicht antwortet",
 	}
 }

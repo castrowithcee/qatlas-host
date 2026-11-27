@@ -1,7 +1,7 @@
 ---
 title: Set up the deploy service
 order: 9
-keywords: [deploy service, setup, rootless, system engine, docker, root]
+keywords: [deploy service, setup, repair, not running, channel refused, rootless, system engine, docker, root]
 screens: [stacks/setup, detail/setup, runs/setup, containers/setup, proposals/setup, title:setup.title]
 ---
 # Set up the deploy service
@@ -22,3 +22,11 @@ Keys:
 - {up} and {down} pick a suggested user. {next} completes it.
 
 Without root the setup asks for the sudo password before it runs. If the service is set up already, the dialog only says so.
+
+## A service that does not answer
+
+The interface starts even when a deploy service that is set up does not answer. The same areas then show the cause instead of the setup: the service is not running, or its channel refused the connection because the owner or mode of the channel folder, or the user the service runs as, is not what the host expects. Settings and System stay usable.
+
+{setupdeploy} repairs the deploy service of the system engine. The dialog shows what is wrong as the exact steps that run as root, and nothing runs before you answer Yes. Without root it asks for the sudo password first. Once the repair worked, the note disappears at the next reading.
+
+If the setup finds no step to repair, the note says so and offers no repair. The service log then names the reason: System, Log shows it, and the command line shows it with journalctl -u qhost-deploy. A rootless instance that does not answer is named in the area and is not repaired here.

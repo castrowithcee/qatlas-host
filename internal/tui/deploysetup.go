@@ -40,22 +40,28 @@ type SetupPlan struct {
 // deploySetUp is the result of a finished setup; user is empty for the service of the system engine.
 type deploySetUp struct{ user string }
 
-// markNotSetUp decides whether a failed refresh means that the deploy service does not exist yet.
+// markNotSetUp decides whether a failed refresh means that the deploy service does not exist yet, or is set up and
+// does not answer. Both show their cause in the areas that need the service.
 func (m *Model) markNotSetUp(err error) bool {
 	m.notSetUp = errors.Is(err, client.ErrNotRunning) && m.deploy != nil && !m.deploy.Installed()
-	return m.notSetUp
+	return m.markUnreachable(err) || m.notSetUp
 }
 
-// setupShown reports whether the area shows the setup instead of the deploy service's content. Settings and System
+// setupShown reports whether the area shows the setup, or the cause of a service that does not answer, instead of the deploy service's content. Settings and System
 // need no deploy service.
 func (m *Model) setupShown() bool {
-	return m.notSetUp && m.area != areaSettings && m.area != areaSystem
+	return (m.notSetUp || m.down != downNone) && m.area != areaSettings && m.area != areaSystem
 }
 
-// setupView says that the deploy service is not set up and how to set it up; a click on it is the key.
+// setupView says that the deploy service is not set up and how to set it up, or why a set up one does not answer
+// and how to repair it; a click on it is the key.
 func (m *Model) setupView(width, height int) string {
 	var lines []string
-	lines = append(lines, m.wrapped(2, kittui.StyleHint, m.text.Lookup(textSetupBody), width)...)
+	body := m.text.Lookup(textSetupBody)
+	if m.down != downNone {
+		body = m.downBody()
+	}
+	lines = append(lines, m.wrapped(2, kittui.StyleHint, body, width)...)
 	lines = lines[:min(len(lines), max(height, 1))]
 	m.parts = append(m.parts, mousePart{rect: kittui.Rect{Width: width, Height: len(lines)},
 		targets: []kittui.Target{{Rect: kittui.Rect{Width: width, Height: len(lines)}, Zone: kittui.ZoneRows, Action: actSetupDeploy}}})
@@ -72,6 +78,9 @@ func (m *Model) setupOffered() bool {
 func (m *Model) beginSetup() tea.Cmd {
 	if m.deploy == nil {
 		return nil
+	}
+	if m.down != downNone {
+		return m.askSetup("")
 	}
 	spec := kittui.DialogSpec{Title: textSetupTitle, Question: m.text.Lookup(textAskSetupWhich), Consequence: m.text.Lookup(textWhatSetupWhich),
 		Answers: []kittui.Answer{{Action: actYes, Label: textAnswerSetupSystem}, {Action: actRootless, Label: textAnswerSetupRootless},
@@ -133,6 +142,10 @@ func (m *Model) askSetup(user string) tea.Cmd {
 		return nil
 	}
 	if len(plan.Commands) == 0 && (user != "" || m.deploy.Installed()) {
+		if m.down != downNone {
+			m.warn(m.text.Lookup(textRepairNothing))
+			return nil
+		}
 		m.warn(m.text.Lookup(textSetupNothing))
 		return nil
 	}
@@ -147,6 +160,9 @@ func (m *Model) askSetup(user string) tea.Cmd {
 		details = append(details, kittui.DialogLine{Prefix: "$ ", Text: c, Style: kittui.StyleHint})
 	}
 	question, consequence := m.text.Lookup(textAskSetup), m.text.Lookup(textWhatSetup)
+	if m.down != downNone && user == "" {
+		question, consequence = m.text.Lookup(textAskRepair), m.text.Lookup(textWhatRepair)
+	}
 	if user != "" {
 		question, consequence = m.text.Lookup(textAskSetupFor, user), m.text.Lookup(textWhatSetupFor, user)
 	}

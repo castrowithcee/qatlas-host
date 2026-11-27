@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                      [?] help
+  [1 Stacks] 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals 7 System 
+────────────────────────────────────────────────────────────────────────────────
+  The deploy service refused this connection: the owner or mode of its channel  
+  folder, or the user the service runs as, is not what the host expects.        
+  G repa╔═ Deploy service ═════════════════════════════════════════════╗ after  
+  you co║ ⚠ Repair the deploy service now?                             ║ chooses
+  the se║                                                              ║        
+  On the║ It sets right what the setup finds wrong, such as the rule,  ║        
+        ║ owner and mode of the channel folder or the leftovers of an  ║        
+        ║ earlier setup, and starts the service. These steps run as    ║        
+        ║ root:                                                        ║        
+        ║ $ write /etc/tmpfiles.d/qhost-deploy.conf (mode 0644): d     ║        
+        ║   /run/qhost-deploy 2750 root qhost -                        ║        
+        ║ $ systemd-tmpfiles --create                                  ║        
+        ║   /etc/tmpfiles.d/qhost-deploy.conf                          ║        
+        ║ $ systemctl enable --now qhost-deploy                        ║        
+        ║                                                              ║        
+        ║ [ yes, do it ]  [ enter cancel ]                             ║        
+        ║ y yes, do it  n/esc/enter cancel                             ║        
+        ╚══════════════════════════════════════════════════════════════╝        
+                                                                                
+                                                                                
+                                                                             1/6

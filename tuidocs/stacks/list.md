@@ -26,7 +26,7 @@ On a stack row:
 On every row:
 
 - {search} filters the list. {reload} reads it again.
-- {setupdeploy} sets up a deploy service, shown where one can be added.
+- {setupdeploy} sets up a deploy service, shown where one can be added, or repairs one that does not answer.
 - {area} switches the area.
 
 In the file view of a folder, opened with {files}:

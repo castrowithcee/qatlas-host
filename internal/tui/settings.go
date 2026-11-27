@@ -620,7 +620,7 @@ func (m *Model) applySetting(msg settingMsg) tea.Cmd {
 		cmds = append(cmds, m.dataDirsDone(res, done))
 	case deploySetUp:
 		if res.user == "" {
-			m.notSetUp = false
+			m.clearOutage()
 			done(t.Lookup(textDoneSetup))
 		} else {
 			done(t.Lookup(textDoneSetupUser, res.user))

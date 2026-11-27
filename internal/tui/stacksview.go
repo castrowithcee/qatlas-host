@@ -104,7 +104,7 @@ func (m *Model) stacksFooter(common, nav []kittui.Hint) []kittui.Hint {
 		common = append([]kittui.Hint{add}, common...)
 	}
 	if m.setupOffered() {
-		common = append(common, kittui.Hint{Action: actSetupDeploy, Label: textKeySetupDeploy, Priority: 3})
+		common = append(common, m.setupHints()...)
 	}
 	return m.listFooter(m.list, len(m.rows)+len(m.set.folderData), textKeyDetails, common, nav)
 }

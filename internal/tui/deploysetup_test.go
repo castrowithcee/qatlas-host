@@ -148,11 +148,12 @@ func TestSetupFailureIsShown(t *testing.T) {
 	}
 }
 
+// A set up service that does not answer shows its cause, not the setup (see deployrepair_test.go).
 func TestStoppedDeployServiceIsNotNotSetUp(t *testing.T) {
 	d := newFakeDeploy()
 	d.installed = true
 	m, _ := notSetUpModel(t, i18n.English, d, 0, wideWidth, goldenRows)
-	if m.notSetUp || !strings.Contains(m.render(), "is not running") {
+	if m.notSetUp || m.down != downNotRunning || strings.Contains(m.render(), "is not set up yet") {
 		t.Fatalf("a set up but stopped service shows the setup:\n%s", m.render())
 	}
 }

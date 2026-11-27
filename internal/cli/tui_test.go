@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/castrowithcee/qatlas-kit/localipc"
 	"github.com/castrowithcee/qatlas-kit/uiprefs"
 
 	"github.com/castrowithcee/qatlas-host/internal/channeltest"
@@ -139,11 +141,35 @@ func TestTUICommandNeedsATerminal(t *testing.T) {
 	}
 }
 
-func TestInterfaceWithoutServiceEndsWithCode3(t *testing.T) {
+// A deploy service that is set up but not running does not keep the interface from starting: it shows the cause.
+func TestInterfaceStartsWhenTheSetUpServiceIsNotRunning(t *testing.T) {
 	useEndpoint(t, channeltest.Endpoint(t))
 	out, started := fakeTerminal(t)
-	code, stderr := runOn(out)
-	if code != ExitServiceNotRunning || !strings.Contains(stderr, "not running") || len(*started) != 0 {
+	if code, stderr := runOn(out); code != 0 || len(*started) != 1 {
+		t.Fatalf("code %d, stderr %q, started %d", code, stderr, len(*started))
+	}
+}
+
+func TestInterfaceStartsWithoutAnyDeployService(t *testing.T) {
+	useFolderHost(t)
+	noSystemService(t)
+	out, started := fakeTerminal(t)
+	if code, stderr := runOn(out); code != 0 || len(*started) != 1 {
+		t.Fatalf("code %d, stderr %q, started %d", code, stderr, len(*started))
+	}
+}
+
+// A channel that refuses this connection, here by a folder that is not private, is a cause to show, not a failure.
+func TestInterfaceStartsWhenTheChannelIsRefused(t *testing.T) {
+	startService(t, func(net.Conn) (uint32, error) { return 0, nil })
+	if err := os.Chmod(serviceEndpoint().Dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := newEngineBackend().Status(context.Background()); !errors.Is(err, localipc.ErrRefused) {
+		t.Fatalf("the channel did not refuse: %v", err)
+	}
+	out, started := fakeTerminal(t)
+	if code, stderr := runOn(out); code != 0 || len(*started) != 1 {
 		t.Fatalf("code %d, stderr %q, started %d", code, stderr, len(*started))
 	}
 }
@@ -316,7 +342,7 @@ func TestRegroupStartsTheInterfaceAgainWithTheGroup(t *testing.T) {
 
 // The help of tui names the key that sets up the deploy service, not the one of the diagnosis.
 func TestTUIHelpNamesTheSetupKey(t *testing.T) {
-	long := newTUICommand(nil).Long
+	long := newTUICommand().Long
 	if !strings.Contains(long, "set it up\n(G;") || strings.Contains(long, "(D;") {
 		t.Fatalf("help of tui does not name G for setting up the deploy service:\n%s", long)
 	}

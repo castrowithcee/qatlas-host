@@ -1,0 +1,40 @@
+◆ qhost  maintenance window closed                                                                              [?] help
+  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  The deploy service refused this connection: the owner or mode of its channel folder, or the user the service runs as, 
+  is not what the host expects.                                                                                         
+  G repairs it. It shows what is wrong as exact steps and runs them only after you confirm. The service log names the   
+  reason: System, Log shows it (H chooses the service).                                                                 
+  On the command line: journalctl -u qhost-deploy                                                                       
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+G repair deploy service  R reload  1-7 area  q quit                                                                  1/6
