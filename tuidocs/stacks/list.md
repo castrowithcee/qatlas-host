@@ -14,6 +14,7 @@ On a folder row:
 - {fetch} fetches the remote now. Only for a clone.
 - {edit} opens the deploy key of the folder. Only for a clone.
 - {remote} adds a remote to a local folder.
+- {secure} makes the .git of a folder root-only when the row says git is not run there. Without root it runs sudo qhost source secure.
 - {delete} releases the folder.
 - {files} opens the files of the folder. {changes} opens its changes, where it has any.
 

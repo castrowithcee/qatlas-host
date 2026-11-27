@@ -183,7 +183,7 @@ func (m *Model) stacksAction(id kittui.ActionID) (tea.Cmd, bool) {
 		}
 		return m.openFolderFiles(), true
 	case v == nil:
-		return m.folderAction(id)
+		return m.stackFolderAction(id)
 	}
 	act := m.fileKey(v, id)
 	switch {

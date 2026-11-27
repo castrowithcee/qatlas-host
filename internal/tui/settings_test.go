@@ -530,6 +530,11 @@ func (f *fakeFolders) ApplyPermissions(ctx context.Context, p PermPlan) error {
 	return nil
 }
 
+func (f *fakeFolders) SecureGit(ctx context.Context, dir string) (int, error) {
+	f.calls = append(f.calls, "secure:"+dir+engineSuffix(ctx))
+	return 4, nil
+}
+
 func (f *fakeFolders) ReadOnly(path string) (bool, error) {
 	f.calls = append(f.calls, "readonly:"+path)
 	return f.readOnly, nil
