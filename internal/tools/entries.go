@@ -225,6 +225,7 @@ var entries = []Entry{
 		object(nil, props{"purge": boolean()}), "uninstall"),
 	local("host.update.install", ClassRoot, ScopeHost, "Update qhost to the latest stable release or to a given newer one.",
 		object(nil, props{"version": str()}), "update"),
+	local("host.update.migrate", ClassRoot, ScopeHost, "Run the transitions of this release for a host that ran an earlier one.", none, "update migrate"),
 	local("source.grant", ClassRoot, ScopeDeploy, "Create a stack folder and give the deploy service the access it needs.",
 		object([]string{"path"}, props{"path": str(), "create": boolean()}), "source add", "repo set"),
 }

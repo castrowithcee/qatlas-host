@@ -19,7 +19,8 @@ git_ed25519_fingerprint() {
 # release_build builds the fake release $1 (a tag) for the architecture of the host into $work/releases/$1 and
 # signs its checksums with the test key. The binary trusts that key through a source overlay of the key list, so
 # release.json and the sources stay as they are. With changed-template as $2 the binary also carries a template unit
-# of the deploy service instances with one more comment line, $work/releasebuild/$release_template, the same way.
+# of the deploy service instances with one more comment line, $work/releasebuild/$release_template, and the
+# transition e2e-marker of transition_source, the same way.
 release_build() {
 	tag=$1
 	arch=$(docker exec "$host" dpkg --print-architecture)
@@ -38,8 +39,10 @@ release_build() {
 	if [ "${2:-}" = changed-template ]; then
 		overlay=$dir/overlay-template.json
 		{ cat "$root/packaging/$release_template" && printf '# Changed by the self-update test of the template.\n'; } >"$dir/$release_template"
-		printf '{"Replace":{"%s":"%s","%s":"%s"}}' "$root/internal/release/release.go" "$dir/release.go" \
-			"$root/packaging/$release_template" "$dir/$release_template" >"$overlay"
+		transition_source >"$dir/transitions.go"
+		printf '{"Replace":{"%s":"%s","%s":"%s","%s":"%s"}}' "$root/internal/release/release.go" "$dir/release.go" \
+			"$root/packaging/$release_template" "$dir/$release_template" \
+			"$root/internal/cli/selfmigrate_transitions.go" "$dir/transitions.go" >"$overlay"
 	fi
 	rel_signers=$(realpath --relative-to="$root" "$dir/allowed-signers")
 	(cd "$root" && SOURCE_DATE_EPOCH=1700000000 GOFLAGS="${GOFLAGS:+$GOFLAGS }-overlay=$overlay" \
@@ -49,6 +52,46 @@ release_build() {
 		fail "cannot build the test release $tag"
 	(cd "$work/releases/$tag" && ssh-keygen -q -Y sign -f "$work/keys/release" -n qhost-release checksums.txt) ||
 		fail "cannot sign the test release $tag"
+}
+
+# transition_marker is the file the transition of the release built with changed-template appends a line to.
+transition_marker=/var/lib/qhost-e2e-transition
+
+# transition_source prints the register of transitions for the release built with changed-template: one transition
+# that is done once $transition_marker exists and otherwise appends a line to it, so a second run would show.
+transition_source() {
+	cat <<EOF
+package cli
+
+import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+)
+
+var transitions = []transition{{
+	name: "e2e-marker",
+	done: func(_ context.Context, root string) (bool, error) {
+		_, err := os.Lstat(filepath.Join(root, "$transition_marker"))
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return err == nil, err
+	},
+	apply: func(_ context.Context, root string) error {
+		f, err := os.OpenFile(filepath.Join(root, "$transition_marker"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
+		if err != nil {
+			return err
+		}
+		if _, err := f.WriteString("applied\\n"); err != nil {
+			f.Close()
+			return err
+		}
+		return f.Close()
+	},
+}}
+EOF
 }
 
 # release_publish makes the directory $work/releases/$1 (or the directory $2) the release $1 of the releases fake.

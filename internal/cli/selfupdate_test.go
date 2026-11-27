@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -43,7 +44,16 @@ type fakeReleases struct {
 	blobs    map[string][]byte
 }
 
+// defaultRequirements is the update requirements file of every fake release that requirements leaves out.
+const defaultRequirements = `{"updatesFrom": "v0.1.0", "reinstall": ""}`
+
 func newFakeReleases(t *testing.T, signer ssh.Signer, tamper bool, tags ...string) *fakeReleases {
+	t.Helper()
+	return newFakeReleasesWith(t, signer, tamper, nil, tags...)
+}
+
+// newFakeReleasesWith is newFakeReleases with the update requirements file of some releases, by tag.
+func newFakeReleasesWith(t *testing.T, signer ssh.Signer, tamper bool, requirements map[string]string, tags ...string) *fakeReleases {
 	t.Helper()
 	f := &fakeReleases{blobs: map[string][]byte{}}
 	f.server = httptest.NewServer(http.HandlerFunc(f.serve))
@@ -55,7 +65,8 @@ func newFakeReleases(t *testing.T, signer ssh.Signer, tamper bool, tags ...strin
 			releasetest.File{Name: "bin/qhost", Body: []byte("new program " + tag)},
 			releasetest.File{Name: sysservice.UnitEntry("qhost"), Body: []byte("[Service]\n# unit " + tag + "\n")},
 			releasetest.File{Name: sysservice.UnitEntry("qhost-deploy"), Body: []byte("[Service]\n# deploy unit " + tag + "\n")},
-			releasetest.File{Name: manEntry, Body: []byte(".TH QHOST 1 " + tag + "\n")})
+			releasetest.File{Name: manEntry, Body: []byte(".TH QHOST 1 " + tag + "\n")},
+			releasetest.File{Name: release.RequirementsEntry, Body: []byte(cmp.Or(requirements[tag], defaultRequirements))})
 		assets := releasetest.Release(t, signer, release.Namespace, release.SignatureAsset, map[string][]byte{name: archive})
 		if tamper {
 			assets["checksums.txt"] = append(assets["checksums.txt"], '\n')
@@ -106,6 +117,14 @@ type fakeHost struct {
 	deployUnit string
 	// calls are the systemctl invocations, one string each.
 	calls []string
+	// migrated holds, for each run of the transitions of the new program, the program and the number of service
+	// restarts before it.
+	migrated []migrateCall
+}
+
+type migrateCall struct {
+	exe      string
+	restarts int
 }
 
 // restarted lists the services restarted, in order.
@@ -153,6 +172,10 @@ func useFakeHost(t *testing.T, f *fakeReleases, signer ssh.Signer, running strin
 		root:       h.dir,
 		systemctl: func(_ context.Context, args ...string) error {
 			h.calls = append(h.calls, strings.Join(args, " "))
+			return nil
+		},
+		migrateRun: func(_ context.Context, exe string, _ io.Writer) error {
+			h.migrated = append(h.migrated, migrateCall{exe: exe, restarts: len(h.restarted())})
 			return nil
 		},
 	}

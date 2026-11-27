@@ -56,6 +56,8 @@ type selfUpdateHost struct {
 	// refreshHook runs the internal command of the newly installed program that renews the unit of the webhook
 	// receiver and restarts it; nil starts that program.
 	refreshHook func(ctx context.Context, exe string, stderr io.Writer) error
+	// migrateRun runs the transitions of the newly installed program; nil starts that program.
+	migrateRun func(ctx context.Context, exe string, stderr io.Writer) error
 }
 
 var selfUpdate = selfUpdateHost{
@@ -132,7 +134,8 @@ func (h selfUpdateHost) planText(exe, tag string) string {
 			b.WriteString("  " + c.Path + "\n")
 		}
 	}
-	b.WriteString("These services restart: " + strings.Join(h.services(), ", ") + "\n")
+	b.WriteString("The newly installed program then runs the transitions of its release, and these services restart: " +
+		strings.Join(h.services(), ", ") + "\n")
 	if h.hookInstalled() {
 		b.WriteString("The unit qhost-hook.service is renewed where it differs, and the webhook receiver qhost-hook restarts.\n")
 	}
@@ -228,6 +231,12 @@ func newSelfUpdateCommand(program *cobracli.Program) *cobra.Command {
 		Short: "Update qhost to the latest stable release or to a given newer one",
 		Long: "update replaces the installed program, its systemd unit and its main manpage with those of a signed\n" +
 			"release, and the unit of the deploy service if it is set up, and restarts the services; drop-ins of the unit stay as they are.\n" +
+			"Before it changes anything it reads from the verified release which installed versions update to it directly: an\n" +
+			"older installed version is refused, and the message names the release to update to first; a release that needs a\n" +
+			"fresh setup instead of an update is refused with that step. After the files are replaced and before the services\n" +
+			"restart, the newly installed program runs the transitions of its release for the setup and the stored state, each\n" +
+			"once and reported on standard error; a failure there is a warning and does not undo the update, and\n" +
+			"'sudo qhost update migrate' repeats that step.\n" +
 			"If deploy service instances for rootless engines are set up, the newly installed program then replaces the\n" +
 			"template unit qhost-deploy@.service where it differs, reloads systemd and restarts every instance; a failure there is a\n" +
 			"warning and does not undo the update, and 'sudo qhost deploy-service refresh-instances' repeats that step. Where the\n" +
@@ -259,6 +268,7 @@ func newSelfUpdateCommand(program *cobracli.Program) *cobra.Command {
 		},
 	}
 	gate = program.AddGate(cmd, cobracli.Gates{Question: true, Change: true})
+	cmd.AddCommand(newMigrateCommand(program))
 	cmd.AddCommand(&cobra.Command{
 		Use:   "status",
 		Short: "Show the installed version, the latest stable release and whether an update is available",
@@ -336,24 +346,55 @@ func runSelfUpdate(c *cobra.Command, program *cobracli.Program, gate *cobracli.G
 	}
 	question := fmt.Sprintf("Update qhost from %s to %s. The service restarts.", version, target.Version)
 	return gate.Run(cobracli.Request{Question: question, Changes: true}, func() error {
-		prepared, err := updater.Prepare(ctx, target)
-		if err != nil {
-			return selfUpdateFailure(err)
-		}
-		result, err := updater.InstallPrepared(ctx, prepared)
-		if err != nil {
-			return selfUpdateFailure(err)
-		}
-		for _, service := range selfUpdate.shadowed(services) {
-			fmt.Fprintf(c.ErrOrStderr(), "warning: a unit in /etc/systemd/system overrides the installed unit of %s\n", service)
-		}
-		if err := selfUpdate.restart(ctx, services, result); err != nil {
-			return selfUpdateFailure(err)
-		}
-		selfUpdate.refreshInstances(ctx, exe, c.ErrOrStderr())
-		selfUpdate.refreshHookService(ctx, exe, c.ErrOrStderr())
-		return emitSelfUpdate(c, program, result.Current, result.Latest, true, true)
+		return installSelfUpdate(c, program, updater, target, services)
 	})
+}
+
+// installSelfUpdate downloads and verifies the release, checks its requirements of the installed version, replaces
+// the files, lets the new program run its transitions and restarts the services. Nothing changes before the check.
+func installSelfUpdate(c *cobra.Command, program *cobracli.Program, updater *selfupdate.Client, target selfupdate.Target,
+	services []string) error {
+	ctx, stderr, exe := c.Context(), c.ErrOrStderr(), updater.Executable
+	prepared, err := updater.Prepare(ctx, target)
+	if err != nil {
+		return selfUpdateFailure(err)
+	}
+	if err := checkRequirements(prepared); err != nil {
+		return err
+	}
+	result, err := updater.InstallPrepared(ctx, prepared)
+	if err != nil {
+		return selfUpdateFailure(err)
+	}
+	for _, service := range selfUpdate.shadowed(services) {
+		fmt.Fprintf(stderr, "warning: a unit in /etc/systemd/system overrides the installed unit of %s\n", service)
+	}
+	selfUpdate.migrate(ctx, exe, stderr)
+	if err := selfUpdate.restart(ctx, services, result); err != nil {
+		return selfUpdateFailure(err)
+	}
+	selfUpdate.refreshInstances(ctx, exe, stderr)
+	selfUpdate.refreshHookService(ctx, exe, stderr)
+	return emitSelfUpdate(c, program, result.Current, result.Latest, true, true)
+}
+
+// checkRequirements refuses a release that the installed version may not update to directly.
+func checkRequirements(prepared *selfupdate.Prepared) error {
+	req, found, err := release.ReadRequirements(prepared.Archive())
+	if err != nil {
+		return selfUpdateFailure(fmt.Errorf("release %s: %w; the installation is unchanged", prepared.Version(), err))
+	}
+	if !found {
+		return nil
+	}
+	if err := req.Check(version, prepared.Version()); err != nil {
+		var refusal *release.Refusal
+		if errors.As(err, &refusal) {
+			return usageFailure(refusal.Message, refusal.NextStep)
+		}
+		return selfUpdateFailure(fmt.Errorf("%w; the installation is unchanged", err))
+	}
+	return nil
 }
 
 // selfUpdateFailure is a failed update or release lookup; the message says whether the installation changed.
