@@ -82,7 +82,7 @@ func (m *Model) beginSetup() tea.Cmd {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return nil
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog,
+	m.modal = &modal{kind: modalAsk, screen: titleScreen(textSetupTitle), dialog: dialog,
 		yes: func() tea.Cmd { return m.askSetup("") },
 		alt: m.askRootlessUser}
 	return nil
@@ -115,7 +115,7 @@ func (m *Model) askRootlessUser() tea.Cmd {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return nil
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, input: func(typed string) tea.Cmd {
+	m.modal = &modal{kind: modalAsk, screen: titleScreen(textSetupTitle), dialog: dialog, input: func(typed string) tea.Cmd {
 		if typed = strings.TrimSpace(typed); typed != "" {
 			return m.askSetup(typed)
 		}
@@ -162,7 +162,7 @@ func (m *Model) askSetup(user string) tea.Cmd {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return nil
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, yes: func() tea.Cmd {
+	m.modal = &modal{kind: modalAsk, screen: titleScreen(textSetupTitle), dialog: dialog, yes: func() tea.Cmd {
 		return m.writeCall(opDeploySetup, user, func(Backend) (any, error) {
 			if err := m.deploy.Run(m.ctx, user); err != nil {
 				return nil, hostError{err}

@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed                                                                            [esc] back
+  [1 ▤ Stacks]  2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Add a stack folder                                                                                                    
+                                                                                                                        
+         ╔═════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+> Folder ║ /srv/ex_                                                                                                    ║
+         ╚═════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+         > ● /srv/example/blog/                                                                                         
+           ● /srv/example/wiki/                                                                                         
+         absolute path; it is only inspected, nothing changes before the questions                                      
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+[ F2 save ]  [ esc discard ]                                                                                            
+F2 save  esc discard                                                ↑ up  ↓ down  tab complete  shift+tab previous field

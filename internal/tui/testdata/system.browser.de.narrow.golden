@@ -2,6 +2,7 @@
   1 2 3 4 5 6 [7 System]                                                        
    Benutzer   Gruppen  [Ordner]  Vorschläge   Änderungen   Protokoll            
 ────────────────────────────────────────────────────────────────────────────────
+        [ d Löschen ] [ c Kopieren ] [ r Umbenennen ] [ n Neu ] [ e bearbeiten ]
   Wurzel / etc                                                                  
   NAME                         GRÖßE  GEÄNDERT          RECHTE     BESITZER     
   ─────────────────────────────────────────────────────────────────────────     
@@ -18,7 +19,6 @@
                                                                                 
                                                                                 
                                                                                 
-[ e bearbeiten ]  [ n Neu ]  [ r Umbenennen ]  [ c Kopieren ]  [ d Löschen ]    
-[ i Rechte ]  [ esc Hoch ]                                                      
-e bearbeiten  n Neu  r Umbenennen  c Kopieren  d Löschen  i Rechte              
-enter Auswählen  / Suchen  esc Zurück  R Neu laden  1-7 Bereich  q Beenden      
+                                                                                
+i Rechte  enter Auswählen  / Suchen  esc Zurück  R Neu laden  1-7 Bereich       
+q Beenden                                                       ↑ Hoch  ↓ Runter

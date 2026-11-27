@@ -134,7 +134,7 @@ func (m *Model) openRollbackDialog(r runRow, steps []control.ReturnStepInfo) {
 		m.failure = t.Lookup(kittui.TextError, err.Error())
 		return
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, on: map[kittui.ActionID]func() tea.Cmd{
+	m.modal = &modal{kind: modalAsk, screen: titleScreen(spec.Title), dialog: dialog, on: map[kittui.ActionID]func() tea.Cmd{
 		actRollbackData: func() tea.Cmd { m.confirmRollback(r, control.ReturnRestoreData); return nil },
 		actRollbackKeep: func() tea.Cmd { m.confirmRollback(r, control.ReturnKeepData); return nil },
 	}}
