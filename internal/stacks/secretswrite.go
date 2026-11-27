@@ -6,8 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"unicode/utf8"
+
+	"github.com/castrowithcee/qatlas-host/internal/nofollow"
 )
 
 // Limits of a secret that qhost writes. The minimum is the shortest value the redactor still masks.
@@ -124,7 +125,7 @@ func SetSecret(st Stack, key, value string) (replaced bool, err error) {
 	if !replaced {
 		out = append(out, line)
 	}
-	return replaced, writeSecretLines(st.Dir, out)
+	return replaced, writeSecretLines(st, out)
 }
 
 // DeleteSecret removes every assignment of key from secrets.env of st.Dir; ErrNoSecret when there is none.
@@ -148,7 +149,7 @@ func DeleteSecret(st Stack, key string) error {
 	if !found {
 		return ErrNoSecret
 	}
-	return writeSecretLines(st.Dir, out)
+	return writeSecretLines(st, out)
 }
 
 // secretLines returns the lines of secrets.env without their line end; a missing file has none. The stack
@@ -184,14 +185,27 @@ func checkStackDir(dir string) error {
 		return fmt.Errorf("stack folder: %w", err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-		return errors.New("the stack folder is a link or not a directory")
+		return &nofollow.Error{Op: "open", Path: dir, Err: errors.New("is a link or not a directory")}
 	}
 	return nil
 }
 
+// openStackDir opens the folder of st without following a link. The root is the stack folder, the source
+// the stack lives in; a stack with no Folder or the RootFolder is its own root.
+func openStackDir(st Stack) (*nofollow.Dir, error) {
+	if err := checkStackDir(st.Dir); err != nil {
+		return nil, err
+	}
+	if st.Folder == "" || st.Folder == RootFolder {
+		return nofollow.Open(st.Dir, "")
+	}
+	return nofollow.Open(filepath.Dir(st.Dir), st.Folder)
+}
+
 // writeSecretLines replaces secrets.env atomically: a temporary file with mode 0600 in the same folder,
-// synced, renamed over the target, then the folder synced. A failure leaves the old file as it was.
-func writeSecretLines(dir string, lines []string) error {
+// synced, renamed over the target, then the folder synced. A failure leaves the old file as it was. No level
+// from the stack folder down is a link.
+func writeSecretLines(st Stack, lines []string) error {
 	body := ""
 	if len(lines) > 0 {
 		body = strings.Join(lines, "\n") + "\n"
@@ -199,29 +213,32 @@ func writeSecretLines(dir string, lines []string) error {
 	if len(body) > MaxFileSize {
 		return fmt.Errorf("%s would be larger than %d bytes", SecretsFile, MaxFileSize)
 	}
-	old, oldErr := os.Lstat(filepath.Join(dir, SecretsFile))
-	if oldErr == nil && !old.Mode().IsRegular() {
-		return errors.New("secrets.env is a link or not a regular file")
+	dir, err := openStackDir(st)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	old, oldErr := dir.Lstat(SecretsFile)
+	if oldErr == nil && !old.Mode.IsRegular() {
+		return &nofollow.Error{Op: "replace", Path: filepath.Join(dir.Path(), SecretsFile), Err: errors.New("is a link or not a regular file")}
 	}
 	removeSecretTemps(dir)
-	f, err := os.CreateTemp(dir, secretTempPattern)
+	f, err := dir.CreateTemp(secretTempPattern, 0o600)
 	if err != nil {
 		return fmt.Errorf("create a temporary file: %w", err)
 	}
-	tmp := f.Name()
+	tmp := filepath.Base(f.Name())
 	ok := false
 	defer func() {
 		if !ok {
 			_ = f.Close()
-			_ = os.Remove(tmp)
+			_ = dir.Remove(tmp)
 		}
 	}()
 	mode := os.FileMode(0o600)
 	if oldErr == nil {
-		mode = old.Mode().Perm() & 0o770 // an existing file keeps its mode, never with rights for others
-		if st, ok := old.Sys().(*syscall.Stat_t); ok {
-			_ = f.Chown(-1, int(st.Gid)) // only a member of the group may set it; else the default group stays
-		}
+		mode = old.Mode.Perm() & 0o770 // an existing file keeps its mode, never with rights for others
+		_ = f.Chown(-1, int(old.GID))  // only a member of the group may set it; else the default group stays
 	}
 	if err := f.Chmod(mode); err != nil {
 		return fmt.Errorf("set the file mode: %w", err)
@@ -235,14 +252,11 @@ func writeSecretLines(dir string, lines []string) error {
 	if err := f.Close(); err != nil {
 		return fmt.Errorf("close the temporary file: %w", err)
 	}
-	if err := os.Rename(tmp, filepath.Join(dir, SecretsFile)); err != nil {
+	if err := dir.Rename(tmp, SecretsFile); err != nil {
 		return fmt.Errorf("replace %s: %w", SecretsFile, err)
 	}
 	ok = true
-	if d, err := os.Open(dir); err == nil {
-		_ = d.Sync()
-		_ = d.Close()
-	}
+	_ = dir.Sync()
 	return nil
 }
 
@@ -250,11 +264,14 @@ const secretTempPattern = ".secrets.env.*"
 
 // removeSecretTemps deletes temporary files a crash left behind: they hold secret values and would count as
 // local changes of the stack. Only regular files are removed; a link is left alone.
-func removeSecretTemps(dir string) {
-	matches, _ := filepath.Glob(filepath.Join(dir, secretTempPattern))
-	for _, m := range matches {
-		if info, err := os.Lstat(m); err == nil && info.Mode().IsRegular() {
-			_ = os.Remove(m)
+func removeSecretTemps(dir *nofollow.Dir) {
+	names, _ := dir.Names()
+	for _, n := range names {
+		if m, _ := filepath.Match(secretTempPattern, n); !m {
+			continue
+		}
+		if info, err := dir.Lstat(n); err == nil && info.Mode.IsRegular() {
+			_ = dir.Remove(n)
 		}
 	}
 }
