@@ -77,14 +77,9 @@ func (c *Client) Close() error { return c.conn.Close() }
 // Call sends one command and decodes its result into result, which may be nil. A failed answer is returned as
 // a *control.Error.
 func (c *Client) Call(ctx context.Context, command string, args, result any) error {
-	req := control.Request{V: control.Version, Command: command}
-	req.Origin, _ = ctx.Value(originKey{}).(string)
-	if args != nil {
-		raw, err := json.Marshal(args)
-		if err != nil {
-			return fmt.Errorf("encode arguments: %w", err)
-		}
-		req.Args = raw
+	req, err := request(ctx, command, args)
+	if err != nil {
+		return err
 	}
 	deadline, ok := ctx.Deadline()
 	if !ok {
@@ -104,6 +99,24 @@ func (c *Client) Call(ctx context.Context, command string, args, result any) err
 		}
 		return fmt.Errorf("read the answer: %w", err)
 	}
+	return decode(raw, result)
+}
+
+func request(ctx context.Context, command string, args any) (control.Request, error) {
+	req := control.Request{V: control.Version, Command: command}
+	req.Origin, _ = ctx.Value(originKey{}).(string)
+	if args != nil {
+		raw, err := json.Marshal(args)
+		if err != nil {
+			return req, fmt.Errorf("encode arguments: %w", err)
+		}
+		req.Args = raw
+	}
+	return req, nil
+}
+
+// decode reads one answer into result, which may be nil. A failed answer is returned as a *control.Error.
+func decode(raw []byte, result any) error {
 	var resp control.Response
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return fmt.Errorf("the answer is malformed: %w", err)

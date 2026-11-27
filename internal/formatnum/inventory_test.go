@@ -47,6 +47,7 @@ var stores = []store{
 	{"service", "service/logstore.go", "service-log/<id>.jsonl (first line)", "schema", true},
 	{"auditlog", "host/auditlog/log.go", "<state>/audit/<day>.jsonl (every line)", "format", true},
 	{"deploylog", "deploylog/deploylog.go", "<state>/audit/<day>.jsonl (every line)", "format", true},
+	{"usagehistory", "host/usagehistory/store.go", "metrics.db (SQLite: application_id, then the migration history)", "schema_migrations", true},
 }
 
 // exceptions are source files that write below a state folder or to the host but hold no document of this
@@ -77,7 +78,10 @@ var fileWriters = map[string]map[string]bool{
 }
 
 // kitWriters maps the import path of a kit package that writes files to the function that opens its store.
-var kitWriters = map[string]string{"github.com/castrowithcee/qatlas-kit/auditlog": "New"}
+var kitWriters = map[string]string{
+	"github.com/castrowithcee/qatlas-kit/auditlog": "New",
+	"github.com/castrowithcee/qatlas-kit/sqlite":   "Open",
+}
 
 var writeFlags = []string{"O_WRONLY", "O_RDWR", "O_CREATE", "O_APPEND", "O_TRUNC"}
 

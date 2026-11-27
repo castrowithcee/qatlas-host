@@ -37,9 +37,14 @@ func (msg diffMsg) applyTo(m *Model) {
 	if d == nil || msg.gen != m.sf.changes.diffGen {
 		return
 	}
+	m.fillDiff(d, msg.res.Diff, msg.res.Truncated, msg.err)
+}
+
+// fillDiff turns what was read into the text view of the diff d, or into the note why there is none.
+func (m *Model) fillDiff(d *changeDiff, diff string, truncated bool, err error) {
 	d.reading = false
-	if msg.err != nil {
-		d.note = m.serviceText(msg.err)
+	if err != nil {
+		d.note = m.serviceText(err)
 		return
 	}
 	v, err := kittui.NewTextView(kittui.TextViewSpec{Keys: textKeys()}, m.keys, m.text)
@@ -47,8 +52,8 @@ func (msg diffMsg) applyTo(m *Model) {
 		d.note = m.text.Lookup(kittui.TextError, err.Error())
 		return
 	}
-	v.SetText(msg.res.Diff, diffSpans(msg.res.Diff))
-	d.text, d.truncated = v, msg.res.Truncated
+	v.SetText(diff, diffSpans(diff))
+	d.text, d.truncated = v, truncated
 }
 
 // askDiff shows the diff of the marked file: as root at once, otherwise after the question of sudo qhost source diff.
@@ -201,7 +206,7 @@ func (c committed) finish(m *Model, _ func(string, ...string)) tea.Cmd {
 	if err != nil {
 		m.failure = t.Lookup(kittui.TextError, err.Error())
 	} else {
-		m.modal = &modal{kind: modalAsk, dialog: dialog, on: map[kittui.ActionID]func() tea.Cmd{actShowLog: func() tea.Cmd { return m.showRuns(nil) }}}
+		m.modal = &modal{kind: modalAsk, screen: titleScreen(textTitleCommit), dialog: dialog, on: map[kittui.ActionID]func() tea.Cmd{actShowLog: func() tea.Cmd { return m.showRuns(nil) }}}
 	}
 	return tea.Batch(m.reloadNow(), m.readChanges())
 }

@@ -120,7 +120,7 @@ func (m *Model) applyContainerRead(msg ctReadMsg) {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, yes: func() tea.Cmd { return m.startContainerAction(msg.kind, msg.engine, msg.res) }}
+	m.modal = &modal{kind: modalAsk, screen: msg.kind.screen(), dialog: dialog, yes: func() tea.Cmd { return m.startContainerAction(msg.kind, msg.engine, msg.res) }}
 }
 
 // containerKindText names the kind and the project of a container in the question.
@@ -234,7 +234,7 @@ func (m *Model) applyContainerDone(msg ctDoneMsg) tea.Cmd {
 	if o.failed {
 		failed = 1
 	}
-	md := &modal{kind: modalSummary, outcomes: []outcome{o}}
+	md := &modal{kind: modalSummary, screen: msg.kind.screen(), outcomes: []outcome{o}}
 	md.title = t.Lookup(textSummaryTitle, t.Lookup(kindTexts[msg.kind].word), 1-failed, failed)
 	dialog, err := newDialog(kittui.DialogSpec{Title: kindTexts[msg.kind].word, Question: md.title,
 		Consequence: t.Lookup(textSummaryNoteCt), Answers: []kittui.Answer{{Action: actNo, Label: textAnswerClose}},

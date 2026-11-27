@@ -2,6 +2,7 @@
   1 Stacks 2 Stack detail 3 Runs 4 Settings 5 Containers 6 Proposals [7 System] 
    Users   Groups  [Folders]  Proposals   Changes   Log                         
 ────────────────────────────────────────────────────────────────────────────────
+     [ i permissions ] [ d delete ] [ c copy ] [ r rename ] [ n new ] [ e edit ]
   root / etc                                                                    
   NAME                         SIZE  MODIFIED          RIGHTS     OWNER         
   ─────────────────────────────────────────────────────────────────────         
@@ -18,7 +19,6 @@
                                                                                 
                                                                                 
                                                                                 
-[ e edit ]  [ n new ]  [ r rename ]  [ c copy ]  [ d delete ]  [ i permissions ]
-[ esc up ]                                                                      
-e edit  n new  r rename  c copy  d delete  i permissions  enter choose  / search
-esc back  R reload  1-7 area  q quit                                ↑ up  ↓ down
+                                                                                
+                                                                                
+enter choose  / search  esc back  R reload  1-7 area  q quit        ↑ up  ↓ down

@@ -712,7 +712,7 @@ func (m *Model) ask(title kittui.TextID, question, consequence string, details [
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, yes: yes}
+	m.modal = &modal{kind: modalAsk, screen: titleScreen(title), dialog: dialog, yes: yes}
 }
 
 // askSheet opens a question that fills the workspace, for one with more to read than a dialog holds; body
@@ -733,7 +733,7 @@ func (m *Model) askSheet(title kittui.TextID, question, consequence string, body
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return
 	}
-	m.modal = &modal{kind: modalSheet, dialog: dialog, yes: yes, question: question, consequence: consequence, body: body}
+	m.modal = &modal{kind: modalSheet, screen: titleScreen(title), dialog: dialog, yes: yes, question: question, consequence: consequence, body: body}
 }
 
 // tell reports the result of a change: a calm notice dialog when there are details, else the message line.
@@ -750,7 +750,7 @@ func (m *Model) tell(title kittui.TextID, text string, details []string) {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog}
+	m.modal = &modal{kind: modalAsk, screen: titleScreen(title), dialog: dialog}
 }
 
 func (m *Model) askCredentialDelete() tea.Cmd {

@@ -138,7 +138,7 @@ func (m *Model) askCommands(title kittui.TextID, question, consequence string, i
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog, yes: yes, drop: drop}
+	m.modal = &modal{kind: modalAsk, screen: titleScreen(title), dialog: dialog, yes: yes, drop: drop}
 }
 
 // runHostChange runs host apply and shows what it reported. The lists are read again afterwards: the host may
@@ -227,7 +227,7 @@ func (m *Model) hostNotice(title string, details []kittui.DialogLine) {
 		m.failure = m.text.Lookup(kittui.TextError, err.Error())
 		return
 	}
-	m.modal = &modal{kind: modalAsk, dialog: dialog}
+	m.modal = &modal{kind: modalAsk, screen: titleScreen(textTitleHostResult), dialog: dialog}
 }
 
 // hostFailed explains a run that gave no usable answer. change says a host change was asked for, where an

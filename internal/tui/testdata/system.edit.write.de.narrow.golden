@@ -2,12 +2,12 @@
 [90m  1 2 3 4 5 6  7 System                                                         [m
 [90m   Benutzer   Gruppen   Ordner   Vorschläge   Änderungen   Protokoll            [m
 [90m────────────────────────────────────────────────────────────────────────────────[m
+[90m  i  Rechte   d  Löschen   c  Kopieren   r  Umbenennen   n  Neu   e  bearbeiten [m
 [90m  Wurzel / srv / media                                                          [m
 [90m/ motd.txt                                                                      [m
 [90m  NAME      GRÖßE  GEÄNDERT          RECHTE     BESITZER                        [m
-[90m  ──────────────────────────────────────────────────────                        [m
-[90m> motd.t[m[34m╭─[m[1m Host ändern [m[34m────────────────────────────────────────────────╮[m[90m        [m
-[90m        [m[34m│[m [1;33m⚠[m [1mDie bearbeitete Datei /srv/media/motd.txt an ihrem Ort[m     [34m│[m[90m        [m
+[90m  ──────[m[34m╭─[m[1m Host ändern [m[34m────────────────────────────────────────────────╮[m[90m        [m
+[90m> motd.t[m[34m│[m [1;33m⚠[m [1mDie bearbeitete Datei /srv/media/motd.txt an ihrem Ort[m     [34m│[m[90m        [m
 [90m        [m[34m│[m   [1mzurückschreiben.[m                                           [34m│[m[90m        [m
 [90m        [m[34m│[m                                                              [34m│[m[90m        [m
 [90m        [m[34m│[m [90mLäuft mit sudo, steht im Journal und lässt sich rückgängig[m   [34m│[m[90m        [m
@@ -19,6 +19,6 @@
 [90m        [m[34m╰──────────────────────────────────────────────────────────────╯[m[90m        [m
 [90m                                                                                [m
 [90m                                                                                [m
-[90m[ e bearbeiten ]  [ n Neu ]  [ r Umbenennen ]  [ c Kopieren ]  [ d Löschen ]    [m
-[90m[ i Rechte ]  [ esc Hoch ]                                                      [m
+[90m                                                                                [m
+[90m                                                                                [m
 [90m                                                                                [m

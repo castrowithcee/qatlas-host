@@ -199,6 +199,18 @@ EOF2
 	wait_for "the run $run" 240 run_finished demo-local "$run"
 	qd stack log "$run" | grep -q ' result succeeded' || fail "the run after the discard did not succeed: $(qd stack log "$run")"
 
+	step 'the history of the stack folder is read without sudo, and its diffs only as root'
+	out=$(as_admin "qhost --output json source log $base") || fail "source log failed for the admin: $out"
+	printf '%s' "$out" | jq -e --arg id "$bad_local" '.commits | map(select(.id == $id)) | length == 1 and .[0].author == "E2E Admin" and
+		.[0].subject == "Update demo-local to 2.0.0 with a broken healthcheck" and (.[0].date | test("^20")) and
+		(.[0].paths | map(.path) | index("demo-local/.env") != null)' >/dev/null || fail "unexpected source log: $out"
+	out=$(as_admin "qhost --output json source log $base --limit 1") || fail "source log --limit 1 failed for the admin: $out"
+	[ "$(printf '%s' "$out" | jq '.commits | length')" = 1 ] || fail "source log --limit 1 does not list one commit: $out"
+	out=$(as_admin "qhost source show $base $bad_local" 2>&1) && fail "source show worked without sudo: $out"
+	printf '%s' "$out" | grep -qi 'sudo\|root' || fail "source show without sudo does not point to sudo: $out"
+	out=$(qd --output json source show "$base" "$bad_local") || fail "source show failed: $out"
+	printf '%s' "$out" | jq -e '.diff | contains("+edited for 2.0.0")' >/dev/null || fail "unexpected source show: $out"
+
 	step 'source remove asks first, then releases only the binding'
 	containers_before=$(docker exec "$host" docker ps -q --filter label=com.docker.compose.project=demo-local | sort)
 	[ -n "$containers_before" ] || fail 'demo-local has no running container'

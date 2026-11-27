@@ -2,12 +2,12 @@
 [90m   1 ▤ Stacks   2 ▣ Stack-Details   3 ▶ Läufe   4 ⚙ Einstellungen   5 ▦ Container   6 ◈ Vorschläge   7 ◎ System         [m
 [90m   Benutzer   Gruppen   Ordner   Vorschläge   Änderungen   Protokoll                                                    [m
 [90m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[m
+[90m                                          i  Rechte   d  Löschen   c  Kopieren   r  Umbenennen   n  Neu   e  bearbeiten [m
 [90m  Wurzel / srv / media                                                                                                  [m
 [90m/ motd.txt                                                                                                              [m
 [90m  NAME      GRÖßE  GEÄNDERT          RECHTE     BESITZER                                                                [m
 [90m  ──────────────────────────────────────────────────────                                                                [m
 [90m> motd.txt    9 B  2026-11-02 09:00  rw-r--r--  ada                                                                     [m
-[90m                                                                                                                        [m
 [90m                                                                                                                        [m
 [90m                                                                                                                        [m
 [90m                                                                                                                        [m
@@ -36,5 +36,5 @@
 [90m                                                                                                                        [m
 [90m                                                                                                                        [m
 [90m                                                                                                                        [m
-[90m[ e bearbeiten ]  [ n Neu ]  [ r Umbenennen ]  [ c Kopieren ]  [ d Löschen ]  [ i Rechte ]  [ esc Hoch ]                [m
+[90m                                                                                                                        [m
 [90m                                                                                                                        [m

@@ -18,6 +18,7 @@ import (
 
 	"github.com/castrowithcee/qatlas-host/internal/control"
 	"github.com/castrowithcee/qatlas-host/internal/credentials"
+	"github.com/castrowithcee/qatlas-host/internal/engine"
 	"github.com/castrowithcee/qatlas-host/internal/gitrepo"
 	"github.com/castrowithcee/qatlas-host/internal/hostkey"
 	"github.com/castrowithcee/qatlas-host/internal/stackcheck"
@@ -47,9 +48,7 @@ type WorkingCopy interface {
 	Push(ctx context.Context, commit string) error
 	TagCommit(ctx context.Context, name, commit string) error
 	PruneTags(ctx context.Context, hostname, stack string, pick func(ids []string) []string) ([]string, error)
-	Diff(ctx context.Context, path string) (text string, truncated bool, err error)
-	Discard(ctx context.Context, paths []string) error
-	CommitPaths(ctx context.Context, expectHead string, paths []string, list []stacks.Stack, message string) (string, error)
+	engine.LocalChanges
 	TrackedFiles(ctx context.Context, dir string) ([]string, error)
 	IsIgnored(ctx context.Context, path string) (bool, error)
 	// The steps that give a repository a remote, in the remote mode; see internal/gitrepo.

@@ -1,6 +1,7 @@
 ◆ qhost  Wartungsfenster zu      [esc] Zurück  [?] Hilfe
   [1 Stacks] 2 3 4 5 6 7                                
 ────────────────────────────────────────────────────────
+             [ r Umbenennen ] [ n Neu ] [ e bearbeiten ]
   /srv/stacks-example                                   
   NAME         GRÖßE  GEÄNDERT          RECHTE          
   ───────────────────────────────────────────────       
@@ -18,7 +19,6 @@
                                                         
                                                         
                                                         
-[ e bearbeiten ]  [ n Neu ]  [ r Umbenennen ]           
-[ c Kopieren ]  [ d Löschen ]                           
-e bearbeiten  n Neu  r Umbenennen  c Kopieren  d Löschen
-enter Auswählen  / Suchen  esc Zurück  q Beenden        
+                                                        
+c Kopieren  d Löschen  enter Auswählen  / Suchen        
+esc Zurück  @ Verlauf  R Neu laden  q Beenden           
