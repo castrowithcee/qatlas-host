@@ -26,14 +26,13 @@ const Version = 1
 // administrators among them and run a command that writes for root only.
 const ServiceGroup = "qhost"
 
-// DeployEndpoint returns the channel of the deploy service. It runs as the system user qhost-deploy, which is
-// not a member of the service group: the directory belongs to that user and carries the group through its
-// setgid bit, so the members of the group reach the socket without the deploy service reaching the host
-// service. The directory is closed to others and is created by the setup of the deploy service, not by the
-// service manager.
+// DeployEndpoint returns the channel of the deploy service. It runs as root, locked down by its unit, which
+// keeps it away from the host service: the directory belongs to root and carries the group through its setgid
+// bit, so the members of the group reach the socket. The directory is closed to others and is created by the
+// setup of the deploy service, not by the service manager.
 func DeployEndpoint() localipc.ServiceEndpoint {
 	return localipc.ServiceEndpoint{
-		Dir: "/run/qhost-deploy", SocketBase: "control", ServiceUser: "qhost-deploy", Group: ServiceGroup,
+		Dir: "/run/qhost-deploy", SocketBase: "control", ServiceUser: "root", Group: ServiceGroup,
 		ErrorName: "qhost-deploy service",
 	}
 }

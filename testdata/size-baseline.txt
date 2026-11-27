@@ -83,7 +83,7 @@ cx internal/datadir/datadir.go:Create 17
 cx internal/datadir/datadir.go:createOne 17
 cx internal/deploylog/deploylog.go:Entry.Validate 25
 cx internal/deploylog/format_test.go:TestAReleasedVersionReadsAndChainsOnAnEntryWithAGrant 19
-cx internal/deploysetup/deploysetup.go:Host.Plan 20
+cx internal/deploysetup/deploysetup.go:Host.Plan 16
 cx internal/deploysetup/deploysetup_test.go:TestSetupCreatesEverythingAndRepeatsWithoutChange 17
 cx internal/deploysetup/hook.go:Host.PlanHook 31
 cx internal/deploysetup/hook_test.go:TestHookSetupCreatesEverythingAndRepeatsWithoutChange 27
@@ -316,8 +316,7 @@ cx internal/tui/systemgroups.go:Model.submitGroupMembers 19
 cx internal/tui/systemusers.go:Model.changesFor 18
 cx internal/tui/systemusers.go:Model.pickChange 16
 cx internal/tui/updateform.go:Model.submitUpdate 16
-cx internal/uninstall/uninstall.go:Host.Plan 71
-cx internal/uninstall/uninstall_test.go:TestUninstallRemovesServicesAndKeepsStateAndStacks 17
+cx internal/uninstall/uninstall.go:Host.Plan 62
 cx internal/updates/plan.go:Detector.Plan 20
 cx internal/version/version.go:Path 21
 cx internal/version/version.go:Select 23
@@ -364,7 +363,6 @@ file internal/tui/systemproposals.go 617
 file internal/tui/systemtext.go permanent: text catalog of the terminal interface, pure data
 file internal/tui/systemusers.go 562
 file internal/tui/text.go permanent: text catalog of the terminal interface, pure data
-file internal/uninstall/uninstall.go 518
 len architecture_test.go:TestArchitecture 200
 len e2e/fakes/mail.go:serveSMTP 100
 len internal/backup/backup.go:Manager.Create 96
@@ -418,7 +416,7 @@ len internal/compose/exec_linux.go:ExecRunner.Run 65
 len internal/credentials/credentials_test.go:TestOpenFailsClosedOnUnsafeStore 76
 len internal/credentials/credentials_test.go:TestReadValueFailsClosed 66
 len internal/datadir/datadir.go:createOne 69
-len internal/deploysetup/deploysetup.go:Host.Plan 77
+len internal/deploysetup/deploysetup.go:Host.Plan 61
 len internal/deploysetup/hook.go:Host.PlanHook 98
 len internal/deploysetup/hook_test.go:TestHookSetupCreatesEverythingAndRepeatsWithoutChange 62
 len internal/deploysetup/instance.go:Host.PlanInstance 90
@@ -551,6 +549,6 @@ len internal/tui/systemtext.go:systemGerman permanent: text catalog of the termi
 len internal/tui/text.go:baseCatalog permanent: text catalog of the terminal interface, pure data
 len internal/tui/updatetext.go:updateEnglish permanent: text catalog of the terminal interface, pure data
 len internal/tui/updatetext.go:updateGerman permanent: text catalog of the terminal interface, pure data
-len internal/uninstall/uninstall.go:Host.Plan 219
+len internal/uninstall/uninstall.go:Host.Plan 195
 len internal/updates/plan.go:Detector.Plan 70
 len internal/version/version_test.go:TestSelect 63

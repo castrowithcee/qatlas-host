@@ -48,10 +48,43 @@ func useUninstallRoot(t *testing.T, euid int) (string, *[]string) {
 			mu.Lock()
 			defer mu.Unlock()
 			ran = append(ran, name+" "+strings.Join(args, " "))
+			if file := map[string]string{"userdel": "etc/passwd", "groupdel": "etc/group"}[name]; file != "" {
+				dropAccount(t, root, file, args[0])
+			}
 			return nil
 		}}}
 	t.Cleanup(func() { uninstaller = old })
 	return root, &ran
+}
+
+// dropAccount deletes the line of an account from the user or group file, like userdel and groupdel.
+func dropAccount(t *testing.T, root, file, name string) {
+	t.Helper()
+	full := filepath.Join(root, file)
+	data, err := os.ReadFile(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var keep []string
+	for _, l := range strings.Split(string(data), "\n") {
+		if !strings.HasPrefix(l, name+":") {
+			keep = append(keep, l)
+		}
+	}
+	if err := os.WriteFile(full, []byte(strings.Join(keep, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// onlyDeployAccountRemoved reports whether no user or group is removed except qhost-deploy, which a removal
+// without --purge deletes because the deploy service runs as root.
+func onlyDeployAccountRemoved(ran []string) bool {
+	for _, c := range ran {
+		if (strings.HasPrefix(c, "userdel ") || strings.HasPrefix(c, "groupdel ")) && !strings.Contains(c, " qhost-deploy") {
+			return false
+		}
+	}
+	return true
 }
 
 func present(root, p string) bool {
@@ -116,7 +149,7 @@ func TestUninstallShowsStepsAndKeepsStateAndStacks(t *testing.T) {
 			t.Errorf("%s was removed", p)
 		}
 	}
-	if strings.Contains(strings.Join(*ran, "\n"), "userdel") {
+	if !onlyDeployAccountRemoved(*ran) {
 		t.Errorf("ran %v", *ran)
 	}
 	*ran = nil

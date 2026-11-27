@@ -92,8 +92,30 @@ func (f *fakeHost) host() Host {
 		f.mu.Lock()
 		defer f.mu.Unlock()
 		f.ran = append(f.ran, name+" "+strings.Join(args, " "))
+		switch name {
+		case "userdel":
+			f.dropAccount("etc/passwd", args[0])
+		case "groupdel":
+			f.dropAccount("etc/group", args[0])
+		}
 		return nil
 	}}
+}
+
+// dropAccount deletes the line of an account from the user or group file, like userdel and groupdel.
+func (f *fakeHost) dropAccount(file, name string) {
+	full := filepath.Join(f.root, file)
+	data, err := os.ReadFile(full)
+	if err != nil {
+		return
+	}
+	var keep []string
+	for _, l := range strings.Split(string(data), "\n") {
+		if !strings.HasPrefix(l, name+":") {
+			keep = append(keep, l)
+		}
+	}
+	_ = os.WriteFile(full, []byte(strings.Join(keep, "\n")), 0o644)
 }
 
 // newHost builds an installed host below a temporary root, with a stack folder and bystander files that must
@@ -216,7 +238,8 @@ func TestUninstallRemovesServicesAndKeepsStateAndStacks(t *testing.T) {
 			t.Errorf("%s was removed", p)
 		}
 	}
-	want := []string{"systemctl disable --now qhost-hook", "systemctl disable --now qhost-deploy", "systemctl disable --now qhost", "systemctl daemon-reload"}
+	want := []string{"systemctl disable --now qhost-hook", "systemctl disable --now qhost-deploy", "systemctl disable --now qhost", "systemctl daemon-reload",
+		"userdel qhost-deploy", "groupdel qhost-deploy"}
 	if !slices.Equal(f.ran, want) {
 		t.Errorf("commands = %q, want %q", f.ran, want)
 	}
@@ -229,9 +252,7 @@ func TestUninstallRemovesServicesAndKeepsStateAndStacks(t *testing.T) {
 		!strings.Contains(plan.Sentence(), "configuration, the user and the group qhost-hook stay") {
 		t.Errorf("the sentence does not name the receiver: %q", plan.Sentence())
 	}
-	if strings.Contains(strings.Join(plan.Commands(), "\n"), "userdel") || strings.Contains(plan.Sentence(), "are deleted too") {
-		t.Errorf("plan without purge: %q", plan.Commands())
-	}
+	assertOnlyDeployAccountRemoved(t, plan)
 	again, err := f.host().Plan(false, testPages, nil)
 	if err != nil || !again.Empty() {
 		t.Fatalf("repeated plan: %v, %q", err, again.Commands())
@@ -294,6 +315,8 @@ func TestUninstallWithoutDeployServiceTouchesOnlyTheHostService(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	f.dropAccount("etc/passwd", "qhost-deploy")
+	f.dropAccount("etc/group", "qhost-deploy")
 	plan := apply(t, f, false)
 	if strings.Contains(plan.Sentence(), "qhost-hook") {
 		t.Errorf("the sentence names a receiver that is not there: %q", plan.Sentence())
@@ -437,5 +460,33 @@ func TestRemovalWithoutPurgeKeepsTheConfigurationOfTheDeployServices(t *testing.
 	apply(t, f, false)
 	if !exists(f.root, "/etc/qhost-deploy/window.json") {
 		t.Error("the host window file was removed without --purge")
+	}
+}
+
+func TestUninstallWithoutAnAccountOfTheDeployServiceRemovesNone(t *testing.T) {
+	f, _, _ := newHost(t)
+	f.dropAccount("etc/passwd", "qhost-deploy")
+	f.dropAccount("etc/group", "qhost-deploy")
+	plan, err := f.host().Plan(false, testPages, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range plan.Commands() {
+		if strings.HasPrefix(c, "userdel") || strings.HasPrefix(c, "groupdel") {
+			t.Errorf("plan runs %q although no account exists", c)
+		}
+	}
+}
+
+// Without --purge the users and groups of the receiver and the host service stay.
+func assertOnlyDeployAccountRemoved(t *testing.T, plan Plan) {
+	t.Helper()
+	for _, c := range plan.Commands() {
+		if (strings.HasPrefix(c, "userdel ") || strings.HasPrefix(c, "groupdel ")) && !strings.Contains(c, "qhost-deploy") {
+			t.Errorf("plan without purge runs %q", c)
+		}
+	}
+	if strings.Contains(plan.Sentence(), "cannot be restored") {
+		t.Errorf("plan without purge: %q", plan.Sentence())
 	}
 }

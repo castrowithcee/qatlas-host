@@ -129,7 +129,7 @@ func TestHookSetupCreatesEverythingAndRepeatsWithoutChange(t *testing.T) {
 		t.Fatalf("owners = %v, want root and the group qhost-hook for the directory and the file", h.chowns)
 	}
 	if got := h.read("/etc/tmpfiles.d/qhost-hook.conf"); got !=
-		"d /run/qhost-hook 0755 qhost-hook qhost-hook -\nd /run/qhost-hook/system 0770 qhost-hook qhost-deploy -\n" {
+		"d /run/qhost-hook 0755 qhost-hook qhost-hook -\nd /run/qhost-hook/system 0770 qhost-hook qhost-hook -\n" {
 		t.Fatalf("tmpfiles rule: %q", got)
 	}
 	if got := h.read(HookUnitPath()); got != string(packaging.HookUnit) {
@@ -255,7 +255,7 @@ func TestHookSetupMakesAFolderPerInstance(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := h.read("/etc/tmpfiles.d/qhost-hook.conf"); got != "d /run/qhost-hook 0755 qhost-hook qhost-hook -\n"+
-		"d /run/qhost-hook/system 0770 qhost-hook qhost-deploy -\nd /run/qhost-hook/alice 0770 qhost-hook alice -\n" {
+		"d /run/qhost-hook/system 0770 qhost-hook qhost-hook -\nd /run/qhost-hook/alice 0770 qhost-hook alice -\n" {
 		t.Fatalf("tmpfiles rule: %q", got)
 	}
 	for _, d := range []string{"/run/qhost-hook/system", "/run/qhost-hook/alice"} {
@@ -337,7 +337,7 @@ func TestSystemDeploySetupAddsItsFolderWhereTheReceiverIsSetUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(h.read("/etc/tmpfiles.d/qhost-hook.conf"), "d /run/qhost-hook/system 0770 qhost-hook qhost-deploy -\n") ||
+	if !strings.Contains(h.read("/etc/tmpfiles.d/qhost-hook.conf"), "d /run/qhost-hook/system 0770 qhost-hook qhost-hook -\n") ||
 		!h.host.exists("/run/qhost-hook/system") {
 		t.Fatalf("no system folder after the deploy setup: %v", plan.Commands())
 	}

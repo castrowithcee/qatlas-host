@@ -77,12 +77,6 @@ func (f *fakeHost) run(_ context.Context, name string, args ...string) error {
 	}
 	f.calls = append(f.calls, line)
 	switch {
-	case strings.HasPrefix(line, "groupadd --system"):
-		f.appendTo("/etc/group", "qhost-deploy:x:996:\n")
-	case strings.HasPrefix(line, "useradd "):
-		f.appendTo("/etc/passwd", "qhost-deploy:x:996:996::/var/lib/qhost-deploy:/usr/sbin/nologin\n")
-	case strings.HasPrefix(line, "usermod "):
-		f.put("/etc/group", strings.Replace(f.read("/etc/group"), "docker:x:998:alice", "docker:x:998:alice,qhost-deploy", 1))
 	case strings.HasPrefix(line, "systemd-tmpfiles "):
 		if err := os.MkdirAll(filepath.Join(f.root, "run/qhost-deploy"), 0o755); err != nil {
 			f.t.Fatal(err)
@@ -109,9 +103,6 @@ func TestSetupCreatesEverythingAndRepeatsWithoutChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{
-		"groupadd --system qhost-deploy",
-		"useradd --system --gid qhost-deploy --no-create-home --home-dir /var/lib/qhost-deploy --shell /usr/sbin/nologin qhost-deploy",
-		"usermod --append --groups docker qhost-deploy",
 		"systemd-tmpfiles --create /etc/tmpfiles.d/qhost-deploy.conf",
 		"systemctl daemon-reload",
 		"systemctl enable --now qhost-deploy",
@@ -128,7 +119,7 @@ func TestSetupCreatesEverythingAndRepeatsWithoutChange(t *testing.T) {
 	if info, err := os.Stat(filepath.Join(f.root, "etc/qhost-deploy")); err != nil || !info.IsDir() || info.Mode().Perm() != 0o755 {
 		t.Fatalf("configuration folder: %v %v", info, err)
 	}
-	if got := f.read("/etc/tmpfiles.d/qhost-deploy.conf"); got != "d /run/qhost-deploy 2750 qhost-deploy qhost -\n" {
+	if got := f.read("/etc/tmpfiles.d/qhost-deploy.conf"); got != "d /run/qhost-deploy 2750 root qhost -\n" {
 		t.Fatalf("tmpfiles rule: %q", got)
 	}
 	if got := f.read(UnitPath()); got != string(packaging.DeployUnit) {
@@ -183,16 +174,20 @@ func TestSetupRepairsTheConfigurationFolder(t *testing.T) {
 	}
 }
 
-func TestSetupSkipsWhatIsDone(t *testing.T) {
-	f := newFakeHost(t, baseGroups+"qhost-deploy:x:996:\n", basePasswd+"qhost-deploy:x:996:996::/var/lib/qhost-deploy:/usr/sbin/nologin\n")
-	f.put("/etc/group", "root:x:0:\ndocker:x:998:alice,qhost-deploy\nqhost:x:997:\nqhost-deploy:x:996:\n")
-	if _, err := f.setUp(); err != nil {
+// The service runs as root, so the setup neither creates nor changes an account or a group for it.
+func TestSetupCreatesNoAccountForTheService(t *testing.T) {
+	f := newFakeHost(t, baseGroups, basePasswd)
+	p, err := f.setUp()
+	if err != nil {
 		t.Fatal(err)
 	}
-	for _, c := range f.calls {
+	for _, c := range append(f.calls, p.Commands()...) {
 		if strings.HasPrefix(c, "groupadd") || strings.HasPrefix(c, "useradd") || strings.HasPrefix(c, "usermod") {
-			t.Errorf("ran %q although it was done", c)
+			t.Errorf("ran %q", c)
 		}
+	}
+	if strings.Contains(f.read("/etc/group"), "qhost-deploy") || strings.Contains(f.read("/etc/passwd"), "qhost-deploy") {
+		t.Error("the setup created an account or a group")
 	}
 }
 
@@ -235,8 +230,8 @@ func TestSetupNeedsTheGroupQhost(t *testing.T) {
 
 func TestSetupStopsAtTheFirstFailure(t *testing.T) {
 	f := newFakeHost(t, baseGroups, basePasswd)
-	f.failOn = "useradd"
-	if _, err := f.setUp(); err == nil || !strings.Contains(err.Error(), "useradd") {
+	f.failOn = "systemd-tmpfiles"
+	if _, err := f.setUp(); err == nil || !strings.Contains(err.Error(), "systemd-tmpfiles") {
 		t.Fatalf("err = %v", err)
 	}
 	if Installed(f.root) {
