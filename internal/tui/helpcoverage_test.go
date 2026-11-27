@@ -28,7 +28,7 @@ const (
 var helpStateTable = []string{
 	"stacks/setup", "detail/setup", "runs/setup", "containers/setup", "proposals/setup",
 	"detail/clog", "containers/clog", "runs/clog",
-	"stacks/key", "stacks/changes", "stacks/preview", "detail/pick", "containers/detail", "proposals/preview",
+	"stacks/key", "stacks/changes", "stacks/history", "stacks/preview", "detail/pick", "containers/detail", "proposals/preview",
 	"runs/log", "system/users/pick", "system/folders/rights", "system/folders/preview",
 }
 

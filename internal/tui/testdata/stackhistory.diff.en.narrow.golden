@@ -1,0 +1,24 @@
+◆ qhost  maintenance window closed  [esc] back  [?] help
+  [1 Stacks] 2 3 4 5 6 7                                
+────────────────────────────────────────────────────────
+  222222222222 Update the app image                     
+  diff --git a/demo-stack/compose.yaml b/demo-stack/com…
+  index 1111111..2222222 100644                         
+  --- a/demo-stack/compose.yaml                         
+  +++ b/demo-stack/compose.yaml                         
+  @@ -1 +1 @@                                           
+  -image: example.invalid/app:1.4.2                     
+  +image: example.invalid/app:1.5.0                     
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+[ / search ]  [ w off ]  [ # off ]        lines 1-7 of 7
+/ search  w wrap lines  # line numbers  esc back        
+R reload  1-7 area  q quit                    ↑/↓ scroll

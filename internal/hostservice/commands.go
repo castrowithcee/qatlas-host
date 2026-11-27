@@ -23,6 +23,9 @@ type call struct {
 	change     *auditlog.Host
 	changeUID  uint32
 	changeCode string
+
+	// stream is set by a handler that started a stream.
+	stream *usageStream
 }
 
 type callKey struct{}
@@ -64,14 +67,17 @@ func (s *server) registry(store *proposals.Store) (*control.Registry, map[string
 		{control.HostRecordCommand, auditlog.OperationHostChange, control.ClassChange, hostRecord},
 		{control.HostCommandsSetCommand, auditlog.OperationProposalCommands, control.ClassChange, s.commandsSet},
 		{control.HostCommandsStatusCommand, auditlog.OperationProposalRead, control.ClassRead, s.commandsStatus},
+		{control.HostUsageStreamCommand, auditlog.OperationUsageRead, control.ClassRead, s.startUsageStream},
 	} {
 		if err := add(c.name, c.action, c.class, handler(c.handle)); err != nil {
 			return nil, nil, err
 		}
 	}
 	// The CPU measurement waits briefly, so it follows the context of the request.
-	if err := add(control.HostUsageCommand, auditlog.OperationUsageRead, control.ClassRead,
-		func(ctx context.Context, _ json.RawMessage) (any, error) { return s.usageSource.Read(ctx) }); err != nil {
+	if err := add(control.HostUsageCommand, auditlog.OperationUsageRead, control.ClassRead, s.readUsage); err != nil {
+		return nil, nil, err
+	}
+	if err := add(control.HostUsageHistoryCommand, auditlog.OperationUsageRead, control.ClassRead, s.usageHistory); err != nil {
 		return nil, nil, err
 	}
 	if err := proposalCommands(add, store, s.commandSwitch.Enabled); err != nil {

@@ -20,5 +20,5 @@
 │ Adresse: ssh://git.example.test/ops/stacks.git                                                                       │
 │ letzter Abruf: Fr 2026-10-30 14:30                                                                                   │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-enter Details  / Suchen  F jetzt abrufen  e Deploy-Schlüssel  Q Dateien  d lösen  n hinzufügen  R Neu laden  1-7 Bereich
-q Beenden                                                                                             ↑/↓ Auswählen  1/6
+enter Details  / Suchen  F jetzt abrufen  e Deploy-Schlüssel  @ Verlauf  Q Dateien  d lösen  n hinzufügen  R Neu laden  
+1-7 Bereich  q Beenden                                                                                ↑/↓ Auswählen  1/6
