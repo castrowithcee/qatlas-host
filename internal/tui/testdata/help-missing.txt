@@ -19,8 +19,6 @@ detail
 detail/clog
 detail/pick
 detail/setup
-proposals
-proposals/preview
 proposals/setup
 runs
 runs/clog
@@ -82,7 +80,6 @@ title:title.freeresult
 title:title.freerun
 title:title.freeswitch
 title:title.grant
-title:title.grantexpiry
 title:title.grantremove
 title:title.hook
 title:title.hookadd
@@ -103,9 +100,6 @@ title:title.notify
 title:title.notifydetail
 title:title.promote
 title:title.promotepick
-title:title.propapprove
-title:title.propreject
-title:title.propsecrets
 title:title.readroot
 title:title.remote
 title:title.removegroups
