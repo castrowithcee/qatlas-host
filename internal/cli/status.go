@@ -221,20 +221,7 @@ func engineFields(engine string, e control.EngineStatus) []output.Field {
 // empty for the deploy service of the system engine and instance.<user>. for an instance, so that one name
 // never stands for two engines.
 func entryFields(prefix, engine string, e control.EngineStatus) []output.Field {
-	var out []output.Field
-	for _, src := range e.Sources {
-		p := prefix + "source." + src.ID + "."
-		out = append(out, output.Field{Name: p + "path", Value: src.Path}, output.Field{Name: p + "engine", Value: engine},
-			output.Field{Name: p + "kind", Value: src.Kind})
-		if !src.LastPoll.IsZero() {
-			out = append(out, output.Field{Name: p + "last_poll", Value: src.LastPoll.UTC().Format(time.RFC3339)})
-		}
-		for _, f := range [][2]string{{"poll_error", src.PollError}, {"note", src.Note}, {"head", src.Head}, {"remote_head", src.RemoteHead}} {
-			if f[1] != "" {
-				out = append(out, output.Field{Name: p + f[0], Value: f[1]})
-			}
-		}
-	}
+	out := sourceFields(prefix, engine, e.Sources)
 	for i, s := range e.Stacks {
 		// The entry that stands for a name keeps the short key; another source's entry of it carries its source.
 		p := prefix + "stack." + s.Name + "."
@@ -271,6 +258,28 @@ func entryFields(prefix, engine string, e control.EngineStatus) []output.Field {
 			out = append(out, output.Field{Name: p + "repair", Value: repairText(r)})
 		}
 		out = append(out, updateFields(p, s)...)
+	}
+	return out
+}
+
+// sourceFields flattens the stack folders of the engine part.
+func sourceFields(prefix, engine string, sources []control.SourceStatus) []output.Field {
+	var out []output.Field
+	for _, src := range sources {
+		p := prefix + "source." + src.ID + "."
+		out = append(out, output.Field{Name: p + "path", Value: src.Path}, output.Field{Name: p + "engine", Value: engine},
+			output.Field{Name: p + "kind", Value: src.Kind})
+		if !src.LastPoll.IsZero() {
+			out = append(out, output.Field{Name: p + "last_poll", Value: src.LastPoll.UTC().Format(time.RFC3339)})
+		}
+		for _, f := range [][2]string{{"poll_error", src.PollError}, {"note", src.Note}, {"head", src.Head}, {"remote_head", src.RemoteHead}} {
+			if f[1] != "" {
+				out = append(out, output.Field{Name: p + f[0], Value: f[1]})
+			}
+		}
+		if src.Unreadable != "" {
+			out = append(out, output.Field{Name: p + "state", Value: "unreadable: " + src.Unreadable})
+		}
 	}
 	return out
 }
