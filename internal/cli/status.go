@@ -308,6 +308,18 @@ func callFor(ctx context.Context, limit time.Duration, ep localipc.ServiceEndpoi
 	return client.Do(client.WithOrigin(ctx, control.OriginCLI), ep, limit, command, args, result)
 }
 
+// remoteNextStep is the next step for a refusal of the service that no case of failureOf names. The caller does
+// not know which service answered, so the log hint names both units.
+func remoteNextStep(code string) string {
+	switch code {
+	case control.CodeInternal:
+		return "Read the cause in the service log: 'journalctl -u qhost-deploy', or 'journalctl -u qhost-deploy@<user>' for an instance."
+	case control.CodeVersion, control.CodeUnknownCommand:
+		return "Check that the client and the service are the same version."
+	}
+	return "Read the message above, correct what it names and run the command again."
+}
+
 // failureOf turns a channel error into a diagnostic with a next step.
 func failureOf(err error) error {
 	var remote *control.Error
@@ -452,7 +464,7 @@ func failureOf(err error) error {
 			Cause: err}
 	case errors.As(err, &remote):
 		return &cli.Failure{Code: output.CodeRuntime, Message: "the service refused the request: " + remote.Message,
-			NextStep: "Check that the client and the service are the same version.", Cause: err}
+			NextStep: remoteNextStep(remote.Code), Cause: err}
 	}
 	return &cli.Failure{Code: output.CodeRuntime, Message: "cannot talk to the service: " + err.Error(),
 		NextStep: "Check that the service is healthy and run the command again.", Cause: err}
