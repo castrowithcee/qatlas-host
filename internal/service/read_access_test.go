@@ -182,7 +182,6 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		control.StacksListCommand:       {nil},
 		control.StacksCheckCommand:      {control.StacksCheckArgs{}},
 		control.SourceListCommand:       {nil},
-		control.SourceChangesCommand:    {control.SourceChangesArgs{Path: h.dir}},
 		control.KeyShowCommand:          {control.KeyShowArgs{}},
 		control.CredentialListCommand:   {nil},
 		control.SecretListCommand:       {control.SecretListArgs{Stack: "plain-stack"}, control.SecretListArgs{Stack: "demo-stack"}},
@@ -202,6 +201,7 @@ func TestReadAnswersHoldNoSecretValue(t *testing.T) {
 		control.ContainerLogsCommand:    {control.ContainerLogsArgs{Stack: "plain-stack"}, control.ContainerLogsArgs{Name: app.Name}},
 	}
 	maps.Copy(reads, promoteReads(dep.ID))
+	maps.Copy(reads, folderReads(h.dir))
 	if got, want := slices.Sorted(maps.Keys(reads)), commandsOf(reg, control.ClassRead); !slices.Equal(got, want) {
 		t.Fatalf("the test covers %v, the service reads with %v", got, want)
 	}

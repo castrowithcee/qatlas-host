@@ -242,7 +242,6 @@ cx internal/service/secrets.go:registerSecretCommands 22
 cx internal/service/secrets_test.go:TestSecretSetListDeleteRoundTrip 18
 cx internal/service/service.go:Run 47
 cx internal/service/settings.go:registerSettingsCommands 17
-cx internal/service/sourcechanges.go:registerChangeCommands 17
 cx internal/service/sourcecmd.go:inspectService.handleAdd 17
 cx internal/service/sourcecmd_test.go:TestSourceAddBindsAndRunsALocalFolder 21
 cx internal/service/sourcecmd_test.go:TestSourceAddStartsARepositoryWithTheConfirmedFiles 24
@@ -336,7 +335,7 @@ file internal/engine/engine_test.go 1366
 file internal/engine/run.go 679
 file internal/gitrepo/gitrepo.go 531
 file internal/gitrepo/remote.go 653
-file internal/helptopics/helptopics.go 598
+file internal/helptopics/helptopics.go 518
 file internal/host/hostchange/filemove.go 534
 file internal/host/hostchange/filetree.go 1098
 file internal/host/hostchange/users.go 964
@@ -500,7 +499,6 @@ len internal/service/runs.go:stackStatuses 67
 len internal/service/secrets.go:registerSecretCommands 108
 len internal/service/service.go:Run 233
 len internal/service/settings.go:registerSettingsCommands 82
-len internal/service/sourcechanges.go:registerChangeCommands 72
 len internal/service/sourcecmd_test.go:TestSourceRemoveReleasesOnlyTheBinding 62
 len internal/service/sourcefolder.go:inspectService.handleFolderCommit 75
 len internal/service/sourcemove.go:mover.checkProject 75
