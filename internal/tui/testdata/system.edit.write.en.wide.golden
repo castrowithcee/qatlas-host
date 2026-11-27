@@ -2,12 +2,12 @@
 [90m   1 ▤ Stacks   2 ▣ Stack detail   3 ▶ Runs   4 ⚙ Settings   5 ▦ Containers   6 ◈ Proposals   7 ◎ System                [m
 [90m   Users   Groups   Folders   Proposals   Changes   Log                                                                 [m
 [90m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[m
+[90m                                                    i  permissions   d  delete   c  copy   r  rename   n  new   e  edit [m
 [90m  root / srv / media                                                                                                    [m
 [90m/ motd.txt                                                                                                              [m
 [90m  NAME      SIZE  MODIFIED          RIGHTS     OWNER                                                                    [m
 [90m  ──────────────────────────────────────────────────                                                                    [m
 [90m> motd.txt   9 B  2026-11-02 09:00  rw-r--r--  ada                                                                      [m
-[90m                                                                                                                        [m
 [90m                                                                                                                        [m
 [90m                                                                                                                        [m
 [90m                                                                                                                        [m
@@ -36,5 +36,5 @@
 [90m                                                                                                                        [m
 [90m                                                                                                                        [m
 [90m                                                                                                                        [m
-[90m[ e edit ]  [ n new ]  [ r rename ]  [ c copy ]  [ d delete ]  [ i permissions ]  [ esc up ]                            [m
+[90m                                                                                                                        [m
 [90m                                                                                                                        [m

@@ -1239,7 +1239,7 @@ func (m *Model) frameSpec() kittui.FrameSpec {
 		Width: m.width, Height: m.height, Product: productName, Icon: icons.logo, Status: m.marks(),
 		HeaderKeys: []kittui.Hint{{Action: actHelp, Label: kittui.TextKeyHelp}},
 		Areas:      areasWith(icons), Nav: navForm(m.prefs.Navigation), ActiveArea: m.area, ActiveTab: m.activeTab(), Focus: m.frameFocus(), PathFocusArea: m.pathFocusArea(), Input: m.input(),
-		Message: m.message(), Footer: m.footer(),
+		Message: m.message(), Footer: m.footer(), Bar: m.barActions(),
 	}
 	switch {
 	case m.clogShown():
