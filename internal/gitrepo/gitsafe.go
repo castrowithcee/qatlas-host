@@ -54,12 +54,19 @@ func (r *Repo) checkGit() error {
 	if !enforceGitSafe() {
 		return nil
 	}
-	gitDir := filepath.Join(r.dir, ".git")
+	return CheckGitDir(r.dir, gitOwnerUID())
+}
+
+// CheckGitDir applies the rules of the service to the .git of dir with owner as the user who must own it. It
+// reads nothing but the file system and runs no git, so a root command can tell beforehand what the service
+// would refuse. A folder without .git passes.
+func CheckGitDir(dir string, owner uint32) error {
+	gitDir := filepath.Join(dir, ".git")
 	if _, err := os.Lstat(gitDir); errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
 	for _, e := range gitChecks {
-		if err := checkEntry(gitDir, e.rel, e.dir); err != nil {
+		if err := checkEntry(gitDir, e.rel, e.dir, owner); err != nil {
 			return err
 		}
 	}
@@ -68,7 +75,7 @@ func (r *Repo) checkGit() error {
 		return &UnsafeError{".git/worktrees cannot be read"}
 	}
 	for _, w := range linked {
-		if err := checkEntry(gitDir, "worktrees/"+w.Name()+"/config.worktree", false); err != nil {
+		if err := checkEntry(gitDir, "worktrees/"+w.Name()+"/config.worktree", false, owner); err != nil {
 			return err
 		}
 	}
@@ -77,7 +84,7 @@ func (r *Repo) checkGit() error {
 
 // checkEntry checks one entry of .git: owned by root, no link, a folder if dir, not writable for group or others.
 // An entry that does not exist is fine, except .git itself.
-func checkEntry(gitDir, rel string, dir bool) error {
+func checkEntry(gitDir, rel string, dir bool, owner uint32) error {
 	fi, err := os.Lstat(filepath.Join(gitDir, rel))
 	switch {
 	case errors.Is(err, fs.ErrNotExist) && rel != "":
@@ -95,7 +102,7 @@ func checkEntry(gitDir, rel string, dir bool) error {
 		return &UnsafeError{name + " is a link"}
 	case dir && !fi.IsDir():
 		return &UnsafeError{name + " is not a folder"}
-	case st == nil || st.Uid != gitOwnerUID():
+	case st == nil || st.Uid != owner:
 		return &UnsafeError{name + " is not owned by root"}
 	case fi.Mode().Perm()&0o022 != 0:
 		return &UnsafeError{name + " can be written by a group or by others"}

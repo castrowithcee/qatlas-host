@@ -127,16 +127,11 @@ func scanGit(gitDir string, found func(path string, isDir bool)) error {
 	})
 }
 
-// secureGit applies the plan: core.sharedRepository goes first, so that git does not give the rewritten
-// configuration group write again, then every entry gets root and the mode without group and others write. A
-// folder is changed before what it holds, so nobody else can swap an entry below it any more. An entry that became
-// a link, or lies behind one, since the plan is skipped; the scan afterwards finds it.
+// secureGit applies the plan: every entry gets root and the mode without group and others write, a folder before
+// what it holds, so nobody else can swap an entry below it any more. Only then core.sharedRepository is removed,
+// so that git runs as root in a root-only .git; git keeps the mode of the configuration it rewrites. An entry that
+// became a link, or lies behind one, since the plan is skipped; the scan afterwards finds it.
 func (h folderHost) secureGit(ctx context.Context, s *gitSecure) error {
-	if s.shared != "" {
-		if _, err := runGit(ctx, s.root, "config", "--local", "--unset-all", "core.sharedRepository"); err != nil {
-			return folderFailure("cannot remove core.sharedRepository in "+s.root, err)
-		}
-	}
 	for _, path := range s.entries {
 		info, err := os.Lstat(path)
 		if err != nil {
@@ -156,6 +151,11 @@ func (h folderHost) secureGit(ctx context.Context, s *gitSecure) error {
 		keep := info.Mode() & (fs.ModePerm | fs.ModeSetuid | fs.ModeSticky)
 		if err := h.chmod(path, keep&^0o022); err != nil {
 			return folderFailure("cannot change the mode of "+path, err)
+		}
+	}
+	if s.shared != "" {
+		if _, err := runGit(ctx, s.root, "config", "--local", "--unset-all", "core.sharedRepository"); err != nil {
+			return folderFailure("cannot remove core.sharedRepository in "+s.root, err)
 		}
 	}
 	var left []string

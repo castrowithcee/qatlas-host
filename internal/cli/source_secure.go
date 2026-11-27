@@ -26,8 +26,9 @@ func newSourceSecureCommand(program *cobracli.Program, state *notRunning) *cobra
 			"run happens until it is repaired. secure shows what it changes and asks first: at a terminal by answering\n" +
 			"the question, without a terminal with --yes. The work tree keeps its owners and modes. Nothing is followed:\n" +
 			"a .git that is a link or no folder, a link or special file in it, and a file with further hard links are\n" +
-			"refused with the reason, and nothing changes. The next fetch of the folder then starts at once. Only for\n" +
-			"folders of the system engine; a rootless engine is refused. Run it with sudo.",
+			"refused with the reason, and nothing changes. For a bound folder the next fetch then starts at once; a folder\n" +
+			"that is not bound yet works too, so a folder can be secured before 'source add'. Only for folders of the\n" +
+			"system engine; a rootless engine is refused. Run it with sudo.",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return usageFailure("source secure takes exactly one argument, the path of the folder",
@@ -51,7 +52,7 @@ func runSourceSecure(c *cobra.Command, program *cobracli.Program, gate *cobracli
 	if err := folderArg(path); err != nil {
 		return err
 	}
-	if err := routeFolder(c, state, engine, path); err != nil {
+	if err := routeFolderKey(c, state, engine, path); err != nil {
 		return err
 	}
 	if targetOf(c.Context()).inst != nil {
@@ -80,6 +81,10 @@ func runSourceSecure(c *cobra.Command, program *cobracli.Program, gate *cobracli
 		if err := folders.applyPermissions(c.Context(), plan); err != nil {
 			return err
 		}
+		// A folder that is not bound has no finding and no fetch.
+		if !boundHere(c, path) {
+			return output.Encode(c.OutOrStdout(), program.Format(), done)
+		}
 		// The finding goes at the next fetch; do not wait for the poll. A fetch that fails changes nothing here.
 		var res control.RepoFetchResult
 		if err := repoCall(c, state, control.RepoFetchCommand, control.RepoFetchArgs{Dir: path}, &res); err != nil {
@@ -87,4 +92,14 @@ func runSourceSecure(c *cobra.Command, program *cobracli.Program, gate *cobracli
 		}
 		return output.Encode(c.OutOrStdout(), program.Format(), done)
 	})
+}
+
+// boundHere reports whether the deploy service of the target has a source bound to the folder. A service that
+// cannot be asked counts as not bound: the next fetch of the poll finds the repaired folder anyway.
+func boundHere(c *cobra.Command, path string) bool {
+	var st control.StatusResult
+	if err := callFor(c.Context(), peerLimit, targetOf(c.Context()).endpoint(), control.StatusCommand, nil, &st); err != nil {
+		return false
+	}
+	return folderItem(path).match(st)
 }

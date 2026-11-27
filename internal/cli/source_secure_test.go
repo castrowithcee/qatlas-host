@@ -55,8 +55,9 @@ func requireSecured(t *testing.T, tree permTree, before map[string]fs.FileMode) 
 	}
 }
 
-func secureHandlers() fakeHandlers {
-	return fakeHandlers{control.RepoFetchCommand: func(json.RawMessage) any { return control.RepoFetchResult{} }}
+func secureHandlers(bound ...string) fakeHandlers {
+	return fakeHandlers{control.RepoFetchCommand: func(json.RawMessage) any { return control.RepoFetchResult{} },
+		control.StatusCommand: statusWith(bound)}
 }
 
 func TestSourceAddTakesAGroupSharedGitForRootOnlyOfTheSystemEngine(t *testing.T) {
@@ -92,7 +93,7 @@ func TestSourceSecureMakesGitRootOnlyAndFetches(t *testing.T) {
 	d := useFolderHost(t)
 	tree := newPermTree(t)
 	shareGit(t, tree)
-	svc := startFakeService(t, secureHandlers())
+	svc := startFakeService(t, secureHandlers(tree.dir))
 	useStdin(t, strings.NewReader(""))
 	before := tree.snapshot(t)
 
@@ -117,6 +118,21 @@ func TestSourceSecureMakesGitRootOnlyAndFetches(t *testing.T) {
 	if code != 0 || !strings.Contains(stderr, "root-only already") {
 		t.Fatalf("second run: code %d, stderr %q", code, stderr)
 	}
+}
+
+func TestSourceSecureOfAnUnboundFolderDoesNotFetch(t *testing.T) {
+	d := useFolderHost(t)
+	tree := newPermTree(t)
+	shareGit(t, tree)
+	svc := startFakeService(t, secureHandlers())
+	useStdin(t, strings.NewReader(""))
+	before := tree.snapshot(t)
+
+	code, _, stderr := run(t, "source", "secure", tree.dir, "--yes")
+	if code != 0 || svc.count(control.RepoFetchCommand) != 0 || len(d.lchowns) == 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	requireSecured(t, tree, before)
 }
 
 func TestSourceSecureRefusesWhatItCannotRepairAndChangesNothing(t *testing.T) {
@@ -200,4 +216,66 @@ func TestSourceAddOfARootlessEngineKeepsGroupSharedGit(t *testing.T) {
 func gitOut(dir string, args ...string) (string, error) {
 	out, err := runGit(context.Background(), dir, args...)
 	return string(out), err
+}
+
+func TestSourceAddSecuresAnUnsafeGitBeforeTheInspection(t *testing.T) {
+	d := useFolderHost(t)
+	tree := newPermTree(t)
+	shareGit(t, tree)
+	svc := startFakeService(t, addHandlers(localInspect(true)))
+	useStdin(t, strings.NewReader(""))
+	before := tree.snapshot(t)
+
+	code, _, stderr := run(t, "source", "add", tree.dir)
+	if code != 2 || !strings.Contains(stderr, "confirmation-required") || !strings.Contains(stderr, "is not root-only") ||
+		!strings.Contains(stderr, "core.sharedRepository \"group\" is removed") {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	if svc.count(control.SourceInspectCommand) != 0 || len(d.lchowns) != 0 || gitConfigIn(t, tree.dir, "core.sharedRepository") != "group" {
+		t.Fatal("without confirmation something happened")
+	}
+
+	code, _, stderr = run(t, "source", "add", tree.dir, "--yes")
+	if code != 0 || svc.count(control.SourceAddCommand) != 1 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+	requireSecured(t, tree, before)
+}
+
+func TestSourceAddWithExpectedEffectRefusesAnUnsafeGit(t *testing.T) {
+	d := useFolderHost(t)
+	tree := newPermTree(t)
+	shareGit(t, tree)
+	svc := startFakeService(t, addHandlers(localInspect(true)))
+	code, _, stderr := run(t, "source", "add", tree.dir, "--yes", "--expect-effect", "sha256:x")
+	if code == 0 || !strings.Contains(stderr, "sudo qhost source secure "+tree.dir) || len(d.lchowns) != 0 || svc.count(control.SourceInspectCommand) != 0 ||
+		gitConfigIn(t, tree.dir, "core.sharedRepository") != "group" {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+}
+
+func TestSourceAddRefusesAGitItCannotSecureAndChangesNothing(t *testing.T) {
+	d := useFolderHost(t)
+	tree := newPermTree(t)
+	if err := os.Symlink(tree.outside, filepath.Join(tree.dir, ".git", "hooks", "pre-commit")); err != nil {
+		t.Fatal(err)
+	}
+	shareGit(t, tree)
+	svc := startFakeService(t, addHandlers(localInspect(true)))
+	code, _, stderr := run(t, "source", "add", tree.dir, "--yes")
+	if code == 0 || !strings.Contains(stderr, "nothing was changed") || len(d.lchowns) != 0 || svc.count(control.SourceInspectCommand) != 0 {
+		t.Fatalf("code %d, stderr %q", code, stderr)
+	}
+}
+
+func TestSourceInspectOfAnUnsafeGitNamesSecure(t *testing.T) {
+	tree := newPermTree(t)
+	useFolderHost(t)
+	shareGit(t, tree)
+	rejected := control.SourceInspectResult{Case: control.SourceCaseReject, Reason: "git cannot read the repository in the folder", Stacks: []control.SourceStack{}}
+	startFakeService(t, addHandlers(rejected))
+	code, stdout, stderr := run(t, "source", "inspect", tree.dir, "--output", "json")
+	if code != 0 || !strings.Contains(stdout, "sudo qhost source secure "+tree.dir) {
+		t.Fatalf("code %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
 }

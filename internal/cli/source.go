@@ -131,6 +131,9 @@ func inspectSource(c *cobra.Command, state *notRunning, path, url string, includ
 	if err := credentialCall(c, state, control.SourceInspectCommand, control.SourceInspectArgs{Path: path, URL: url, Include: include}, &res); err != nil {
 		return res, err
 	}
+	if res.Case == control.SourceCaseReject && gitUnsafeFor(c, path) {
+		res.Fix = secureCommandHint(path)
+	}
 	// The service is sandboxed and sees every path that is not granted as read-only, so only this client can tell.
 	if res.Case != control.SourceCaseReject {
 		readOnly, err := folders.readOnly(path)
