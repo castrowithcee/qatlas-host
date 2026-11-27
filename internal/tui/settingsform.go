@@ -30,6 +30,7 @@ type settingsForm struct {
 	kind  formKind
 	title kittui.TextID
 	form  *kittui.Form
+	pathState
 	// notify is what the first step of a channel collected.
 	notify control.NotifyAddArgs
 	// stack is the stack a secret form belongs to.
@@ -99,18 +100,6 @@ func (m *Model) newSettingsForm(kind formKind, title kittui.TextID, fields []kit
 		return nil
 	}
 	return &settingsForm{kind: kind, title: title, form: form}
-}
-
-func choice(id string, label kittui.TextID) kittui.Choice {
-	return kittui.Choice{ID: kittui.ChoiceID(id), Label: label}
-}
-
-func textField(id string, label, hint kittui.TextID, value string) kittui.FormField {
-	return kittui.FormField{ID: kittui.FieldID(id), Kind: kittui.FieldText, Label: label, Hint: hint, Value: kittui.FormValue{Text: value}}
-}
-
-func maskedField(id string, label, hint kittui.TextID) kittui.FormField {
-	return kittui.FormField{ID: kittui.FieldID(id), Kind: kittui.FieldMasked, Label: label, Hint: hint}
 }
 
 func (m *Model) credentialForm() *settingsForm {
